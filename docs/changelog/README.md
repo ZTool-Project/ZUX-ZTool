@@ -47,7 +47,8 @@ checked-out commit, and the guard compares that commit's base with the input.
    Beta and rc versions use the same numeric core as the base (`2.0.0-beta.1` while base is
    `2.0.0`).
 4. Publish the draft. The tag, release name `<version> (c<count>)` and APK are produced by CI.
-5. For the first stable release only, run **Bridge legacy UpdateCheck.json** with tag
-   `v<version>` so installs from the JSON era can migrate.
+5. For the first stable release only, update the **old repository's** `UpdateCheck.json` once with
+   this version's name, counter, changelog and release URL, then archive the old repository. The
+   new repository keeps no JSON and has no migration workflow.
 6. After publishing the stable release, bump `ztool.version.base` to the next cycle's core
    (`2.1.0`, or `2.0.1` for a patch cycle) so canaries stop advertising the released version.

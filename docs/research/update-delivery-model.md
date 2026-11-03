@@ -13,7 +13,7 @@ first stable release planned in one to two months.
 | Release notes cannot carry media | The release body is Markdown and may embed images/video. The card shows a text digest and links to the release page for the rich version |
 | Commit count in the JSON drifts by one | The version code is **computed by Gradle and CI from the checkout**, never typed into a file |
 | `Beta/yyMMdd` cannot be parsed | `versionName` becomes `vMAJOR.MINOR.PATCH[-channel.N]`; the tag is the same string |
-| Old owner coordinates are hard-coded | A single `ZToolSource` constant set, plus one frozen legacy `UpdateCheck.json` as the migration bridge |
+| Old owner coordinates are hard-coded | A single `ZToolSource` constant set; the one-time bridge lives in the old repository, not here |
 
 The implementation follows the map in §6; the decisions in §8 are the ones this change takes.
 
@@ -245,11 +245,12 @@ stable-hosted media is the norm; it must not use the signed URLs from a cached f
 
 ## 5. Migration of installed users
 
-### 5.1 The frozen legacy payload
+### 5.1 The old repository's final payload
 
-Old clients only understand `newVersionName/newVersionCode/whatNew/url`. Publish **one** final
-`UpdateCheck.json` pointing at the first release that uses the new model, and never update it
-again:
+Old clients only understand `newVersionName/newVersionCode/whatNew/url`. The new repository ships
+no JSON and has no migration workflow. The bridge is the **old repository** (`qwqawa64/ZUX-ZTool`):
+as the last action before archiving it, replace its root `UpdateCheck.json` with one final payload
+pointing at the first stable release of the new model:
 
 ```json
 {
@@ -261,9 +262,9 @@ again:
 ```
 
 Because old clients compare codes and `2471 > 2333`, every old install sees exactly one update;
-installing it lands on the new client, which never reads the JSON again. Keeping the file frozen
-costs nothing and protects users who ignore the card for months. It can be deleted after a long
-window (12 months) without affecting anyone who already updated.
+installing it lands on the new client, which never reads the JSON again. The old repository is
+then archived. Archived repositories still serve their raw files and releases read-only, so users
+who ignore the card for months can still complete the migration; no further maintenance is needed.
 
 **The bridge target must be a stable release**, not a beta, so old stable users are not silently
 moved onto pre-release code. Until `v1.0.0` exists, old clients simply see no update, which is the
@@ -284,18 +285,18 @@ of the migration:
 
 All remaining `qwqawa64` references must either move to `ZToolSource` or be updated in the same
 change: About links, license link, release fallback, home tip string (both locales), `agreement.md`
-§2.1, README badges/links, `UpdateCheck.json` URL, preview sample data. Old URLs redirect today,
-but they are not guaranteed to redirect forever.
+§2.1, README badges/links, preview sample data. Old URLs redirect today, but they are not
+guaranteed to redirect forever.
 
 ### 5.4 Sequence
 
 1. Land the new versioning + feed client + CI behind the still-current release process; publish a
    canary/beta build so the feed and client can be exercised without touching stable users.
 2. Publish the first real release with a `v*` tag (planned `v1.0.0`).
-3. After that release is published, run `bridge-legacy-update.yml` once; it refuses drafts and
-   pre-releases and writes the frozen legacy JSON.
+3. In the old repository, replace `UpdateCheck.json` with the final payload above, verify the
+   migration from an installed old build, then archive the old repository.
 4. Update README/agreement/OOBE coordinates; keep accepting the old owner for verification.
-5. After the window, delete the legacy payload and the bridge workflow.
+   The new repository keeps no JSON and no bridge job.
 
 ## 6. Implementation map
 
@@ -311,8 +312,7 @@ but they are not guaranteed to redirect forever.
 
 | File | Change |
 |---|---|
-| `.github/workflows/draft-release.yml` | input `version` (e.g. `1.0.0-beta.2`); validate the tag and the changelog file; tag `v<version>`; body from `docs/changelog/v<version>.md`; release name `v<version> (c<count>)`; `prerelease` when the version has a suffix; verify the built APK's `output-metadata.json` matches tag + count; refuse a non-advancing commit count |
-| `.github/workflows/bridge-legacy-update.yml` | one-shot, run after the first stable release is published; reads its counter from the release name and writes the frozen legacy payload |
+| `.github/workflows/draft-release.yml` | input `version` (e.g. `1.0.0-beta.2`); validate the tag, the changelog file and that the numeric core equals `ztool.version.base`; tag `v<version>`; body from `docs/changelog/v<version>.md`; release name `v<version> (c<count>)`; `prerelease` when the version has a suffix; verify the built APK's `output-metadata.json` matches tag + count; refuse a non-advancing commit count |
 | `.github/workflows/android.yml` | nightly passes `ZTOOL_BUILD_CHANNEL=canary`; after a successful scheduled build, publish the new canary release (prerelease, name with counter, auto body) and delete every older canary release/tag; add `permissions: contents: write` to that job only |
 | `docs/changelog/` | new per-release Markdown files (`v<tag>.md`), `legacy.md` archive, `README.md` + `TEMPLATE.md` |
 
@@ -368,8 +368,9 @@ but they are not guaranteed to redirect forever.
 - Debug build against the live feed: stable filtering must ignore canary/beta fixtures.
 - Dry-run the release workflow on a fork with a throwaway tag and confirm the feed entry, name,
   counter and body.
-- After the first real release, verify from an installed old build that the frozen JSON offers
-  exactly the new release; then verify the new client ignores the JSON path entirely.
+- After the first real release, update the old repository's `UpdateCheck.json`, verify from an
+  installed old build that it offers exactly the new release, then archive the old repository.
+  Confirm the new client never fetches JSON.
 - `python tools/check_unused_strings.py` after the string changes.
 
 ## 10. Sources
@@ -382,13 +383,13 @@ Local:
 - `app/src/main/java/com/qimian233/ztool/screens/ztoolsettings/about/SettingsAboutRoute.kt` L109-111, L189, L300
 - `.github/workflows/draft-release.yml` L30-33 (date tag), L69-105 (changelog/JSON), L122-130 (push)
 - `.github/workflows/android.yml` L134-157 (nightly release build)
-- `UpdateCheck.json`, `更新日志.txt` L1
+- `docs/changelog/legacy.md` L1 (archived `更新日志.txt`)
 
 External (measured 2026-11-03):
 
 - `https://github.com/ZTool-Project/ZUX-ZTool/releases.atom` — 200, 10 entries
 - `https://github.com/qwqawa64/ZUX-ZTool/releases.atom` — 200 after ownership transfer
-- `https://raw.githubusercontent.com/qwqawa64/ZUX-ZTool/refs/heads/master/UpdateCheck.json` — 200
+- `https://raw.githubusercontent.com/qwqawa64/ZUX-ZTool/refs/heads/master/UpdateCheck.json` — 200 (old repository, before archiving)
 - `https://github.com/termux/termux-app/releases.atom` — pre-releases present, title ≠ tag
 - `https://github.com/Flow-Launcher/Flow.Launcher/releases.atom` — images use 300-second signed URLs
 - `https://api.github.com/repos/ZTool-Project/ZUX-ZTool/releases` — 403 rate limit exceeded
