@@ -267,6 +267,7 @@
     <string name="page_settings_about_user_agreement_summary">查看 ZTool 用户协议全文</string>
     <string name="page_settings_about_qimian233_summary">项目发起人、Hook、用户界面</string>
     <string name="page_settings_about_wasd_destroy_summary">部分 Hook、部分用户界面</string>
+    <string name="page_settings_about_wasd_destroy_description" translatable="false">"正解は無いんだ　負けなんて無いんだ".</string>
     <string name="page_settings_about_uuuddddl">部分 Hook</string>
     <string name="page_settings_about_unfuckzui_summary">部分功能灵感和参考</string>
     <string name="page_settings_about_zuxos_plus_summary">部分功能灵感</string>
