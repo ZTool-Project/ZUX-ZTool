@@ -19,6 +19,13 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
+import androidx.compose.material.icons.automirrored.rounded.Article
+import androidx.compose.material.icons.rounded.BugReport
+import androidx.compose.material.icons.rounded.Code
+import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.Gavel
+import androidx.compose.material.icons.rounded.Science
+import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -33,6 +40,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.imageResource
 import androidx.compose.ui.res.stringResource
@@ -59,6 +67,8 @@ import com.qimian233.ztool.ui.components.ZToolCard
 import com.qimian233.ztool.ui.components.ZToolDialog
 import com.qimian233.ztool.ui.components.ZToolPageSurface
 import com.qimian233.ztool.ui.components.ZToolScaffold
+import com.qimian233.ztool.ui.components.ZToolSettingLeadingAvatar
+import com.qimian233.ztool.ui.components.ZToolSettingLeadingIcon
 import com.qimian233.ztool.ui.components.ZToolSwitchRow
 import com.qimian233.ztool.ui.components.ZToolTextButton
 import com.qimian233.ztool.ui.firstrun.AgreementContentCard
@@ -237,21 +247,24 @@ private fun SettingsAboutScreen(
                         summary = stringResource(R.string.page_settings_about_qimian233_summary),
                         onClick = onOpenQimian233,
                         highlightKey = "about_dev_qimian233",
-                        modifier = getModifier(0)
+                        modifier = getModifier(0),
+                        leadingContent = { ZToolSettingLeadingAvatar(R.drawable.about_avatar_qimian233) }
                     )
                     AboutActionRow(
                         title = stringResource(R.string.about_dev_wasd_destroy),
                         summary = stringResource(R.string.page_settings_about_wasd_destroy_summary),
                         onClick = onOpenWasdDestroy,
                         highlightKey = "about_dev_wasd_destroy",
-                        modifier = getModifier(1)
+                        modifier = getModifier(1),
+                        leadingContent = { ZToolSettingLeadingAvatar(R.drawable.about_avatar_wasd_destroy) }
                     )
                     AboutActionRow(
                         title = stringResource(R.string.about_dev_uuuddddl),
                         summary = stringResource(R.string.page_settings_about_uuuddddl),
                         onClick = onOpenUdl,
                         highlightKey = "about_dev_uuuddddl",
-                        modifier = getModifier(2)
+                        modifier = getModifier(2),
+                        leadingContent = { ZToolSettingLeadingAvatar(R.drawable.about_avatar_uuuddddl) }
                     )
                 }
                 Spacer(modifier = Modifier.height(16.dp))
@@ -261,14 +274,16 @@ private fun SettingsAboutScreen(
                         summary = null,
                         onClick = onOpenGithub,
                         highlightKey = "about_view_source",
-                        modifier = getModifier(0)
+                        modifier = getModifier(0),
+                        icon = Icons.Rounded.Code
                     )
                     AboutActionRow(
                         title = stringResource(R.string.page_settings_about_view_issues_title),
                         summary = stringResource(R.string.page_settings_about_view_issues_summary),
                         onClick = onOpenGithubIssues,
                         highlightKey = "about_view_issues",
-                        modifier = getModifier(1)
+                        modifier = getModifier(1),
+                        icon = Icons.Rounded.BugReport
                     )
                     AboutActionRow(
                         title = stringResource(R.string.page_settings_about_license_title),
@@ -279,21 +294,24 @@ private fun SettingsAboutScreen(
                                 "${ZToolSource.GITHUB_URL}/blob/master/LICENSE"
                             )
                         },
-                        modifier = getModifier(2)
+                        modifier = getModifier(2),
+                        icon = Icons.Rounded.Gavel
                     )
                     AboutActionRow(
                         title = stringResource(R.string.page_settings_about_acknowledgements_title),
                         summary = stringResource(R.string.page_settings_about_acknowledgements_entry_summary),
                         onClick = onOpenAcknowledgements,
                         highlightKey = "about_acknowledgements",
-                        modifier = getModifier(3)
+                        modifier = getModifier(3),
+                        icon = Icons.Rounded.Favorite
                     )
                     AboutActionRow(
                         title = stringResource(R.string.page_settings_about_user_agreement_title),
                         summary = stringResource(R.string.page_settings_about_user_agreement_summary),
                         onClick = { showAgreementDialog = true },
                         highlightKey = "about_user_agreement",
-                        modifier = getModifier(4)
+                        modifier = getModifier(4),
+                        icon = Icons.AutoMirrored.Rounded.Article
                     )
                 }
                 Spacer(modifier = Modifier.height(16.dp))
@@ -304,7 +322,8 @@ private fun SettingsAboutScreen(
                         checked = isPrereleaseUpdateEnabled,
                         onCheckedChange = onTogglePrereleaseUpdate,
                         highlightKey = "about_prerelease_update",
-                        modifier = getModifier(0)
+                        modifier = getModifier(0),
+                        icon = Icons.Rounded.Science
                     )
                     AboutActionRow(
                         title = stringResource(R.string.page_settings_about_app_update_title),
@@ -312,6 +331,7 @@ private fun SettingsAboutScreen(
                         onClick = updateRowClick,
                         highlightKey = "about_check_update",
                         modifier = getModifier(1),
+                        icon = Icons.Rounded.SystemUpdate,
                         showTrailingArrow = true
                     )
                 }
@@ -454,6 +474,8 @@ internal fun AboutActionRow(
     summary: String?,
     onClick: (() -> Unit)?,
     modifier: Modifier = Modifier,
+    icon: ImageVector? = null,
+    leadingContent: (@Composable () -> Unit)? = null,
     showTrailingArrow: Boolean = true,
     trailingLabel: String? = null,
     highlightKey: String? = null
@@ -464,6 +486,13 @@ internal fun AboutActionRow(
             summary = summary,
             onClick = onClick,
             modifier = Modifier,
+            leadingContent = if (leadingContent != null) {
+                { leadingContent() }
+            } else if (icon != null) {
+                { ZToolSettingLeadingIcon(icon = icon) }
+            } else {
+                null
+            },
             trailingContent = if (showTrailingArrow || trailingLabel != null) {
                 {
                     if (trailingLabel != null) {
@@ -494,6 +523,7 @@ private fun AboutSwitchRow(
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
+    icon: ImageVector? = null,
     highlightKey: String? = null
 ) {
     HighlightableSettingRow(highlightKey = highlightKey, modifier = modifier) {
@@ -501,7 +531,8 @@ private fun AboutSwitchRow(
             title = title,
             summary = summary,
             checked = checked,
-            onCheckedChange = onCheckedChange
+            onCheckedChange = onCheckedChange,
+            icon = icon
         )
     }
 }
