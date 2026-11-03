@@ -19,3 +19,13 @@ page.
 
 Canary releases do not use a file here; the nightly workflow builds their body from the commit
 range since the previous canary.
+
+## Cutting a release
+
+1. Create `docs/changelog/v<version>.md` (copy `TEMPLATE.md`).
+2. Run **Draft a Release** with `version` = `<version>` (no leading `v`) and review the draft.
+3. Publish the draft. The tag, release name `<version> (c<count>)` and APK are produced by CI.
+4. For the first stable release only, run **Bridge legacy UpdateCheck.json** with tag
+   `v<version>` so installs from the JSON era can migrate.
+5. Bump `ztool.version.base` in `gradle.properties` when the next release cycle opens; nightly
+   canaries use it as their base version.
