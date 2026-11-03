@@ -30,6 +30,7 @@
     <string name="page_firstrun_verify_title">额外确认</string>
     <string name="page_firstrun_verify_subtitle">输入仓库名或 GitHub 链接</string>
     <string name="page_firstrun_verify_body">近期注意到部分平台在未经原作者授权的情况下上架本软件副本。这些副本可能已经经过修改，可能包含可利用 Root 权限执行的恶意代码。建议您仅从以下渠道下载软件：</string>
+    <string name="page_firstrun_verify_migration_notice">本项目的 GitHub 仓库已迁移至 ZTool-Project 组织。旧仓库地址不再通过验证，请使用迁移后的地址；也可点击下方按钮直接打开当前仓库。</string>
     <string name="page_firstrun_verify_channel_1">我们的 Xposed 模块仓库</string>
     <string name="page_firstrun_verify_channel_2">我们的 GitHub 仓库 release 页面</string>
     <string name="page_firstrun_verify_instruction">为了核对来源，请输入以下任意一种形式，四种方式均可通过验证。如果您从 Xposed 模块仓库下载本模块，可以查看源码 url 获取相关信息；不知道相关信息时，也可以点击下方按钮访问我们的 GitHub 仓库：</string>

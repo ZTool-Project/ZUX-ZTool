@@ -538,6 +538,18 @@ private fun SourceVerifyPage(
                 style = MaterialTheme.typography.bodyMedium
             )
 
+            ZToolCard(
+                modifier = Modifier.fillMaxWidth(),
+                containerColor = LocalZToolColorScheme.current.tertiaryContainer
+            ) {
+                Text(
+                    text = stringResource(R.string.page_firstrun_verify_migration_notice),
+                    modifier = Modifier.padding(16.dp),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = LocalZToolColorScheme.current.onTertiaryContainer
+                )
+            }
+
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
                     text = "1. " + stringResource(R.string.page_firstrun_verify_channel_1),

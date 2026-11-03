@@ -29,6 +29,7 @@
     <string name="page_firstrun_verify_title">Extra verification</string>
     <string name="page_firstrun_verify_subtitle">Enter the repository name or GitHub URL</string>
     <string name="page_firstrun_verify_body">We have recently noticed that some platforms distribute copies of this software without the original author\'s authorization. These copies may have been modified and may contain malicious code that can exploit Root privileges. We recommend downloading the software only from the following sources:</string>
+    <string name="page_firstrun_verify_migration_notice">The project\'s GitHub repository has moved to the ZTool-Project organization. The old repository address no longer passes verification; use the migrated address, or open the current repository with the button below.</string>
     <string name="page_firstrun_verify_channel_1">Our Xposed module repository</string>
     <string name="page_firstrun_verify_channel_2">Our GitHub repository release page</string>
     <string name="page_firstrun_verify_instruction">To verify the source, please enter any one of the following forms — all four pass verification. If you downloaded this module from an Xposed module repository, you can check the source code URL for the relevant information, or use the button below to open our GitHub repository:</string>

@@ -10,10 +10,10 @@ body:
         在提交问题咨询之前，请确保您已经查阅了以下内容，许多常见的使用困惑都可以立刻得到解答：
         Before submitting a question, please ensure you have checked the following, where most common issues are already addressed:
 
-        1. [README](https://github.com/qwqawa64/ZUX-ZTool/blob/master/README.md)
+        1. [README](https://github.com/ZTool-Project/ZUX-ZTool/blob/master/README.md)
         2. 应用内各设置项的说明文字与使用帮助 / Descriptions and help text of each setting in the app
-        3. [Issue 列表 / Issue List](https://github.com/qwqawa64/ZUX-ZTool/issues)
-        4. [Releases 说明 / Release Notes](https://github.com/qwqawa64/ZUX-ZTool/releases)
+        3. [Issue 列表 / Issue List](https://github.com/ZTool-Project/ZUX-ZTool/issues)
+        4. [Releases 说明 / Release Notes](https://github.com/ZTool-Project/ZUX-ZTool/releases)
 
         注意：模块仅在 LSPosed 中正确勾选作用域并重启对应应用后才会生效，请先确认这一点。
         Note: The module only takes effect after the correct scope is enabled in LSPosed and the target app is restarted. Please confirm this first.

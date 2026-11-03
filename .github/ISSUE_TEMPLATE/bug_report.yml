@@ -12,8 +12,8 @@ body:
         提示：请在导出日志前，先在应用「设置 -> 日志设置」内将「日志等级」改为 `TRACE`，然后复现一次您遇到的问题，再使用「导出日志」导出日志包。
         Tip: Before exporting logs, change "Log Level" to `TRACE` in "Settings -> Log Settings", reproduce the issue once, and then use "Export Logs" to export the log package.
 
-        提交前请确认您正在使用 GitHub Actions 上 master 分支的最新构建，或 [Releases](https://github.com/qwqawa64/ZUX-ZTool/releases) 中的最新版本。
-        Before submitting, please make sure you are running the latest build from the master branch on GitHub Actions, or the latest version from [Releases](https://github.com/qwqawa64/ZUX-ZTool/releases).
+        提交前请确认您正在使用 GitHub Actions 上 master 分支的最新构建，或 [Releases](https://github.com/ZTool-Project/ZUX-ZTool/releases) 中的最新版本。
+        Before submitting, please make sure you are running the latest build from the master branch on GitHub Actions, or the latest version from [Releases](https://github.com/ZTool-Project/ZUX-ZTool/releases).
   - type: checkboxes
     id: check
     attributes:
@@ -27,8 +27,8 @@ body:
             我确认最新版依然存在此问题
           required: true
         - label: |
-            I've tried the latest [CI Build](https://github.com/qwqawa64/ZUX-ZTool/actions) and the problem still exists |
-            我已尝试过最新 [CI 版本](https://github.com/qwqawa64/ZUX-ZTool/actions)，问题依旧
+            I've tried the latest [CI Build](https://github.com/ZTool-Project/ZUX-ZTool/actions) and the problem still exists |
+            我已尝试过最新 [CI 版本](https://github.com/ZTool-Project/ZUX-ZTool/actions)，问题依旧
           required: true
         - label: |
             I restarted the scope (or performed a complete reboot) after the module updates and the problem still exists |

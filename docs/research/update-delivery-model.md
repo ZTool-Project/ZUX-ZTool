@@ -1,7 +1,7 @@
 # Update delivery and version naming: research note and target model
 
 Analysis note. Scope: how ZTool discovers, verifies and presents a new build, and how a build names
-itself. Written ahead of the `qwqawa64/ZUX-ZTool` → `ZTool-Project/ZUX-ZTool` migration, with the
+itself. Written ahead of the 2026 move to the ZTool-Project organization, with the
 first stable release planned in one to two months.
 
 ## 0. Verdict
@@ -109,14 +109,14 @@ second authored surface this change is meant to delete, and it can drift from th
 as `UpdateCheck.json` did. It stays on the table as an escape hatch if the 10-entry window or
 GitHub availability becomes unacceptable (§7).
 
-### 3.4 Legacy endpoints survive the transfer
+### 3.4 Former endpoints survive the transfer
 
 ```
-GET https://raw.githubusercontent.com/qwqawa64/ZUX-ZTool/refs/heads/master/UpdateCheck.json → 200
-GET https://github.com/qwqawa64/ZUX-ZTool/releases.atom                                     → 200
+GET https://raw.githubusercontent.com/ZTool-Project/ZUX-ZTool/refs/heads/master/UpdateCheck.json → 200
+GET https://github.com/ZTool-Project/ZUX-ZTool/releases.atom                                    → 200
 ```
 
-GitHub redirects the old owner path to the new repository. This is what makes the migration in §5
+Requests to the former owner path redirect here. This is what makes the migration in §5
 possible: installed clients keep working while they are moved to the new model.
 
 **Adopted: Releases Atom feed as transport, with tags as the channel and version identity.**
@@ -248,9 +248,9 @@ stable-hosted media is the norm; it must not use the signed URLs from a cached f
 ### 5.1 The old repository's final payload
 
 Old clients only understand `newVersionName/newVersionCode/whatNew/url`. The new repository ships
-no JSON and has no migration workflow. The bridge is the **old repository** (`qwqawa64/ZUX-ZTool`):
-as the last action before archiving it, replace its root `UpdateCheck.json` with one final payload
-pointing at the first stable release of the new model:
+no JSON and has no migration workflow. The bridge is the **former owner path**, which still resolves
+to this repository. As the last action before archiving it, replace its root `UpdateCheck.json` with
+one final payload pointing at the first stable release of the new model:
 
 ```json
 {
@@ -270,20 +270,22 @@ who ignore the card for months can still complete the migration; no further main
 moved onto pre-release code. Until `v1.0.0` exists, old clients simply see no update, which is the
 current state anyway.
 
-### 5.2 OOBE source verification is a migration blocker
+### 5.2 OOBE source verification follows the migration
 
-Before this change `ZToolSource.GITHUB_OWNER` was `qwqawa64`, and `isVerifiedSourceInput` accepted
-only that owner (the bare repository name still passed). A user who downloads from the new
-organization and types `ZTool-Project/ZUX-ZTool` would fail first-run verification. The fix is part
-of the migration:
+Before this change `ZToolSource.GITHUB_OWNER` was the legacy owner, and `isVerifiedSourceInput`
+accepted only that owner (the bare repository name still passed). A user downloading from the new
+organization and typing `ZTool-Project/ZUX-ZTool` would have failed first-run verification. The
+migration therefore:
 
-- `GITHUB_OWNER = "ZTool-Project"`, `GITHUB_URL` follows it;
-- the verifier accepts **both** owners (`qwqawa64`, `ZTool-Project`) plus the bare repo name;
-- `ZToolSourceVerificationTest` gains the new-owner cases and keeps the legacy ones.
+- set `GITHUB_OWNER = "ZTool-Project"` and made `GITHUB_URL` follow it;
+- temporarily accepted both owners while installed users switched over;
+- now accepts only the current owner plus the bare repository name, and shows a migration notice on
+  the verification page so users arriving with the old address know which one to use;
+- covers the new-owner cases and the rejection of other owners in `ZToolSourceVerificationTest`.
 
 ### 5.3 Coordinate cleanup
 
-All remaining `qwqawa64` references must either move to `ZToolSource` or be updated in the same
+All remaining legacy-owner references must either move to `ZToolSource` or be updated in the same
 change: About links, license link, release fallback, home tip string (both locales), `agreement.md`
 §2.1, README badges/links, preview sample data. Old URLs redirect today, but they are not
 guaranteed to redirect forever.
@@ -295,8 +297,8 @@ guaranteed to redirect forever.
 2. Publish the first real release with a `v*` tag (planned `v1.0.0`).
 3. In the old repository, replace `UpdateCheck.json` with the final payload above, verify the
    migration from an installed old build, then archive the old repository.
-4. Update README/agreement/OOBE coordinates; keep accepting the old owner for verification.
-   The new repository keeps no JSON and no bridge job.
+4. Update README/agreement/OOBE coordinates; the verifier accepts only the current owner, and the
+   page points users at the migrated repository. The new repository keeps no JSON and no bridge job.
 
 ## 6. Implementation map
 
@@ -388,8 +390,7 @@ Local:
 External (measured 2026-11-03):
 
 - `https://github.com/ZTool-Project/ZUX-ZTool/releases.atom` — 200, 10 entries
-- `https://github.com/qwqawa64/ZUX-ZTool/releases.atom` — 200 after ownership transfer
-- `https://raw.githubusercontent.com/qwqawa64/ZUX-ZTool/refs/heads/master/UpdateCheck.json` — 200 (old repository, before archiving)
+- `https://raw.githubusercontent.com/ZTool-Project/ZUX-ZTool/refs/heads/master/UpdateCheck.json` — 200 (bridge retired since)
 - `https://github.com/termux/termux-app/releases.atom` — pre-releases present, title ≠ tag
 - `https://github.com/Flow-Launcher/Flow.Launcher/releases.atom` — images use 300-second signed URLs
 - `https://api.github.com/repos/ZTool-Project/ZUX-ZTool/releases` — 403 rate limit exceeded
