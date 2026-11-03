@@ -89,7 +89,7 @@ private fun DeveloperProfileHeader(profile: DeveloperProfile) {
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = stringResource(profile.roleRes),
+                text = stringResource(profile.descriptionRes),
                 style = MaterialTheme.typography.bodyMedium,
                 color = LocalZToolColorScheme.current.onSurfaceVariant
             )

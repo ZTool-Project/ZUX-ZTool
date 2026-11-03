@@ -235,7 +235,7 @@ private fun SettingsAboutScreen(
                     DEVELOPER_PROFILES.forEachIndexed { index, profile ->
                         AboutActionRow(
                             title = stringResource(profile.nameRes),
-                            summary = stringResource(profile.roleRes),
+                            summary = stringResource(profile.descriptionRes),
                             onClick = { selectedDeveloper = profile },
                             highlightKey = profile.highlightKey,
                             modifier = getModifier(index),

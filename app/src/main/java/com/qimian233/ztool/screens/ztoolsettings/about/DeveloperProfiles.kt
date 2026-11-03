@@ -13,7 +13,7 @@ data class DeveloperSocialLink(
 
 data class DeveloperProfile(
     @StringRes val nameRes: Int,
-    @StringRes val roleRes: Int,
+    @StringRes val descriptionRes: Int,
     @DrawableRes val avatarRes: Int,
     val highlightKey: String,
     val socialLinks: List<DeveloperSocialLink>
@@ -22,7 +22,7 @@ data class DeveloperProfile(
 val DEVELOPER_PROFILES: List<DeveloperProfile> = listOf(
     DeveloperProfile(
         nameRes = R.string.about_dev_qimian233,
-        roleRes = R.string.page_settings_about_qimian233_summary,
+        descriptionRes = R.string.page_settings_about_qimian233_summary,
         avatarRes = R.drawable.about_avatar_qimian233,
         highlightKey = "about_dev_qimian233",
         socialLinks = listOf(
@@ -36,7 +36,7 @@ val DEVELOPER_PROFILES: List<DeveloperProfile> = listOf(
     ),
     DeveloperProfile(
         nameRes = R.string.about_dev_wasd_destroy,
-        roleRes = R.string.page_settings_about_wasd_destroy_summary,
+        descriptionRes = R.string.page_settings_about_wasd_destroy_summary,
         avatarRes = R.drawable.about_avatar_wasd_destroy,
         highlightKey = "about_dev_wasd_destroy",
         socialLinks = listOf(
@@ -50,7 +50,7 @@ val DEVELOPER_PROFILES: List<DeveloperProfile> = listOf(
     ),
     DeveloperProfile(
         nameRes = R.string.about_dev_uuuddddl,
-        roleRes = R.string.page_settings_about_uuuddddl,
+        descriptionRes = R.string.page_settings_about_uuuddddl,
         avatarRes = R.drawable.about_avatar_uuuddddl,
         highlightKey = "about_dev_uuuddddl",
         socialLinks = listOf(
