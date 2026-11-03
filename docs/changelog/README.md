@@ -5,6 +5,10 @@ One Markdown file per release, named after the release tag: `v1.0.0.md`, `v1.0.0
 body, so the same text is what the app's update card digests and what users read on the release
 page.
 
+Releases from before the `v1.0.0` model are kept as `v0.1.0.md` … `v0.13.0.md`. Those numbers are
+editorial: the old builds named themselves `Beta/yyMMdd`, so `notes_on_legacy_versions.md` maps each
+file to its original identity, version code and Git tag, and documents the old update model.
+
 ## Writing a release note
 
 1. Copy `TEMPLATE.md` to `<tag>.md`, where `<tag>` is the exact tag (`v` prefix included).
