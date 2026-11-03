@@ -1307,6 +1307,8 @@
     <string name="about_dev_qimian233">Qimian233</string>
     <string name="about_dev_wasd_destroy">WASDDestroy</string>
     <string name="about_dev_uuuddddl">uuuddddl</string>
+    <string name="page_settings_about_social_coolapk_label">Coolapk</string>
+    <string name="page_settings_about_social_github_label">GitHub</string>
     <!-- Read by the hook (SidebarDrawerHook) via getIdentifier; do not rename or remove -->
     <string name="ztool_sidebar_drawer_edit" tools:ignore="UnusedResources">Edit</string>
     <string name="ztool_sidebar_drawer_done" tools:ignore="UnusedResources">Done</string>

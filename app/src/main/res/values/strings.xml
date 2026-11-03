@@ -1360,6 +1360,8 @@
     <string name="about_dev_qimian233">Qimian233</string>
     <string name="about_dev_wasd_destroy">WASDDestroy</string>
     <string name="about_dev_uuuddddl">uuuddddl</string>
+    <string name="page_settings_about_social_coolapk_label">酷安</string>
+    <string name="page_settings_about_social_github_label">GitHub</string>
     <!-- Hook 侧读取（SidebarDrawerHook）；经 getIdentifier 按名加载，勿改名勿删 -->
     <string name="ztool_sidebar_drawer_edit" tools:ignore="UnusedResources">编辑</string>
     <string name="ztool_sidebar_drawer_done" tools:ignore="UnusedResources">完成</string>

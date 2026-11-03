@@ -123,23 +123,14 @@ fun SettingsAboutRoute(
             onOpenGithub = { openExternalLink(context, ZToolSource.GITHUB_URL) },
             onOpenGithubIssues = { openExternalLink(context, "${ZToolSource.GITHUB_URL}/issues") },
             onOpenAcknowledgements = onOpenAcknowledgements,
-            onOpenQimian233 = {
-            openExternalLink(
-                context,
-                "http://www.coolapk.com/u/10099756",
-                true,
-                "com.coolapk.market"
-            )
-        },
-            onOpenWasdDestroy = {
-            openExternalLink(
-                context,
-                "http://www.coolapk.com/u/18634835",
-                true,
-                "com.coolapk.market"
-            )
-        },
-            onOpenUdl = { openExternalLink(context, "https://github.com/uuuddddl") },
+            onOpenSocialLink = { link ->
+                openExternalLink(
+                    context = context,
+                    link = link.url,
+                    shouldDeterminePackage = link.packageName != null,
+                    packageName = link.packageName.orEmpty()
+                )
+            },
             onCheckUpdate = { homeViewModel.checkAppUpdate(force = true) },
             isCheckingUpdate = homeState.isCheckingAppUpdate,
             updateCheckCompleted = homeState.updateCheckCompleted,
@@ -160,8 +151,7 @@ private fun SettingsAboutScreen(
     onOpenGithub: () -> Unit,
     onOpenGithubIssues: () -> Unit,
     onOpenAcknowledgements: () -> Unit,
-    onOpenQimian233: () -> Unit,
-    onOpenWasdDestroy: () -> Unit,
+    onOpenSocialLink: (DeveloperSocialLink) -> Unit,
     onCheckUpdate: () -> Unit,
     isCheckingUpdate: Boolean,
     updateCheckCompleted: Boolean,
@@ -169,8 +159,7 @@ private fun SettingsAboutScreen(
     updateInfo: UpdateInfo?,
     isPrereleaseUpdateEnabled: Boolean,
     onTogglePrereleaseUpdate: (Boolean) -> Unit,
-    onOpenUpdate: (String) -> Unit,
-    onOpenUdl: () -> Unit
+    onOpenUpdate: (String) -> Unit
 ) {
     val context = LocalContext.current
     val unknownString = stringResource(R.string.common_unknown)
@@ -208,6 +197,7 @@ private fun SettingsAboutScreen(
         AgreementRepository(context).loadAgreementMarkdown()
     }
     var showAgreementDialog by remember { mutableStateOf(false) }
+    var selectedDeveloper by remember { mutableStateOf<DeveloperProfile?>(null) }
 
     ZToolScaffold(
         topBar = {
@@ -241,31 +231,17 @@ private fun SettingsAboutScreen(
                 Spacer(modifier = Modifier.height(24.dp))
                 AboutHeaderCard(versionName, commitCount, commitHash)
                 Spacer(modifier = Modifier.height(16.dp))
-                AboutSectionCard(stringResource(R.string.page_settings_about_developers_title), 3) { getModifier ->
-                    AboutActionRow(
-                        title = stringResource(R.string.about_dev_qimian233),
-                        summary = stringResource(R.string.page_settings_about_qimian233_summary),
-                        onClick = onOpenQimian233,
-                        highlightKey = "about_dev_qimian233",
-                        modifier = getModifier(0),
-                        leadingContent = { ZToolSettingLeadingAvatar(R.drawable.about_avatar_qimian233) }
-                    )
-                    AboutActionRow(
-                        title = stringResource(R.string.about_dev_wasd_destroy),
-                        summary = stringResource(R.string.page_settings_about_wasd_destroy_summary),
-                        onClick = onOpenWasdDestroy,
-                        highlightKey = "about_dev_wasd_destroy",
-                        modifier = getModifier(1),
-                        leadingContent = { ZToolSettingLeadingAvatar(R.drawable.about_avatar_wasd_destroy) }
-                    )
-                    AboutActionRow(
-                        title = stringResource(R.string.about_dev_uuuddddl),
-                        summary = stringResource(R.string.page_settings_about_uuuddddl),
-                        onClick = onOpenUdl,
-                        highlightKey = "about_dev_uuuddddl",
-                        modifier = getModifier(2),
-                        leadingContent = { ZToolSettingLeadingAvatar(R.drawable.about_avatar_uuuddddl) }
-                    )
+                AboutSectionCard(stringResource(R.string.page_settings_about_developers_title), DEVELOPER_PROFILES.size) { getModifier ->
+                    DEVELOPER_PROFILES.forEachIndexed { index, profile ->
+                        AboutActionRow(
+                            title = stringResource(profile.nameRes),
+                            summary = stringResource(profile.roleRes),
+                            onClick = { selectedDeveloper = profile },
+                            highlightKey = profile.highlightKey,
+                            modifier = getModifier(index),
+                            leadingContent = { ZToolSettingLeadingAvatar(profile.avatarRes) }
+                        )
+                    }
                 }
                 Spacer(modifier = Modifier.height(16.dp))
                 AboutSectionCard(stringResource(R.string.page_settings_about_project_info_title), 5) { getModifier ->
@@ -352,6 +328,17 @@ private fun SettingsAboutScreen(
                     text = stringResource(R.string.settings_close_button),
                     onClick = { showAgreementDialog = false }
                 )
+            }
+        )
+    }
+
+    selectedDeveloper?.let { profile ->
+        DeveloperProfileDialog(
+            profile = profile,
+            onDismissRequest = { selectedDeveloper = null },
+            onOpenSocialLink = { link ->
+                selectedDeveloper = null
+                onOpenSocialLink(link)
             }
         )
     }
