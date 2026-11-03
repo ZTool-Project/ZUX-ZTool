@@ -191,6 +191,7 @@ private fun SettingsAcknowledgementsScreen(
                     AboutActionRow(
                         title = stringResource(R.string.page_settings_credits_unfuck_zui),
                         summary = stringResource(R.string.page_settings_about_unfuckzui_summary),
+                        trailingLabel = stringResource(R.string.page_settings_about_acknowledgements_license_apache_2_0),
                         onClick = { onOpenUrl(UNFUCK_ZUI_URL) },
                         highlightKey = "about_credit_unfuck_zui",
                         modifier = getModifier(0)
@@ -198,6 +199,7 @@ private fun SettingsAcknowledgementsScreen(
                     AboutActionRow(
                         title = stringResource(R.string.page_settings_credits_zuxos_plus),
                         summary = stringResource(R.string.page_settings_about_zuxos_plus_summary),
+                        trailingLabel = stringResource(R.string.page_settings_about_acknowledgements_license_unstated_label),
                         onClick = { onOpenUrl(ZUXOS_PLUS_URL) },
                         highlightKey = "about_credit_zuxos_plus",
                         modifier = getModifier(1)

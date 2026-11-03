@@ -276,6 +276,7 @@
     <string name="page_settings_about_acknowledgements_license_apache_2_0" translatable="false">Apache-2.0</string>
     <string name="page_settings_about_acknowledgements_license_bsd_2_clause" translatable="false">BSD-2-Clause</string>
     <string name="page_settings_about_acknowledgements_license_mit" translatable="false">MIT</string>
+    <string name="page_settings_about_acknowledgements_license_unstated_label">未声明许可证</string>
     <string name="page_settings_about_acknowledgements_oss_androidx_name" translatable="false">AndroidX / Jetpack Compose</string>
     <string name="page_settings_about_acknowledgements_oss_androidx_summary">Android 官方基础库，提供 Compose UI、Navigation、Lifecycle 等组件</string>
     <string name="page_settings_about_acknowledgements_oss_kotlin_name" translatable="false">Kotlin</string>
