@@ -223,7 +223,7 @@ ZTool 是一个针对 ZUXOS 的 LSPosed 功能增强模块。
 
 在应用内打开 设置 → 关于 ZTool，启用「接收测试版更新」即可接收 Beta 与 Canary 构建。每夜构建也会发布在 [Releases](https://github.com/ZTool-Project/ZUX-ZTool/releases) 页面。
 
-各版本的更新日志位于 [docs/changelog](/docs/changelog)，通过 [待办列表](/TODOS.md) 查看可能会被添加到新版本中的功能。
+各版本的更新日志按大版本存放于 [docs/changelog](/docs/changelog/README.md)，通过 [待办列表](/TODOS.md) 查看可能会被添加到新版本中的功能。
 
 ## 注意事项
 

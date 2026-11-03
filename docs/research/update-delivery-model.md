@@ -177,14 +177,14 @@ warns if more than six pre-releases are published between two stables.
 ```
 tag:      v1.0.0                    ← canonical version, immutable
 name:     v1.0.0 (c2471)            ← feed title; (c…) is the only place versionCode is exposed
-body:     docs/changelog/v1.0.0.md  ← Markdown, may embed images/video, rendered on the release page
+body:     docs/changelog/v1/v1.0.0.md  ← Markdown, may embed images/video, rendered on the release page
 assets:   ZTool_v1.0.0_c2471.apk
           mapping.txt
 prerelease: false
 ```
 
 Changelog authoring moves from the append-only `更新日志.txt` to one file per release under
-`docs/changelog/`. The release body is then the file verbatim: no `awk` extractor, no header
+`docs/changelog/v<major>/`. The release body is then the file verbatim: no `awk` extractor, no header
 parsing, and Markdown media simply works. `更新日志.txt` is retained as the historical archive; the
 old extractor is deleted with the old workflow.
 
@@ -312,9 +312,9 @@ guaranteed to redirect forever.
 
 | File | Change |
 |---|---|
-| `.github/workflows/draft-release.yml` | input `version` (e.g. `1.0.0-beta.2`); validate the tag, the changelog file and that the numeric core equals `ztool.version.base`; tag `v<version>`; body from `docs/changelog/v<version>.md`; release name `v<version> (c<count>)`; `prerelease` when the version has a suffix; verify the built APK's `output-metadata.json` matches tag + count; refuse a non-advancing commit count |
+| `.github/workflows/draft-release.yml` | input `version` (e.g. `1.0.0-beta.2`); validate the tag, the changelog file in `v<major>/` and that the numeric core equals `ztool.version.base`; tag `v<version>`; body from `docs/changelog/v<major>/v<version>.md`; release name `v<version> (c<count>)`; `prerelease` when the version has a suffix; verify the built APK's `output-metadata.json` matches tag + count; refuse a non-advancing commit count |
 | `.github/workflows/android.yml` | nightly passes `ZTOOL_BUILD_CHANNEL=canary`; after a successful scheduled build, publish the new canary release (prerelease, name with counter, auto body) and delete every older canary release/tag; add `permissions: contents: write` to that job only |
-| `docs/changelog/` | new per-release Markdown files (`v<tag>.md`), `legacy.md` archive, `README.md` + `TEMPLATE.md` |
+| `docs/changelog/` | new per-release Markdown files grouped as `v<major>/v<tag>.md`; the legacy `更新日志.txt` history lives under `v0/`; `README.md` + `TEMPLATE.md` stay at the root |
 
 ### 6.3 App
 
@@ -356,8 +356,8 @@ guaranteed to redirect forever.
 1. **First public version**: `v1.0.0`; `v1.0.0-beta.N` may precede it.
 2. **Canary in-app updates**: yes. A nightly publishes one canary release and deletes the previous
    one, so the feed keeps exactly one canary slot.
-3. **Changelog source**: one Markdown file per release under `docs/changelog/`; the old
-   `更新日志.txt` is archived as `legacy.md`.
+3. **Changelog source**: one Markdown file per release under `docs/changelog/v<major>/`; the old
+   `更新日志.txt` history is archived under `v0/`.
 4. **Channel selection**: an in-app "接收测试版更新" switch replaces the old Actions link. Off means
    stable only; on means beta and canary too. An installed beta/canary build always keeps its own
    channel, so switching the toggle off cannot strand it on an older stable release.

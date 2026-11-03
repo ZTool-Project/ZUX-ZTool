@@ -1,17 +1,23 @@
 # Release changelogs
 
-One Markdown file per release, named after the release tag: `v1.0.0.md`, `v1.0.0-beta.1.md`,
-`v1.1.0-canary.20261120.md`. The release workflow uses the file verbatim as the GitHub Release
-body, so the same text is what the app's update card digests and what users read on the release
-page.
+One Markdown file per release, named after the release tag and filed under its major version:
+`v0/v0.13.0.md`, `v1/v1.0.0.md`, `v1/v1.0.0-beta.1.md`, `v1/v1.1.0-canary.20261120.md`. A new
+`v<major>/` folder is created when that major line starts. The release workflow uses the file
+verbatim as the GitHub Release body, so the same text is what the app's update card digests and what
+users read on the release page.
 
-Releases from before the `v1.0.0` model are kept as `v0.1.0.md` … `v0.13.0.md`. Those numbers are
-editorial: the old builds named themselves `Beta/yyMMdd`, so `notes_on_legacy_versions.md` maps each
-file to its original identity, version code and Git tag, and documents the old update model.
+`README.md`, `TEMPLATE.md` and `notes_on_legacy_versions.md` stay at this level as shared
+documentation.
+
+Releases from before the `v1.0.0` model are kept under `v0/` as `v0.1.0.md` … `v0.13.0.md`. Those
+numbers are editorial: the old builds named themselves `Beta/yyMMdd`, so
+`notes_on_legacy_versions.md` maps each file to its original identity, version code and Git tag,
+and documents the old update model.
 
 ## Writing a release note
 
-1. Copy `TEMPLATE.md` to `<tag>.md`, where `<tag>` is the exact tag (`v` prefix included).
+1. Copy `TEMPLATE.md` to `v<major>/<tag>.md`, where `<tag>` is the exact tag (`v` prefix included)
+   and `<major>` is its leading number. Create the folder when the major version is new.
 2. Write headings and bullet lists as usual; the card turns them into a plain-text digest.
 3. Media is allowed. Prefer stable sources:
    - files committed under `docs/media/` and referenced by relative path, or
@@ -19,7 +25,7 @@ file to its original identity, version code and Git tag, and documents the old u
      `https://github.com/ZTool-Project/ZUX-ZTool/releases/download/<tag>/<file>`.
    Images pasted into the GitHub editor get a signed URL that expires in about five minutes, so the
    app cannot show them later; they work on the release page only.
-4. The workflow refuses a release whose file is missing.
+4. The workflow refuses a release whose file is missing from the matching `v<major>/` folder.
 
 Canary releases do not use a file here; the nightly workflow builds their body from the commit
 range since the previous canary.
@@ -36,8 +42,10 @@ the source for every non-explicit build name:
 | beta / rc / stable | `version` input to **Draft a Release**, validated against `<base>` |
 
 So a bump to `2.0.0` is a normal commit that changes only the base. Canary and dev builds pick it
-up on their next run. The draft-release workflow refuses a beta/stable version whose numeric core
-does not equal the base, so the three channels cannot silently drift.
+up on their next run. A major bump also starts the next `docs/changelog/v<major>/` folder; minor
+and patch releases stay in the folder of their major line. The draft-release workflow refuses a
+beta/stable version whose numeric core does not equal the base, so the three channels cannot
+silently drift.
 
 Keep the base at the version being stabilised until that stable release is published, then bump
 again for the next cycle. Do not bump before running the release workflow: the workflow builds the
@@ -46,7 +54,7 @@ checked-out commit, and the guard compares that commit's base with the input.
 ## Cutting a release
 
 1. (New cycle only) commit the `ztool.version.base` bump, e.g. `2.0.0`.
-2. Create `docs/changelog/v<version>.md` (copy `TEMPLATE.md`).
+2. Create `docs/changelog/v<major>/v<version>.md` (copy `TEMPLATE.md`).
 3. Run **Draft a Release** with `version` = `<version>` (no leading `v`) and review the draft.
    Beta and rc versions use the same numeric core as the base (`2.0.0-beta.1` while base is
    `2.0.0`).

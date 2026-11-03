@@ -40,7 +40,8 @@ jobs:
             echo "Bump ztool.version.base in gradle.properties on the release commit, and bump it again after publishing."
             exit 1
           fi
-          file="docs/changelog/v${version}.md"
+          major="${version%%.*}"
+          file="docs/changelog/v${major}/v${version}.md"
           if [[ ! -f "$file" ]]; then
             echo "::error::Missing release notes file: $file"
             exit 1
@@ -78,10 +79,13 @@ jobs:
           set -euo pipefail
           version="$VERSION"
           tag="v$version"
+          major="${version%%.*}"
+          changelog="docs/changelog/v${major}/${tag}.md"
           code=$(git rev-list --count HEAD)
           if [[ "$version" == *-* ]]; then prerelease=true; else prerelease=false; fi
-          test -f "docs/changelog/${tag}.md"
+          test -f "$changelog"
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "changelog=$changelog" >> "$GITHUB_OUTPUT"
           echo "code=$code" >> "$GITHUB_OUTPUT"
           echo "prerelease=$prerelease" >> "$GITHUB_OUTPUT"
           echo "Releasing $tag (c$code), prerelease=$prerelease"
@@ -149,7 +153,7 @@ jobs:
           name: ${{ steps.meta.outputs.tag }} (c${{ steps.meta.outputs.code }})
           draft: true
           prerelease: ${{ steps.meta.outputs.prerelease == 'true' }}
-          body_path: docs/changelog/v${{ inputs.version }}.md
+          body_path: ${{ steps.meta.outputs.changelog }}
           files: |
             ${{ steps.artifacts.outputs.apk }}
             ${{ steps.artifacts.outputs.mapping }}
