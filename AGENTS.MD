@@ -26,7 +26,9 @@ Use English for new agent-facing documentation where practical. Existing user-fa
 - Xposed API: libxposed API 102
 - Hidden API bypass: `org.lsposed.hiddenapibypass:hiddenapibypass:4.3`
 - DexKit: `org.luckypray:dexkit:2.3.0`
+- Build variants: `debug` (fast edit loop), `dev` (debuggable + R8, for on-device verification), `release` (distribution)
 - Main verification command: `.\gradlew.bat assembleDebug` (Windows PowerShell or CMD) or `./gradlew.bat assembleDebug` (WSL2 and Git Bash)
+- On-device install command: `.\gradlew.bat assembleDev` — required when the target device runs LSPosed, see "On-Device Builds"
 
 For any Miuix API or component behavior, consult the official [Dokka site](https://compose-miuix-ui.github.io/miuix/dokka/index.html) instead of decompiling or reading locally downloaded dependencies:
 
@@ -236,6 +238,29 @@ into the data layer.
   literal must match the resource character-for-character and must be updated in the
   same commit as the resource. Fallbacks may never diverge.
 
+## On-Device Builds (LSPosed)
+
+LSPosed 2.2.x re-obfuscates the whole dex set of a module APK whenever that APK is
+replaced (`ObfuscationManager.obfuscateDex` in `lspd`), holding a lock that blocks every
+process specialization in the meantime. On the ZUI/Android 17 test device the debug APK
+carries 73.8 MB of dex (20 files), which pushes the stall past AMS `PROC_START_TIMEOUT`
+(10 s): the relaunched app shows a black screen and is then killed, which reads as a
+crash. The `dev` variant R8-minifies to 18.2 MB of dex and keeps the worst-case stall at
+about 5 s.
+
+Rules:
+
+- Use `.\gradlew.bat assembleDebug` for the edit/compile loop (about 5 s incremental).
+- Use `.\gradlew.bat assembleDev` and install `app-dev.apk` for anything verified on a
+  device that has LSPosed enabled. Incremental cost is about 26 s, and the variant keeps
+  `LeakCanary` and Compose `ui-tooling` so it stays close to debug behaviour.
+- Never benchmark or verify update/relaunch behaviour with an unminified `debug` APK on
+  an LSPosed device; the timeout masks real results.
+- Worst case is installing the module APK and starting any app within the next few
+  seconds. Check the gap between `D Zygote: Forked child process <pid>` and
+  `I Zygote: Process <pid> created for <pkg>`: under 1 s is healthy, near 10 s means the
+  process will be killed.
+
 ## Verification
 
 Follow the steps below:
@@ -247,6 +272,10 @@ Follow the steps below:
     - Manifest, resources, Gradle files, or embedded assets.
 
     For documentation-only changes, a build is usually unnecessary; verify with `git diff --check` at minimum. Comment/KDoc-only edits inside `.kt` files do not require a build either.
+
+    If the artifact is meant to be installed on a device that runs LSPosed, use
+    `.\gradlew.bat assembleDev` and install `app-dev.apk` instead of the debug APK
+    (see "On-Device Builds").
 2. If a string resource was added, renamed, or removed, run
    `python tools/check_unused_strings.py` and confirm the report shows `values/` and
    `values-en-rUS/` in sync (0 missing) and no new UNUSED entries. When the string is a
@@ -276,6 +305,7 @@ disciplines.
 ```powershell
 git status --short
 .\gradlew.bat assembleDebug
+.\gradlew.bat assembleDev
 git diff --check
 git commit ...
 ```
