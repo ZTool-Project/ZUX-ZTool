@@ -27,6 +27,11 @@ val DEVELOPER_PROFILES: List<DeveloperProfile> = listOf(
         highlightKey = "about_dev_qimian233",
         socialLinks = listOf(
             DeveloperSocialLink(
+                labelRes = R.string.page_settings_about_social_github_label,
+                iconRes = R.drawable.ic_github_logo,
+                url = "https://github.com/qwqawa64"
+            ),
+            DeveloperSocialLink(
                 labelRes = R.string.page_settings_about_social_coolapk_label,
                 iconRes = R.drawable.ic_coolapk_logo,
                 url = "http://www.coolapk.com/u/10099756",
@@ -40,6 +45,11 @@ val DEVELOPER_PROFILES: List<DeveloperProfile> = listOf(
         avatarRes = R.drawable.about_avatar_wasd_destroy,
         highlightKey = "about_dev_wasd_destroy",
         socialLinks = listOf(
+            DeveloperSocialLink(
+                labelRes = R.string.page_settings_about_social_github_label,
+                iconRes = R.drawable.ic_github_logo,
+                url = "https://github.com/WASDDestroy"
+            ),
             DeveloperSocialLink(
                 labelRes = R.string.page_settings_about_social_coolapk_label,
                 iconRes = R.drawable.ic_coolapk_logo,
