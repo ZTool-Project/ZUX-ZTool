@@ -134,6 +134,20 @@ android {
                 "proguard-rules.pro"
             )
         }
+
+        // Debuggable but R8-minified variant: same dependency set as debug, used to
+        // keep the module APK's dex small enough for LSPosed's post-update reload.
+        create("dev") {
+            initWith(getByName("debug"))
+            isMinifyEnabled = true
+            isShrinkResources = true
+            signingConfig = signingConfigs.getByName("debug")
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+            matchingFallbacks += listOf("debug")
+        }
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -224,6 +238,8 @@ dependencies {
     implementation(libs.androidx.profileinstaller)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.leakcanary.android)
+    "devImplementation"(libs.androidx.compose.ui.tooling)
+    "devImplementation"(libs.leakcanary.android)
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)
