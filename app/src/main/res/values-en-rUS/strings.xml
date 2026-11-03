@@ -1126,6 +1126,9 @@
     <string name="page_settings_about_prerelease_update_title">Receive beta updates</string>
     <string name="page_settings_about_prerelease_update_summary">Receive Beta and Canary builds through the in-app checker (may be unstable)</string>
     <string name="page_settings_about_app_update_placeholder_summary">Click to check ZTool\'s update</string>
+    <string name="page_settings_about_changelog_title">Changelog</string>
+    <string name="page_settings_about_changelog_summary">Review changes in previous versions</string>
+    <string name="page_settings_about_changelog_empty">No changelog entries to show</string>
     <string name="page_settings_auto_check_update_title">Check Updates Automatically</string>
     <string name="page_settings_advanced_info_title">System Info</string>
     <string name="page_settings_advanced_api_version">libxposed API version</string>

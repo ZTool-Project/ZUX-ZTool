@@ -1999,6 +1999,11 @@ object SearchIndex {
             titleRes = R.string.page_settings_about_app_update_title,
             summaryRes = R.string.page_settings_about_app_update_placeholder_summary
         ),
+        aboutScreen.item(
+            id = "about_changelog",
+            titleRes = R.string.page_settings_about_changelog_title,
+            summaryRes = R.string.page_settings_about_changelog_summary
+        ),
 
         acknowledgementsScreen.item(
             id = "about_credit_unfuck_zui",

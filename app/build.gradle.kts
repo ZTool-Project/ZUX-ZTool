@@ -1,6 +1,7 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.gradle.api.tasks.Copy
 import org.gradle.api.tasks.Delete
+import org.gradle.api.tasks.Sync
 import java.text.SimpleDateFormat
 import java.util.Date
 
@@ -35,6 +36,16 @@ fun buildChannelOf(versionName: String): String = when {
     versionName.contains("-beta") || versionName.contains("-rc") -> "beta"
     versionName.contains("-dev") -> "dev"
     else -> "stable"
+}
+
+// The About page's changelog screen reads these files from assets at runtime.
+val generatedChangelogAssets = layout.buildDirectory.dir("generated/changelogAssets")
+val prepareChangelogAssets = tasks.register<Sync>("prepareChangelogAssets") {
+    from(rootProject.layout.projectDirectory.dir("docs/changelog")) {
+        include("v*/**/*.md")
+        into("changelog")
+    }
+    into(generatedChangelogAssets)
 }
 
 plugins {
@@ -140,6 +151,14 @@ android {
 kotlin {
     compilerOptions {
         jvmTarget.set(JvmTarget.JVM_11)
+    }
+}
+
+androidComponents {
+    onVariants { variant ->
+        variant.sources.assets?.addGeneratedSourceDirectory(
+            prepareChangelogAssets
+        ) { it.destinationDirectory }
     }
 }
 

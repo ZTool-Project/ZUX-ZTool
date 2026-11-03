@@ -24,6 +24,7 @@ import androidx.compose.material.icons.rounded.BugReport
 import androidx.compose.material.icons.rounded.Code
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.Gavel
+import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Science
 import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.material3.Icon
@@ -85,6 +86,7 @@ import com.qimian233.ztool.viewmodel.UpdateInfo
 fun SettingsAboutRoute(
     onBack: () -> Unit,
     onOpenAcknowledgements: () -> Unit,
+    onOpenChangelog: () -> Unit,
     targetId: String? = null
 ) {
     val context = LocalContext.current
@@ -123,6 +125,7 @@ fun SettingsAboutRoute(
             onOpenGithub = { openExternalLink(context, ZToolSource.GITHUB_URL) },
             onOpenGithubIssues = { openExternalLink(context, "${ZToolSource.GITHUB_URL}/issues") },
             onOpenAcknowledgements = onOpenAcknowledgements,
+            onOpenChangelog = onOpenChangelog,
             onOpenSocialLink = { link ->
                 openExternalLink(
                     context = context,
@@ -151,6 +154,7 @@ private fun SettingsAboutScreen(
     onOpenGithub: () -> Unit,
     onOpenGithubIssues: () -> Unit,
     onOpenAcknowledgements: () -> Unit,
+    onOpenChangelog: () -> Unit,
     onOpenSocialLink: (DeveloperSocialLink) -> Unit,
     onCheckUpdate: () -> Unit,
     isCheckingUpdate: Boolean,
@@ -291,7 +295,7 @@ private fun SettingsAboutScreen(
                     )
                 }
                 Spacer(modifier = Modifier.height(16.dp))
-                AboutSectionCard(stringResource(R.string.page_settings_about_app_update_section_title), 2) { getModifier ->
+                AboutSectionCard(stringResource(R.string.page_settings_about_app_update_section_title), 3) { getModifier ->
                     AboutSwitchRow(
                         title = stringResource(R.string.page_settings_about_prerelease_update_title),
                         summary = stringResource(R.string.page_settings_about_prerelease_update_summary),
@@ -309,6 +313,14 @@ private fun SettingsAboutScreen(
                         modifier = getModifier(1),
                         icon = Icons.Rounded.SystemUpdate,
                         showTrailingArrow = true
+                    )
+                    AboutActionRow(
+                        title = stringResource(R.string.page_settings_about_changelog_title),
+                        summary = stringResource(R.string.page_settings_about_changelog_summary),
+                        onClick = onOpenChangelog,
+                        highlightKey = "about_changelog",
+                        modifier = getModifier(2),
+                        icon = Icons.Rounded.History
                     )
                 }
                 Spacer(modifier = Modifier.height(32.dp))

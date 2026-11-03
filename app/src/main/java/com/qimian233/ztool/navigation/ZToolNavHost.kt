@@ -38,6 +38,7 @@ import com.qimian233.ztool.screens.ztoolsettings.SettingsMainRoute
 import com.qimian233.ztool.screens.ztoolsettings.about.SettingsAboutRoute
 import com.qimian233.ztool.screens.ztoolsettings.about.SettingsAboutRouteName
 import com.qimian233.ztool.screens.ztoolsettings.about.SettingsAcknowledgementsRoute
+import com.qimian233.ztool.screens.ztoolsettings.about.SettingsChangelogRoute
 import com.qimian233.ztool.screens.ztoolsettings.advanced.EngineeringCodesRoute
 import com.qimian233.ztool.screens.ztoolsettings.advanced.PreferenceEditorRoute
 import com.qimian233.ztool.screens.ztoolsettings.advanced.SettingsAdvancedRoute
@@ -315,6 +316,11 @@ internal fun MainRouteNavHost(
                         launchSingleTop = true
                     }
                 },
+                onOpenChangelog = {
+                    navController.navigate(HiddenRoute.SETTINGS_CHANGELOG) {
+                        launchSingleTop = true
+                    }
+                },
                 targetId = backStackEntry.highlightTarget(),
             )
         }
@@ -335,6 +341,24 @@ internal fun MainRouteNavHost(
                     }
                 },
                 targetId = backStackEntry.highlightTarget(),
+            )
+        }
+        composable(
+            route = routeWithTarget(HiddenRoute.SETTINGS_CHANGELOG),
+            enterTransition = horizontalEnter,
+            exitTransition = horizontalExit,
+            popEnterTransition = horizontalPopEnter,
+            popExitTransition = horizontalPopExit,
+            arguments = highlightTargetArguments
+        ) {
+            SettingsChangelogRoute(
+                onBack = {
+                    if (!navController.popBackStack()) {
+                        navController.navigate(HiddenRoute.SETTINGS_ABOUT) {
+                            launchSingleTop = true
+                        }
+                    }
+                }
             )
         }
         composable(

@@ -9,6 +9,10 @@ users read on the release page.
 `README.md`, `TEMPLATE.md` and `notes_on_legacy_versions.md` stay at this level as shared
 documentation.
 
+The app also ships this tree: `app/build.gradle.kts` copies every `v<major>/*.md` file into the APK
+assets at build time, and About → 更新日志 renders the entries offline. A release note therefore
+appears on that page only after a build that includes it; the network is never consulted there.
+
 Releases from before the `v1.0.0` model are kept under `v0/` as `v0.1.0.md` … `v0.13.0.md`. Those
 numbers are editorial: the old builds named themselves `Beta/yyMMdd`, so
 `notes_on_legacy_versions.md` maps each file to its original identity, version code and Git tag,
