@@ -39,7 +39,7 @@ jobs:
       - name: Restore previous build commit SHA
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         id: cache-restore
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: .last-build-sha
           key: nightly-commit-sha-master-${{ github.run_id }}
@@ -164,7 +164,7 @@ jobs:
 
       - name: Save cache
         if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && steps.check.outputs.should_build == 'true'
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v6
         with:
           path: .last-build-sha
           key: nightly-commit-sha-master-${{ github.run_id }}
