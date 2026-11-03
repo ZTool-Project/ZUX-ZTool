@@ -26,8 +26,15 @@ fun getGitCommitHash(): String {
     }
 }
 
-fun getBuildTime(): String {
+fun getBuildDateStamp(): String {
     return SimpleDateFormat("yyMMdd").format(Date())
+}
+
+fun buildChannelOf(versionName: String): String = when {
+    versionName.contains("-canary") -> "canary"
+    versionName.contains("-beta") || versionName.contains("-rc") -> "beta"
+    versionName.contains("-dev") -> "dev"
+    else -> "stable"
 }
 
 plugins {
@@ -66,15 +73,28 @@ android {
     namespace = "com.qimian233.ztool"
     compileSdk = 37
 
+    // Official releases provide the exact tag; everything else derives a
+    // channel-suffixed identity from the base version in gradle.properties.
+    val explicitVersionName = providers.gradleProperty("ztool.versionName")
+        .orNull?.takeIf { it.isNotBlank() }
+    val versionBase = providers.gradleProperty("ztool.version.base")
+        .orNull?.takeIf { it.isNotBlank() } ?: "1.0.0"
+    val resolvedVersionName = explicitVersionName ?: when (System.getenv("ZTOOL_BUILD_CHANNEL")?.lowercase()) {
+        "canary" -> "v$versionBase-canary.${getBuildDateStamp()}"
+        else -> "v$versionBase-dev.${getGitCommitHash()}"
+    }
+    val commitCount = getGitCommitCount()
+
     defaultConfig {
         applicationId = "com.qimian233.ztool"
         minSdk = 27
         targetSdk = 37
 
-        versionCode = getGitCommitCount()
-        versionName = "Beta/${getBuildTime()}"
-        buildConfigField("int", "GIT_COMMIT_COUNT", "${getGitCommitCount()}")
+        versionCode = commitCount
+        versionName = resolvedVersionName
+        buildConfigField("int", "GIT_COMMIT_COUNT", "$commitCount")
         buildConfigField("String", "GIT_COMMIT_HASH", "\"${getGitCommitHash()}\"")
+        buildConfigField("String", "UPDATE_CHANNEL", "\"${buildChannelOf(resolvedVersionName)}\"")
         buildConfigField("boolean", "IS_DEV_BUILD", "${!isOfficialReleaseBuild}")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"

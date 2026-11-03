@@ -40,6 +40,10 @@ class HomeViewModel(
     val dexIndexState: StateFlow<DexIndexUiState> = _dexIndexState.asStateFlow()
 
     init {
+        _uiState.value = _uiState.value.copy(
+            isPrereleaseUpdateEnabled = repository.isPrereleaseChannelEnabled()
+        )
+
         // Hot update: observe module activation state changes and refresh the UI in real time
         viewModelScope.launch {
             ZToolApplication.isModuleActivatedFlow.collect { activated ->
@@ -74,7 +78,8 @@ class HomeViewModel(
         if (started) return
         started = true
         _uiState.value = _uiState.value.copy(
-            isNonZuxOsWarningDismissed = repository.isNonZuxOsWarningDismissed()
+            isNonZuxOsWarningDismissed = repository.isNonZuxOsWarningDismissed(),
+            isPrereleaseUpdateEnabled = repository.isPrereleaseChannelEnabled()
         )
         checkEnvironment()
         resolveLaunchTip()
@@ -213,6 +218,17 @@ class HomeViewModel(
     fun ignoreUpdate(versionCode: Int) {
         repository.ignoreUpdate(versionCode)
         _uiState.value = _uiState.value.copy(updateInfo = null)
+    }
+
+    fun setPrereleaseUpdateEnabled(enabled: Boolean) {
+        repository.setPrereleaseChannelEnabled(enabled)
+        _uiState.value = _uiState.value.copy(
+            isPrereleaseUpdateEnabled = enabled,
+            updateInfo = null,
+            updateCheckCompleted = false,
+            updateCheckError = null
+        )
+        checkAppUpdate(force = true)
     }
 
     fun dismissNonZuxOsWarning() {
@@ -368,6 +384,7 @@ data class HomeUiState(
     val updateCheckCompleted: Boolean = false,
     val updateCheckError: String? = null,
     val updateInfo: UpdateInfo? = null,
+    val isPrereleaseUpdateEnabled: Boolean = false,
     val configUpgradeDialogVisible: Boolean = false,
     val rebootConfirmation: RebootTarget? = null,
     /** The tip card to show, or null on the launches that show none. */
@@ -389,6 +406,7 @@ data class UpdateInfo(
     val versionCode: Int,
     val changelog: String,
     val downloadUrl: String,
+    val hasMedia: Boolean = false,
     val expanded: Boolean = false
 )
 

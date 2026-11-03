@@ -12,6 +12,11 @@ on:
         description: 'Set by draft-release.yml when this run produces the official release APK'
         type: boolean
         default: false
+      # 正式发布时传入完整版本名（如 v1.0.0）；留空时由 Gradle 按渠道推导。
+      version-name:
+        description: 'Exact versionName for an official release (e.g. v1.0.0)'
+        type: string
+        default: ''
   pull_request:
     branches: [ "master" ]        # PR 触发 Debug 构建
 
@@ -21,6 +26,9 @@ run-name: ${{ github.event_name == 'schedule' && 'Nightly' || github.event_name 
 jobs:
   build:
     runs-on: ubuntu-latest
+    # 每夜构建会发布（并清理旧的）canary Release；PR 的 fork token 仍是只读的。
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout code
@@ -82,8 +90,9 @@ jobs:
               echo "No previous build SHA found, building."
             fi
           else
-            # 其他事件（理论上不会发生）均构建
+            # workflow_call 由 draft-release.yml 触发，必须构建
             echo "should_build=true" >> $GITHUB_OUTPUT
+            echo "Event ${{ github.event_name }} → building."
           fi
 
       # ---- 只在需要构建时才 setup JDK 和准备 gradlew ----
@@ -115,9 +124,9 @@ jobs:
             app/build/outputs/apk/debug/output-metadata.json
           if-no-files-found: error
 
-      # ---- Release 构建（仅在 schedule 或 workflow_dispatch 且需要构建时） ----
+      # ---- Release 构建（schedule / workflow_dispatch / 发布工作流调用） ----
       - name: Prepare release keystore
-        if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && steps.check.outputs.should_build == 'true'
+        if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || inputs['official-release'] == true) && steps.check.outputs.should_build == 'true'
         env:
           ZTOOL_RELEASE_KEYSTORE_BASE64: ${{ secrets.ZTOOL_RELEASE_KEYSTORE_BASE64 }}
           ZTOOL_RELEASE_STORE_PASSWORD: ${{ secrets.ZTOOL_RELEASE_STORE_PASSWORD }}
@@ -132,21 +141,28 @@ jobs:
           chmod 600 "$RUNNER_TEMP/ztool-release.jks"
 
       - name: Build signed release APK
-        if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && steps.check.outputs.should_build == 'true'
+        if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || inputs['official-release'] == true) && steps.check.outputs.should_build == 'true'
         env:
           # 直接触发（schedule / workflow_dispatch）时 inputs 为空 → '0' → 非官方构建；
           # 只有 draft-release.yml 传入 official-release=true 才标记为官方发布。
-          ZTOOL_OFFICIAL_RELEASE: ${{ inputs.official-release && '1' || '0' }}
+          ZTOOL_OFFICIAL_RELEASE: ${{ inputs['official-release'] && '1' || '0' }}
+          ZTOOL_BUILD_CHANNEL: ${{ github.event_name == 'schedule' && 'canary' || '' }}
+          ZTOOL_VERSION_NAME: ${{ inputs['version-name'] }}
           ZTOOL_RELEASE_STORE_FILE: ${{ runner.temp }}/ztool-release.jks
           ZTOOL_RELEASE_STORE_PASSWORD: ${{ secrets.ZTOOL_RELEASE_STORE_PASSWORD }}
           ZTOOL_RELEASE_KEY_ALIAS: ${{ secrets.ZTOOL_RELEASE_KEY_ALIAS }}
           ZTOOL_RELEASE_KEY_PASSWORD: ${{ secrets.ZTOOL_RELEASE_KEY_PASSWORD }}
-        run: ./gradlew assembleRelease
+        run: |
+          if [[ -n "$ZTOOL_VERSION_NAME" ]]; then
+            ./gradlew assembleRelease -Pztool.versionName="$ZTOOL_VERSION_NAME"
+          else
+            ./gradlew assembleRelease
+          fi
 
       # R8 混淆映射随 APK 一起上传：没有它，用户上报的 release 崩溃栈无法 retrace
       # （r8-map-id-<hash> 只能靠对应构建的 mapping.txt 还原）。
       - name: Upload signed release APK and R8 mapping
-        if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && steps.check.outputs.should_build == 'true'
+        if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || inputs['official-release'] == true) && steps.check.outputs.should_build == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: ZTool-release-signed-apk-${{ steps.commit-info.outputs.sha }}
@@ -155,6 +171,66 @@ jobs:
             app/build/outputs/apk/release/output-metadata.json
             app/build/outputs/mapping/release/mapping.txt
           if-no-files-found: error
+
+      # ---- 每夜 canary Release：始终只保留最新一个 ----
+      - name: Read built canary version
+        id: canary-version
+        if: github.event_name == 'schedule' && steps.check.outputs.should_build == 'true'
+        run: |
+          metadata=$(find app/build/outputs/apk/release -name output-metadata.json | head -n 1)
+          test -n "$metadata"
+          name=$(jq -r '.elements[0].versionName' "$metadata")
+          code=$(jq -r '.elements[0].versionCode' "$metadata")
+          test -n "$name" && test -n "$code" && test "$code" != "null"
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare canary assets
+        if: github.event_name == 'schedule' && steps.check.outputs.should_build == 'true'
+        env:
+          VERSION_NAME: ${{ steps.canary-version.outputs.name }}
+          VERSION_CODE: ${{ steps.canary-version.outputs.code }}
+          COMMITS: ${{ steps.commit-range.outputs.commits }}
+        run: |
+          set -euo pipefail
+          apk=$(find app/build/outputs/apk/release -name '*.apk' -not -name '*unsigned*' | head -n 1)
+          test -n "$apk"
+          mkdir -p canary-assets
+          cp "$apk" "canary-assets/ZTool_${VERSION_NAME}_c${VERSION_CODE}.apk"
+          cp app/build/outputs/mapping/release/mapping.txt canary-assets/
+          {
+            echo "Nightly canary build \`$VERSION_NAME\` (c$VERSION_CODE) from \`${{ steps.commit-info.outputs.sha }}\`."
+            echo
+            echo "### Changes"
+            printf '%s\n' "$COMMITS"
+          } > canary-notes.md
+          cat canary-notes.md
+
+      - name: Publish canary release
+        if: github.event_name == 'schedule' && steps.check.outputs.should_build == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION_NAME: ${{ steps.canary-version.outputs.name }}
+          VERSION_CODE: ${{ steps.canary-version.outputs.code }}
+        run: |
+          set -euo pipefail
+          tag="$VERSION_NAME"
+          # Same-day rebuild replaces the existing release instead of failing.
+          gh release delete "$tag" --yes --cleanup-tag 2>/dev/null || true
+          gh release create "$tag" \
+            --target "${{ github.sha }}" \
+            --title "$VERSION_NAME (c$VERSION_CODE)" \
+            --notes-file canary-notes.md \
+            --prerelease \
+            canary-assets/*
+          # Create first, delete after: the feed never loses its canary entry.
+          gh release list --limit 100 --json tagName --jq '.[].tagName' \
+            | { grep -E -- '-canary\.' || true; } \
+            | while read -r old; do
+                if [[ "$old" != "$tag" ]]; then
+                  gh release delete "$old" --yes --cleanup-tag || true
+                fi
+              done
 
       # ---- 保存本次 commit SHA 供下次 nightly 使用（仅当构建成功） ----
       - name: Save current commit SHA for future nightly

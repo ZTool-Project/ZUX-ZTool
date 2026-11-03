@@ -331,7 +331,7 @@ private fun previewHomeState() = HomeUiState(
     // the target hardware, and it gates the warning card.
     isZuxOsDevice = false,
     isNonZuxOsWarningDismissed = false,
-    moduleVersion = "Beta/260131 (c1907)",
+    moduleVersion = "v1.0.0 (c1907)",
     rootSource = "KernelSU 1.0.7 (v3)",
     frameworkVersion = "libxposed 102",
     deviceModel = "Lenovo TB321FU",
@@ -359,7 +359,7 @@ private fun previewTip() = HomeTip(
 )
 
 private fun previewUpdateLong() = UpdateInfo(
-    versionName = "Beta/260131",
+    versionName = "v1.0.0",
     versionCode = 1234,
     changelog = """
         新增：控制中心磁贴圆角自定义
@@ -371,14 +371,14 @@ private fun previewUpdateLong() = UpdateInfo(
         优化：日志导出不再阻塞主线程
         变更：配置备份格式升级，旧备份仍可恢复
     """.trimIndent(),
-    downloadUrl = "https://github.com/qwqawa64/ZUX-ZTool/releases",
+    downloadUrl = "https://github.com/ZTool-Project/ZUX-ZTool/releases",
     expanded = false
 )
 
 private fun previewUpdateShort() = UpdateInfo(
-    versionName = "Beta/260131",
+    versionName = "v1.0.0",
     versionCode = 1234,
     changelog = "修复：设置页在深色模式下部分文字对比度过低",
-    downloadUrl = "https://github.com/qwqawa64/ZUX-ZTool/releases",
+    downloadUrl = "https://github.com/ZTool-Project/ZUX-ZTool/releases",
     expanded = false
 )

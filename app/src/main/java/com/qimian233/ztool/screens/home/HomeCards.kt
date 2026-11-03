@@ -303,6 +303,14 @@ internal fun UpdateCard(
                 maxLines = if (update.expanded) Int.MAX_VALUE else 4,
                 overflow = TextOverflow.Ellipsis
             )
+            if (update.hasMedia) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = stringResource(R.string.page_home_update_media_hint),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = LocalZToolColorScheme.current.onTertiaryContainer
+                )
+            }
             Spacer(modifier = Modifier.height(16.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),

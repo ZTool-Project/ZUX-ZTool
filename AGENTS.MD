@@ -213,7 +213,7 @@ scope: `reference/**`, `assets/embedding/**`.
 
 ## String Resource Discipline
 
-Out of scope: `reference/**`, `assets/embedding/**`, `tools/*.py`, `更新日志.txt`,
+Out of scope: `reference/**`, `assets/embedding/**`, `tools/*.py`, `docs/changelog/**`,
 `UpdateCheck.json`, `res/raw/*.md`. Non-UI user-visible text (Repository / Service /
 shell-command messages) is **not** covered by this round — do not expand a string change
 into the data layer.

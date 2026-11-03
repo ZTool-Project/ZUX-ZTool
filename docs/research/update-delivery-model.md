@@ -15,7 +15,7 @@ first stable release planned in one to two months.
 | `Beta/yyMMdd` cannot be parsed | `versionName` becomes `vMAJOR.MINOR.PATCH[-channel.N]`; the tag is the same string |
 | Old owner coordinates are hard-coded | A single `ZToolSource` constant set, plus one frozen legacy `UpdateCheck.json` as the migration bridge |
 
-The delivered artifact of this note is the design; the implementation map in §6 is ready to execute.
+The implementation follows the map in §6; the decisions in §8 are the ones this change takes.
 
 ## 1. What the current model actually does
 
@@ -264,9 +264,10 @@ current state anyway.
 
 ### 5.2 OOBE source verification is a migration blocker
 
-`ZToolSource.GITHUB_OWNER` is `qwqawa64`, and `isVerifiedSourceInput` accepts only that owner (bare
-repository name still passes). A user who downloads from the new organization and types
-`ZTool-Project/ZUX-ZTool` would fail first-run verification. The fix is part of the migration:
+Before this change `ZToolSource.GITHUB_OWNER` was `qwqawa64`, and `isVerifiedSourceInput` accepted
+only that owner (the bare repository name still passed). A user who downloads from the new
+organization and types `ZTool-Project/ZUX-ZTool` would fail first-run verification. The fix is part
+of the migration:
 
 - `GITHUB_OWNER = "ZTool-Project"`, `GITHUB_URL` follows it;
 - the verifier accepts **both** owners (`qwqawa64`, `ZTool-Project`) plus the bare repo name;
@@ -284,9 +285,10 @@ but they are not guaranteed to redirect forever.
 1. Land the new versioning + feed client + CI behind the still-current release process; publish a
    canary/beta build so the feed and client can be exercised without touching stable users.
 2. Publish the first real release with a `v*` tag (planned `v1.0.0`).
-3. In the same release job (explicit `migrate-legacy-users` input), write the frozen legacy JSON.
+3. After that release is published, run `bridge-legacy-update.yml` once; it refuses drafts and
+   pre-releases and writes the frozen legacy JSON.
 4. Update README/agreement/OOBE coordinates; keep accepting the old owner for verification.
-5. After the window, delete the legacy payload and its workflow step.
+5. After the window, delete the legacy payload and the bridge workflow.
 
 ## 6. Implementation map
 
@@ -295,37 +297,37 @@ but they are not guaranteed to redirect forever.
 | File | Change |
 |---|---|
 | `gradle.properties` | add `ztool.version.base=1.0.0` |
-| `app/build.gradle.kts` | replace `versionName = "Beta/${getBuildTime()}"` with the tag/property derivation; keep `versionCode = getGitCommitCount()`; drop `getBuildTime()`; APK name already sanitizes `/`, and `v1.0.0` needs no change |
-| `BuildConfig` | add `UPDATE_CHANNEL` (`stable`/`beta`/`canary`) derived from `versionName`; keep `IS_DEV_BUILD` semantics for local/PR builds |
+| `app/build.gradle.kts` | replace `versionName = "Beta/${getBuildTime()}"` with the tag/property derivation; keep `versionCode = getGitCommitCount()`; APK name already sanitizes `/`, and `v1.0.0` needs no change |
+| `BuildConfig` | add `UPDATE_CHANNEL` (`stable`/`beta`/`canary`/`dev`) derived from `versionName`; keep `IS_DEV_BUILD` semantics for local/PR builds |
 
 ### 6.2 CI
 
 | File | Change |
 |---|---|
-| `.github/workflows/draft-release.yml` | inputs `version` (e.g. `1.0.0-beta.2`) and `migrate-legacy-users`; tag `v<version>`; body from `docs/changelog/v<version>.md`; release name `v<version> (c<count>)`; `prerelease` when the version has a suffix; verify the built APK's `output-metadata.json` matches tag + count; one-shot legacy JSON step |
-| `.github/workflows/android.yml` | nightly passes `ZTOOL_BUILD_CHANNEL=canary` and `-Pztool.versionName=…`; after a successful scheduled build, delete the previous canary release/tag and publish the new one (prerelease, name with counter, auto body); add `permissions: contents: write` to that job only |
-| `docs/changelog/` | new per-release Markdown files (first: `v1.0.0.md`); `更新日志.txt` becomes archive |
+| `.github/workflows/draft-release.yml` | input `version` (e.g. `1.0.0-beta.2`); validate the tag and the changelog file; tag `v<version>`; body from `docs/changelog/v<version>.md`; release name `v<version> (c<count>)`; `prerelease` when the version has a suffix; verify the built APK's `output-metadata.json` matches tag + count; refuse a non-advancing commit count |
+| `.github/workflows/bridge-legacy-update.yml` | one-shot, run after the first stable release is published; reads its counter from the release name and writes the frozen legacy payload |
+| `.github/workflows/android.yml` | nightly passes `ZTOOL_BUILD_CHANNEL=canary`; after a successful scheduled build, publish the new canary release (prerelease, name with counter, auto body) and delete every older canary release/tag; add `permissions: contents: write` to that job only |
+| `docs/changelog/` | new per-release Markdown files (`v<tag>.md`), `legacy.md` archive, `README.md` + `TEMPLATE.md` |
 
 ### 6.3 App
 
 | File | Change |
 |---|---|
-| `data/home/HomeRepository.kt` | replace `checkAppUpdate` body with the Atom client; delete `UPDATE_URL`/JSON parsing; keep ignore-code storage |
-| new `data/home/ReleaseFeedRepository.kt` (or `UpdateFeedParser.kt`) | fetch, parse Atom, map to `ReleaseEntry`; pure parser separated for tests |
-| new `data/home/ReleaseNotesText.kt` | HTML → digest + media count |
-| `viewmodel/HomeViewModel.kt` | `UpdateInfo` gains `tag`, `channel`, `hasMedia`; no behavioural change |
+| `data/home/HomeRepository.kt` | replace `checkAppUpdate` body with the Atom client; delete `UPDATE_URL`/JSON parsing; keep ignore-code storage; add the pre-release switch |
+| new `data/update/` | `ReleaseFeedClient`, `ReleaseFeedParser`, `ReleaseNotesText`, `ReleaseSelector`, `SemVer`, `ReleaseChannel`, `ReleaseEntry`; the parser/selector are pure and unit-tested |
+| `viewmodel/HomeViewModel.kt` | `UpdateInfo` gains `hasMedia`; `HomeUiState` gains `isPrereleaseUpdateEnabled`; toggle re-runs the check |
 | `screens/home/HomeCards.kt` | media hint; button opens the release page (already does) |
-| `screens/ztoolsettings/about/SettingsAboutRoute.kt` | new-repo URLs from `ZToolSource` |
+| `screens/ztoolsettings/about/SettingsAboutRoute.kt` | new-repo URLs from `ZToolSource`; "receive beta updates" switch replaces the Actions link |
 | `data/home/ZToolSource.kt` | new owner + both-owner verification |
 | `screens/home/HomeCardPreviewRoute.kt` | sample data uses `v…` names |
-| strings | media hint in both locales; update tip URLs |
+| strings / search | media hint + renamed pre-release strings in both locales; `about_prerelease_update` index entry |
 
 ### 6.4 Tests
 
-- `ReleaseFeedParserTest`: title/link/channel/counter extraction, pre-release filtering, old-tag
-  rejection, malformed entries, 10-entry fixture.
-- `ReleaseNotesTextTest`: headings, list bullets, entities, media count.
-- `SemverTest`: ordering and channel classification.
+- `ReleaseFeedParserTest`: title/link/channel/counter extraction, old-tag rejection, notes/media.
+- `ReleaseNotesTextTest`: headings, list bullets, entities, media detection.
+- `SemVerTest`: ordering and channel classification.
+- `ReleaseSelectorTest`: channel visibility, ignore, no-downgrade.
 - Extend `ZToolSourceVerificationTest` (new owner accepted, legacy owner accepted, others rejected).
 
 ## 7. Risks and guards
@@ -342,16 +344,16 @@ but they are not guaranteed to redirect forever.
 | Users switch canary → stable on a lower code | Inherent to commit-count codes; documented, no downgrade possible |
 | Draft release accidentally published | `prerelease` and tag shape are computed, and drafts are excluded from the feed anyway |
 
-## 8. Decisions that need the maintainer
+## 8. Decisions taken
 
-1. **First public version**: `v1.0.0` for the formal release, with `v1.0.0-beta.N` before it
-   (recommended), or a different major.
-2. **Canary in-app updates**: publish the single rolling canary release (recommended; makes canary
-   a real channel) or keep nightlies artifact-only and let canary users use Actions.
-3. **Changelog source**: per-release `docs/changelog/*.md` (recommended) or keep the single
-   `更新日志.txt` and extend the extractor.
-4. **Channel selection**: auto-detected from the installed build (recommended) or a user-facing
-   stable/beta/canary preference.
+1. **First public version**: `v1.0.0`; `v1.0.0-beta.N` may precede it.
+2. **Canary in-app updates**: yes. A nightly publishes one canary release and deletes the previous
+   one, so the feed keeps exactly one canary slot.
+3. **Changelog source**: one Markdown file per release under `docs/changelog/`; the old
+   `更新日志.txt` is archived as `legacy.md`.
+4. **Channel selection**: an in-app "接收测试版更新" switch replaces the old Actions link. Off means
+   stable only; on means beta and canary too. An installed beta/canary build always keeps its own
+   channel, so switching the toggle off cannot strand it on an older stable release.
 
 ## 9. Verification plan
 

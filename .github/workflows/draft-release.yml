@@ -1,21 +1,51 @@
 name: Draft a Release
 
 on:
-  workflow_dispatch:              # 手动触发
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version without the leading v (e.g. 1.0.0 or 1.0.0-beta.1)'
+        required: true
+        type: string
 
 permissions:
   contents: write                 # 打标签 + 创建草稿 Release
 
 jobs:
+  validate:
+    name: Validate version and changelog
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Check version format and changelog file
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          version="$VERSION"
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Invalid version '$version' (expected X.Y.Z or X.Y.Z-suffix)"
+            exit 1
+          fi
+          file="docs/changelog/v${version}.md"
+          if [[ ! -f "$file" ]]; then
+            echo "::error::Missing release notes file: $file"
+            exit 1
+          fi
+          echo "Release notes: $file"
+
   build:
     name: Build Debug & Release
-    # 复用 Android CI 工作流：workflow_call 事件下其内部逻辑等价于手动触发，总是构建
-    # official-release=true 是本次与"手动紧急触发 CI"的唯一区别：它让 release APK
-    # 不带主页的非官方构建提示卡片
+    needs: validate
+    # 复用 Android CI 工作流：workflow_call 下其内部逻辑等价于手动触发，总是构建
+    # official-release=true 让 release APK 不带主页的非官方构建提示卡片
     # secrets: inherit —— secrets 不会自动透传给可复用工作流，签名密钥必须显式继承
     uses: ./.github/workflows/android.yml
     with:
       official-release: true
+      version-name: v${{ inputs.version }}
     secrets: inherit
 
   draft-release:
@@ -26,11 +56,44 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0   # commit 计数必须来自完整历史
 
-      # ---- 生成标签名 yyyyMMdd-ZTool_Beta ----
-      - name: Compute release tag
-        id: tag
-        run: echo "name=$(date +%Y%m%d)-ZTool_Beta" >> $GITHUB_OUTPUT
+      - name: Compute release identity
+        id: meta
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          version="$VERSION"
+          tag="v$version"
+          code=$(git rev-list --count HEAD)
+          if [[ "$version" == *-* ]]; then prerelease=true; else prerelease=false; fi
+          test -f "docs/changelog/${tag}.md"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$prerelease" >> "$GITHUB_OUTPUT"
+          echo "Releasing $tag (c$code), prerelease=$prerelease"
+
+      # commit 计数是唯一的安装顺序依据；历史被改写时这里必须拦住发布。
+      - name: Refuse a version code that does not advance
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CODE: ${{ steps.meta.outputs.code }}
+        run: |
+          set -euo pipefail
+          max_code=0
+          while read -r name; do
+            counter=$(printf '%s' "$name" | grep -oE '\(c[0-9]+\)' | grep -oE '[0-9]+' || true)
+            if [[ -n "$counter" && "$counter" -gt "$max_code" ]]; then
+              max_code=$counter
+            fi
+          done < <(gh release list --limit 100 --json name --jq '.[].name')
+          echo "Latest published counter: $max_code; this release: $CODE"
+          if [[ "$CODE" -le "$max_code" ]]; then
+            echo "::error::versionCode must advance; refusing to publish $CODE after $max_code"
+            exit 1
+          fi
 
       # ---- 下载构建工作流产出的签名 Release APK 工件 ----
       - name: Download release APK artifact
@@ -40,91 +103,43 @@ jobs:
           merge-multiple: true
           path: release-apk
 
-      - name: Extract app-release.apk
-        id: apk
+      - name: Extract and verify release artifacts
+        id: artifacts
+        env:
+          EXPECTED_NAME: ${{ steps.meta.outputs.tag }}
+          EXPECTED_CODE: ${{ steps.meta.outputs.code }}
+          VERSION: ${{ inputs.version }}
         run: |
           set -euo pipefail
           apk=$(find release-apk -name '*.apk' -not -name '*unsigned*' | head -n 1)
-          test -n "$apk"
-          echo "path=$apk" >> $GITHUB_OUTPUT
-          echo "Found release APK: $apk"
-
-      # R8 映射与 APK 同源（同一工件），随 Release 一同发布，供用户 retrace 崩溃栈。
-      - name: Extract R8 mapping
-        id: mapping
-        run: |
-          set -euo pipefail
           mapping=$(find release-apk -name 'mapping.txt' | head -n 1)
-          test -n "$mapping"
-          echo "path=$mapping" >> $GITHUB_OUTPUT
-          echo "Found R8 mapping: $mapping"
+          metadata=$(find release-apk -name 'output-metadata.json' | head -n 1)
+          test -n "$apk" && test -n "$mapping" && test -n "$metadata"
 
-      # ---- 提取 更新日志.txt 最新一批并渲染为 Release 正文 ----
-      # 最新一批 = 首行版本头（"Beta/…）到下一个版本头之前。
-      # 渲染规则：
-      #   版本头行  → "版本：<原样>"（首行）
-      #   以中文冒号结尾的行（分类）→ H3（### 前留空行）
-      #   其余非空行（条目）    → 无序列表（- 前缀）
-      # 首行的随机引用为人工添加，CI 不生成。
-      - name: Extract latest changelog batch
-        run: |
-          set -euo pipefail
-          awk '
-            NR>1 && /^"Beta\//{exit}
-            /^"/{print "版本：" $0 > "latest-changelog.md"; next}
-            {
-              if ($0 ~ /：$/) {print "" > "latest-changelog.md"; print "### " $0 > "latest-changelog.md"}
-              else if (NF>0) print "- " $0 > "latest-changelog.md"
-              if (NF>0) print $0 > "latest-entries.txt"
-            }
-          ' 更新日志.txt
-          # 去掉尾部空行，避免正文出现多余空隙
-          printf '%s\n' "$(cat latest-changelog.md)" > latest-changelog.md
-          cat latest-changelog.md
+          actual_name=$(jq -r '.elements[0].versionName' "$metadata")
+          actual_code=$(jq -r '.elements[0].versionCode' "$metadata")
+          if [[ "$actual_name" != "$EXPECTED_NAME" || "$actual_code" != "$EXPECTED_CODE" ]]; then
+            echo "::error::Built APK is $actual_name (c$actual_code), expected $EXPECTED_NAME (c$EXPECTED_CODE)"
+            exit 1
+          fi
 
-      # ---- 解析 header 并填充 UpdateCheck.json ----
-      - name: Update UpdateCheck.json
-        run: |
-          set -euo pipefail
-          header=$(head -n1 latest-changelog.md)
-          version_name=$(printf '%s' "$header" | sed -E 's/^"([^"]+)".*/\1/')
-          version_code=$(printf '%s' "$header" | grep -oE '\(c[0-9]+\)' | grep -oE '[0-9]+')
-          # url = 本次 release 标签的完整 URL（标签日期为 8 位 yyyyMMdd）
-          url="https://github.com/${{ github.repository }}/releases/tag/${{ steps.tag.outputs.name }}"
-          test -n "$version_name" && test -n "$version_code"
-          echo "version=$version_name code=$version_code url=$url"
-          jq -n \
-            --arg name "$version_name" \
-            --argjson code "$version_code" \
-            --rawfile entries latest-entries.txt \
-            --arg url "$url" \
-            '{newVersionName: $name,
-              newVersionCode: $code,
-              whatNew: ($entries | gsub("\n+$"; "")),
-              url: $url}' > UpdateCheck.json
-          cat UpdateCheck.json
+          mkdir -p release-assets
+          cp "$apk" "release-assets/ZTool_v${VERSION}_c${EXPECTED_CODE}.apk"
+          cp "$mapping" release-assets/mapping.txt
+          echo "apk=release-assets/ZTool_v${VERSION}_c${EXPECTED_CODE}.apk" >> "$GITHUB_OUTPUT"
+          echo "mapping=release-assets/mapping.txt" >> "$GITHUB_OUTPUT"
 
-      # ---- 打标签并创建草稿 Release（标签不存在时自动在当前提交上创建） ----
+      # ---- 创建草稿 Release（标签不存在时自动在当前提交上创建） ----
       - name: Create draft GitHub Release
         uses: softprops/action-gh-release@v3
         with:
-          tag_name: ${{ steps.tag.outputs.name }}
+          tag_name: ${{ steps.meta.outputs.tag }}
           target_commitish: ${{ github.sha }}
-          name: ${{ steps.tag.outputs.name }}
+          name: ${{ steps.meta.outputs.tag }} (c${{ steps.meta.outputs.code }})
           draft: true
-          prerelease: false
-          body_path: latest-changelog.md
+          prerelease: ${{ steps.meta.outputs.prerelease == 'true' }}
+          body_path: docs/changelog/v${{ inputs.version }}.md
           files: |
-            ${{ steps.apk.outputs.path }}
-            ${{ steps.mapping.outputs.path }}
+            ${{ steps.artifacts.outputs.apk }}
+            ${{ steps.artifacts.outputs.mapping }}
           fail_on_unmatched_files: true
-
-      # ---- 将更新后的 UpdateCheck.json 推送到远程 ----
-      - name: Commit and push UpdateCheck.json
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add UpdateCheck.json
-          git commit -m "updatecheck: release ${{ steps.tag.outputs.name }}"
-          git push origin HEAD:${{ github.ref_name }}

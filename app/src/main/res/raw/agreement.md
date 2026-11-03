@@ -24,7 +24,7 @@
 
 ## 二、软件获取与官方渠道
 
-2.1 本模块仅通过 [GitHub Releases 页面](https://github.com/qwqawa64/ZUX-ZTool/releases) 官方发布。
+2.1 本模块仅通过 [GitHub Releases 页面](https://github.com/ZTool-Project/ZUX-ZTool/releases) 官方发布。
 
 2.2 **请勿安装任何来自第三方（包括但不限于网页、群组、个人分发）的 ZTool 副本**，此类版本可能为恶意软件，会导致设备安全风险。
 

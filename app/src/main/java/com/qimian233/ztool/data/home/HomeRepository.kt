@@ -10,16 +10,12 @@ import com.qimian233.ztool.utils.ModulePreferencesUtils
 import com.qimian233.ztool.utils.ConfigUpgrade
 import com.qimian233.ztool.utils.SystemInfoProbe
 import com.qimian233.ztool.viewmodel.UpdateInfo
-import org.json.JSONException
-import org.json.JSONObject
-import java.io.BufferedReader
-import java.io.IOException
-import java.io.InputStreamReader
-import java.net.HttpURLConnection
-import java.net.URL
 import androidx.core.content.edit
 import com.qimian233.ztool.XposedServiceBridge
 import com.qimian233.ztool.data.keys.PreferenceKeys
+import com.qimian233.ztool.data.update.ReleaseChannel
+import com.qimian233.ztool.data.update.ReleaseFeedClient
+import com.qimian233.ztool.data.update.ReleaseSelector
 
 class HomeRepository(
     private val context: Context,
@@ -33,6 +29,7 @@ class HomeRepository(
     private var cachedRomRegion = ""
     private var cachedIsZuxOsDevice = true
     private var lastSystemInfoUpdate = 0L
+    private val releaseFeedClient = ReleaseFeedClient()
 
     fun checkEnvironment(): EnvironmentStatus {
         val moduleActive = isModuleActive()
@@ -118,51 +115,48 @@ class HomeRepository(
 
     fun checkAppUpdate(): UpdateCheckResult {
         val currentVersionCode = getCurrentVersionCode()
-        var lastError: Exception? = null
-        for (url in UPDATE_URL) {
-            Log.i(TAG, "Fetching update information via url: $url")
-            try {
-                val cacheBustUrl = if (url.contains("?")) "$url&_t=${System.currentTimeMillis()}" else "$url?_t=${System.currentTimeMillis()}"
-                val connection = URL(cacheBustUrl).openConnection() as HttpURLConnection
-                connection.requestMethod = "GET"
-                connection.useCaches = false
-                connection.setRequestProperty("Cache-Control", "no-cache, no-store")
-                connection.connectTimeout = 5000
-                connection.readTimeout = 5000
+        val installedChannel = ReleaseChannel.ofVersionName(getCurrentVersionName())
+        val ignoredVersion = context
+            .getSharedPreferences(PREF_NAME_UPDATE, Context.MODE_PRIVATE)
+            .getInt(KEY_IGNORE_VERSION, 0)
 
-                val responseCode = connection.responseCode
-                if (responseCode == 200) {
-
-                    val json = getJsonObject(connection)
-                    val newVersionCode = json.getInt("newVersionCode")
-                    val ignoredVersion = context
-                        .getSharedPreferences(PREF_NAME_UPDATE, Context.MODE_PRIVATE)
-                        .getInt(KEY_IGNORE_VERSION, 0)
-
-                    if (newVersionCode <= currentVersionCode || newVersionCode == ignoredVersion) {
-                        Log.w(TAG, "Current version is the latest, no need to update.")
-                        Log.w(TAG, "New version code: $newVersionCode, current version code: $currentVersionCode, ignored version: $ignoredVersion")
-                        return UpdateCheckResult.Success(null)
-                    }
-
-                    return UpdateCheckResult.Success(
-                        UpdateInfo(
-                            versionName = json.getString("newVersionName"),
-                            versionCode = newVersionCode,
-                            changelog = json.getString("whatNew"),
-                            downloadUrl = json.getString("url")
-                        )
+        return try {
+            val entry = ReleaseSelector.select(
+                entries = releaseFeedClient.load(),
+                installedCode = currentVersionCode,
+                installedChannel = installedChannel,
+                receivePrerelease = isPrereleaseChannelEnabled(),
+                ignoredCode = ignoredVersion
+            )
+            if (entry == null) {
+                Log.i(TAG, "No update available: installed=$currentVersionCode channel=$installedChannel")
+                UpdateCheckResult.Success(null)
+            } else {
+                Log.i(TAG, "Update available: ${entry.tag} (c${entry.versionCode}) on ${entry.channel}")
+                UpdateCheckResult.Success(
+                    UpdateInfo(
+                        versionName = entry.tag,
+                        versionCode = entry.versionCode,
+                        changelog = entry.notes,
+                        downloadUrl = entry.releaseUrl,
+                        hasMedia = entry.hasMedia
                     )
-                } else {
-                    Log.e(TAG, "Update info request returned HTTP $responseCode via url: $url")
-                    lastError = IOException("HTTP $responseCode")
-                }
-            } catch (th : Exception) {
-                lastError = th
-                Log.e(TAG, "Failed to fetch update info: ${th.message}")
+                )
             }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to check update: ${e.message}")
+            UpdateCheckResult.Failure(describeUpdateCheckError(e))
         }
-        return UpdateCheckResult.Failure(describeUpdateCheckError(lastError))
+    }
+
+    fun isPrereleaseChannelEnabled(): Boolean {
+        return context.getSharedPreferences(PREF_NAME_UPDATE, Context.MODE_PRIVATE)
+            .getBoolean(KEY_RECEIVE_PRERELEASE, false)
+    }
+
+    fun setPrereleaseChannelEnabled(enabled: Boolean) {
+        context.getSharedPreferences(PREF_NAME_UPDATE, Context.MODE_PRIVATE)
+            .edit { putBoolean(KEY_RECEIVE_PRERELEASE, enabled) }
     }
 
     private fun describeUpdateCheckError(error: Exception?): String {
@@ -208,6 +202,12 @@ class HomeRepository(
         }
     }
 
+    private fun getCurrentVersionName(): String {
+        return runCatching {
+            context.packageManager.getPackageInfo(context.packageName, 0).versionName.orEmpty()
+        }.getOrDefault("")
+    }
+
     private fun getCurrentBootSlot(): String {
         val result = shellExecutor.executeRootCommand("getprop ro.boot.slot_suffix", 3)
         return if (result.isSuccess && !result.output.isBlank()) {
@@ -231,12 +231,9 @@ class HomeRepository(
 
     companion object {
         private const val TAG = "HomeRepository"
-        private val UPDATE_URL = listOf(
-            "https://raw.githubusercontent.com/qwqawa64/ZUX-ZTool/refs/heads/master/UpdateCheck.json",
-            "https://gh.absinthe.life/github.com/qwqawa64/ZUX-ZTool/blob/master/UpdateCheck.json"
-        )
         private const val PREF_NAME_UPDATE = "update_prefs"
         private const val KEY_IGNORE_VERSION = "ignore_version_code"
+        private const val KEY_RECEIVE_PRERELEASE = "receive_prerelease_updates"
         private const val PREF_NAME_HOME_UI = "home_ui_prefs"
         private const val KEY_NON_ZUXOS_WARNING_DISMISSED = "non_zuxos_warning_dismissed"
         private const val SYSTEM_INFO_CACHE_DURATION = 60_000L
@@ -262,19 +259,6 @@ class HomeRepository(
             return TB_MODEL_PREFIX.matches(firstEntry)
         }
 
-        @Throws(IOException::class, JSONException::class)
-        private fun getJsonObject(connection: HttpURLConnection): JSONObject {
-            val reader = BufferedReader(InputStreamReader(connection.inputStream))
-            val response = buildString {
-                var line = reader.readLine()
-                while (line != null) {
-                    append(line)
-                    line = reader.readLine()
-                }
-            }
-            reader.close()
-            return JSONObject(response)
-        }
     }
 }
 

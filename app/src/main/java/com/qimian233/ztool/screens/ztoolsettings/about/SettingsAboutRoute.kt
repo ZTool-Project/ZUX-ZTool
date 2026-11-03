@@ -46,6 +46,7 @@ import com.qimian233.ztool.R
 import com.qimian233.ztool.data.home.AgreementRepository
 import com.qimian233.ztool.data.home.HomeRepository
 import com.qimian233.ztool.data.home.HomeTipRepository
+import com.qimian233.ztool.data.home.ZToolSource
 import com.qimian233.ztool.screens.home.HomeViewModelFactory
 import com.qimian233.ztool.ui.components.ExpressiveSectionItems
 import com.qimian233.ztool.ui.components.HighlightAnchorRegistry
@@ -57,6 +58,7 @@ import com.qimian233.ztool.ui.components.ZToolCard
 import com.qimian233.ztool.ui.components.ZToolDialog
 import com.qimian233.ztool.ui.components.ZToolPageSurface
 import com.qimian233.ztool.ui.components.ZToolScaffold
+import com.qimian233.ztool.ui.components.ZToolSwitchRow
 import com.qimian233.ztool.ui.components.ZToolTextButton
 import com.qimian233.ztool.ui.firstrun.AgreementContentCard
 import com.qimian233.ztool.ui.components.ZToolTopAppBar
@@ -106,9 +108,8 @@ fun SettingsAboutRoute(
             onBack = onBack,
             scrollState = scrollState,
             highlightRegistry = highlightRegistry,
-            onOpenGithub = { openExternalLink(context, "https://github.com/qwqawa64/ZUX-ZTool") },
-            onOpenGithubIssues = { openExternalLink(context, "https://github.com/qwqawa64/ZUX-ZTool/issues") },
-            onOpenGithubActions = { openExternalLink(context, "https://github.com/qwqawa64/ZUX-ZTool/actions") },
+            onOpenGithub = { openExternalLink(context, ZToolSource.GITHUB_URL) },
+            onOpenGithubIssues = { openExternalLink(context, "${ZToolSource.GITHUB_URL}/issues") },
             onOpenUnfuckZUI = { openExternalLink(context, "https://github.com/dantmnf/UnfuckZUI") },
             onOpenZuxOsPlus = { openExternalLink(context, "https://github.com/morannlx/me.inkdye.zuxos") },
             onOpenGitHubAccelerationSite = { openExternalLink(context, "https://gh.absinthe.life/") },
@@ -134,6 +135,8 @@ fun SettingsAboutRoute(
             updateCheckCompleted = homeState.updateCheckCompleted,
             updateCheckError = homeState.updateCheckError,
             updateInfo = homeState.updateInfo,
+            isPrereleaseUpdateEnabled = homeState.isPrereleaseUpdateEnabled,
+            onTogglePrereleaseUpdate = { homeViewModel.setPrereleaseUpdateEnabled(it) },
             onOpenUpdate = { url -> openExternalLink(context, url) }
         )
     }
@@ -146,7 +149,6 @@ private fun SettingsAboutScreen(
     onBack: () -> Unit,
     onOpenGithub: () -> Unit,
     onOpenGithubIssues: () -> Unit,
-    onOpenGithubActions: () -> Unit,
     onOpenUnfuckZUI: () -> Unit,
     onOpenZuxOsPlus: () -> Unit,
     onOpenGitHubAccelerationSite: () -> Unit,
@@ -157,6 +159,8 @@ private fun SettingsAboutScreen(
     updateCheckCompleted: Boolean,
     updateCheckError: String?,
     updateInfo: UpdateInfo?,
+    isPrereleaseUpdateEnabled: Boolean,
+    onTogglePrereleaseUpdate: (Boolean) -> Unit,
     onOpenUpdate: (String) -> Unit,
     onOpenUdl: () -> Unit
 ) {
@@ -185,8 +189,9 @@ private fun SettingsAboutScreen(
         else -> stringResource(R.string.page_settings_about_app_update_placeholder_summary)
     }
     val updateRowClick = {
-        if (updateInfo != null) {
-            onOpenUpdate("https://github.com/qwqawa64/ZUX-ZTool/releases")
+        val available = updateInfo
+        if (available != null) {
+            onOpenUpdate(available.downloadUrl)
         } else {
             onCheckUpdate()
         }
@@ -297,7 +302,7 @@ private fun SettingsAboutScreen(
                         onClick = {
                             openExternalLink(
                                 context,
-                                "https://github.com/qwqawa64/ZUX-ZTool/blob/master/LICENSE"
+                                "${ZToolSource.GITHUB_URL}/blob/master/LICENSE"
                             )
                         },
                         modifier = getModifier(2)
@@ -312,11 +317,12 @@ private fun SettingsAboutScreen(
                 }
                 Spacer(modifier = Modifier.height(16.dp))
                 AboutSectionCard(stringResource(R.string.page_settings_about_app_update_section_title), 2) { getModifier ->
-                    AboutActionRow(
-                        title = stringResource(R.string.page_settings_about_beta_build_title),
-                        summary = stringResource(R.string.page_settings_about_beta_build_summary),
-                        onClick = onOpenGithubActions,
-                        highlightKey = "about_beta_build",
+                    AboutSwitchRow(
+                        title = stringResource(R.string.page_settings_about_prerelease_update_title),
+                        summary = stringResource(R.string.page_settings_about_prerelease_update_summary),
+                        checked = isPrereleaseUpdateEnabled,
+                        onCheckedChange = onTogglePrereleaseUpdate,
+                        highlightKey = "about_prerelease_update",
                         modifier = getModifier(0)
                     )
                     AboutActionRow(
@@ -485,6 +491,25 @@ private fun AboutActionRow(
                     )
                 }
             } else null
+        )
+    }
+}
+
+@Composable
+private fun AboutSwitchRow(
+    title: String,
+    summary: String?,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+    highlightKey: String? = null
+) {
+    HighlightableSettingRow(highlightKey = highlightKey, modifier = modifier) {
+        ZToolSwitchRow(
+            title = title,
+            summary = summary,
+            checked = checked,
+            onCheckedChange = onCheckedChange
         )
     }
 }

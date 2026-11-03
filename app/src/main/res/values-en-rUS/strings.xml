@@ -101,6 +101,7 @@
     <string name="page_home_update_button_update">Upgrade now</string>
     <string name="page_home_update_button_ignore">Skip this version</string>
     <string name="page_home_update_ignore_toast">Turn off update notice until next new version</string>
+    <string name="page_home_update_media_hint">Includes screenshots or video; open the release page for the full note</string>
     <string name="page_home_device_code_name">Project Code</string>
     <string name="page_home_android_version">Android</string>
     <string name="page_home_build_version">Build</string>
@@ -1012,10 +1013,10 @@
     <string name="page_home_tip_notification_permission">ZTool needs no notification permission. If you like a permanent notification... fine... nice...</string>
     <string name="page_home_tip_report_issue">To report a problem, use About → Open Issues</string>
     <string name="page_home_tip_freeform_priority">Launcher Force Freeform outranks the Freeform/Split rules on the settings page</string>
-    <string name="page_home_tip_nightly_build">Sign in on our GitHub Actions page for the latest nightly build</string>
+    <string name="page_home_tip_nightly_build">Enable beta updates in Settings → About ZTool to get nightly builds, or download them from GitHub Releases</string>
     <string name="page_home_tip_debug_leak_canary">Debug builds bundle a leak analyzer: a Leak icon appears, and ZTool asks for notification permission to report leaks</string>
     <string name="page_home_tip_release_performance">Release builds of Compose apps far outperform debug builds</string>
-    <string name="page_home_tip_pull_request">PRs welcome, or just watch our progress: https://github.com/qwqawa64/ZUX-ZTool</string>
+    <string name="page_home_tip_pull_request">PRs welcome, or just watch our progress: https://github.com/ZTool-Project/ZUX-ZTool</string>
     <string name="page_home_tip_crash_log">Can\'t export crash logs from the app? Capture them with LogFox and report.</string>
     <string name="page_home_tip_hot_reload_warning">Don\'t trust hot reload, we\'re still taming it! Restart the scope manually to apply new features.</string>
     <!--Home card preview (dev-build-only visual debugging screen)-->
@@ -1088,8 +1089,8 @@
     <string name="page_features_not_in_scope_tip">Some component not in the scope. Click to fix.</string>
     <string name="page_settings_about_app_update_section_title">APP Update</string>
     <string name="page_settings_about_app_update_title">Check APP Update</string>
-    <string name="page_settings_about_beta_build_title">Get Beta Builds</string>
-    <string name="page_settings_about_beta_build_summary">Get nightly builds (may be unstable). Sign in to GitHub to download build artifacts</string>
+    <string name="page_settings_about_prerelease_update_title">Receive beta updates</string>
+    <string name="page_settings_about_prerelease_update_summary">Receive Beta and Canary builds through the in-app checker (may be unstable)</string>
     <string name="page_settings_about_app_update_placeholder_summary">Click to check ZTool\'s update</string>
     <string name="page_settings_auto_check_update_title">Check Updates Automatically</string>
     <string name="page_settings_advanced_info_title">System Info</string>

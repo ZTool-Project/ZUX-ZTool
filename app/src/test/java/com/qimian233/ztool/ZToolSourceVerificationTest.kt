@@ -20,21 +20,26 @@ class ZToolSourceVerificationTest {
 
     @Test
     fun ownerSlashRepository_passes() {
+        assertTrue(isVerifiedSourceInput("ZTool-Project/ZUX-ZTool"))
+        assertTrue(isVerifiedSourceInput("ztool-project/zux-ztool"))
         assertTrue(isVerifiedSourceInput("qwqawa64/ZUX-ZTool"))
         assertTrue(isVerifiedSourceInput("QWQAWA64/zux-ztool"))
     }
 
     @Test
     fun fullGitHubUrl_passes() {
+        assertTrue(isVerifiedSourceInput("https://github.com/ZTool-Project/ZUX-ZTool"))
+        assertTrue(isVerifiedSourceInput("http://www.github.com/ZTool-Project/ZUX-ZTool/"))
         assertTrue(isVerifiedSourceInput("https://github.com/qwqawa64/ZUX-ZTool"))
         assertTrue(isVerifiedSourceInput("http://www.github.com/qwqawa64/ZUX-ZTool/"))
     }
 
     @Test
     fun gitHubUrlWithSuffix_passes() {
+        assertTrue(isVerifiedSourceInput("https://github.com/ZTool-Project/ZUX-ZTool/releases"))
         assertTrue(isVerifiedSourceInput("https://github.com/qwqawa64/ZUX-ZTool/releases"))
         assertTrue(isVerifiedSourceInput("https://github.com/qwqawa64/ZUX-ZTool/issues/12"))
-        assertTrue(isVerifiedSourceInput("github.com/qwqawa64/ZUX-ZTool/releases"))
+        assertTrue(isVerifiedSourceInput("github.com/ZTool-Project/ZUX-ZTool/releases"))
     }
 
     @Test

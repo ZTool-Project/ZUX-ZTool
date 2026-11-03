@@ -1,0 +1,79 @@
+name: Bridge legacy UpdateCheck.json
+
+# One-shot migration for installs that predate the release-feed model. Run this once,
+# after the first stable v* release has been published. Old clients read this file,
+# see a higher versionCode, and install the release; the new client never reads it.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Published stable release tag (e.g. v1.0.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  bridge:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout master
+        uses: actions/checkout@v7
+        with:
+          ref: master
+          fetch-depth: 0
+
+      - name: Read release identity
+        id: release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          gh release view "$TAG" --json isDraft,isPrerelease,name,url > release.json
+          if [[ "$(jq -r .isDraft release.json)" != "false" ]]; then
+            echo "::error::Release $TAG is still a draft"; exit 1
+          fi
+          if [[ "$(jq -r .isPrerelease release.json)" != "false" ]]; then
+            echo "::error::Only a stable release may be the legacy migration target"; exit 1
+          fi
+          name=$(jq -r .name release.json)
+          code=$(printf '%s' "$name" | grep -oE '\(c[0-9]+\)' | grep -oE '[0-9]+' || true)
+          if [[ -z "$code" ]]; then
+            echo "::error::Release name '$name' does not carry (c<versionCode>)"; exit 1
+          fi
+          url=$(jq -r .url release.json)
+          test -f "docs/changelog/${TAG}.md"
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+
+      - name: Write frozen legacy payload
+        env:
+          TAG: ${{ inputs.tag }}
+          CODE: ${{ steps.release.outputs.code }}
+          URL: ${{ steps.release.outputs.url }}
+        run: |
+          set -euo pipefail
+          old_code=$(jq -r '.newVersionCode // 0' UpdateCheck.json 2>/dev/null || echo 0)
+          if [[ "$CODE" -le "$old_code" ]]; then
+            echo "::error::New versionCode $CODE is not greater than the existing $old_code"; exit 1
+          fi
+          notes=$(sed -E 's/^#{1,6} //; s/^[-*] //; s/^> //; s/!\[[^]]*\]\([^)]*\)//g' "docs/changelog/${TAG}.md")
+          jq -n --arg name "$TAG" --argjson code "$CODE" --arg notes "$notes" --arg url "$URL" \
+            '{newVersionName: $name, newVersionCode: $code, whatNew: $notes, url: $url}' \
+            > UpdateCheck.json
+          cat UpdateCheck.json
+
+      - name: Commit and push
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- UpdateCheck.json; then
+            echo "UpdateCheck.json already current"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add UpdateCheck.json
+          git commit -m "updatecheck: bridge legacy clients to ${{ inputs.tag }}"
+          git push origin HEAD:master

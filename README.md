@@ -3,10 +3,10 @@
 <div align="center">
   <img src="/new_launcher_icon.jpg" alt="ZTool Logo" height="256px" width="256px">
 
-  <a href="https://github.com/qwqawa64/ZUX-ZTool"><img alt="Static Badge" src="https://img.shields.io/badge/GitHub-ZUX--ZTool-%23ADD8E6?style=for-the-badge"></a>
+  <a href="https://github.com/ZTool-Project/ZUX-ZTool"><img alt="Static Badge" src="https://img.shields.io/badge/GitHub-ZUX--ZTool-%23ADD8E6?style=for-the-badge"></a>
   <a href="https://github.com/LSPosed/LSPosed"><img alt="Static Badge" src="https://img.shields.io/badge/Framework-LSPosed-%23F48FB1?style=for-the-badge&color=%23F48FB1">
   <a href="https://www.zuxos.com/"><img alt="Static Badge" src="https://img.shields.io/badge/Target-ZUXOS%2FZUI-%23E2231A?style=for-the-badge"></a>
-  <a href="https://github.com/qwqawa64/ZUX-ZTool/commits/master/"><img alt="GitHub commits since latest release" src="https://img.shields.io/github/commits-since/qwqawa64/ZUX-ZTool/latest?style=for-the-badge"></a>
+  <a href="https://github.com/ZTool-Project/ZUX-ZTool/commits/master/"><img alt="GitHub commits since latest release" src="https://img.shields.io/github/commits-since/ZTool-Project/ZUX-ZTool/latest?style=for-the-badge"></a>
   </a>
 </div>
 
@@ -213,7 +213,7 @@ ZTool 是一个针对 ZUXOS 的 LSPosed 功能增强模块。
 
 ## 安装步骤
 
-1. 下载 [Releases](https://github.com/qwqawa64/ZUX-ZTool/releases) 中的最新APK文件
+1. 下载 [Releases](https://github.com/ZTool-Project/ZUX-ZTool/releases) 中的最新APK文件
 2. 安装并授予 Root 权限
 3. 在 LSPosed 管理器中启用并勾选作用域 APP
 4. 重启系统完成激活
@@ -221,9 +221,9 @@ ZTool 是一个针对 ZUXOS 的 LSPosed 功能增强模块。
 
 ## 获取测试版
 
-在项目的 [GitHub Actions](https://github.com/qwqawa64/ZUX-ZTool/actions) 页面可以获取尚未 Release 的测试版本。
+在应用内打开 设置 → 关于 ZTool，启用「接收测试版更新」即可接收 Beta 与 Canary 构建。每夜构建也会发布在 [Releases](https://github.com/ZTool-Project/ZUX-ZTool/releases) 页面。
 
-可以查看 [更新日志](/更新日志.txt) 了解最新功能变更。通过 [待办列表](/TODOS.md) 查看可能会被添加到新版本中的功能。
+各版本的更新日志位于 [docs/changelog](/docs/changelog)，通过 [待办列表](/TODOS.md) 查看可能会被添加到新版本中的功能。
 
 ## 注意事项
 

@@ -1,3 +1,8 @@
+# Legacy changelog (date-named releases)
+
+Archived from the former root `更新日志.txt`. Kept verbatim as the historical record of the
+`Beta/yyMMdd (cNNNN)` era; new releases use one file per version, named after the release tag.
+
 "Beta/261027" (c2333)
 修复：
 maxTiles Hook 失效
