@@ -34,7 +34,7 @@ jobs:
 
       # ---- 下载构建工作流产出的签名 Release APK 工件 ----
       - name: Download release APK artifact
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           pattern: ZTool-release-signed-apk-*
           merge-multiple: true
