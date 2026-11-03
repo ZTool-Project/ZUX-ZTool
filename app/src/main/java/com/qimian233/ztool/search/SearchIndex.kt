@@ -1976,11 +1976,6 @@ object SearchIndex {
             summaryRes = R.string.page_settings_about_zuxos_plus_summary
         ),
         aboutScreen.item(
-            id = "about_credit_github_acceleration",
-            titleRes = R.string.page_settings_credits_github_acceleration,
-            summaryRes = R.string.page_settings_credits_github_acceleration_site
-        ),
-        aboutScreen.item(
             id = "about_view_source",
             titleRes = R.string.page_settings_about_view_source_title
         ),

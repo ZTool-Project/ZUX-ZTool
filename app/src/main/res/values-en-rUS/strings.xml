@@ -1237,8 +1237,6 @@
     <string name="system_ui_animation_desktop_live_wallpaper_scale_mode_title">Video Display Mode</string>
     <string name="system_ui_animation_desktop_live_wallpaper_scale_mode_fit">Keep Aspect Ratio (Fit)</string>
     <string name="system_ui_animation_desktop_live_wallpaper_scale_mode_cover">Fill Screen (Crop)</string>
-    <string name="page_settings_credits_github_acceleration">GitHub Mirror</string>
-    <string name="page_settings_credits_github_acceleration_site">https://gh.absinthe.life/ delivers fast download and update check service for PRC region</string>
     <!-- Desktop multi-select batch uninstall -->
     <string name="launcher_launcher_batch_uninstall">Batch uninstall from desktop multi-select</string>
     <string name="page_uninstall_title">Batch Uninstall</string>

@@ -256,8 +256,6 @@ ZTool 是一个针对 ZUXOS 的 LSPosed 功能增强模块。
   - 最近任务显示内存信息
   - 支持在应用信息字段显示更多内容
 
-[gh.absinthe.life](https://gh.absinthe.life/) 为本应用的更新检查服务与 Release 下载提供加速。
-
 锁屏随机签名功能使用 [xygeng.cn 一言 API](https://api.xygeng.cn/one) 作为默认内容源。
 
 核心破解功能的设计目标来自项目 [核心破解](https://github.com/LSPosed/CorePatch) 。

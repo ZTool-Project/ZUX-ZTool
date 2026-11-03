@@ -1290,8 +1290,6 @@
     <string name="system_ui_animation_desktop_live_wallpaper_scale_mode_cover">铺满全屏（等比裁剪）</string>
     <string name="page_settings_credits_zuxos_plus" translatable="false">ZUXOS+</string>
     <string name="page_settings_credits_unfuck_zui" translatable="false">UnfuckZUI</string>
-    <string name="page_settings_credits_github_acceleration">GitHub 加速</string>
-    <string name="page_settings_credits_github_acceleration_site">https://gh.absinthe.life/ 用于本应用的更新检查服务和 release 下载加速</string>
     <!-- 桌面多选批量卸载 -->
     <string name="launcher_launcher_batch_uninstall">桌面多选批量卸载</string>
     <string name="page_uninstall_title">批量卸载</string>
