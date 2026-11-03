@@ -401,6 +401,11 @@ object SearchIndex {
         groupTitleRes = R.string.page_settings_about_ztool_title
     )
 
+    private val acknowledgementsScreen = Screen(
+        route = HiddenRoute.SETTINGS_ACKNOWLEDGEMENTS,
+        groupTitleRes = R.string.page_settings_about_acknowledgements_title
+    )
+
     val all: List<SearchEntry> = featureCards + listOf(
         systemUiHub.item(
             id = "system_ui_hub_status_bar",
@@ -1966,14 +1971,9 @@ object SearchIndex {
             summaryRes = R.string.page_settings_about_uuuddddl
         ),
         aboutScreen.item(
-            id = "about_credit_unfuck_zui",
-            titleRes = R.string.page_settings_credits_unfuck_zui,
-            summaryRes = R.string.page_settings_about_unfuckzui_summary
-        ),
-        aboutScreen.item(
-            id = "about_credit_zuxos_plus",
-            titleRes = R.string.page_settings_credits_zuxos_plus,
-            summaryRes = R.string.page_settings_about_zuxos_plus_summary
+            id = "about_acknowledgements",
+            titleRes = R.string.page_settings_about_acknowledgements_title,
+            summaryRes = R.string.page_settings_about_acknowledgements_entry_summary
         ),
         aboutScreen.item(
             id = "about_view_source",
@@ -1998,6 +1998,17 @@ object SearchIndex {
             id = "about_check_update",
             titleRes = R.string.page_settings_about_app_update_title,
             summaryRes = R.string.page_settings_about_app_update_placeholder_summary
+        ),
+
+        acknowledgementsScreen.item(
+            id = "about_credit_unfuck_zui",
+            titleRes = R.string.page_settings_credits_unfuck_zui,
+            summaryRes = R.string.page_settings_about_unfuckzui_summary
+        ),
+        acknowledgementsScreen.item(
+            id = "about_credit_zuxos_plus",
+            titleRes = R.string.page_settings_credits_zuxos_plus,
+            summaryRes = R.string.page_settings_about_zuxos_plus_summary
         )
     )
 

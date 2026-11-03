@@ -249,7 +249,7 @@
     <string name="page_settings_config_backup_success">配置已备份</string>
     <string name="page_settings_about_ztool_title">关于ZTool</string>
     <string name="page_settings_about_developers_title">开发者</string>
-    <string name="page_settings_about_acknowledgements_title">致谢</string>
+    <string name="page_settings_about_acknowledgements_title">致谢与开源许可</string>
     <string name="page_settings_about_project_info_title">项目信息</string>
     <string name="page_settings_about_app_update_section_title">应用更新</string>
     <string name="page_settings_about_app_update_title">检查应用更新</string>
@@ -270,6 +270,38 @@
     <string name="page_settings_about_uuuddddl">部分 Hook</string>
     <string name="page_settings_about_unfuckzui_summary">部分功能灵感和参考</string>
     <string name="page_settings_about_zuxos_plus_summary">部分功能灵感</string>
+    <string name="page_settings_about_acknowledgements_entry_summary">查看特别致谢与项目使用的开源软件</string>
+    <string name="page_settings_about_acknowledgements_special_thanks_title">特别致谢</string>
+    <string name="page_settings_about_acknowledgements_open_source_title">开源软件</string>
+    <string name="page_settings_about_acknowledgements_license_apache_2_0" translatable="false">Apache-2.0</string>
+    <string name="page_settings_about_acknowledgements_license_bsd_2_clause" translatable="false">BSD-2-Clause</string>
+    <string name="page_settings_about_acknowledgements_license_mit" translatable="false">MIT</string>
+    <string name="page_settings_about_acknowledgements_oss_androidx_name" translatable="false">AndroidX / Jetpack Compose</string>
+    <string name="page_settings_about_acknowledgements_oss_androidx_summary">Android 官方基础库，提供 Compose UI、Navigation、Lifecycle 等组件</string>
+    <string name="page_settings_about_acknowledgements_oss_kotlin_name" translatable="false">Kotlin</string>
+    <string name="page_settings_about_acknowledgements_oss_kotlin_summary">本项目使用的编程语言与标准库</string>
+    <string name="page_settings_about_acknowledgements_oss_miuix_name" translatable="false">Miuix</string>
+    <string name="page_settings_about_acknowledgements_oss_miuix_summary">面向 Compose Multiplatform 的 MIUI 风格界面组件库</string>
+    <string name="page_settings_about_acknowledgements_oss_material_color_name" translatable="false">Material Color Utilities</string>
+    <string name="page_settings_about_acknowledgements_oss_material_color_summary">Material You 动态取色与配色算法库</string>
+    <string name="page_settings_about_acknowledgements_oss_libxposed_name" translatable="false">libxposed API</string>
+    <string name="page_settings_about_acknowledgements_oss_libxposed_summary">现代 Xposed 模块 API，用于实现各应用的 Hook</string>
+    <string name="page_settings_about_acknowledgements_oss_dexkit_name" translatable="false">DexKit</string>
+    <string name="page_settings_about_acknowledgements_oss_dexkit_summary">高性能 Dex 反混淆与类、方法检索库</string>
+    <string name="page_settings_about_acknowledgements_oss_gson_name" translatable="false">Gson</string>
+    <string name="page_settings_about_acknowledgements_oss_gson_summary">Java 对象与 JSON 互转的序列化库</string>
+    <string name="page_settings_about_acknowledgements_oss_commonmark_name" translatable="false">commonmark-java</string>
+    <string name="page_settings_about_acknowledgements_oss_commonmark_summary">Markdown 解析与渲染库</string>
+    <string name="page_settings_about_acknowledgements_oss_lunar_name" translatable="false">Lunar</string>
+    <string name="page_settings_about_acknowledgements_oss_lunar_summary">农历、节气与传统日历计算库</string>
+    <string name="page_settings_about_acknowledgements_oss_tinypinyin_name" translatable="false">TinyPinyin</string>
+    <string name="page_settings_about_acknowledgements_oss_tinypinyin_summary">快速、低内存占用的汉字转拼音库</string>
+    <string name="page_settings_about_acknowledgements_oss_hidden_api_bypass_name" translatable="false">HiddenApiBypass</string>
+    <string name="page_settings_about_acknowledgements_oss_hidden_api_bypass_summary">绕过 Android 非 SDK 接口限制的库</string>
+    <string name="page_settings_about_acknowledgements_oss_gh_proxy_name" translatable="false">gh-proxy</string>
+    <string name="page_settings_about_acknowledgements_oss_gh_proxy_summary">GitHub Release、Archive 与项目文件的加速服务</string>
+    <string name="page_settings_about_acknowledgements_oss_leakcanary_name" translatable="false">LeakCanary</string>
+    <string name="page_settings_about_acknowledgements_oss_leakcanary_summary">Debug 构建使用的 Android 内存泄漏检测工具</string>
     <string name="page_settings_final_confirmation_title">最后一次确认</string>
     <string name="page_settings_restore_default_confirmation">你确定要恢复默认配置吗？这将重置所有设置到初始状态。</string>
     <string name="page_settings_default_config_restored">已恢复默认配置</string>

@@ -1049,7 +1049,7 @@
     <string name="system_ui_volume_detail_panel_title">Volume detail panel</string>
     <string name="system_ui_control_center_hide_detail_indicator_title">Hide tile detail indicator buttons</string>
     <string name="page_settings_about_developers_title">Developers</string>
-    <string name="page_settings_about_acknowledgements_title">Credits</string>
+    <string name="page_settings_about_acknowledgements_title">Credits &amp; Open Source</string>
     <string name="page_settings_about_app_update_latest_summary">You are using the latest version</string>
     <string name="page_settings_about_app_update_failed_summary">Check failed: %1$s, tap to retry</string>
     <string name="page_settings_about_view_source_title">Review source code on our GitHub</string>
@@ -1063,7 +1063,39 @@
     <string name="page_settings_about_qimian233_summary">Initiator, Hooks and User Interface</string>
     <string name="page_settings_about_wasd_destroy_summary">Hooks and User Interface</string>
     <string name="page_settings_about_uuuddddl">Hooks</string>
-    <string name="page_settings_about_unfuckzui_summary">Fearure references and inspirations</string>
+    <string name="page_settings_about_unfuckzui_summary">Feature references and inspirations</string>
+    <string name="page_settings_about_acknowledgements_entry_summary">View special thanks and the open-source software used by this project</string>
+    <string name="page_settings_about_acknowledgements_special_thanks_title">Special Thanks</string>
+    <string name="page_settings_about_acknowledgements_open_source_title">Open Source Software</string>
+    <string name="page_settings_about_acknowledgements_license_apache_2_0" translatable="false">Apache-2.0</string>
+    <string name="page_settings_about_acknowledgements_license_bsd_2_clause" translatable="false">BSD-2-Clause</string>
+    <string name="page_settings_about_acknowledgements_license_mit" translatable="false">MIT</string>
+    <string name="page_settings_about_acknowledgements_oss_androidx_name" translatable="false">AndroidX / Jetpack Compose</string>
+    <string name="page_settings_about_acknowledgements_oss_androidx_summary">Official Android support libraries providing Compose UI, Navigation, Lifecycle, and more</string>
+    <string name="page_settings_about_acknowledgements_oss_kotlin_name" translatable="false">Kotlin</string>
+    <string name="page_settings_about_acknowledgements_oss_kotlin_summary">The programming language and standard library used by this project</string>
+    <string name="page_settings_about_acknowledgements_oss_miuix_name" translatable="false">Miuix</string>
+    <string name="page_settings_about_acknowledgements_oss_miuix_summary">A MIUI-style UI component library for Compose Multiplatform</string>
+    <string name="page_settings_about_acknowledgements_oss_material_color_name" translatable="false">Material Color Utilities</string>
+    <string name="page_settings_about_acknowledgements_oss_material_color_summary">Material You dynamic color and color-scheme algorithms</string>
+    <string name="page_settings_about_acknowledgements_oss_libxposed_name" translatable="false">libxposed API</string>
+    <string name="page_settings_about_acknowledgements_oss_libxposed_summary">Modern Xposed module API used to implement per-app hooks</string>
+    <string name="page_settings_about_acknowledgements_oss_dexkit_name" translatable="false">DexKit</string>
+    <string name="page_settings_about_acknowledgements_oss_dexkit_summary">High-performance Dex deobfuscation and class/method lookup library</string>
+    <string name="page_settings_about_acknowledgements_oss_gson_name" translatable="false">Gson</string>
+    <string name="page_settings_about_acknowledgements_oss_gson_summary">Java serialization library for converting objects to and from JSON</string>
+    <string name="page_settings_about_acknowledgements_oss_commonmark_name" translatable="false">commonmark-java</string>
+    <string name="page_settings_about_acknowledgements_oss_commonmark_summary">Java library for parsing and rendering Markdown</string>
+    <string name="page_settings_about_acknowledgements_oss_lunar_name" translatable="false">Lunar</string>
+    <string name="page_settings_about_acknowledgements_oss_lunar_summary">Library for lunar, solar-term, and traditional Chinese calendar calculations</string>
+    <string name="page_settings_about_acknowledgements_oss_tinypinyin_name" translatable="false">TinyPinyin</string>
+    <string name="page_settings_about_acknowledgements_oss_tinypinyin_summary">Fast, low-memory Chinese character-to-Pinyin library</string>
+    <string name="page_settings_about_acknowledgements_oss_hidden_api_bypass_name" translatable="false">HiddenApiBypass</string>
+    <string name="page_settings_about_acknowledgements_oss_hidden_api_bypass_summary">Library that bypasses Android non-SDK interface restrictions</string>
+    <string name="page_settings_about_acknowledgements_oss_gh_proxy_name" translatable="false">gh-proxy</string>
+    <string name="page_settings_about_acknowledgements_oss_gh_proxy_summary">Acceleration service for GitHub releases, archives, and project files</string>
+    <string name="page_settings_about_acknowledgements_oss_leakcanary_name" translatable="false">LeakCanary</string>
+    <string name="page_settings_about_acknowledgements_oss_leakcanary_summary">Android memory-leak detection tool used in debug builds</string>
     <string name="ztool_ram_formatter" tools:ignore="UnusedResources">%1$s Used | %2$s</string>
     <string name="ztool_media_output_label" tools:ignore="UnusedResources">Media output</string>
     <string name="launcher_beautify_ram_info">Beautify total RAM info</string>

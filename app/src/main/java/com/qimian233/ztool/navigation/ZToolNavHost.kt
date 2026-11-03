@@ -37,6 +37,7 @@ import com.qimian233.ztool.screens.lsfdevice.DeviceServiceSettingsRoute
 import com.qimian233.ztool.screens.ztoolsettings.SettingsMainRoute
 import com.qimian233.ztool.screens.ztoolsettings.about.SettingsAboutRoute
 import com.qimian233.ztool.screens.ztoolsettings.about.SettingsAboutRouteName
+import com.qimian233.ztool.screens.ztoolsettings.about.SettingsAcknowledgementsRoute
 import com.qimian233.ztool.screens.ztoolsettings.advanced.EngineeringCodesRoute
 import com.qimian233.ztool.screens.ztoolsettings.advanced.PreferenceEditorRoute
 import com.qimian233.ztool.screens.ztoolsettings.advanced.SettingsAdvancedRoute
@@ -305,6 +306,30 @@ internal fun MainRouteNavHost(
                 onBack = {
                     if (!navController.popBackStack()) {
                         navController.navigate(MainRoute.Settings.name) {
+                            launchSingleTop = true
+                        }
+                    }
+                },
+                onOpenAcknowledgements = {
+                    navController.navigate(HiddenRoute.SETTINGS_ACKNOWLEDGEMENTS) {
+                        launchSingleTop = true
+                    }
+                },
+                targetId = backStackEntry.highlightTarget(),
+            )
+        }
+        composable(
+            route = routeWithTarget(HiddenRoute.SETTINGS_ACKNOWLEDGEMENTS),
+            enterTransition = horizontalEnter,
+            exitTransition = horizontalExit,
+            popEnterTransition = horizontalPopEnter,
+            popExitTransition = horizontalPopExit,
+            arguments = highlightTargetArguments
+        ) { backStackEntry ->
+            SettingsAcknowledgementsRoute(
+                onBack = {
+                    if (!navController.popBackStack()) {
+                        navController.navigate(HiddenRoute.SETTINGS_ABOUT) {
                             launchSingleTop = true
                         }
                     }
@@ -1010,6 +1035,7 @@ private fun navigationRouteIndex(rawRoute: String?): Int {
         MainRoute.Settings.name -> 3
         HiddenRoute.SETTINGS_THEME -> 4
         HiddenRoute.SETTINGS_ABOUT -> 4
+        HiddenRoute.SETTINGS_ACKNOWLEDGEMENTS -> 5
         HiddenRoute.SETTINGS_ADVANCED -> 4
         HiddenRoute.SETTINGS_MISC -> 4
         HiddenRoute.SETTINGS_ENGINEERING_CODES -> 5

@@ -22,6 +22,7 @@ internal enum class MainRoute(
 internal object HiddenRoute {
     const val SETTINGS_THEME = "SettingsTheme"
     const val SETTINGS_ABOUT = "SettingsAbout"
+    const val SETTINGS_ACKNOWLEDGEMENTS = "SettingsAcknowledgements"
     const val SETTINGS_ADVANCED = "SettingsAdvanced"
     const val SETTINGS_MISC = "SettingsMisc"
     const val SETTINGS_ENGINEERING_CODES = "SettingsEngineeringCodes"

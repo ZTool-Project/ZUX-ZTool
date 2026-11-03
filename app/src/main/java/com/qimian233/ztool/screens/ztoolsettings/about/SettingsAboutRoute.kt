@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -73,6 +74,7 @@ import com.qimian233.ztool.viewmodel.UpdateInfo
 @Composable
 fun SettingsAboutRoute(
     onBack: () -> Unit,
+    onOpenAcknowledgements: () -> Unit,
     targetId: String? = null
 ) {
     val context = LocalContext.current
@@ -110,8 +112,7 @@ fun SettingsAboutRoute(
             highlightRegistry = highlightRegistry,
             onOpenGithub = { openExternalLink(context, ZToolSource.GITHUB_URL) },
             onOpenGithubIssues = { openExternalLink(context, "${ZToolSource.GITHUB_URL}/issues") },
-            onOpenUnfuckZUI = { openExternalLink(context, "https://github.com/dantmnf/UnfuckZUI") },
-            onOpenZuxOsPlus = { openExternalLink(context, "https://github.com/morannlx/me.inkdye.zuxos") },
+            onOpenAcknowledgements = onOpenAcknowledgements,
             onOpenQimian233 = {
             openExternalLink(
                 context,
@@ -148,8 +149,7 @@ private fun SettingsAboutScreen(
     onBack: () -> Unit,
     onOpenGithub: () -> Unit,
     onOpenGithubIssues: () -> Unit,
-    onOpenUnfuckZUI: () -> Unit,
-    onOpenZuxOsPlus: () -> Unit,
+    onOpenAcknowledgements: () -> Unit,
     onOpenQimian233: () -> Unit,
     onOpenWasdDestroy: () -> Unit,
     onCheckUpdate: () -> Unit,
@@ -255,24 +255,7 @@ private fun SettingsAboutScreen(
                     )
                 }
                 Spacer(modifier = Modifier.height(16.dp))
-                AboutSectionCard(stringResource(R.string.page_settings_about_acknowledgements_title), 2) { getModifier ->
-                    AboutActionRow(
-                        title = stringResource(R.string.page_settings_credits_unfuck_zui),
-                        summary = stringResource(R.string.page_settings_about_unfuckzui_summary),
-                        onClick = onOpenUnfuckZUI,
-                        highlightKey = "about_credit_unfuck_zui",
-                        modifier = getModifier(0)
-                    )
-                    AboutActionRow(
-                        title = stringResource(R.string.page_settings_credits_zuxos_plus),
-                        summary = stringResource(R.string.page_settings_about_zuxos_plus_summary),
-                        onClick = onOpenZuxOsPlus,
-                        highlightKey = "about_credit_zuxos_plus",
-                        modifier = getModifier(1),
-                    )
-                }
-                Spacer(modifier = Modifier.height(16.dp))
-                AboutSectionCard(stringResource(R.string.page_settings_about_project_info_title), 4) { getModifier ->
+                AboutSectionCard(stringResource(R.string.page_settings_about_project_info_title), 5) { getModifier ->
                     AboutActionRow(
                         title = stringResource(R.string.page_settings_about_view_source_title),
                         summary = null,
@@ -299,11 +282,18 @@ private fun SettingsAboutScreen(
                         modifier = getModifier(2)
                     )
                     AboutActionRow(
+                        title = stringResource(R.string.page_settings_about_acknowledgements_title),
+                        summary = stringResource(R.string.page_settings_about_acknowledgements_entry_summary),
+                        onClick = onOpenAcknowledgements,
+                        highlightKey = "about_acknowledgements",
+                        modifier = getModifier(3)
+                    )
+                    AboutActionRow(
                         title = stringResource(R.string.page_settings_about_user_agreement_title),
                         summary = stringResource(R.string.page_settings_about_user_agreement_summary),
                         onClick = { showAgreementDialog = true },
                         highlightKey = "about_user_agreement",
-                        modifier = getModifier(3)
+                        modifier = getModifier(4)
                     )
                 }
                 Spacer(modifier = Modifier.height(16.dp))
@@ -423,7 +413,7 @@ private fun AboutSectionContainer(
 }
 
 @Composable
-private fun AboutSectionCard(
+internal fun AboutSectionCard(
     title: String,
     @Suppress("SameParameterValue") itemCount: Int,
     content: @Composable ColumnScope.(getModifier: (Int) -> Modifier) -> Unit
@@ -459,12 +449,13 @@ private fun AboutSectionCard(
 }
 
 @Composable
-private fun AboutActionRow(
+internal fun AboutActionRow(
     title: String,
     summary: String?,
     onClick: (() -> Unit)?,
     modifier: Modifier = Modifier,
     showTrailingArrow: Boolean = true,
+    trailingLabel: String? = null,
     highlightKey: String? = null
 ) {
     HighlightableSettingRow(highlightKey = highlightKey, modifier = modifier) {
@@ -473,13 +464,23 @@ private fun AboutActionRow(
             summary = summary,
             onClick = onClick,
             modifier = Modifier,
-            trailingContent = if (showTrailingArrow) {
+            trailingContent = if (showTrailingArrow || trailingLabel != null) {
                 {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
-                        contentDescription = null,
-                        tint = LocalZToolColorScheme.current.onSurfaceVariant
-                    )
+                    if (trailingLabel != null) {
+                        Text(
+                            text = trailingLabel,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = LocalZToolColorScheme.current.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                    }
+                    if (showTrailingArrow) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
+                            contentDescription = null,
+                            tint = LocalZToolColorScheme.current.onSurfaceVariant
+                        )
+                    }
                 }
             } else null
         )
