@@ -39,7 +39,7 @@ jobs:
       - name: Restore previous build commit SHA
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         id: cache-restore
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: .last-build-sha
           key: nightly-commit-sha-master-${{ github.run_id }}
@@ -89,7 +89,7 @@ jobs:
       # ---- 只在需要构建时才 setup JDK 和准备 gradlew ----
       - name: Set up JDK 17
         if: steps.check.outputs.should_build == 'true'
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v6
         with:
           java-version: '17'
           distribution: 'temurin'
@@ -164,7 +164,7 @@ jobs:
 
       - name: Save cache
         if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && steps.check.outputs.should_build == 'true'
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v6
         with:
           path: .last-build-sha
           key: nightly-commit-sha-master-${{ github.run_id }}

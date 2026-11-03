@@ -1,0 +1,32 @@
+# Dependabot configuration for ZUX-ZTool.
+# Place at: .github/dependabot.yml in the NEW repository.
+# (The house commit convention in .gitmessage already defines a `deps` type
+# for these PRs; this file is what makes them actually arrive.)
+version: 2
+updates:
+  - package-ecosystem: "gradle"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    groups:
+      androidx:
+        patterns:
+          - "androidx.*"
+      kotlin-and-compose:
+        patterns:
+          - "org.jetbrains.kotlin*"
+          - "androidx.compose*"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps"
