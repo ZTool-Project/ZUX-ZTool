@@ -20,12 +20,34 @@ page.
 Canary releases do not use a file here; the nightly workflow builds their body from the commit
 range since the previous canary.
 
+## Version bumps
+
+`ztool.version.base` in `gradle.properties` is the numeric core currently in development. It is
+the source for every non-explicit build name:
+
+| Build | Name source |
+|---|---|
+| nightly canary | `v<base>-canary.<yyMMdd>` — follows a base bump automatically |
+| local / PR dev | `v<base>-dev.<hash>` — follows automatically |
+| beta / rc / stable | `version` input to **Draft a Release**, validated against `<base>` |
+
+So a bump to `2.0.0` is a normal commit that changes only the base. Canary and dev builds pick it
+up on their next run. The draft-release workflow refuses a beta/stable version whose numeric core
+does not equal the base, so the three channels cannot silently drift.
+
+Keep the base at the version being stabilised until that stable release is published, then bump
+again for the next cycle. Do not bump before running the release workflow: the workflow builds the
+checked-out commit, and the guard compares that commit's base with the input.
+
 ## Cutting a release
 
-1. Create `docs/changelog/v<version>.md` (copy `TEMPLATE.md`).
-2. Run **Draft a Release** with `version` = `<version>` (no leading `v`) and review the draft.
-3. Publish the draft. The tag, release name `<version> (c<count>)` and APK are produced by CI.
-4. For the first stable release only, run **Bridge legacy UpdateCheck.json** with tag
+1. (New cycle only) commit the `ztool.version.base` bump, e.g. `2.0.0`.
+2. Create `docs/changelog/v<version>.md` (copy `TEMPLATE.md`).
+3. Run **Draft a Release** with `version` = `<version>` (no leading `v`) and review the draft.
+   Beta and rc versions use the same numeric core as the base (`2.0.0-beta.1` while base is
+   `2.0.0`).
+4. Publish the draft. The tag, release name `<version> (c<count>)` and APK are produced by CI.
+5. For the first stable release only, run **Bridge legacy UpdateCheck.json** with tag
    `v<version>` so installs from the JSON era can migrate.
-5. Bump `ztool.version.base` in `gradle.properties` when the next release cycle opens; nightly
-   canaries use it as their base version.
+6. After publishing the stable release, bump `ztool.version.base` to the next cycle's core
+   (`2.1.0`, or `2.0.1` for a patch cycle) so canaries stop advertising the released version.

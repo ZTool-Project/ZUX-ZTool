@@ -29,6 +29,17 @@ jobs:
             echo "::error::Invalid version '$version' (expected X.Y.Z or X.Y.Z-suffix)"
             exit 1
           fi
+          base=$(sed -n 's/^ztool\.version\.base=//p' gradle.properties | tr -d '[:space:]')
+          if [[ ! "$base" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::ztool.version.base is missing or invalid: '$base'"
+            exit 1
+          fi
+          core="${version%%-*}"
+          if [[ "$core" != "$base" ]]; then
+            echo "::error::Release $version does not match ztool.version.base=$base."
+            echo "Bump ztool.version.base in gradle.properties on the release commit, and bump it again after publishing."
+            exit 1
+          fi
           file="docs/changelog/v${version}.md"
           if [[ ! -f "$file" ]]; then
             echo "::error::Missing release notes file: $file"

@@ -128,7 +128,7 @@ possible: installed clients keep working while they are moved to the new model.
 | Identity | Source of truth | Example | Invariant |
 |---|---|---|---|
 | `versionCode` | `git rev-list --count HEAD` at configuration time | `2471` | strictly increasing while history is append-only |
-| `versionName` | Gradle property / CI tag | `v1.0.0`, `v1.0.0-beta.2`, `v1.1.0-canary.20261120` | equals the release tag |
+| `versionName` | `ztool.version.base` for canary/dev; validated CI input for stable/beta | `v1.0.0`, `v1.0.0-beta.2`, `v1.1.0-canary.20261120` | equals the release tag |
 | Release tag | CI input, immutable for stable/beta | same as `versionName` | never reused |
 | Release name | CI-generated | `v1.0.0 (c2471)` | `(c<code>)` is the machine-readable counter |
 | Channel | pre-release identifier of the tag | `stable` / `beta` / `canary` | derived, never stored in a file |
@@ -144,8 +144,15 @@ ZTOOL_BUILD_CHANNEL=canary            v<base>-canary.<yyMMdd>
 otherwise                             v<base>-dev.<shortHash>
 ```
 
-`ztool.version.base` lives in `gradle.properties` and is bumped when a release cycle opens. A
-nightly rebuilt twice on one day has the same name but a higher code; that is fine, because the
+`ztool.version.base` lives in `gradle.properties` and is the declared numeric core in
+development, not a value known only to CI. A bump to `2.0.0` is a normal commit: the next nightly
+canary becomes `v2.0.0-canary.<yyMMdd>` and dev builds become `v2.0.0-dev.<hash>` with no workflow
+change. Stable/beta tags are still supplied to **Draft a Release** (the changelog file and release
+notes are keyed by the full tag), but the workflow refuses a version whose numeric core does not
+equal the base. The practical order is: bump the base when the cycle opens, keep it through the
+last beta/stable release of that cycle, then bump it again for the next cycle.
+
+A nightly rebuilt twice on one day has the same name but a higher code; that is fine, because the
 comparison is code-based.
 
 ### 4.2 Channels
