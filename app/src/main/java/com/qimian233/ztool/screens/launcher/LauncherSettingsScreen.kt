@@ -36,6 +36,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import com.qimian233.ztool.R
+import com.qimian233.ztool.data.launcher.IconPackInfo
 import com.qimian233.ztool.data.launcher.LauncherPreviewRepository
 import com.qimian233.ztool.data.launcher.LauncherRestartResult
 import com.qimian233.ztool.data.launcher.LauncherSettingsRepository
@@ -145,6 +146,8 @@ fun LauncherSettingsRoute(
             onWideGridParityPreset = viewModel::applyColorOsSideInsetPreset,
             onIconScaleOverrideChanged = viewModel::setIconScaleOverride,
             onIconScaleValueChanged = viewModel::setIconScaleValue,
+            onIconPackEnabledChanged = viewModel::setIconPackEnabled,
+            onIconPackPackageChanged = viewModel::setIconPackPackage,
             scrollState = scrollState,
             highlightRegistry = highlightRegistry
         )
@@ -231,6 +234,8 @@ private fun LauncherSettingsScreen(
     onWideGridParityPreset: () -> Unit,
     onIconScaleOverrideChanged: (Boolean) -> Unit,
     onIconScaleValueChanged: (Float) -> Unit,
+    onIconPackEnabledChanged: (Boolean) -> Unit,
+    onIconPackPackageChanged: (String) -> Unit,
     scrollState: ScrollState,
     highlightRegistry: HighlightAnchorRegistry,
 ) {
@@ -305,6 +310,8 @@ private fun LauncherSettingsScreen(
                         onWideGridParityPreset = onWideGridParityPreset,
                         onIconScaleOverrideChanged = onIconScaleOverrideChanged,
                         onIconScaleValueChanged = onIconScaleValueChanged,
+                        onIconPackEnabledChanged = onIconPackEnabledChanged,
+                        onIconPackPackageChanged = onIconPackPackageChanged,
                     ),
                     bottomPadding = 96.dp,
                     highlightRegistry = highlightRegistry
@@ -347,6 +354,8 @@ private fun launcherSettingsSections(
     onWideGridParityPreset: () -> Unit,
     onIconScaleOverrideChanged: (Boolean) -> Unit,
     onIconScaleValueChanged: (Float) -> Unit,
+    onIconPackEnabledChanged: (Boolean) -> Unit,
+    onIconPackPackageChanged: (String) -> Unit,
 ): List<SettingSection> {
 
     val launcherLayoutItems = buildList {
@@ -632,6 +641,29 @@ private fun launcherSettingsSections(
                 )
             )
         }
+        add(
+            SettingItem.Switch(
+                title = stringResource(R.string.launcher_icon_pack_title),
+                summary = stringResource(R.string.launcher_icon_pack_summary),
+                checked = state.iconPackEnabled,
+                onCheckedChange = onIconPackEnabledChanged,
+                key = "launcher_icon_pack"
+            )
+        )
+        if (state.iconPackEnabled) {
+            add(
+                SettingItem.Custom(
+                    key = "launcher_icon_pack_package",
+                    content = {
+                        IconPackRow(
+                            packs = state.iconPacks,
+                            selectedPackage = state.iconPackPackage,
+                            onSelect = onIconPackPackageChanged
+                        )
+                    }
+                )
+            )
+        }
     }
 
     val dockBarLayoutItems = buildList {
@@ -821,6 +853,37 @@ private fun WhitelistRow(
         )
     }
 }
+
+@Composable
+private fun IconPackRow(
+    packs: List<IconPackInfo>,
+    selectedPackage: String,
+    onSelect: (String) -> Unit
+) {
+    val defaultLabel = stringResource(R.string.launcher_icon_pack_default)
+    val emptyLabel = stringResource(R.string.launcher_icon_pack_none_installed)
+    val options = remember(packs, defaultLabel) {
+        buildList {
+            add(IconPackChoice("", defaultLabel))
+            packs.forEach { add(IconPackChoice(it.packageName, it.label)) }
+        }
+    }
+    val value = options.firstOrNull { it.packageName == selectedPackage }?.label ?: defaultLabel
+    ZToolPopupMenuSettingRow(
+        title = stringResource(R.string.launcher_icon_pack_package_title),
+        summary = if (packs.isEmpty()) {
+            emptyLabel
+        } else {
+            stringResource(R.string.launcher_icon_pack_package_summary)
+        },
+        value = value,
+        options = options,
+        optionLabel = { it.label },
+        onOptionSelected = { onSelect(it.packageName) }
+    )
+}
+
+private data class IconPackChoice(val packageName: String, val label: String)
 
 @Composable
 private fun GridSliderRow(

@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.qimian233.ztool.data.keys.PreferenceKeys
 import com.qimian233.ztool.data.launcher.ExternalGridInputs
 import com.qimian233.ztool.data.launcher.GridCounts
+import com.qimian233.ztool.data.launcher.IconPackInfo
 import com.qimian233.ztool.data.launcher.LauncherGridResolver
 import com.qimian233.ztool.data.launcher.LauncherPreviewRepository
 import com.qimian233.ztool.data.launcher.LauncherRestartResult
@@ -35,7 +36,23 @@ class LauncherSettingsViewModel(
         } catch (e: Exception) {
             Log.e(TAG, "Failed to load launcher settings", e)
         }
+        loadInstalledIconPacks()
         refreshExternalGridInputs()
+    }
+
+    /** PackageManager queries are off-main; the picker simply appears when done. */
+    private fun loadInstalledIconPacks() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val packs = try {
+                repository.loadInstalledIconPacks()
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to load icon packs", e)
+                emptyList()
+            }
+            withContext(Dispatchers.Main) {
+                _uiState.value = _uiState.value.copy(iconPacks = packs)
+            }
+        }
     }
 
     /** Reads the launcher-side layout facts, then re-resolves the preview grid. */
@@ -244,6 +261,16 @@ class LauncherSettingsViewModel(
         repository.saveIconScaleValue(scale)
     }
 
+    fun setIconPackEnabled(enabled: Boolean) {
+        _uiState.value = _uiState.value.copy(iconPackEnabled = enabled)
+        repository.saveIconPackEnabled(enabled)
+    }
+
+    fun setIconPackPackage(packageName: String) {
+        _uiState.value = _uiState.value.copy(iconPackPackage = packageName)
+        repository.saveIconPackPackage(packageName)
+    }
+
     fun setDisableDockBar(enabled: Boolean) {
         val showWarning = repository.saveDisableDockBar(enabled)
         val current = _uiState.value
@@ -357,6 +384,10 @@ data class LauncherSettingsUiState(
     val wideGridSideInset: Int = 0,
     val iconScaleOverride: Boolean = false,
     val iconScaleValue: Float = 1.0f,
+    val iconPackEnabled: Boolean = false,
+    /** Selected icon pack package name; empty means "no icon pack". */
+    val iconPackPackage: String = "",
+    val iconPacks: List<IconPackInfo> = emptyList(),
     /** Fallback until the launcher-side layout facts are read; see [LauncherGridResolver]. */
     val previewGrid: GridCounts = LauncherGridResolver.FALLBACK,
 ) {

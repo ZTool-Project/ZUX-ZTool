@@ -1,6 +1,7 @@
 package com.qimian233.ztool.data.launcher
 
 import android.content.Context
+import android.content.Intent
 import android.content.pm.ApplicationInfo
 import com.qimian233.ztool.data.features.FeatureDestination
 import com.qimian233.ztool.utils.ModulePreferencesUtils
@@ -80,7 +81,9 @@ class LauncherSettingsRepository(
                 .coerceIn(WIDE_GRID_INSET_MIN, WIDE_GRID_INSET_MAX),
             iconScaleOverride = prefsUtils.loadBooleanSetting(KEY_LAUNCHER_ICON_SCALE_OVERRIDE, false),
             iconScaleValue = prefsUtils.loadFloatSetting(KEY_LAUNCHER_ICON_SCALE_VALUE, ICON_SCALE_DEFAULT)
-                .coerceIn(ICON_SCALE_MIN, ICON_SCALE_MAX)
+                .coerceIn(ICON_SCALE_MIN, ICON_SCALE_MAX),
+            iconPackEnabled = prefsUtils.loadBooleanSetting(KEY_LAUNCHER_ICON_PACK, false),
+            iconPackPackage = prefsUtils.loadStringSetting(KEY_LAUNCHER_ICON_PACK_PACKAGE, "")
         )
     }
 
@@ -249,6 +252,33 @@ class LauncherSettingsRepository(
         )
     }
 
+    fun saveIconPackEnabled(enabled: Boolean) {
+        prefsUtils.saveBooleanSetting(KEY_LAUNCHER_ICON_PACK, enabled)
+    }
+
+    fun saveIconPackPackage(packageName: String) {
+        prefsUtils.saveStringSetting(KEY_LAUNCHER_ICON_PACK_PACKAGE, packageName.trim())
+    }
+
+    /** Installed ADW / CandyBar icon packs, one entry per package, sorted by label. */
+    fun loadInstalledIconPacks(): List<IconPackInfo> {
+        val packageManager = context.packageManager
+        val resolved = try {
+            packageManager.queryIntentActivities(Intent(ICON_PACK_ACTION), 0)
+        } catch (t: Throwable) {
+            return emptyList()
+        }
+        return resolved.mapNotNull { info ->
+            val packageName = info.activityInfo?.packageName ?: return@mapNotNull null
+            val label = info.loadLabel(packageManager).toString().trim()
+                .takeIf { it.isNotEmpty() }
+                ?: packageName
+            IconPackInfo(packageName, label)
+        }
+            .distinctBy { it.packageName }
+            .sortedBy { it.label.lowercase() }
+    }
+
     fun saveDisableDockBar(enabled: Boolean): Boolean {
         val previousMoreBigDock = prefsUtils.loadBooleanSetting(KEY_ZUI_LAUNCHER_HOTSEAT, false)
         prefsUtils.saveBooleanSetting(KEY_ZUI_LAUNCHER_HOTSEAT_BACKUP, previousMoreBigDock)
@@ -376,6 +406,11 @@ class LauncherSettingsRepository(
         private val KEY_LAUNCHER_WIDE_GRID_SIDE_INSET = PreferenceKeys.LAUNCHER_WIDE_GRID_SIDE_INSET.name
         private val KEY_LAUNCHER_ICON_SCALE_OVERRIDE = PreferenceKeys.LAUNCHER_ICON_SCALE_OVERRIDE.name
         private val KEY_LAUNCHER_ICON_SCALE_VALUE = PreferenceKeys.LAUNCHER_ICON_SCALE_VALUE.name
+        private val KEY_LAUNCHER_ICON_PACK = PreferenceKeys.LAUNCHER_ICON_PACK.name
+        private val KEY_LAUNCHER_ICON_PACK_PACKAGE = PreferenceKeys.LAUNCHER_ICON_PACK_PACKAGE.name
+
+        /** Intent action declared by ADW / CandyBar icon packs. */
+        private const val ICON_PACK_ACTION = "org.adw.launcher.THEMES"
 
         // Icon scale slider bounds; the hook bypasses the launcher's 0.6~1.3 clamp,
         // so the UI range is the authoritative one.
@@ -389,3 +424,6 @@ sealed interface LauncherRestartResult {
     data object Success : LauncherRestartResult
     data class Failure(val error: String) : LauncherRestartResult
 }
+
+/** One installed third-party icon pack, as listed in the picker. */
+data class IconPackInfo(val packageName: String, val label: String)

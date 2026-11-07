@@ -646,6 +646,12 @@
     <string name="launcher_app_icon_unmask_summary">Third-party icon pack icons are no longer re-cropped by the system shape and render as original squares. Clear launcher data to rebuild cached icons if unchanged</string>
     <string name="launcher_app_icon_unmask_dynamic_title">Include dynamic icons</string>
     <string name="launcher_app_icon_unmask_dynamic_summary">Also render clock and other dynamic icons in original style. Note: rebuilding them as static bitmaps freezes the clock hands</string>
+    <string name="launcher_icon_pack_title">Third-party icon pack</string>
+    <string name="launcher_icon_pack_summary">Replace launcher and app drawer icons with an ADW / CandyBar icon pack; unmapped apps keep their own icons</string>
+    <string name="launcher_icon_pack_package_title">Icon pack</string>
+    <string name="launcher_icon_pack_package_summary">Pick an installed ADW / CandyBar icon pack</string>
+    <string name="launcher_icon_pack_default">Default (no icon pack)</string>
+    <string name="launcher_icon_pack_none_installed">No installed icon pack found</string>
     <string name="launcher_wide_grid_title">Widen desktop grid</string>
     <string name="launcher_wide_grid_summary">Extend the icon grid towards the left and right screen edges to use the full desktop width.</string>
     <string name="launcher_wide_grid_square_title">Square grid cells</string>

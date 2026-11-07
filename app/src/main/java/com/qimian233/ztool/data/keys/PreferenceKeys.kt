@@ -238,6 +238,9 @@ object PreferenceKeys {
     val LAUNCHER_WIDE_GRID = BoolKey("launcher_wide_grid", false)
     val LAUNCHER_WIDE_GRID_SQUARE = BoolKey("launcher_wide_grid_square", false)
     val LAUNCHER_ICON_SCALE_OVERRIDE = BoolKey("launcher_icon_scale_override", false)
+    // Third-party ADW / CandyBar icon pack; the package key is the selected pack, empty = none.
+    val LAUNCHER_ICON_PACK = BoolKey("launcher_icon_pack", false)
+    val LAUNCHER_ICON_PACK_PACKAGE = StringKey("launcher_icon_pack_package", "")
 
     // Launcher sub-feature switches + internal keys
     val REMOVE_HOT_WORD_VIEW = BoolKey("remove_hot_word_view", false)

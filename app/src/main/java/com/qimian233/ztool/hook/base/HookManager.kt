@@ -32,6 +32,7 @@ import com.qimian233.ztool.hook.modules.launcher.misc.BatchUninstall
 import com.qimian233.ztool.hook.modules.launcher.misc.CleanGlobalSearch
 import com.qimian233.ztool.hook.modules.launcher.misc.DisableForceStop
 import com.qimian233.ztool.hook.modules.launcher.LauncherAppIconUnmaskHook
+import com.qimian233.ztool.hook.modules.launcher.LauncherIconPackHook
 import com.qimian233.ztool.hook.modules.launcher.misc.RecentTaskMemoryViewHook
 import com.qimian233.ztool.hook.modules.desktoplauncher.PcAllAppsPortraitGrid
 import com.qimian233.ztool.hook.modules.desktoplauncher.WorkDesktopPortrait
@@ -358,6 +359,7 @@ object HookManager {
         registerHookModule(LauncherFreeformEntryHook())
         registerHookModule(FreeformKeepAliveLauncherHook())
         registerHookModule(LauncherAppIconUnmaskHook())
+        registerHookModule(LauncherIconPackHook())
         registerHookModule(CustomGridSize())
         registerHookModule(CleanGlobalSearch())
         registerHookModule(DisableDockBar())

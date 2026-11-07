@@ -1527,6 +1527,19 @@ object SearchIndex {
             parentKey = "launcher_app_icon_unmask"
         ),
         launcher.item(
+            id = "launcher_icon_pack",
+            titleRes = R.string.launcher_icon_pack_title,
+            summaryRes = R.string.launcher_icon_pack_summary,
+            keywords = listOf("图标包", "icon pack", "ADW", "CandyBar")
+        ),
+        launcher.item(
+            id = "launcher_icon_pack_package",
+            titleRes = R.string.launcher_icon_pack_package_title,
+            summaryRes = R.string.launcher_icon_pack_package_summary,
+            parentTitleRes = R.string.launcher_icon_pack_title,
+            parentKey = "launcher_icon_pack"
+        ),
+        launcher.item(
             id = "launcher_wide_grid",
             titleRes = R.string.launcher_wide_grid_title,
             summaryRes = R.string.launcher_wide_grid_summary
