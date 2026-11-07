@@ -31,3 +31,10 @@ Base class `com.android.launcher3.icons.IconProvider`; the runtime singleton is
 - `.\gradlew.bat assembleDebug`
 - `.\gradlew.bat testDebugUnitTest --tests "com.qimian233.ztool.SearchIndexConsistencyTest"`
 - On device: enable, pick pack, restart launcher, check drawer / folder / dock recents.
+
+## Update (18.6.0.0957)
+
+The 0957 build drops the per-overload `getIcon(ComponentInfo/ApplicationInfo/LauncherActivityInfo, …)`
+family and `getZuiIcon`, and keeps a single `getIcon(PackageItemInfo, ApplicationInfo, int, boolean)`
+plus `getIconWithOverrides(String, int, Supplier, boolean)`. The hook therefore probes both shapes
+at install time and hooks whichever the host declares; `getStateForApp` is unchanged in both.

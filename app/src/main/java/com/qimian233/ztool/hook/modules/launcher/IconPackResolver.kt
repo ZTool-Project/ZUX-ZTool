@@ -38,6 +38,15 @@ internal class IconPackResolver(private val packPackage: String) {
         return loadDrawable(packResources, entry, density)
     }
 
+    /** Icon drawable for a package-only entry point, or null when unmapped. */
+    fun resolveByPackage(context: Context?, packageName: String?, density: Int): Drawable? {
+        if (context == null || packageName.isNullOrEmpty() || density <= 0) return null
+        if (!ready) ensureLoaded(context)
+        val packResources = resources ?: return null
+        val entry = packageIcons?.get(packageName) ?: return null
+        return loadDrawable(packResources, entry, density)
+    }
+
     /** Icon-cache state suffix; empty until the pack loads successfully. */
     fun stateSuffix(context: Context?): String {
         if (context == null) return ""

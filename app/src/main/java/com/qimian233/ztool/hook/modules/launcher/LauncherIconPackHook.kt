@@ -1,5 +1,6 @@
 package com.qimian233.ztool.hook.modules.launcher
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.ActivityInfo
 import android.content.pm.ApplicationInfo
@@ -11,14 +12,16 @@ import com.qimian233.ztool.data.keys.ScopeKeys
 import com.qimian233.ztool.hook.base.AppHookModule
 import io.github.libxposed.api.XposedModuleInterface.PackageLoadedParam
 import java.lang.reflect.Method
+import java.util.function.Supplier
 
 /**
  * Serves app icons from the selected third-party icon pack and keeps the host
  * icon cache honest.
  *
- * Icon lookups are intercepted on `IconProvider`'s public entry points; the pack
- * version is appended to `getStateForApp`, so switching packs invalidates every
- * cached icon row. Taking effect requires a launcher restart.
+ * Icon entry points are resolved by capability: the unified `getIcon(PackageItemInfo,
+ * ApplicationInfo, int, boolean)` / `getIconWithOverrides(...)` pair of newer hosts and
+ * the per-overload `getIcon` family of older hosts are both attempted, whichever exists.
+ * Taking effect requires a launcher restart.
  */
 class LauncherIconPackHook : AppHookModule() {
 
@@ -30,6 +33,7 @@ class LauncherIconPackHook : AppHookModule() {
 
     override fun getTargetPackages(): Array<String> = arrayOf(ScopeKeys.LAUNCHER.packageName)
 
+    @SuppressLint("PrivateApi")
     @Throws(Throwable::class)
     override fun handleLoadPackage(param: PackageLoadedParam) {
         val packPackage = remotePreferences
@@ -40,6 +44,9 @@ class LauncherIconPackHook : AppHookModule() {
             logger.info("Icon pack: no pack selected, hooks stay off")
             return
         }
+        logger.info(
+            "Icon pack: host ${param.packageName} versionCode=${hostVersionCode(param.applicationInfo)}"
+        )
         val providerClass = try {
             param.defaultClassLoader.loadClass(ICON_PROVIDER_CLASS)
         } catch (t: Throwable) {
@@ -56,7 +63,7 @@ class LauncherIconPackHook : AppHookModule() {
         val contextOf: (Any?) -> Context? = { host ->
             if (host == null) null else try {
                 contextField.get(host) as? Context
-            } catch (t: Throwable) {
+            } catch (_: Throwable) {
                 null
             }
         }
@@ -79,27 +86,30 @@ class LauncherIconPackHook : AppHookModule() {
                 classLoader, target.name, target.parameterTypes
             )
             if (method == null) {
-                logger.info("Icon pack: ${target.signature} absent, skipped")
+                logger.debug("Icon pack: ${target.signature} absent")
                 continue
             }
             hookWithId(method, target.id) { chain ->
-                val item = target.itemOf(chain.args.getOrNull(0))
-                val density = chain.args.getOrNull(1) as? Int ?: 0
-                val icon = if (item == null) {
-                    null
-                } else {
-                    try {
-                        resolver.resolve(contextOf(chain.thisObject), item, density)
-                    } catch (t: Throwable) {
-                        null
+                val context = contextOf(chain.thisObject)
+                val density = chain.args.getOrNull(target.densityIndex) as? Int ?: 0
+                val icon = try {
+                    val component = target.componentOf(chain.args.getOrNull(0))
+                    if (component != null) {
+                        resolver.resolve(context, component, density)
+                    } else {
+                        resolver.resolveByPackage(
+                            context, target.packageOf(chain.args.getOrNull(0)), density
+                        )
                     }
+                } catch (_: Throwable) {
+                    null
                 }
-                if (icon != null) icon else chain.proceed()
+                icon ?: chain.proceed()
             }
             installed++
             logger.debug("Icon pack: ${target.signature} hooked on ${method.declaringClass.simpleName}")
         }
-        logger.info("Icon pack: installed $installed/${ICON_TARGETS.size} icon hooks")
+        logger.info("Icon pack: installed $installed/${ICON_TARGETS.size} icon entry hooks")
     }
 
     private fun installCacheStateHook(
@@ -117,13 +127,10 @@ class LauncherIconPackHook : AppHookModule() {
             return
         }
         hookWithId(method, "launcher_icon_pack_cache_state") { chain ->
-            val result = chain.proceed()
-            if (result == null) {
-                return@hookWithId null
-            }
+            val result = chain.proceed() ?: return@hookWithId null
             val suffix = try {
                 resolver.stateSuffix(contextOf(chain.thisObject))
-            } catch (t: Throwable) {
+            } catch (_: Throwable) {
                 ""
             }
             if (suffix.isEmpty()) {
@@ -146,12 +153,12 @@ class LauncherIconPackHook : AppHookModule() {
         for (className in PROVIDER_CLASS_CANDIDATES) {
             val clazz = try {
                 classLoader.loadClass(className)
-            } catch (t: Throwable) {
+            } catch (_: Throwable) {
                 continue
             }
             try {
                 return clazz.getDeclaredMethod(name, *parameterTypes)
-            } catch (t: Throwable) {
+            } catch (_: Throwable) {
                 // not declared here; try the next class in the hierarchy
             }
         }
@@ -176,17 +183,36 @@ class LauncherIconPackHook : AppHookModule() {
         }
         return try {
             method.invoke(state, arrayOf(suffix))
-        } catch (t: Throwable) {
+        } catch (_: Throwable) {
             null
         }
     }
 
-    /** One icon entry point; [itemOf] extracts the component to look up from the arg. */
+    /** Best-effort host version code; the fields are hidden API, so 0 means unknown. */
+    private fun hostVersionCode(info: ApplicationInfo): Long {
+        try {
+            return ApplicationInfo::class.java.getField("longVersionCode").getLong(info)
+        } catch (_: Throwable) {
+            // fall through to the legacy int field
+        }
+        return try {
+            ApplicationInfo::class.java.getField("versionCode").getInt(info).toLong()
+        } catch (_: Throwable) {
+            0L
+        }
+    }
+
+    /**
+     * One icon entry point. [componentOf] extracts a component-bearing argument;
+     * [packageOf] covers hosts whose entry only receives the package name.
+     */
     private class IconTarget(
         val id: String,
         val name: String,
         val parameterTypes: Array<Class<*>>,
-        val itemOf: (Any?) -> PackageItemInfo?
+        val densityIndex: Int,
+        val componentOf: (Any?) -> PackageItemInfo? = { null },
+        val packageOf: (Any?) -> String? = { null }
     ) {
         val signature: String
             get() = name + parameterTypes.joinToString(prefix = "(", postfix = ")") { it.simpleName }
@@ -206,35 +232,66 @@ class LauncherIconPackHook : AppHookModule() {
         val BOOLEAN_TYPE: Class<*> = Boolean::class.javaPrimitiveType!!
 
         val ICON_TARGETS: List<IconTarget> = listOf(
+            // 18.6.0.0957+: unified entry points, one component-aware and one package-only.
+            IconTarget(
+                id = "launcher_icon_pack_unified",
+                name = "getIcon",
+                parameterTypes = arrayOf(
+                    PackageItemInfo::class.java,
+                    ApplicationInfo::class.java,
+                    INT_TYPE,
+                    BOOLEAN_TYPE
+                ),
+                densityIndex = 2,
+                componentOf = { it as? PackageItemInfo }
+            ),
+            IconTarget(
+                id = "launcher_icon_pack_overrides",
+                name = "getIconWithOverrides",
+                parameterTypes = arrayOf(
+                    String::class.java,
+                    INT_TYPE,
+                    Supplier::class.java,
+                    BOOLEAN_TYPE
+                ),
+                densityIndex = 1,
+                packageOf = { it as? String }
+            ),
+            // 18.6.0.0927 and older: per-overload entries.
             IconTarget(
                 id = "launcher_icon_pack_get_icon_component",
                 name = "getIcon",
                 parameterTypes = arrayOf(ComponentInfo::class.java, INT_TYPE),
-                itemOf = { it as? ComponentInfo }
+                densityIndex = 1,
+                componentOf = { it as? ComponentInfo }
             ),
             IconTarget(
                 id = "launcher_icon_pack_get_icon_component_anim",
                 name = "getIcon",
                 parameterTypes = arrayOf(ComponentInfo::class.java, INT_TYPE, BOOLEAN_TYPE),
-                itemOf = { it as? ComponentInfo }
+                densityIndex = 1,
+                componentOf = { it as? ComponentInfo }
             ),
             IconTarget(
                 id = "launcher_icon_pack_get_icon_application",
                 name = "getIcon",
                 parameterTypes = arrayOf(ApplicationInfo::class.java, INT_TYPE),
-                itemOf = { it as? ApplicationInfo }
+                densityIndex = 1,
+                componentOf = { it as? ApplicationInfo }
             ),
             IconTarget(
                 id = "launcher_icon_pack_get_icon_application_anim",
                 name = "getIcon",
                 parameterTypes = arrayOf(ApplicationInfo::class.java, INT_TYPE, BOOLEAN_TYPE),
-                itemOf = { it as? ApplicationInfo }
+                densityIndex = 1,
+                componentOf = { it as? ApplicationInfo }
             ),
             IconTarget(
                 id = "launcher_icon_pack_get_icon_launcher_activity",
                 name = "getIcon",
                 parameterTypes = arrayOf(LauncherActivityInfo::class.java, INT_TYPE, BOOLEAN_TYPE),
-                itemOf = { arg ->
+                densityIndex = 1,
+                componentOf = { arg ->
                     val info = arg as? LauncherActivityInfo
                     info?.activityInfo ?: info?.applicationInfo
                 }
@@ -243,7 +300,8 @@ class LauncherIconPackHook : AppHookModule() {
                 id = "launcher_icon_pack_get_zui_icon",
                 name = "getZuiIcon",
                 parameterTypes = arrayOf(ActivityInfo::class.java, INT_TYPE),
-                itemOf = { it as? ActivityInfo }
+                densityIndex = 1,
+                componentOf = { it as? ActivityInfo }
             )
         )
     }
