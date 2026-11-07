@@ -271,7 +271,7 @@
     <string name="page_settings_about_qimian233_summary">项目发起人、Hook、用户界面</string>
     <string name="page_settings_about_wasd_destroy_summary">部分 Hook、部分用户界面</string>
     <string name="page_settings_about_wasd_destroy_description" translatable="false">"正解は無いんだ　負けなんて無いんだ".</string>
-    <string name="page_settings_about_uuuddddl">部分 Hook</string>
+    <string name="page_settings_about_uuuddddl_summary">原生通知图标 Hook Android 16 修复</string>
     <string name="page_settings_about_unfuckzui_summary">部分功能灵感和参考</string>
     <string name="page_settings_about_zuxos_plus_summary">部分功能灵感</string>
     <string name="page_settings_about_acknowledgements_entry_summary">查看特别致谢与项目使用的开源软件</string>
@@ -1367,9 +1367,10 @@
     <string name="search_condition_m3_expressive_only">仅 Material 3 Expressive 风格下可见</string>
     <string name="search_condition_miuix_only">仅 Miuix 风格下可见</string>
     <string name="search_condition_dev_build_only">仅开发构建可见</string>
-    <string name="about_dev_qimian233">Qimian233</string>
-    <string name="about_dev_wasd_destroy">WASDDestroy</string>
-    <string name="about_dev_uuuddddl">uuuddddl</string>
+    <string name="about_dev_wasd_destroy" translatable="false">WASDDestroy</string>
+    <string name="about_dev_uuuddddl" translatable="false">uuuddddl</string>
+    <string name="about_dev_qimian233" translatable="false">Qimian233</string>
+    <string name="about_dev_lingji2233" translatable="false">lingji2233</string>
     <string name="page_settings_about_social_coolapk_label">酷安</string>
     <string name="page_settings_about_social_github_label">GitHub</string>
     <!-- Hook 侧读取（SidebarDrawerHook）；经 getIdentifier 按名加载，勿改名勿删 -->
@@ -1405,4 +1406,5 @@
     <string name="system_framework_pen_wave_impact_text_focus_label">文本框聚焦</string>
     <string name="system_framework_pen_wave_impact_recognition_label">识别完成</string>
     <string name="system_framework_pen_wave_impact_press_label">按压</string>
+    <string name="page_settings_about_lingji2233_summary">ZUX 桌面自定义图标包 Hook</string>
 </resources>

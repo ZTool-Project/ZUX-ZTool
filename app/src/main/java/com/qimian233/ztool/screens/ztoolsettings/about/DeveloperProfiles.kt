@@ -62,9 +62,29 @@ val DEVELOPER_PROFILES: List<DeveloperProfile> = listOf(
         )
     ),
     DeveloperProfile(
+        nameRes = R.string.about_dev_lingji2233,
+        roleRes = R.string.page_settings_about_lingji2233_summary,
+        descriptionRes = R.string.page_settings_about_lingji2233_summary,
+        avatarRes = R.drawable.about_avatar_lingji2233,
+        highlightKey = "about_dev_lingji2233",
+        socialLinks = listOf(
+            DeveloperSocialLink(
+                labelRes = R.string.page_settings_about_social_github_label,
+                iconRes = R.drawable.ic_github_logo,
+                url = "https://github.com/lingji2233"
+            ),
+            DeveloperSocialLink(
+                labelRes = R.string.page_settings_about_social_coolapk_label,
+                iconRes = R.drawable.ic_coolapk_logo,
+                url = "https://www.coolapk.com/u/22688909",
+                packageName = "com.coolapk.market"
+            )
+        )
+    ),
+    DeveloperProfile(
         nameRes = R.string.about_dev_uuuddddl,
-        roleRes = R.string.page_settings_about_uuuddddl,
-        descriptionRes = R.string.page_settings_about_uuuddddl,
+        roleRes = R.string.page_settings_about_uuuddddl_summary,
+        descriptionRes = R.string.page_settings_about_uuuddddl_summary,
         avatarRes = R.drawable.about_avatar_uuuddddl,
         highlightKey = "about_dev_uuuddddl",
         socialLinks = listOf(

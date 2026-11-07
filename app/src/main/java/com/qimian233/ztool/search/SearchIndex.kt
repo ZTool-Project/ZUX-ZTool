@@ -1979,9 +1979,14 @@ object SearchIndex {
             summaryRes = R.string.page_settings_about_wasd_destroy_summary
         ),
         aboutScreen.item(
+            id = "about_dev_lingji2233",
+            titleRes = R.string.about_dev_lingji2233,
+            summaryRes = R.string.page_settings_about_lingji2233_summary
+        ),
+        aboutScreen.item(
             id = "about_dev_uuuddddl",
             titleRes = R.string.about_dev_uuuddddl,
-            summaryRes = R.string.page_settings_about_uuuddddl
+            summaryRes = R.string.page_settings_about_uuuddddl_summary
         ),
         aboutScreen.item(
             id = "about_acknowledgements",
