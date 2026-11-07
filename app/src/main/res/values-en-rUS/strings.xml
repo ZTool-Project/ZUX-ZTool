@@ -235,7 +235,7 @@
     <string name="page_settings_show_about_page">About ZTool</string>
     <string name="page_settings_config_backup_success">Configuration backed up</string>
     <string name="page_settings_about_ztool_title">About ZTool</string>
-    <string name="page_settings_about_zuxos_plus_summary">Feature inspirations</string>
+    <string name="page_settings_about_zuxos_plus_summary">Provided inspiration for some features and encouraged us to resume development of this project</string>
     <string name="page_settings_final_confirmation_title">Final Confirmation</string>
     <string name="page_settings_restore_default_confirmation">Are you sure you want to restore the default configuration? This will reset all settings to their initial state.</string>
     <string name="page_settings_default_config_restored">Default configuration restored</string>

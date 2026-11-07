@@ -273,7 +273,7 @@
     <string name="page_settings_about_wasd_destroy_description" translatable="false">"正解は無いんだ　負けなんて無いんだ".</string>
     <string name="page_settings_about_uuuddddl_summary">原生通知图标 Hook Android 16 修复</string>
     <string name="page_settings_about_unfuckzui_summary">部分功能灵感和参考</string>
-    <string name="page_settings_about_zuxos_plus_summary">部分功能灵感</string>
+    <string name="page_settings_about_zuxos_plus_summary">部分功能灵感，并促使本项目复更</string>
     <string name="page_settings_about_acknowledgements_entry_summary">查看特别致谢与项目使用的开源软件</string>
     <string name="page_settings_about_acknowledgements_special_thanks_title">特别致谢</string>
     <string name="page_settings_about_acknowledgements_open_source_title">开源软件</string>
