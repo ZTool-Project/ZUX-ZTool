@@ -1157,6 +1157,13 @@ object SearchIndex {
             summaryRes = R.string.game_tool_device_model_disguise_summary
         ),
         gameTool.item(
+            id = "game_tool_device_model_disguise_model",
+            titleRes = R.string.game_tool_device_model_disguise_model_label,
+            summaryRes = R.string.game_tool_device_model_disguise_model_summary,
+            parentTitleRes = R.string.game_tool_device_model_disguise,
+            parentKey = "game_tool_device_model_disguise"
+        ),
+        gameTool.item(
             id = "game_tool_fix_cpu_frequency",
             titleRes = R.string.game_tool_f_ix_cpu_frequency,
             summaryRes = R.string.game_tool_f_ix_cpu_frequency_summary

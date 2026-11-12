@@ -37,6 +37,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import com.qimian233.ztool.R
+import com.qimian233.ztool.data.gametool.DeviceModel
 import com.qimian233.ztool.data.gametool.GameToolSettingsRepository
 import com.qimian233.ztool.ui.components.HighlightAnchorRegistry
 import com.qimian233.ztool.ui.components.HighlightController
@@ -95,6 +96,7 @@ fun GameToolSettingsRoute(
             onRestart = viewModel::showRestartConfirmDialog,
             onDisableGameAudioChanged = viewModel::setDisableGameAudio,
             onDisguiseDeviceChanged = viewModel::setDisguiseDevice,
+            onDisguiseModelChanged = viewModel::setDisguiseModel,
             onFixCpuFrequencyChanged = viewModel::setFixCpuFrequency,
             onFixSocTemperatureChanged = viewModel::setFixSocTemperature,
             onMistakeTouchModeChanged = viewModel::setMistakeTouchMode,
@@ -156,6 +158,7 @@ private fun GameToolSettingsScreen(
     onRestart: () -> Unit,
     onDisableGameAudioChanged: (Boolean) -> Unit,
     onDisguiseDeviceChanged: (Boolean) -> Unit,
+    onDisguiseModelChanged: (DeviceModel) -> Unit,
     onFixCpuFrequencyChanged: (Boolean) -> Unit,
     onFixSocTemperatureChanged: (Boolean) -> Unit,
     onMistakeTouchModeChanged: (MistakeTouchMode) -> Unit,
@@ -202,6 +205,7 @@ private fun GameToolSettingsScreen(
                         state = state,
                         onDisableGameAudioChanged = onDisableGameAudioChanged,
                         onDisguiseDeviceChanged = onDisguiseDeviceChanged,
+                        onDisguiseModelChanged = onDisguiseModelChanged,
                         onFixCpuFrequencyChanged = onFixCpuFrequencyChanged,
                         onFixSocTemperatureChanged = onFixSocTemperatureChanged,
                         onMistakeTouchModeChanged = onMistakeTouchModeChanged,
@@ -220,6 +224,7 @@ private fun gameToolSettingsSections(
     state: GameToolSettingsUiState,
     onDisableGameAudioChanged: (Boolean) -> Unit,
     onDisguiseDeviceChanged: (Boolean) -> Unit,
+    onDisguiseModelChanged: (DeviceModel) -> Unit,
     onFixCpuFrequencyChanged: (Boolean) -> Unit,
     onFixSocTemperatureChanged: (Boolean) -> Unit,
     onMistakeTouchModeChanged: (MistakeTouchMode) -> Unit,
@@ -235,6 +240,26 @@ private fun gameToolSettingsSections(
                 key = "game_tool_device_model_disguise"
             )
         )
+        if (state.disguiseDevice) {
+            val selected = state.availableModels.firstOrNull { it.code == state.disguiseModel }
+                ?: DeviceModel(code = state.disguiseModel, fieldName = "")
+            val options = if (state.availableModels.any { it.code == state.disguiseModel }) {
+                state.availableModels
+            } else {
+                state.availableModels + selected
+            }
+            add(
+                SettingItem.Dropdown(
+                    label = stringResource(R.string.game_tool_device_model_disguise_model_label),
+                    value = selected.label,
+                    options = options,
+                    optionLabel = { it.label },
+                    onOptionSelected = onDisguiseModelChanged,
+                    summary = stringResource(R.string.game_tool_device_model_disguise_model_summary),
+                    key = "game_tool_device_model_disguise_model"
+                )
+            )
+        }
         add(
             SettingItem.Switch(
                 title = stringResource(R.string.game_tool_f_ix_cpu_frequency),

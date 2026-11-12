@@ -3,8 +3,10 @@ package com.qimian233.ztool.viewmodel
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.qimian233.ztool.data.gametool.DeviceModel
 import com.qimian233.ztool.data.gametool.GameToolRestartResult
 import com.qimian233.ztool.data.gametool.GameToolSettingsRepository
+import com.qimian233.ztool.data.keys.PreferenceKeys
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -24,6 +26,16 @@ class GameToolSettingsViewModel(
         } catch (e: Exception) {
             Log.e(TAG, "Failed to load game tool settings", e)
         }
+        loadAvailableModels()
+    }
+
+    private fun loadAvailableModels() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val models = runCatching { repository.loadAvailableModels() }.getOrDefault(emptyList())
+            withContext(Dispatchers.Main) {
+                _uiState.value = _uiState.value.copy(availableModels = models)
+            }
+        }
     }
 
     fun setDisableGameAudio(enabled: Boolean) {
@@ -34,6 +46,11 @@ class GameToolSettingsViewModel(
     fun setDisguiseDevice(enabled: Boolean) {
         _uiState.value = _uiState.value.copy(disguiseDevice = enabled)
         repository.saveDisguiseDevice(enabled)
+    }
+
+    fun setDisguiseModel(model: DeviceModel) {
+        _uiState.value = _uiState.value.copy(disguiseModel = model.code)
+        repository.saveDisguiseModel(model.code)
     }
 
     fun setFixCpuFrequency(enabled: Boolean) {
@@ -97,6 +114,8 @@ enum class MistakeTouchMode {
 data class GameToolSettingsUiState(
     val disableGameAudio: Boolean = false,
     val disguiseDevice: Boolean = false,
+    val disguiseModel: String = PreferenceKeys.DEVICE_DISGUISE_MODEL.default,
+    val availableModels: List<DeviceModel> = emptyList(),
     val fixCpuFrequency: Boolean = false,
     val fixSocTemperature: Boolean = false,
     val mistakeTouchMode: MistakeTouchMode = MistakeTouchMode.Default,

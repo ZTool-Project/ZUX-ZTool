@@ -253,6 +253,8 @@ object PreferenceKeys {
     val AUTO_MISTAKE_TOUCH = BoolKey("auto_mistake_touch", false)
     val DISABLE_GAME_AUDIO = BoolKey("disable_GameAudio", false)
     val DISABLE_GAME_AUDIO_APP = BoolKey("disable_GameAudio_app", false)
+    // Master switch of the game-tool model disguise; the target model lives in
+    // DeviceModelCatalog and is picked through DEVICE_DISGUISE_MODEL below.
     val DISGUISE_TB322FC = BoolKey("disguise_TB322FC", false)
     val FIX_CPU_CLOCK = BoolKey("Fix_CpuClock", false)
     val FIX_SOC_TEMP = BoolKey("Fix_SocTemp", false)
@@ -372,6 +374,10 @@ object PreferenceKeys {
     // ═══════════════════════════════════════════════════════════
     // String keys
     // ═══════════════════════════════════════════════════════════
+
+    // Target model code for the game-tool disguise; must be one of the codes the
+    // installed game service knows (DeviceModelCatalog), TB322FC is the shipped default.
+    val DEVICE_DISGUISE_MODEL = StringKey("device_disguise_model", "TB322FC")
 
     val MISTAKE_TOUCH_WHITE_LIST_GAME = StringKey("MistakeTouchWhiteListGame", "")
     val FORCE_STOP_WHITE_LIST = StringKey("ForceStopWhiteList", "")
@@ -541,6 +547,7 @@ object PreferenceKeys {
     )
 
     val stringKeys: List<StringKey> = listOf(
+        DEVICE_DISGUISE_MODEL,
         MISTAKE_TOUCH_WHITE_LIST_GAME, FORCE_STOP_WHITE_LIST,
         FREEFORM_KEEP_ALIVE_PACKAGES,
         CLIPBOARD_ACCESS_TOAST_PACKAGES,

@@ -13,6 +13,7 @@ class GameToolSettingsRepository(
     context: Context,
     private val shellExecutor: EnhancedShellExecutor = EnhancedShellExecutor.getInstance()
 ) {
+    private val appContext = context.applicationContext
     private val prefsUtils = ModulePreferencesUtils(context)
 
     fun loadState(): GameToolSettingsUiState {
@@ -27,12 +28,19 @@ class GameToolSettingsRepository(
         return GameToolSettingsUiState(
             disableGameAudio = prefsUtils.loadBooleanSetting(KEY_DISABLE_GAME_AUDIO, false),
             disguiseDevice = prefsUtils.loadBooleanSetting(KEY_DISGUISE_DEVICE, false),
+            disguiseModel = prefsUtils.loadStringSetting(
+                KEY_DISGUISE_MODEL,
+                PreferenceKeys.DEVICE_DISGUISE_MODEL.default
+            ),
             fixCpuFrequency = prefsUtils.loadBooleanSetting(KEY_FIX_CPU_FREQUENCY, false),
             fixSocTemperature = prefsUtils.loadBooleanSetting(KEY_FIX_SOC_TEMPERATURE, false),
             mistakeTouchMode = mistakeTouchMode,
             targetGamePackages = loadWhitelistPackages()
         )
     }
+
+    /** Model table of the installed game service; loads host classes, call off the main thread. */
+    fun loadAvailableModels(): List<DeviceModel> = DeviceModelCatalog.load(appContext)
 
     fun saveDisableGameAudio(enabled: Boolean) {
         prefsUtils.saveBooleanSetting(KEY_DISABLE_GAME_AUDIO, enabled)
@@ -41,6 +49,10 @@ class GameToolSettingsRepository(
 
     fun saveDisguiseDevice(enabled: Boolean) {
         prefsUtils.saveBooleanSetting(KEY_DISGUISE_DEVICE, enabled)
+    }
+
+    fun saveDisguiseModel(code: String) {
+        prefsUtils.saveStringSetting(KEY_DISGUISE_MODEL, code)
     }
 
     fun saveFixCpuFrequency(enabled: Boolean) {
@@ -109,6 +121,7 @@ class GameToolSettingsRepository(
         private val KEY_DISABLE_GAME_AUDIO = PreferenceKeys.DISABLE_GAME_AUDIO.name
         private val KEY_DISABLE_GAME_AUDIO_APP = PreferenceKeys.DISABLE_GAME_AUDIO_APP.name
         private val KEY_DISGUISE_DEVICE = PreferenceKeys.DISGUISE_TB322FC.name
+        private val KEY_DISGUISE_MODEL = PreferenceKeys.DEVICE_DISGUISE_MODEL.name
         private val KEY_FIX_CPU_FREQUENCY = PreferenceKeys.FIX_CPU_CLOCK.name
         private val KEY_FIX_SOC_TEMPERATURE = PreferenceKeys.FIX_SOC_TEMP.name
         private val KEY_AUTO_MISTAKE_TOUCH = PreferenceKeys.AUTO_MISTAKE_TOUCH.name
