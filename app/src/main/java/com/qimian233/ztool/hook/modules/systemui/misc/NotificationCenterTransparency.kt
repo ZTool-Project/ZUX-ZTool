@@ -25,7 +25,7 @@ class NotificationCenterTransparency : AppHookModule() {
         updatePrefs()
         hookShadeRootViewFactory(classLoader)
         hookNotificationShadeBlur(classLoader)
-        hookQuickSettingsBackdropBlur(classLoader)
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.CINNAMON_BUN) hookQuickSettingsBackdropBlur(classLoader)
     }
 
     private fun hookShadeRootViewFactory(classLoader: ClassLoader) {
