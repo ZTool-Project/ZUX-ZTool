@@ -748,7 +748,7 @@
     <string name="device_service_app_description">Curb push keep-alive, silent installs and installed-app list reporting</string>
     <string name="device_service_setting_title">Push and Privacy</string>
     <string name="device_service_disable_push_title">Disable push keep-alive</string>
-    <string name="device_service_disable_push_summary">Intercepts PushReceiver and UpgradeReceiver, breaking the hourly self-waking alarm and network-triggered push registration. Lenovo app push notifications may stop working.</string>
+    <string name="device_service_disable_push_summary">Intercepts PushReceiver and UpgradeReceiver, breaking the hourly self-waking alarm and network-triggered push registration, and blocks the GeTui PushReceiver bundled from V6 so boot and package-removal broadcasts cannot start PushCoreService. Lenovo app push notifications may stop working.</string>
     <string name="device_service_disable_auto_install_title">Disable silent install</string>
     <string name="device_service_disable_auto_install_summary">Intercepts PackageInstaller commits, blocking server-pushed auto download/install (including preinstalled app updates). Manual installs are unaffected.</string>
     <string name="device_service_disable_app_list_reporting_title">Block installed-app list reporting</string>

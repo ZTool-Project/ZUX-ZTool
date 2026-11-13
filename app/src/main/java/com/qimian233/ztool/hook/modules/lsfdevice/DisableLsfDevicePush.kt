@@ -6,19 +6,12 @@ import com.qimian233.ztool.hook.base.AppHookModule
 import io.github.libxposed.api.XposedModuleInterface
 
 /**
- * Disables the push keep-alive channel of the Lenovo device service
+ * Disables the push keep-alive channels of the Lenovo device service
  * (com.lenovo.lsf.device, the LSF push/UPS component).
  *
- * Both keep-alive entry points are Manifest-anchored, non-obfuscated
- * BroadcastReceiver classes:
- * - PushReceiver: BOOT_COMPLETED / CONNECTIVITY_CHANGE / power plug events and
- *   package change events all funnel into onReceive, which starts the
- *   ONLINE/OFFLINE push services and registers the SDAC alarm;
- * - UpgradeReceiver: sole receiver of the hourly "com.lenovo.lsf.sdac.ALARM"
- *   exact alarm that drives the registration/message-check loop.
- *
- * Swallowing onReceive on both breaks the self-waking alarm cycle and the
- * network-triggered re-registration without touching any obfuscated class.
+ * Swallows onReceive of LSF PushReceiver, UpgradeReceiver and the GeTui
+ * PushReceiver bundled from V6 (boot/package-removed -> PushCoreService).
+ * See docs/research/lsf_device_getui_push.md
  */
 class DisableLsfDevicePush : AppHookModule() {
 
@@ -63,6 +56,23 @@ class DisableLsfDevicePush : AppHookModule() {
             }
         } catch (t: Throwable) {
             logger.error("Failed to hook UpgradeReceiver", t)
+        }
+
+        try {
+            val getuiReceiverClass = classLoader.loadClass(
+                "com.getui.vendor.push.PushReceiver"
+            )
+            val onReceive = findMethod(
+                getuiReceiverClass, "onReceive",
+                android.content.Context::class.java, android.content.Intent::class.java
+            )
+            hookWithId(onReceive, "lsf_device_getui_push_receiver") { chain ->
+                val action = (chain.args[1] as? android.content.Intent)?.action
+                logger.debug("Blocked GeTui PushReceiver.onReceive, action=$action")
+            }
+        } catch (t: Throwable) {
+            // Absent before Device Service V6.0
+            logger.debug("GeTui PushReceiver not present: ${t.message}")
         }
     }
 }
