@@ -30,6 +30,9 @@ class BrightnessSliderPercentageHook : AppHookModule() {
     private val layoutListeners = WeakHashMap<View, View.OnLayoutChangeListener>()
     private val pendingPositionUpdates = WeakHashMap<FrameLayout, Boolean>()
 
+    // Views whose slider progress is not bound yet; the label shows UNKNOWN_PERCENT_TEXT until the first real value.
+    private val pendingPercentViews = WeakHashMap<Any, Boolean>()
+
     override fun getModuleName(): String = PreferenceKeys.BRIGHTNESS_SLIDER_PERCENTAGE.name
 
     override fun getTargetPackages(): Array<String> = arrayOf(SYSTEM_UI_PACKAGE)
@@ -93,7 +96,7 @@ class BrightnessSliderPercentageHook : AppHookModule() {
                 .getDeclaredConstructor(Context::class.java, AttributeSet::class.java, Int::class.javaPrimitiveType)
             hookWithId(ctor, "ctor", priority = XposedInterface.PRIORITY_LOWEST) { chain ->
                 chain.proceed()
-                attachSliderLabel(chain.thisObject)
+                attachSliderLabel(chain.thisObject, pendingPercentViews[chain.thisObject] == true)
                 null
             }
         } catch (t: Throwable) {
@@ -101,13 +104,28 @@ class BrightnessSliderPercentageHook : AppHookModule() {
         }
 
         try {
-            val updateBrightnessMethod: Method = classLoader.loadClass(TOGGLE_SLIDER_VIEW_CLASS)
-                .getDeclaredMethod("updateBrightnessSlider")
-            hookWithId(updateBrightnessMethod, "update_brightness", priority = XposedInterface.PRIORITY_LOWEST) { chain ->
-                val result = chain.proceed()
-                attachSliderLabel(chain.thisObject)
-                refreshBrightnessLabel(chain.thisObject)
-                result
+            val updateBrightnessMethod = findUpdateBrightnessSliderMethod(
+                classLoader.loadClass(TOGGLE_SLIDER_VIEW_CLASS)
+            )
+            if (updateBrightnessMethod == null) {
+                logger.warn("ToggleSliderView.updateBrightnessSlider not found, label may lag behind the slider")
+            } else {
+                logger.debug("Hooking updateBrightnessSlider with ${updateBrightnessMethod.parameterCount} param(s)")
+                hookWithId(updateBrightnessMethod, "update_brightness", priority = XposedInterface.PRIORITY_LOWEST) { chain ->
+                    val result = chain.proceed()
+                    val sliderView = chain.thisObject
+                    val pending = chain.args.getOrNull(0) as? Boolean == true
+                    if (pending) {
+                        pendingPercentViews[sliderView] = java.lang.Boolean.TRUE
+                    } else {
+                        pendingPercentViews.remove(sliderView)
+                    }
+                    attachSliderLabel(sliderView, pending)
+                    if (!pending) {
+                        refreshBrightnessLabel(sliderView)
+                    }
+                    result
+                }
             }
         } catch (t: Throwable) {
             logger.error("Failed to hook ToggleSliderView.updateBrightnessSlider for brightness percentage", t)
@@ -121,12 +139,32 @@ class BrightnessSliderPercentageHook : AppHookModule() {
                 val sliderView = chain.thisObject
                 val progressBar = chain.args[0] as ProgressBar
                 if (isBrightnessSlider(sliderView, progressBar)) {
-                    refreshBrightnessLabel(sliderView)
+                    if (pendingPercentViews[sliderView] == true) {
+                        attachSliderLabel(sliderView, pendingPercent = true)
+                    } else {
+                        refreshBrightnessLabel(sliderView)
+                    }
                 }
                 result
             }
         } catch (t: Throwable) {
             logger.error("Failed to hook ToggleSliderView.refreshSeekBar for brightness percentage", t)
+        }
+    }
+
+    /** Resolves the no-arg overload first, then the single-boolean one; null when neither exists. */
+    private fun findUpdateBrightnessSliderMethod(toggleSliderViewClass: Class<*>): Method? {
+        return try {
+            toggleSliderViewClass.getDeclaredMethod("updateBrightnessSlider")
+        } catch (_: NoSuchMethodException) {
+            try {
+                toggleSliderViewClass.getDeclaredMethod(
+                    "updateBrightnessSlider",
+                    Boolean::class.javaPrimitiveType
+                )
+            } catch (_: NoSuchMethodException) {
+                null
+            }
         }
     }
 
@@ -139,6 +177,7 @@ class BrightnessSliderPercentageHook : AppHookModule() {
                 val seekBar = chain.thisObject as SeekBar
                 val sliderView = findToggleSliderView(seekBar) ?: return@hookWithId result
                 if (isBrightnessSlider(sliderView, seekBar)) {
+                    pendingPercentViews.remove(sliderView)
                     refreshBrightnessLabel(sliderView)
                 }
                 result
@@ -148,15 +187,15 @@ class BrightnessSliderPercentageHook : AppHookModule() {
         }
     }
 
-    private fun attachSliderLabel(sliderView: Any) {
+    private fun attachSliderLabel(sliderView: Any, pendingPercent: Boolean = false) {
         try {
-            attachLabelToRoot(sliderView)
+            attachLabelToRoot(sliderView, pendingPercent)
         } catch (t: Throwable) {
             logger.error("Failed to attach brightness slider label", t)
         }
     }
 
-    private fun attachLabelToRoot(sliderView: Any) {
+    private fun attachLabelToRoot(sliderView: Any, pendingPercent: Boolean) {
         val root = getFrameLayoutField(sliderView)
         val icon = getViewField(sliderView)
         if (root == null || icon == null) {
@@ -175,8 +214,13 @@ class BrightnessSliderPercentageHook : AppHookModule() {
         }
 
         ensureLayoutTracking(root, icon, percentView)
-        updateBrightnessPercentColor(sliderView, percentView)
-        refreshBrightnessLabel(sliderView, percentView)
+        if (pendingPercent) {
+            percentView.setTextColor(BASE_PERCENT_COLOR)
+            setPercentTextIfChanged(percentView, UNKNOWN_PERCENT_TEXT)
+        } else {
+            updateBrightnessPercentColor(sliderView, percentView)
+            refreshBrightnessLabel(sliderView, percentView)
+        }
     }
 
     private fun refreshBrightnessLabel(sliderView: Any) {
@@ -215,7 +259,7 @@ class BrightnessSliderPercentageHook : AppHookModule() {
             updateBrightnessPercentColor(sliderView, percentView)
             schedulePositionUpdate(sliderView)
         } catch (t: Throwable) {
-            setPercentTextIfChanged(percentView, "--%")
+            setPercentTextIfChanged(percentView, UNKNOWN_PERCENT_TEXT)
             logger.error("Failed to refresh brightness percent", t)
         }
     }
@@ -245,6 +289,7 @@ class BrightnessSliderPercentageHook : AppHookModule() {
 
     private fun refreshBrightnessFromView(view: View, progress: Int) {
         val sliderView = findToggleSliderView(view) ?: return
+        pendingPercentViews.remove(sliderView)
         val root = getFrameLayoutField(sliderView) ?: return
         val percentView = findPercentView(root) ?: return
 
@@ -501,6 +546,7 @@ class BrightnessSliderPercentageHook : AppHookModule() {
         private val SYSTEM_UI_PACKAGE = ScopeKeys.SYSTEM_UI.packageName
         private const val TOGGLE_SLIDER_VIEW_CLASS = "com.android.systemui.settings.ToggleSliderView"
         private const val SLIDER_PERCENT_TAG = "ztool_control_center_slider_percent"
+        private const val UNKNOWN_PERCENT_TEXT = "--%"
         private const val BRIGHTNESS_ROOT_FIELD = "mBrightnessSliderRoot"
         private const val BRIGHTNESS_ICON_FIELD = "mBrightnessIconMark"
         private const val LABEL_GAP_DP = 2
