@@ -58,7 +58,8 @@ class BrightnessSliderPercentageHook : AppHookModule() {
                 refreshBrightnessFromController(chain.thisObject, chain.args[0] as Int)
                 result
             }
-        } catch (_: Throwable) {
+        } catch (t: Throwable) {
+            logger.error("Failed to hook BrightnessController.onChanged for brightness percentage", t)
         }
 
         try {
@@ -81,7 +82,8 @@ class BrightnessSliderPercentageHook : AppHookModule() {
                 }
                 result
             }
-        } catch (_: Throwable) {
+        } catch (t: Throwable) {
+            logger.error("Failed to hook BrightnessSliderController.setValue for brightness percentage", t)
         }
     }
 
@@ -94,7 +96,8 @@ class BrightnessSliderPercentageHook : AppHookModule() {
                 attachSliderLabel(chain.thisObject)
                 null
             }
-        } catch (_: Throwable) {
+        } catch (t: Throwable) {
+            logger.error("Failed to hook ToggleSliderView constructor for brightness percentage label", t)
         }
 
         try {
@@ -106,7 +109,8 @@ class BrightnessSliderPercentageHook : AppHookModule() {
                 refreshBrightnessLabel(chain.thisObject)
                 result
             }
-        } catch (_: Throwable) {
+        } catch (t: Throwable) {
+            logger.error("Failed to hook ToggleSliderView.updateBrightnessSlider for brightness percentage", t)
         }
 
         try {
@@ -121,7 +125,8 @@ class BrightnessSliderPercentageHook : AppHookModule() {
                 }
                 result
             }
-        } catch (_: Throwable) {
+        } catch (t: Throwable) {
+            logger.error("Failed to hook ToggleSliderView.refreshSeekBar for brightness percentage", t)
         }
     }
 
@@ -138,7 +143,8 @@ class BrightnessSliderPercentageHook : AppHookModule() {
                 }
                 result
             }
-        } catch (_: Throwable) {
+        } catch (t: Throwable) {
+            logger.error("Failed to hook SeekBar.setProgress for brightness percentage", t)
         }
     }
 

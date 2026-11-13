@@ -53,7 +53,8 @@ class VolumeSliderPercentageHook : AppHookModule() {
                 refreshVolumeFromToggleSlider(chain.thisObject)
                 result
             }
-        } catch (_: Throwable) {
+        } catch (t: Throwable) {
+            logger.error("Failed to hook ToggleSliderView.updateMusicSlider for volume percentage", t)
         }
 
         try {
@@ -64,7 +65,8 @@ class VolumeSliderPercentageHook : AppHookModule() {
                 refreshVolumeFromToggleSlider(chain.thisObject)
                 result
             }
-        } catch (_: Throwable) {
+        } catch (t: Throwable) {
+            logger.error("Failed to hook ToggleSliderView.registerVolumeObserver for volume percentage", t)
         }
     }
 
@@ -77,7 +79,8 @@ class VolumeSliderPercentageHook : AppHookModule() {
                 attachSliderLabel(chain.thisObject)
                 null
             }
-        } catch (_: Throwable) {
+        } catch (t: Throwable) {
+            logger.error("Failed to hook ToggleSliderView constructor for volume percentage label", t)
         }
 
         try {
@@ -89,7 +92,8 @@ class VolumeSliderPercentageHook : AppHookModule() {
                 refreshVolumeLabel(chain.thisObject)
                 result
             }
-        } catch (_: Throwable) {
+        } catch (t: Throwable) {
+            logger.error("Failed to hook ToggleSliderView.updateVolumeSlider for volume percentage", t)
         }
 
         try {
@@ -100,7 +104,8 @@ class VolumeSliderPercentageHook : AppHookModule() {
                 refreshVolumeLabel(chain.thisObject)
                 result
             }
-        } catch (_: Throwable) {
+        } catch (t: Throwable) {
+            logger.error("Failed to hook ToggleSliderView.setVolumeProgress for volume percentage", t)
         }
 
         try {
@@ -115,7 +120,8 @@ class VolumeSliderPercentageHook : AppHookModule() {
                 }
                 result
             }
-        } catch (_: Throwable) {
+        } catch (t: Throwable) {
+            logger.error("Failed to hook ToggleSliderView.refreshSeekBar for volume percentage", t)
         }
     }
 
@@ -141,7 +147,8 @@ class VolumeSliderPercentageHook : AppHookModule() {
                 }
                 result
             }
-        } catch (_: Throwable) {
+        } catch (t: Throwable) {
+            logger.error("Failed to hook ToggleSliderView.onProgressChanged for volume percentage", t)
         }
     }
 
