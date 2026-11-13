@@ -57,10 +57,10 @@ import androidx.core.graphics.withClip
  * module classes cannot subclass SystemUI classes, and the relevant SystemUI
  * entry points (SystemUIDialog, CustomizeTileView) are only reachable that way.
  *
- * Container: stock `SystemUIDialog` built via its public 3-arg constructor
- * (it self-wires Dependency-based singletons, SCREEN_OFF dismissal and system
- * window flags), themed like BrightnessDetailDialog
- * (Theme_SystemUI_Dialog_GlobalActionsLite).
+ * Container: stock `SystemUIDialog` (it self-wires Dependency-based
+ * singletons, SCREEN_OFF dismissal and system window flags), themed like
+ * BrightnessDetailDialog (Theme_SystemUI_Dialog_GlobalActionsLite). The
+ * constructor signature differs across builds; see [newSystemDialog].
  *
  * Tiles: real QSTile instances created via the SystemUI QSFactoryImpl
  * (captured by hooking createTile) — "mute", "dnd", "vibrate" — each bound to
@@ -369,6 +369,36 @@ class VolumeSliderLongPressHook : AppHookModule() {
     // Panel construction
     // ------------------------------------------------------------------
 
+    /**
+     * Stock SystemUIDialog container. Android 17 replaced the public
+     * `(Context, themeRes, registerDismissReceiver)` constructor with
+     * `(themeRes, unused, Context)`, so the running build's signature is tried
+     * first and the pre-17 one is kept as the fallback.
+     */
+    private fun newSystemDialog(
+        context: Context,
+        themeRes: Int,
+        classLoader: ClassLoader
+    ): Dialog {
+        val dialogClass = classLoader.loadClass(SYSTEM_UI_DIALOG_CLASS)
+        try {
+            val current = dialogClass.getDeclaredConstructor(
+                Int::class.javaPrimitiveType,
+                Int::class.javaPrimitiveType,
+                Context::class.java
+            )
+            current.isAccessible = true
+            return current.newInstance(themeRes, 0, context) as Dialog
+        } catch (_: NoSuchMethodException) {
+            // Android 16 and earlier.
+        }
+        val legacy = dialogClass.getDeclaredConstructor(
+            Context::class.java, Int::class.javaPrimitiveType, Boolean::class.javaPrimitiveType
+        )
+        legacy.isAccessible = true
+        return legacy.newInstance(context, themeRes, true) as Dialog
+    }
+
     private fun buildAndShowPanel(
         context: Context,
         classLoader: ClassLoader,
@@ -376,12 +406,7 @@ class VolumeSliderLongPressHook : AppHookModule() {
     ) {
         val themeRes = resolveStyleId(context)
             ?: android.R.style.Theme_DeviceDefault_Dialog
-        val dialogClass = classLoader.loadClass(SYSTEM_UI_DIALOG_CLASS)
-        val ctor = dialogClass.getDeclaredConstructor(
-            Context::class.java, Int::class.javaPrimitiveType, Boolean::class.javaPrimitiveType
-        )
-        ctor.isAccessible = true
-        val dialog = ctor.newInstance(context, themeRes, true) as Dialog
+        val dialog = newSystemDialog(context, themeRes, classLoader)
 
         // Fullscreen transparent root: the control-center blur behind the shade
         // IS the background (BrightnessDetailDialog does the same; dim stays 0).
@@ -1376,6 +1401,30 @@ class VolumeSliderLongPressHook : AppHookModule() {
         }
     }
 
+    /**
+     * Expandable for a tile view: a flattened static through Android 16, the
+     * nested `Expandable$Companion` on Android 17 (Expandable became a final
+     * class there). Null is safe — it only skips the launch animations.
+     */
+    private fun resolveExpandable(classLoader: ClassLoader, tileView: View): Any? {
+        val expandableClass = classLoader.loadClass(EXPANDABLE_CLASS)
+        try {
+            return findMethod(expandableClass, "fromView", View::class.java)
+                .invoke(null, tileView)
+        } catch (_: Throwable) {
+            // Android 17 moved fromView to the companion object.
+        }
+        return try {
+            val companion = classLoader.loadClass("$EXPANDABLE_CLASS\$Companion")
+            val fromView = companion.getDeclaredMethod("fromView", View::class.java)
+            fromView.isAccessible = true
+            fromView.invoke(null, tileView)
+        } catch (t: Throwable) {
+            logger.warn("volume panel: Expandable.fromView unavailable: ${t.message}")
+            null
+        }
+    }
+
     private var muteTile: TileUi? = null
     private var dndTile: TileUi? = null
     private var vibrateTile: TileUi? = null
@@ -1567,22 +1616,9 @@ class VolumeSliderLongPressHook : AppHookModule() {
                 Boolean::class.javaPrimitiveType)
 
             // Expandable from the view, same as the native dialog's
-            // Expandable.Companion.fromView. R8 flattened the Companion, so
-            // fromView lives directly on the interface as a static; fall back
-            // to a hand-rolled implementation — transitionView() returns the
-            // tile, the transition-controller methods return null (their
-            // absence only skips launch animations, never the action).
-            val expandableClass = classLoader.loadClass(EXPANDABLE_CLASS)
-            val expandable: Any = try {
-                findMethod(expandableClass, "fromView", View::class.java)
-                    .invoke(null, tileView)
-            } catch (_: Throwable) {
-                java.lang.reflect.Proxy.newProxyInstance(
-                    classLoader, arrayOf(expandableClass)
-                ) { _, method, _ ->
-                    if (method.name == "transitionView") tileView else null
-                }
-            }
+            // Expandable.Companion.fromView. A null Expandable is safe: the
+            // tiles only use it for launch animations.
+            val expandable = resolveExpandable(classLoader, tileView)
 
             fun refresh() {
                 try {

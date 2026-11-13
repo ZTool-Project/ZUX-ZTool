@@ -40,10 +40,10 @@ import java.lang.reflect.Field
  * In the normal (accepted) case cancelling the no-op animation is visually
  * indistinguishable.
  *
- * Scope is limited to volume sliders: a `SeekBarNps` that either sits inside a
- * stock `ToggleSliderView` (the media volume bar beside the brightness bar) or
- * carries the ZTool volume detail panel tag. Brightness uses `ToggleSeekBar`,
- * not `SeekBarNps`, so nothing else is touched.
+ * Scope is limited to volume sliders: the bar its ToggleSliderView exposes as
+ * `mMediaVolumeSlider`, plus the ZTool volume panel's own bars (tagged). Since
+ * Android 17 the brightness bar shares the `ToggleSeekBar` class, so a
+ * ToggleSliderView ancestor alone no longer identifies a volume bar.
  */
 @SuppressLint("PrivateApi")
 class VolumeSliderFidelityHook : AppHookModule() {
@@ -92,12 +92,21 @@ class VolumeSliderFidelityHook : AppHookModule() {
     private fun isVolumeSlider(bar: Any?): Boolean {
         val view = bar as? View ?: return false
         if (view.tag == ControlCenterLongPressHook.VOLUME_PANEL_SLIDER_TAG) return true
+        val host = toggleSliderHost(view) ?: return false
+        return try {
+            findField(host.javaClass, VOLUME_SLIDER_FIELD).get(host) === view
+        } catch (_: Throwable) {
+            false
+        }
+    }
+
+    private fun toggleSliderHost(view: View): View? {
         var parent: ViewParent? = view.parent
         while (parent != null) {
-            if (parent.javaClass.name == TOGGLE_SLIDER_VIEW_CLASS) return true
+            if (parent.javaClass.name == TOGGLE_SLIDER_VIEW_CLASS) return parent as? View
             parent = parent.parent
         }
-        return false
+        return null
     }
 
     private companion object {
@@ -105,6 +114,7 @@ class VolumeSliderFidelityHook : AppHookModule() {
 
         const val SEEK_BAR_NPS_CLASS = ControlCenterLongPressHook.SEEK_BAR_NPS_CLASS
         const val TOGGLE_SLIDER_VIEW_CLASS = ControlCenterLongPressHook.TOGGLE_SLIDER_VIEW_CLASS
+        const val VOLUME_SLIDER_FIELD = ControlCenterLongPressHook.VOLUME_SLIDER_FIELD
 
         /**
          * `zui.widget.SeekBarNps` keeps its settle `ValueAnimator` in this

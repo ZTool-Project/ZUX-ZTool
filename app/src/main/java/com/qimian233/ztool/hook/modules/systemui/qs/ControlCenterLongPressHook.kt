@@ -30,10 +30,11 @@ import java.util.WeakHashMap
  * is preserved unchanged.
  *
  * Sliders (ToggleSliderView brightness / volume): the same detector drives
- * the squish animation; on trigger the brightness slider opens
- * openBrightnessDetail() and the volume slider opens the media/ringer volume
- * panel (see VolumeSliderLongPressHook for the dialog construction — it stays
- * there to keep dialog state local; only the detector is shared here).
+ * the squish animation. On trigger the brightness slider opens
+ * openBrightnessDetail() and the media volume slider opens the media/ringer
+ * volume panel (see VolumeSliderLongPressHook). Which one fires is decided
+ * from the slider's identity inside its host, not from the hooked class: on
+ * Android 17 both bars are the same ToggleSeekBar class.
  *
  * Trigger timing follows the system configuration via
  * ViewConfiguration.scaledLongPressTimeout.
@@ -344,79 +345,101 @@ class ControlCenterLongPressHook : AppHookModule() {
     private fun gestureEnding(): Boolean = gestureTriggered
 
     /**
-     * Sliders: SeekBarNps bypasses View.onTouchEvent when max >= 100, so
-     * hook ToggleSeekBar.onTouchEvent directly (same rationale as the
-     * brightness hook). Trigger invokes openBrightnessDetail on the
-     * enclosing ToggleSliderView.
+     * Sliders: `ToggleSeekBar` (brightness and, since Android 17, the media
+     * volume bar) and bare `zui.widget.SeekBarNps`. Both classes are hooked,
+     * and one DOWN reaches both for a ToggleSeekBar, so the trigger comes from
+     * the slider's identity in its ToggleSliderView, never from the hooked
+     * class; the first callback starts the gesture, the second is dropped.
      */
     private fun hookToggleSliderTouchEvent(classLoader: ClassLoader) {
+        hookSliderTouchEvent(classLoader, TOGGLE_SEEK_BAR_CLASS, "slider_touch_long_press")
+        hookSliderTouchEvent(classLoader, SEEK_BAR_NPS_CLASS, "slider_touch_long_press_nps")
+    }
+
+    private fun hookSliderTouchEvent(
+        classLoader: ClassLoader,
+        className: String,
+        hookId: String
+    ) {
         try {
             val onTouchEvent: Method = classLoader
-                .loadClass(TOGGLE_SEEK_BAR_CLASS)
+                .loadClass(className)
                 .getDeclaredMethod("onTouchEvent", MotionEvent::class.java)
             hookWithId(
                 onTouchEvent,
-                "slider_touch_long_press",
+                hookId,
                 XposedInterface.PRIORITY_HIGHEST
             ) { chain ->
                 val result = chain.proceed()
-                trackPress(chain.thisObject as View, chain.args[0] as MotionEvent) { v ->
-                    val host = findToggleSliderView(v)
-                    if (host != null) {
-                        openBrightnessDetail(host)
-                    }
+                try {
+                    trackPress(chain.thisObject as View, chain.args[0] as MotionEvent)
+                } catch (t: Throwable) {
+                    logger.error("Slider press tracking failed", t)
                 }
                 result
             }
         } catch (t: Throwable) {
-            logger.error("Failed to hook ToggleSeekBar.onTouchEvent", t)
+            logger.error("Failed to hook $className.onTouchEvent", t)
         }
-        // The QS volume slider is a zui.widget.SeekBarNps, not a
-        // ToggleSeekBar — hook it too. On long press the squish plays here and
-        // the BrightnessDetailDialog-style volume panel is opened by
-        // VolumeSliderLongPressHook (see its class doc for the dialog
-        // construction; it stays there to keep dialog state local).
-        try {
-            val onTouchEvent: Method = classLoader
-                .loadClass(SEEK_BAR_NPS_CLASS)
-                .getDeclaredMethod("onTouchEvent", MotionEvent::class.java)
-            hookWithId(
-                onTouchEvent,
-                "slider_touch_long_press_nps",
-                XposedInterface.PRIORITY_HIGHEST
-            ) { chain ->
-                val result = chain.proceed()
-                val view = chain.thisObject as View
-                if (isVolumeSliderView(view)) {
-                    trackPress(view, chain.args[0] as MotionEvent) {
-                        logger.debug("slider: volume long press, opening detail panel")
-                        VolumeSliderLongPressHook.onVolumeSliderLongPress(view)
-                    }
-                } else if (view.tag == VOLUME_PANEL_SLIDER_TAG) {
-                    // A slider built by VolumeSliderLongPressHook's own panel:
-                    // squish + haptic only, no trigger — the panel is already
-                    // open, and handleVolumeLongPress would just ignore it.
-                    trackPress(view, chain.args[0] as MotionEvent) { }
-                }
-                result
-            }
-        } catch (t: Throwable) {
-            logger.error("Failed to hook SeekBarNps.onTouchEvent", t)
+    }
+
+    private enum class SliderKind { BRIGHTNESS, MEDIA_VOLUME }
+
+    /**
+     * Trigger for the slider under the finger, or null when the view is not a
+     * control-center slider this hook owns. The panel's own bars carry
+     * [VOLUME_PANEL_SLIDER_TAG] and squish without a trigger.
+     */
+    private fun resolveSliderTrigger(view: View): (() -> Unit)? {
+        val host = findToggleSliderView(view)
+        if (host == null) {
+            return if (view.tag == VOLUME_PANEL_SLIDER_TAG) NO_TRIGGER else null
+        }
+        return when (resolveSliderKind(host, view)) {
+            SliderKind.BRIGHTNESS -> ({ openBrightnessDetail(host) })
+            SliderKind.MEDIA_VOLUME -> ({ openVolumePanel(view) })
+            null -> null
         }
     }
 
     /**
-     * True when the touched view is the media-volume SeekBar of an enclosing
-     * ToggleSliderView. Guards the SeekBarNps hook from animating unrelated
-     * sliders elsewhere in SystemUI.
+     * Which of the host's two sliders [view] is: field identity first, then the
+     * containing root, so a renamed slider field still resolves through the
+     * roots that hold it.
      */
-    private fun isVolumeSliderView(view: View): Boolean {
-        val host = findToggleSliderView(view) ?: return false
+    private fun resolveSliderKind(host: Any, view: View): SliderKind? {
+        if (fieldHoldsView(host, BRIGHTNESS_SLIDER_FIELD, view)) return SliderKind.BRIGHTNESS
+        if (fieldHoldsView(host, VOLUME_SLIDER_FIELD, view)) return SliderKind.MEDIA_VOLUME
+        val brightnessRoot = readViewField(host, BRIGHTNESS_ROOT_FIELD)
+        if (brightnessRoot != null && isDescendant(view, brightnessRoot)) {
+            return SliderKind.BRIGHTNESS
+        }
+        val volumeRoot = readViewField(host, VOLUME_ROOT_FIELD)
+        if (volumeRoot != null && isDescendant(view, volumeRoot)) {
+            return SliderKind.MEDIA_VOLUME
+        }
+        return null
+    }
+
+    private fun fieldHoldsView(host: Any, fieldName: String, view: View): Boolean {
         return try {
-            findField(host.javaClass, VOLUME_SLIDER_FIELD).get(host) == view
+            findField(host.javaClass, fieldName).get(host) === view
         } catch (_: Throwable) {
             false
         }
+    }
+
+    private fun readViewField(host: Any, fieldName: String): View? {
+        return try {
+            findField(host.javaClass, fieldName).get(host) as? View
+        } catch (_: Throwable) {
+            null
+        }
+    }
+
+    private fun openVolumePanel(view: View) {
+        logger.debug("slider: volume long press, opening detail panel")
+        VolumeSliderLongPressHook.onVolumeSliderLongPress(view)
     }
 
     /**
@@ -475,31 +498,15 @@ class ControlCenterLongPressHook : AppHookModule() {
         return false
     }
 
-    private fun trackPress(view: View, event: MotionEvent, onTrigger: (View) -> Unit) {
+    /**
+     * Gesture tracking shared by both slider hooks: squish + haptic on DOWN,
+     * release on MOVE-beyond-slop / UP / CANCEL, trigger after the system
+     * long-press timeout. One DOWN can arrive twice (both slider classes are
+     * hooked); only the first call starts the gesture.
+     */
+    private fun trackPress(view: View, event: MotionEvent) {
         when (event.actionMasked) {
-            MotionEvent.ACTION_DOWN -> {
-                // Our gesture owns this touch from now on: any native
-                // qsTile.longClick() firing during it is suppressed.
-                suppressNativeLongClick = true
-                logger.debug("press: ACTION_DOWN on " + view.javaClass.simpleName)
-                val state = obtainState(view)
-                state.downX = event.rawX
-                state.downY = event.rawY
-                state.released = false
-                // Resolve once per gesture, not per touch event: a MOVE
-                // storm would otherwise re-run the root lookup each frame.
-                state.animationTarget = squishTarget(view)
-                squishIn(state.animationTarget!!)
-                view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-                cancelTrigger(view)
-                val runnable = Runnable {
-                    state.released = true
-                    playReleaseAnimation(state.animationTarget ?: view)
-                    onTrigger(view)
-                }
-                state.runnable = runnable
-                view.postDelayed(runnable, longPressTimeout)
-            }
+            MotionEvent.ACTION_DOWN -> startPress(view, event)
 
             MotionEvent.ACTION_MOVE -> {
                 val state = pressStates[view] ?: return
@@ -516,11 +523,41 @@ class ControlCenterLongPressHook : AppHookModule() {
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 suppressNativeLongClick = false
                 val state = pressStates[view] ?: return
-                if (!state.released) {
-                    releaseSquish(view, state)
-                }
+                releaseSquish(view, state)
             }
         }
+    }
+
+    private fun startPress(view: View, event: MotionEvent) {
+        val state = obtainState(view)
+        // Same gesture, second hook: never re-post the trigger (the later
+        // postDelayed would cancel the earlier one and both would fire).
+        if (state.downTime == event.downTime) return
+        val trigger = resolveSliderTrigger(view) ?: return
+        logger.debug(
+            "press: ACTION_DOWN on " + view.javaClass.simpleName +
+                "@" + Integer.toHexString(System.identityHashCode(view))
+        )
+        state.downTime = event.downTime
+        state.downX = event.rawX
+        state.downY = event.rawY
+        state.released = false
+        // Our gesture owns this touch from now on: any native qsTile.longClick()
+        // firing during it is suppressed.
+        suppressNativeLongClick = true
+        // Resolve once per gesture, not per touch event: a MOVE storm would
+        // otherwise re-run the root lookup each frame.
+        state.animationTarget = squishTarget(view)
+        squishIn(state.animationTarget!!)
+        view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+        cancelTrigger(view)
+        val runnable = Runnable {
+            state.released = true
+            playReleaseAnimation(state.animationTarget ?: view)
+            trigger()
+        }
+        state.runnable = runnable
+        view.postDelayed(runnable, longPressTimeout)
     }
 
     private fun playReleaseAnimation(view: View) {
@@ -533,6 +570,8 @@ class ControlCenterLongPressHook : AppHookModule() {
     }
 
     private fun releaseSquish(view: View, state: PressState) {
+        if (state.released) return
+        state.released = true
         cancelTrigger(view)
         playReleaseAnimation(state.animationTarget ?: view)
     }
@@ -580,6 +619,9 @@ class ControlCenterLongPressHook : AppHookModule() {
         var released: Boolean = false
         var runnable: Runnable? = null
 
+        /** downTime of the gesture whose trigger was already posted. */
+        var downTime: Long = Long.MIN_VALUE
+
         /** View the squish animation is running on (slider root or the view itself). */
         var animationTarget: View? = null
     }
@@ -597,7 +639,10 @@ class ControlCenterLongPressHook : AppHookModule() {
         const val TOGGLE_SEEK_BAR_CLASS =
             "com.android.systemui.settings.brightness.ToggleSeekBar"
         const val SEEK_BAR_NPS_CLASS = "zui.widget.SeekBarNps"
+        const val BRIGHTNESS_SLIDER_FIELD = "mBrightnessSlider"
         const val VOLUME_SLIDER_FIELD = "mMediaVolumeSlider"
+        const val BRIGHTNESS_ROOT_FIELD = "mBrightnessSliderRoot"
+        const val VOLUME_ROOT_FIELD = "mVolumeSliderRoot"
 
         /**
          * Tag on the panel sliders VolumeSliderLongPressHook builds itself
@@ -605,8 +650,11 @@ class ControlCenterLongPressHook : AppHookModule() {
          * squish-animation targets without routing a long-press trigger.
          */
         const val VOLUME_PANEL_SLIDER_TAG = "ztool_volume_panel_slider"
-        val SLIDER_ROOT_FIELDS =
-            arrayOf("mBrightnessSliderRoot", "mVolumeSliderRoot")
+
+        /** Squish-only trigger: sliders owned by the volume panel. */
+        val NO_TRIGGER: () -> Unit = {}
+
+        val SLIDER_ROOT_FIELDS = arrayOf(BRIGHTNESS_ROOT_FIELD, VOLUME_ROOT_FIELD)
         const val DETAIL_INDICATOR_FIELD = "detailIndicatorView"
         const val DUAL_TARGET_TAG = "ztool_dual_target_indicator"
         const val SQUISH_SCALE_X = 0.94f
