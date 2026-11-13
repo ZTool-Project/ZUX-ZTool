@@ -150,6 +150,12 @@ fun ZToolTheme(
             miuixLightColorScheme()
         }
     }
+    // Miuix's Scaffold sizes itself to the largest available size and paints containerColor,
+    // so applying it inside a wrap-content dialog window stretches that window past its
+    // content (full available width, height down to the screen bottom) and leaves a solid
+    // surface-colored band under the card. Dialog content therefore gets the theme only.
+    val useMiuixScaffold = isMiuixStyle && !isPlatformDialog
+
     val themedContent: @Composable () -> Unit = {
         MaterialTheme(
             colorScheme = colorScheme,
@@ -159,7 +165,7 @@ fun ZToolTheme(
                 MiuixTheme(
                     colors = miuixColors,
                     content = {
-                        if (isMiuixStyle) {
+                        if (useMiuixScaffold) {
                             top.yukonga.miuix.kmp.basic.Scaffold { _ ->
                                 movableContent()
                             }

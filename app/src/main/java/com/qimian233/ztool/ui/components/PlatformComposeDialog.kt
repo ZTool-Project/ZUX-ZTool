@@ -4,8 +4,13 @@ import android.app.Dialog
 import android.content.Context
 import android.view.ViewGroup
 import android.view.Window
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ViewModelStoreOwner
 import androidx.lifecycle.setViewTreeLifecycleOwner
@@ -13,6 +18,13 @@ import androidx.lifecycle.setViewTreeViewModelStoreOwner
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.qimian233.ztool.ui.theme.ZToolTheme
+
+/**
+ * Largest width a platform dialog card may take; matches the cap [ZToolDialog] uses for its
+ * own dialog window. Dialog windows are wrap-content sized, so without a cap any content
+ * using fillMaxWidth would stretch to the full screen width.
+ */
+private val PlatformDialogMaxWidth = 560.dp
 
 fun createPlatformComposeDialog(
     context: Context,
@@ -24,7 +36,12 @@ fun createPlatformComposeDialog(
         bindOwners(context)
         setContent {
             ZToolTheme(isPlatformDialog = true) {
-                content(dialog)
+                Box(
+                    modifier = Modifier.widthIn(max = PlatformDialogMaxWidth),
+                    contentAlignment = Alignment.Center
+                ) {
+                    content(dialog)
+                }
             }
         }
     }
