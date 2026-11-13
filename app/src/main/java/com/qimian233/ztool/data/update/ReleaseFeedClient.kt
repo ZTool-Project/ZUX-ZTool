@@ -7,9 +7,12 @@ import java.net.URL
 
 /** Fetches the release Atom feed through the first reachable mirror; see docs/research/update-delivery-model.md. */
 class ReleaseFeedClient(
-    private val feedUrls: List<String> = FEED_URLS,
+    useGhProxy: Boolean = false,
     private val fetch: (String) -> String = ::fetchText
 ) {
+    private val feedUrls: List<String> =
+        if (useGhProxy) PROXY_FEED_URLS + DIRECT_FEED_URLS else DIRECT_FEED_URLS + PROXY_FEED_URLS
+
     fun load(): List<ReleaseEntry> {
         var lastFailure: Exception? = null
         for (url in feedUrls) {
@@ -28,8 +31,11 @@ class ReleaseFeedClient(
     companion object {
         private const val TAG = "ReleaseFeedClient"
 
-        private val FEED_URLS = listOf(
-            "https://github.com/ZTool-Project/ZUX-ZTool/releases.atom",
+        private val DIRECT_FEED_URLS = listOf(
+            "https://github.com/ZTool-Project/ZUX-ZTool/releases.atom"
+        )
+
+        private val PROXY_FEED_URLS = listOf(
             "https://gh-proxy.com/https://github.com/ZTool-Project/ZUX-ZTool/releases.atom",
             "https://gh-proxy.cc/https://github.com/ZTool-Project/ZUX-ZTool/releases.atom"
         )

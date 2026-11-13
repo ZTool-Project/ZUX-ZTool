@@ -35,6 +35,7 @@ import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.RestorePage
 import androidx.compose.material.icons.rounded.Save
 import androidx.compose.material.icons.rounded.SettingsBackupRestore
+import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.Update
 import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.Icon
@@ -201,6 +202,7 @@ fun SettingsMainRoute(
             onOpenAdvanced = onOpenAdvanced,
             onOpenMisc = onOpenMisc,
             onAutoCheckUpdateChanged = viewModel::setAutoCheckUpdateEnabled,
+            onGhProxyUpdateChanged = viewModel::setGhProxyUpdateEnabled,
             searchExpanded = searchExpanded,
             onSearchExpandedChange = { expanded ->
                 searchExpanded = expanded
@@ -308,6 +310,7 @@ private fun SettingsRoute(
     onOpenAdvanced: () -> Unit,
     onOpenMisc: () -> Unit,
     onAutoCheckUpdateChanged: (Boolean) -> Unit,
+    onGhProxyUpdateChanged: (Boolean) -> Unit,
     searchExpanded: Boolean,
     onSearchExpandedChange: (Boolean) -> Unit,
     onOpenEntry: (com.qimian233.ztool.search.SearchEntry) -> Unit
@@ -372,6 +375,7 @@ private fun SettingsRoute(
                             onOpenAdvanced = onOpenAdvanced,
                             onOpenMisc = onOpenMisc,
                             onAutoCheckUpdateChanged = onAutoCheckUpdateChanged,
+                            onGhProxyUpdateChanged = onGhProxyUpdateChanged,
                         ),
                         bottomPadding = 32.dp
                     )
@@ -399,7 +403,8 @@ private fun settingsSections(
     onDeleteAllLogs: () -> Unit,
     onOpenAdvanced: () -> Unit,
     onOpenMisc: () -> Unit,
-    onAutoCheckUpdateChanged: (Boolean) -> Unit
+    onAutoCheckUpdateChanged: (Boolean) -> Unit,
+    onGhProxyUpdateChanged: (Boolean) -> Unit
 ): List<SettingSection> {
     return listOf(
         SettingSection(
@@ -486,6 +491,14 @@ private fun settingsSections(
                     checked = state.isAutoCheckUpdateEnabled,
                     onCheckedChange = onAutoCheckUpdateChanged,
                     icon = Icons.Rounded.Update
+                ),
+                SettingItem.Switch(
+                    key = "app_settings_use_gh_proxy_update",
+                    title = stringResource(R.string.page_settings_use_gh_proxy_update_title),
+                    summary = stringResource(R.string.page_settings_use_gh_proxy_update_summary),
+                    checked = state.isGhProxyUpdateEnabled,
+                    onCheckedChange = onGhProxyUpdateChanged,
+                    icon = Icons.Rounded.Speed
                 )
             )
         ),

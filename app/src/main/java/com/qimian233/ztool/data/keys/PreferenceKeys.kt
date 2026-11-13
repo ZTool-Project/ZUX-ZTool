@@ -298,6 +298,8 @@ object PreferenceKeys {
     val HALF_WIDTH_PUNCT = BoolKey("half_width_punct", false)
     val SOGOU_ENTER_KEY = BoolKey("sogou_enter_key", false)
     val AUTO_CHECK_UPDATE = BoolKey("auto_check_update", true)
+    // App-local behavior: fetch the release feed through the ghproxy mirror first
+    val USE_GH_PROXY_FOR_UPDATE = BoolKey("use_gh_proxy_for_update", false)
     // App-local behavior: exclude ZTool's own tasks from the recents overview
     val HIDE_FROM_RECENTS = BoolKey("hide_from_recents", false)
     val YIYAN = BoolKey("YiYan", false)
@@ -507,7 +509,7 @@ object PreferenceKeys {
         DISABLE_ALL_VIRUS_SCANS, DEFAULT_ENABLE_AUTORUN,
         AUTO_ACCEPT_FILE_TRANSFER, BYPASS_SHARE_WARNING,
         DISABLE_NEARBY_SHARE_COUNTDOWN,
-        AUTO_CHECK_UPDATE, HIDE_FROM_RECENTS,
+        AUTO_CHECK_UPDATE, USE_GH_PROXY_FOR_UPDATE, HIDE_FROM_RECENTS,
         YIYAN, IS_SYSTEMUI_PERMISSION_CONFIRMED, IS_CONFIG_UPGRADED,
         HALF_WIDTH_PUNCT, SOGOU_ENTER_KEY,
         SYSTEMUI_REALWATTS_SHOW_VOLTAGE, SYSTEMUI_REALWATTS_SHOW_CURRENT,

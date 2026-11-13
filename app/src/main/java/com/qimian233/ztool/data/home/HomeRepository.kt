@@ -28,7 +28,6 @@ class HomeRepository(
     private var cachedRomRegion = ""
     private var cachedIsZuxOsDevice = true
     private var lastSystemInfoUpdate = 0L
-    private val releaseFeedClient = ReleaseFeedClient()
 
     fun checkEnvironment(): EnvironmentStatus {
         val moduleActive = isModuleActive()
@@ -110,6 +109,13 @@ class HomeRepository(
             .loadBooleanSetting(PreferenceKeys.AUTO_CHECK_UPDATE.name, true)
     }
 
+    fun isGhProxyUpdateEnabled(): Boolean {
+        return ModulePreferencesUtils(context).loadBooleanSetting(
+            PreferenceKeys.USE_GH_PROXY_FOR_UPDATE.name,
+            PreferenceKeys.USE_GH_PROXY_FOR_UPDATE.default
+        )
+    }
+
     fun checkConfigUpgrade(): Boolean = ConfigUpgrade.configUpgrader(context)
 
     fun checkAppUpdate(): UpdateCheckResult {
@@ -121,7 +127,7 @@ class HomeRepository(
 
         return try {
             val entry = ReleaseSelector.select(
-                entries = releaseFeedClient.load(),
+                entries = ReleaseFeedClient(useGhProxy = isGhProxyUpdateEnabled()).load(),
                 installedCode = currentVersionCode,
                 receivePrerelease = receivePrerelease,
                 ignoredCode = ignoredVersion

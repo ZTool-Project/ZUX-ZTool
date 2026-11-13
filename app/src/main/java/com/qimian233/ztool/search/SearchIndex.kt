@@ -1809,6 +1809,11 @@ object SearchIndex {
             titleRes = R.string.page_settings_auto_check_update_title
         ),
         appSettings.item(
+            id = "app_settings_use_gh_proxy_update",
+            titleRes = R.string.page_settings_use_gh_proxy_update_title,
+            summaryRes = R.string.page_settings_use_gh_proxy_update_summary
+        ),
+        appSettings.item(
             id = "app_settings_log_level",
             titleRes = R.string.page_settings_log_level,
             summaryRes = R.string.page_settings_log_level_summary

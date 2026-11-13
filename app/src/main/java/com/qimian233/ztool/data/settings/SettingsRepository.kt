@@ -45,6 +45,10 @@ class SettingsRepository(
             themeSettings = themeSettings,
             manualSeedColorText = formatSeedColor(themeSettings.manualSeedColor),
             isAutoCheckUpdateEnabled = prefsUtils.loadBooleanSetting(KEY_AUTO_CHECK_UPDATE, true),
+            isGhProxyUpdateEnabled = prefsUtils.loadBooleanSetting(
+                KEY_USE_GH_PROXY_FOR_UPDATE,
+                PreferenceKeys.USE_GH_PROXY_FOR_UPDATE.default
+            ),
         )
     }
 
@@ -150,6 +154,10 @@ class SettingsRepository(
 
     fun setAutoCheckUpdateEnabled(enabled: Boolean) {
         prefsUtils.saveBooleanSetting(KEY_AUTO_CHECK_UPDATE, enabled)
+    }
+
+    fun setGhProxyUpdateEnabled(enabled: Boolean) {
+        prefsUtils.saveBooleanSetting(KEY_USE_GH_PROXY_FOR_UPDATE, enabled)
     }
 
     /**
@@ -410,6 +418,7 @@ class SettingsRepository(
         private val KEY_DISPLAY_ENTRY_IN_SETTINGS = PreferenceKeys.ZTOOL_SETTINGS_ENTRY.name
         private val KEY_SHOW_ALL_APPS = PreferenceKeys.ZTOOL_SETTINGS_SHOW_ALL_APPS.name
         private val KEY_AUTO_CHECK_UPDATE = PreferenceKeys.AUTO_CHECK_UPDATE.name
+        private val KEY_USE_GH_PROXY_FOR_UPDATE = PreferenceKeys.USE_GH_PROXY_FOR_UPDATE.name
         private val KEY_HIDE_FROM_RECENTS = PreferenceKeys.HIDE_FROM_RECENTS.name
         private const val LAUNCHER_ALIAS_CLASS = "com.qimian233.ztool.LauncherAlias"
         private const val LAUNCHER_ALIAS_ALT_CLASS = "com.qimian233.ztool.LauncherAliasAlt"

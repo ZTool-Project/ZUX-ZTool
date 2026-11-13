@@ -1155,6 +1155,8 @@
     <string name="system_framework_allow_all_restricted_settings_title">允许全部受限设置</string>
     <string name="system_framework_allow_all_restricted_settings_summary">自动解除所有应用的使用情况访问、悬浮窗、通知使用权、无障碍等受限设置限制，无需再到应用详情页单独授权“允许受限设置”</string>
     <string name="page_settings_auto_check_update_title">自动检查更新</string>
+    <string name="page_settings_use_gh_proxy_update_title">使用 ghproxy 加速检查更新</string>
+    <string name="page_settings_use_gh_proxy_update_summary">通过 ghproxy 镜像获取更新信息，直连 GitHub 不可用时开启</string>
     <string name="common_splash_logo_description" translatable="false">ZTool Logo</string>
     <string name="common_splash_slogan" translatable="false">\"Make ZUXOS Great, Not \'Again\'.\"</string>
     <string name="page_firstrun_splash_welcome_text">欢迎使用 ZTool</string>

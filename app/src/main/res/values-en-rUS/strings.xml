@@ -1171,6 +1171,8 @@
     <string name="page_settings_about_changelog_summary">Review changes in previous versions</string>
     <string name="page_settings_about_changelog_empty">No changelog entries to show</string>
     <string name="page_settings_auto_check_update_title">Check Updates Automatically</string>
+    <string name="page_settings_use_gh_proxy_update_title">Use ghproxy to accelerate update checks</string>
+    <string name="page_settings_use_gh_proxy_update_summary">Fetch update information through the ghproxy mirror; enable it when GitHub is unreachable</string>
     <string name="page_settings_advanced_info_title">System Info</string>
     <string name="page_settings_advanced_api_version">libxposed API version</string>
     <string name="page_settings_advanced_open_firstrun_title">Open first-run wizard</string>
