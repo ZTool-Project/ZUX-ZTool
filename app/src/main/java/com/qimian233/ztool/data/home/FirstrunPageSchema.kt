@@ -23,5 +23,6 @@ enum class FirstrunPageSchema(val order: Int, val schemaVersion: Int) {
     SOURCE_VERIFY(order = 1, schemaVersion = 2),
     REPORT(order = 2, schemaVersion = 1),
     PERMISSIONS(order = 3, schemaVersion = 2),
-    THEME(order = 4, schemaVersion = 1);
+    THEME(order = 4, schemaVersion = 1),
+    UPDATE_SOURCE(order = 5, schemaVersion = 1);
 }

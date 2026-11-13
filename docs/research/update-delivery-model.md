@@ -246,6 +246,16 @@ stable-hosted media is the norm; it must not use the signed URLs from a cached f
   is needed in the new client.
 - Only one check per app process, as today; the "ignore" key stays `versionCode`.
 
+### 4.7 Offering the acceleration source
+
+The first-run flow ends with an update-source page (locale hint → pre-selected ghproxy switch). The
+detection is language-based, not geo-IP: Duck Detector's `GitHubAccelerationOffer.kt`
+(`eltavine/Duck-Detector-Refactoring`) asks only when the acceleration choice is still undecided and
+`appLocale.language == Locale.CHINESE.language`, in every script and region. ZTool mirrors that rule
+in `data/update/UpdateSourceRecommendation.kt`: a Chinese UI language pre-selects the mirror
+(`use_gh_proxy_for_update`), but the switch stays visible and a stored choice is never overwritten.
+No permission, SIM or network lookup is involved, so the recommendation also works offline.
+
 ## 5. Migration of installed users
 
 ### 5.1 The old repository's final payload

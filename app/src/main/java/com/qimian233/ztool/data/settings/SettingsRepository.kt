@@ -6,12 +6,14 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.util.Log
+import androidx.core.content.edit
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import com.qimian233.ztool.BuildConfig
 import com.qimian233.ztool.R
 import com.qimian233.ztool.data.theme.ThemePreferencesRepository
+import com.qimian233.ztool.data.update.UpdatePreferenceKeys
 import com.qimian233.ztool.utils.ModulePreferencesUtils
 import com.qimian233.ztool.data.keys.LogLevel
 import com.qimian233.ztool.data.keys.PreferenceKeys
@@ -28,6 +30,9 @@ class SettingsRepository(
 ) {
     private val themePreferences = ThemePreferencesRepository(context)
     private val prefsUtils = ModulePreferencesUtils(context)
+    private val updatePreferences by lazy {
+        context.getSharedPreferences(UpdatePreferenceKeys.PREF_NAME, Context.MODE_PRIVATE)
+    }
 
     fun loadState(): SettingsUiState {
         val themeSettings = themePreferences.loadSettings()
@@ -45,10 +50,8 @@ class SettingsRepository(
             themeSettings = themeSettings,
             manualSeedColorText = formatSeedColor(themeSettings.manualSeedColor),
             isAutoCheckUpdateEnabled = prefsUtils.loadBooleanSetting(KEY_AUTO_CHECK_UPDATE, true),
-            isGhProxyUpdateEnabled = prefsUtils.loadBooleanSetting(
-                KEY_USE_GH_PROXY_FOR_UPDATE,
-                PreferenceKeys.USE_GH_PROXY_FOR_UPDATE.default
-            ),
+            isGhProxyUpdateEnabled = isGhProxyUpdateEnabled(),
+            isPrereleaseUpdateEnabled = isPrereleaseChannelEnabled(),
         )
     }
 
@@ -158,6 +161,29 @@ class SettingsRepository(
 
     fun setGhProxyUpdateEnabled(enabled: Boolean) {
         prefsUtils.saveBooleanSetting(KEY_USE_GH_PROXY_FOR_UPDATE, enabled)
+    }
+
+    fun isGhProxyUpdateEnabled(): Boolean = prefsUtils.loadBooleanSetting(
+        KEY_USE_GH_PROXY_FOR_UPDATE,
+        PreferenceKeys.USE_GH_PROXY_FOR_UPDATE.default
+    )
+
+    /**
+     * Pre-selects the ghproxy source for users whose language suggests it, unless
+     * they already chose. Returns whether the recommendation was written.
+     */
+    fun applyGhProxyUpdateRecommendation(recommendsAcceleration: Boolean): Boolean {
+        if (!recommendsAcceleration) return false
+        if (prefsUtils.containsSetting(KEY_USE_GH_PROXY_FOR_UPDATE)) return false
+        prefsUtils.saveBooleanSetting(KEY_USE_GH_PROXY_FOR_UPDATE, true)
+        return true
+    }
+
+    fun isPrereleaseChannelEnabled(): Boolean =
+        updatePreferences.getBoolean(UpdatePreferenceKeys.KEY_RECEIVE_PRERELEASE, false)
+
+    fun setPrereleaseChannelEnabled(enabled: Boolean) {
+        updatePreferences.edit { putBoolean(UpdatePreferenceKeys.KEY_RECEIVE_PRERELEASE, enabled) }
     }
 
     /**

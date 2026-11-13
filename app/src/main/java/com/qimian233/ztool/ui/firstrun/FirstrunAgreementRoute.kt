@@ -67,6 +67,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.imageResource
@@ -90,6 +91,7 @@ import com.qimian233.ztool.data.home.FirstrunPageSchema
 import com.qimian233.ztool.data.home.FirstrunSchemaRepository
 import com.qimian233.ztool.data.home.ZToolSource
 import com.qimian233.ztool.data.home.isVerifiedSourceInput
+import com.qimian233.ztool.data.update.recommendsGhProxyAcceleration
 import com.qimian233.ztool.ui.components.ZToolButton
 import com.qimian233.ztool.ui.components.ZToolCard
 import com.qimian233.ztool.ui.components.ZToolOutlinedTextField
@@ -132,6 +134,7 @@ fun FirstrunAgreementRoute(
     val permissionPageScrollState = rememberScrollState()
     val reportPageScrollState = rememberScrollState()
     val themePageScrollState = rememberScrollState()
+    val updatePageScrollState = rememberScrollState()
     val revealController = LocalThemeRevealController.current
     val introCoverColor = ztoolRevealCoverColor()
     val gate = remember { ScrollToBottomAgreementGate() }
@@ -366,6 +369,28 @@ fun FirstrunAgreementRoute(
                             onManualColorChanged = settingsViewModel::setManualColorEnabled,
                             onManualSeedColorTextChanged = settingsViewModel::setManualSeedColorText,
                             onManualSeedColorEditingFinished = settingsViewModel::finishManualSeedColorEditing,
+                            onNext = { tapAnchor -> navigateForward(tapAnchor, null) },
+                            onBack = navigateBack
+                        )
+                    }
+                    FirstrunPage.UpdateSource -> {
+                        val settingsViewModel = rememberSettingsViewModel(activity)
+                        val settingsUiState by settingsViewModel.uiState.collectAsState()
+                        val languageTag = LocalConfiguration.current.locales[0].toLanguageTag()
+                        LaunchedEffect(languageTag) {
+                            settingsViewModel.applyGhProxyUpdateRecommendation(
+                                recommendsGhProxyAcceleration(languageTag)
+                            )
+                        }
+                        FirstrunUpdatePage(
+                            isGhProxyUpdateEnabled = settingsUiState.isGhProxyUpdateEnabled,
+                            isAutoCheckUpdateEnabled = settingsUiState.isAutoCheckUpdateEnabled,
+                            isPrereleaseUpdateEnabled = settingsUiState.isPrereleaseUpdateEnabled,
+                            isLastPage = page == pages.last(),
+                            pageScrollState = updatePageScrollState,
+                            onGhProxyUpdateChanged = settingsViewModel::setGhProxyUpdateEnabled,
+                            onAutoCheckUpdateChanged = settingsViewModel::setAutoCheckUpdateEnabled,
+                            onPrereleaseUpdateChanged = settingsViewModel::setPrereleaseUpdateEnabled,
                             onNext = { tapAnchor -> navigateForward(tapAnchor, null) },
                             onBack = navigateBack
                         )
@@ -951,7 +976,8 @@ private enum class FirstrunPage {
     SourceVerify,
     Report,
     Permissions,
-    Theme
+    Theme,
+    UpdateSource
 }
 
 private fun FirstrunPageSchema.toFirstrunPage(): FirstrunPage = when (this) {
@@ -960,6 +986,7 @@ private fun FirstrunPageSchema.toFirstrunPage(): FirstrunPage = when (this) {
     FirstrunPageSchema.REPORT -> FirstrunPage.Report
     FirstrunPageSchema.PERMISSIONS -> FirstrunPage.Permissions
     FirstrunPageSchema.THEME -> FirstrunPage.Theme
+    FirstrunPageSchema.UPDATE_SOURCE -> FirstrunPage.UpdateSource
 }
 
 /**

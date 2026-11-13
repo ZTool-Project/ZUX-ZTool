@@ -15,6 +15,7 @@ import com.qimian233.ztool.XposedServiceBridge
 import com.qimian233.ztool.data.keys.PreferenceKeys
 import com.qimian233.ztool.data.update.ReleaseFeedClient
 import com.qimian233.ztool.data.update.ReleaseSelector
+import com.qimian233.ztool.data.update.UpdatePreferenceKeys
 
 class HomeRepository(
     private val context: Context,
@@ -122,8 +123,8 @@ class HomeRepository(
         val currentVersionCode = getCurrentVersionCode()
         val receivePrerelease = isPrereleaseChannelEnabled()
         val ignoredVersion = context
-            .getSharedPreferences(PREF_NAME_UPDATE, Context.MODE_PRIVATE)
-            .getInt(KEY_IGNORE_VERSION, 0)
+            .getSharedPreferences(UpdatePreferenceKeys.PREF_NAME, Context.MODE_PRIVATE)
+            .getInt(UpdatePreferenceKeys.KEY_IGNORE_VERSION, 0)
 
         return try {
             val entry = ReleaseSelector.select(
@@ -154,13 +155,13 @@ class HomeRepository(
     }
 
     fun isPrereleaseChannelEnabled(): Boolean {
-        return context.getSharedPreferences(PREF_NAME_UPDATE, Context.MODE_PRIVATE)
-            .getBoolean(KEY_RECEIVE_PRERELEASE, false)
+        return context.getSharedPreferences(UpdatePreferenceKeys.PREF_NAME, Context.MODE_PRIVATE)
+            .getBoolean(UpdatePreferenceKeys.KEY_RECEIVE_PRERELEASE, false)
     }
 
     fun setPrereleaseChannelEnabled(enabled: Boolean) {
-        context.getSharedPreferences(PREF_NAME_UPDATE, Context.MODE_PRIVATE)
-            .edit { putBoolean(KEY_RECEIVE_PRERELEASE, enabled) }
+        context.getSharedPreferences(UpdatePreferenceKeys.PREF_NAME, Context.MODE_PRIVATE)
+            .edit { putBoolean(UpdatePreferenceKeys.KEY_RECEIVE_PRERELEASE, enabled) }
     }
 
     private fun describeUpdateCheckError(error: Exception?): String {
@@ -170,9 +171,9 @@ class HomeRepository(
 
     fun ignoreUpdate(versionCode: Int) {
         context
-            .getSharedPreferences(PREF_NAME_UPDATE, Context.MODE_PRIVATE)
+            .getSharedPreferences(UpdatePreferenceKeys.PREF_NAME, Context.MODE_PRIVATE)
             .edit {
-                putInt(KEY_IGNORE_VERSION, versionCode)
+                putInt(UpdatePreferenceKeys.KEY_IGNORE_VERSION, versionCode)
             }
     }
 
@@ -229,9 +230,6 @@ class HomeRepository(
 
     companion object {
         private const val TAG = "HomeRepository"
-        private const val PREF_NAME_UPDATE = "update_prefs"
-        private const val KEY_IGNORE_VERSION = "ignore_version_code"
-        private const val KEY_RECEIVE_PRERELEASE = "receive_prerelease_updates"
         private const val PREF_NAME_HOME_UI = "home_ui_prefs"
         private const val KEY_NON_ZUXOS_WARNING_DISMISSED = "non_zuxos_warning_dismissed"
         private const val SYSTEM_INFO_CACHE_DURATION = 60_000L

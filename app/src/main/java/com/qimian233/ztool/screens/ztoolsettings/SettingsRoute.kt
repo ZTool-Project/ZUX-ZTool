@@ -495,7 +495,6 @@ private fun settingsSections(
                 SettingItem.Switch(
                     key = "app_settings_use_gh_proxy_update",
                     title = stringResource(R.string.page_settings_use_gh_proxy_update_title),
-                    summary = stringResource(R.string.page_settings_use_gh_proxy_update_summary),
                     checked = state.isGhProxyUpdateEnabled,
                     onCheckedChange = onGhProxyUpdateChanged,
                     icon = Icons.Rounded.Speed

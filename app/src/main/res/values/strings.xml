@@ -76,6 +76,13 @@
     <string name="page_firstrun_theme_summary">先挑一套顺眼的界面风格，之后随时可以再改</string>
     <string name="page_firstrun_theme_hint">下面的选项会立即生效，并应用到整个应用。你可以在「设置 - 应用主题模式」中随时调整这些设置。</string>
     <string name="page_firstrun_theme_finish_button">完成</string>
+    <string name="page_firstrun_update_title">更新检查</string>
+    <string name="page_firstrun_update_summary">决定 ZTool 如何检查并接收更新</string>
+    <string name="page_firstrun_update_hint">使用 ghproxy 时，更新检查请求会经由第三方镜像中转。位于中国大陆的用户建议开启，否则可能无法连接 GitHub；其他地区的用户通常无需开启。</string>
+    <string name="page_firstrun_update_gh_proxy_title">使用 ghproxy 获取更新信息</string>
+    <string name="page_firstrun_update_auto_check_title">自动检查更新</string>
+    <string name="page_firstrun_update_prerelease_title">接收测试版更新</string>
+    <string name="page_firstrun_update_prerelease_summary">测试版可能不稳定</string>
     <string name="page_firstrun_report_title">问题反馈指南</string>
     <string name="page_firstrun_report_subtitle">遇到问题时，请先按以下步骤准备信息</string>
     <string name="page_firstrun_report_hint">缺少复现步骤或日志的问题往往难以排查，按顺序完成以下准备可以帮助我们更快定位并修复问题：</string>
@@ -1155,8 +1162,7 @@
     <string name="system_framework_allow_all_restricted_settings_title">允许全部受限设置</string>
     <string name="system_framework_allow_all_restricted_settings_summary">自动解除所有应用的使用情况访问、悬浮窗、通知使用权、无障碍等受限设置限制，无需再到应用详情页单独授权“允许受限设置”</string>
     <string name="page_settings_auto_check_update_title">自动检查更新</string>
-    <string name="page_settings_use_gh_proxy_update_title">使用 ghproxy 加速检查更新</string>
-    <string name="page_settings_use_gh_proxy_update_summary">通过 ghproxy 镜像获取更新信息，直连 GitHub 不可用时开启</string>
+    <string name="page_settings_use_gh_proxy_update_title">使用 ghproxy 获取更新信息</string>
     <string name="common_splash_logo_description" translatable="false">ZTool Logo</string>
     <string name="common_splash_slogan" translatable="false">\"Make ZUXOS Great, Not \'Again\'.\"</string>
     <string name="page_firstrun_splash_welcome_text">欢迎使用 ZTool</string>

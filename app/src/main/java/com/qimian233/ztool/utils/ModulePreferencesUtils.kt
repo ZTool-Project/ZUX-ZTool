@@ -63,6 +63,9 @@ class ModulePreferencesUtils(
 
     // Boolean
 
+    /** True when [featureName] is present, i.e. the user (or a restore) already set it. */
+    fun containsSetting(featureName: String): Boolean = modulePreferences.all.containsKey(featureName)
+
     fun loadBooleanSetting(featureName: String, defaultValue: Boolean): Boolean {
         val prefs = modulePreferences
         return try {

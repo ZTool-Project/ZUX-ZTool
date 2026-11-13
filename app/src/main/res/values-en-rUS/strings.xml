@@ -75,6 +75,13 @@
     <string name="page_firstrun_theme_summary">Pick a front end that suits you; you can change it any time</string>
     <string name="page_firstrun_theme_hint">Changes below apply immediately across the app. You can adjust them any time in Settings - App theme mode.</string>
     <string name="page_firstrun_theme_finish_button">Finish</string>
+    <string name="page_firstrun_update_title">Update checks</string>
+    <string name="page_firstrun_update_summary">Decide how ZTool checks for and receives updates</string>
+    <string name="page_firstrun_update_hint">With ghproxy on, update checks are relayed through a third-party mirror. Users in mainland China should turn it on, since GitHub may otherwise be unreachable; users elsewhere usually do not need it.</string>
+    <string name="page_firstrun_update_gh_proxy_title">Use ghproxy to fetch update information</string>
+    <string name="page_firstrun_update_auto_check_title">Check for updates automatically</string>
+    <string name="page_firstrun_update_prerelease_title">Receive beta updates</string>
+    <string name="page_firstrun_update_prerelease_summary">Beta builds may be unstable</string>
     <string name="page_firstrun_report_title">Reporting a problem</string>
     <string name="page_firstrun_report_subtitle">When something goes wrong, prepare the information below first</string>
     <string name="page_firstrun_report_hint">Reports without reproduction steps or logs are hard to diagnose. Work through these steps in order so we can locate and fix the problem faster:</string>
@@ -1171,8 +1178,7 @@
     <string name="page_settings_about_changelog_summary">Review changes in previous versions</string>
     <string name="page_settings_about_changelog_empty">No changelog entries to show</string>
     <string name="page_settings_auto_check_update_title">Check Updates Automatically</string>
-    <string name="page_settings_use_gh_proxy_update_title">Use ghproxy to accelerate update checks</string>
-    <string name="page_settings_use_gh_proxy_update_summary">Fetch update information through the ghproxy mirror; enable it when GitHub is unreachable</string>
+    <string name="page_settings_use_gh_proxy_update_title">Use ghproxy to fetch update information</string>
     <string name="page_settings_advanced_info_title">System Info</string>
     <string name="page_settings_advanced_api_version">libxposed API version</string>
     <string name="page_settings_advanced_open_firstrun_title">Open first-run wizard</string>

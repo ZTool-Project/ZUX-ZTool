@@ -95,6 +95,17 @@ class SettingsViewModel(
         repository.setGhProxyUpdateEnabled(enabled)
     }
 
+    fun applyGhProxyUpdateRecommendation(recommendsAcceleration: Boolean) {
+        if (repository.applyGhProxyUpdateRecommendation(recommendsAcceleration)) {
+            _uiState.value = _uiState.value.copy(isGhProxyUpdateEnabled = true)
+        }
+    }
+
+    fun setPrereleaseUpdateEnabled(enabled: Boolean) {
+        _uiState.value = _uiState.value.copy(isPrereleaseUpdateEnabled = enabled)
+        repository.setPrereleaseChannelEnabled(enabled)
+    }
+
     fun setFrontendStyle(style: FrontendStyle) {
         repository.setFrontendStyle(style)
         _uiState.value = _uiState.value.copy(
@@ -250,4 +261,5 @@ data class SettingsUiState(
     val manualSeedColorError: Boolean = false,
     val isAutoCheckUpdateEnabled: Boolean = true,
     val isGhProxyUpdateEnabled: Boolean = false,
+    val isPrereleaseUpdateEnabled: Boolean = false,
 )
