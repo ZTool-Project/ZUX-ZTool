@@ -41,6 +41,8 @@ class ControlCenterSettingsRepository(
             customSecondLabelColor = prefsUtils.loadBooleanSetting(KEY_CUSTOM_SECOND_LABEL_COLOR, false),
             noTileLabels = prefsUtils.loadBooleanSetting(KEY_NO_TILE_LABELS, false),
             mediaOutputDialogCenter = prefsUtils.loadBooleanSetting(KEY_MEDIA_OUTPUT_DIALOG_CENTER, false),
+            nativeMediaOutputDialogCenter = android.os.Build.VERSION.SDK_INT >= NATIVE_MEDIA_OUTPUT_CENTER_SDK,
+            mediaOutputDialogColor = prefsUtils.loadBooleanSetting(KEY_MEDIA_OUTPUT_DIALOG_COLOR, true),
             customQsActiveColor = prefsUtils.loadIntegerSetting(KEY_CUSTOM_QS_ACTIVE_COLOR_VAL, DEFAULT_QS_ACTIVE_COLOR),
             customLabelActiveColor = prefsUtils.loadIntegerSetting(KEY_CUSTOM_LABEL_ACTIVE_COLOR_VAL, DEFAULT_LABEL_ACTIVE_COLOR),
             customSecondLabelActiveColor = prefsUtils.loadIntegerSetting(
@@ -157,6 +159,10 @@ class ControlCenterSettingsRepository(
         prefsUtils.saveBooleanSetting(KEY_MEDIA_OUTPUT_DIALOG_CENTER, enabled)
     }
 
+    fun saveMediaOutputDialogColor(enabled: Boolean) {
+        prefsUtils.saveBooleanSetting(KEY_MEDIA_OUTPUT_DIALOG_COLOR, enabled)
+    }
+
     fun saveCustomQsActiveColor(color: Int) {
         prefsUtils.saveIntegerSetting(KEY_CUSTOM_QS_ACTIVE_COLOR_VAL, color)
     }
@@ -269,6 +275,8 @@ class ControlCenterSettingsRepository(
 
     companion object {
         private const val TAG = "ControlCenterSettingsRepository"
+        // Android 17 centers the media output dialog itself; the centering hook is not installed there
+        const val NATIVE_MEDIA_OUTPUT_CENTER_SDK = 37
         const val NOTIFICATION_CENTER_BLUR_MIN_PERCENT = 0
         const val NOTIFICATION_CENTER_BLUR_MAX_PERCENT = 100
         const val DEFAULT_NOTIFICATION_CENTER_BLUR_PERCENT = 0
@@ -293,6 +301,7 @@ class ControlCenterSettingsRepository(
         private val KEY_CUSTOM_SECOND_LABEL_COLOR = PreferenceKeys.CUSTOM_SECOND_LABEL_COLOR.name
         private val KEY_NO_TILE_LABELS = PreferenceKeys.CONTROL_CENTER_NO_TILE_LABELS.name
         private val KEY_MEDIA_OUTPUT_DIALOG_CENTER = PreferenceKeys.MEDIA_OUTPUT_DIALOG_CENTER.name
+        private val KEY_MEDIA_OUTPUT_DIALOG_COLOR = PreferenceKeys.MEDIA_OUTPUT_DIALOG_COLOR.name
         private val KEY_CUSTOM_QS_ACTIVE_COLOR_VAL = PreferenceKeys.CUSTOM_QS_ACTIVE_COLOR_VAL.name
         private val KEY_CUSTOM_LABEL_ACTIVE_COLOR_VAL = PreferenceKeys.CUSTOM_LABEL_ACTIVE_COLOR_VAL.name
         private val KEY_CUSTOM_SECOND_LABEL_ACTIVE_COLOR_VAL = PreferenceKeys.CUSTOM_SECOND_LABEL_ACTIVE_COLOR_VAL.name

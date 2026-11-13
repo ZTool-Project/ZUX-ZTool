@@ -158,6 +158,7 @@ fun ControlCenterSettingsRoute(
             onCustomSecondLabelActiveColorEditingFinished = viewModel::finishCustomSecondLabelActiveColorEditing,
             onNoTileLabelsChanged = viewModel::setNoTileLabels,
             onMediaOutputDialogCenterChanged = viewModel::setMediaOutputDialogCenter,
+            onMediaOutputDialogColorChanged = viewModel::setMediaOutputDialogColor,
             onCustomQsColorSwitchChanged = viewModel::setCustomQsColorSwitch,
             onNotificationCenterBlurEnabledChanged = viewModel::setNotificationCenterBlurEnabled,
             onNotificationCenterBlurPercentChanged = viewModel::setNotificationCenterBlurPercent,
@@ -261,6 +262,7 @@ private fun ControlCenterSettingsScreen(
     onCustomSecondLabelActiveColorEditingFinished: () -> Unit,
     onNoTileLabelsChanged: (Boolean) -> Unit,
     onMediaOutputDialogCenterChanged: (Boolean) -> Unit,
+    onMediaOutputDialogColorChanged: (Boolean) -> Unit,
     onCustomQsColorSwitchChanged: (Boolean) -> Unit,
     onNotificationCenterBlurEnabledChanged: (Boolean) -> Unit,
     onNotificationCenterBlurPercentChanged: (Int) -> Unit,
@@ -347,6 +349,7 @@ private fun ControlCenterSettingsScreen(
                         onCustomSecondLabelActiveColorEditingFinished = onCustomSecondLabelActiveColorEditingFinished,
                         onNoTileLabelsChanged = onNoTileLabelsChanged,
                         onMediaOutputDialogCenterChanged = onMediaOutputDialogCenterChanged,
+                        onMediaOutputDialogColorChanged = onMediaOutputDialogColorChanged,
                         onCustomQsColorSwitchChanged = onCustomQsColorSwitchChanged,
                         onNotificationCenterBlurEnabledChanged = onNotificationCenterBlurEnabledChanged,
                         onNotificationCenterBlurPercentChanged = onNotificationCenterBlurPercentChanged,
@@ -401,6 +404,7 @@ private fun controlCenterSettingsSections(
     onCustomSecondLabelActiveColorEditingFinished: () -> Unit,
     onNoTileLabelsChanged: (Boolean) -> Unit,
     onMediaOutputDialogCenterChanged: (Boolean) -> Unit,
+    onMediaOutputDialogColorChanged: (Boolean) -> Unit,
     onCustomQsColorSwitchChanged: (Boolean) -> Unit,
     onNotificationCenterBlurEnabledChanged: (Boolean) -> Unit,
     onNotificationCenterBlurPercentChanged: (Int) -> Unit,
@@ -465,13 +469,35 @@ private fun controlCenterSettingsSections(
                         key = "control_center_long_press"
                     )
                 )
+                if (state.nativeMediaOutputDialogCenter) {
+                    add(
+                        SettingItem.Switch(
+                            title = stringResource(R.string.system_ui_media_output_dialog_center_title),
+                            summary = stringResource(R.string.system_ui_media_output_dialog_center_native_summary),
+                            checked = false,
+                            onCheckedChange = {},
+                            enabled = false,
+                            key = "control_center_media_output_dialog_center"
+                        )
+                    )
+                } else {
+                    add(
+                        SettingItem.Switch(
+                            title = stringResource(R.string.system_ui_media_output_dialog_center_title),
+                            summary = stringResource(R.string.system_ui_media_output_dialog_center_summary),
+                            checked = state.mediaOutputDialogCenter,
+                            onCheckedChange = onMediaOutputDialogCenterChanged,
+                            key = "control_center_media_output_dialog_center"
+                        )
+                    )
+                }
                 add(
                     SettingItem.Switch(
-                        title = stringResource(R.string.system_ui_media_output_dialog_center_title),
-                        summary = stringResource(R.string.system_ui_media_output_dialog_center_summary),
-                        checked = state.mediaOutputDialogCenter,
-                        onCheckedChange = onMediaOutputDialogCenterChanged,
-                        key = "control_center_media_output_dialog_center"
+                        title = stringResource(R.string.system_ui_media_output_dialog_color_title),
+                        summary = stringResource(R.string.system_ui_media_output_dialog_color_summary),
+                        checked = state.mediaOutputDialogColor,
+                        onCheckedChange = onMediaOutputDialogColorChanged,
+                        key = "control_center_media_output_dialog_color"
                     )
                 )
                 add(

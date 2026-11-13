@@ -1398,6 +1398,9 @@
     <string name="tile_reduce_bright_colors_label">极暗模式</string>
     <string name="system_ui_media_output_dialog_center_title">媒体输出弹窗居中</string>
     <string name="system_ui_media_output_dialog_center_summary">修正从"媒体输出"磁贴拉起的输出切换弹窗贴屏幕左缘的问题</string>
+    <string name="system_ui_media_output_dialog_center_native_summary">ZUXOS 2.5 已由系统自动居中此弹窗，此项不再生效</string>
+    <string name="system_ui_media_output_dialog_color_title">媒体输出弹窗跟随封面取色</string>
+    <string name="system_ui_media_output_dialog_color_summary">让从"媒体输出"磁贴拉起的切换弹窗显示当前播放的媒体，并按专辑封面取色</string>
     <string name="ztool_batch_uninstall_no_apps" tools:ignore="UnusedResources">所选中内容没有可卸载的应用，也没有可移除的图标</string>
     <string name="system_ui_animation_wallpaper_title_suffix">\ - 动画与壁纸</string>
     <string name="system_ui_animation_wallpaper_setting_title">动画与壁纸</string>

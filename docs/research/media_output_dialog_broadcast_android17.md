@@ -126,3 +126,32 @@ the receiver falls back to `UserTracker`.
 
 SystemUI itself is `android:persistent="true"`, so the SystemUI-side tile in
 `VolumeSliderLongPressHook` may keep sending the protected action.
+
+## Dialog content and colours (second pass)
+
+`MediaSwitchingController.start` only looks for a media controller when `mPackageName` is non-empty:
+it scans media notifications, then `getActiveSessionsForUser(null, user)`, for a session of that
+package. The receiver forwards whatever package the sender supplied (or null), so the session-less
+tile dialog showed no metadata.
+
+`MediaOutputDialogDelegate.refresh` switches to `ColorScheme(WallpaperColors.fromBitmap(artwork))`
+only when the artwork is a bitmap icon **and** `mUseSystemColors == false`; both receiver actions
+hardcode `useSystemColors = true`, so a broadcast alone can never produce album-art colours.
+
+The app cannot resolve the playing package by itself: the public SDK exposes only
+`getAudioAttributes()` and `getAudioDeviceInfo()` on `AudioPlaybackConfiguration`
+(`getClientUid()`/`isActive()` are hidden), so the lookup has to run inside SystemUI, which holds
+`MEDIA_CONTENT_CONTROL`.
+
+Split implemented:
+
+- `MediaOutputDialogCenterHook` (`media_output_dialog_center`, default off): gravity only, and it
+  skips installation on API 37+ because that build centres the dialog in `onCreate`.
+- `MediaOutputDialogColorHook` (`media_output_dialog_color`, default on through an `isEnabled()`
+  override - the base class otherwise treats a missing key as "disabled"): wraps
+  `MediaOutputDialogReceiver.onReceive` to mark broadcast launches, then in `createAndShow`
+  substitutes the playing session package (playing > buffering > first active), forces
+  `includePlaybackAndAppMetadata = true` and `useSystemColors = false`. In-app callers such as the
+  media carousel are left untouched.
+- On API 37+ the centring switch is shown disabled with a dedicated summary (same pattern as the
+  lock-screen clock colour switch), because its hook is never installed there.

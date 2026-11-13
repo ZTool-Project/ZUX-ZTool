@@ -9,9 +9,10 @@ import android.util.Log
  * Media output switcher tile: tapping it launches the system media output switcher dialog
  * (the MediaOutputDialog shown from the "Output switch" entry on the media card).
  *
- * Android 17 declares the AOSP "system" action as a protected broadcast that only
- * system/root processes may send, so this build switches to the unprotected action and
- * supplies the package name it expects; older builds keep the previous action.
+ * Android 17 declares the AOSP "system" action as a protected broadcast that only system/root
+ * processes may send, so this build switches to the unprotected action, which needs a non-empty
+ * package name. The app cannot name the playing package (public audio APIs expose no client uid),
+ * so MediaOutputDialogColorHook substitutes the active media session in SystemUI.
  */
 class MediaOutputTileService : TileService() {
 

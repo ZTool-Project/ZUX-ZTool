@@ -122,6 +122,8 @@ object PreferenceKeys {
     val CUSTOM_CONTROL_CENTER_DATE = BoolKey("Custom_ControlCenterDate", false)
     val CONTROL_CENTER_NO_TILE_LABELS = BoolKey("control_center_no_tile_labels", false)
     val MEDIA_OUTPUT_DIALOG_CENTER = BoolKey("media_output_dialog_center", false)
+    // Default on: without it the tile dialog shows no media metadata and ignores album-art colors
+    val MEDIA_OUTPUT_DIALOG_COLOR = BoolKey("media_output_dialog_color", true)
     val NO_CHARGE_ANIMATION = BoolKey("No_ChargeAnimation", false)
     val NATIVE_NOTIFICATION_ICON = BoolKey("NativeNotificationIcon", false)
     val SYSTEMUI_NETWORK_SPEED_SIZE = BoolKey("systemui_network_speed_size", false)
@@ -455,6 +457,7 @@ object PreferenceKeys {
         CUSTOM_CONTROL_CENTER_DATE,
         CONTROL_CENTER_NO_TILE_LABELS, NO_CHARGE_ANIMATION, NATIVE_NOTIFICATION_ICON,
         MEDIA_OUTPUT_DIALOG_CENTER,
+        MEDIA_OUTPUT_DIALOG_COLOR,
         SYSTEMUI_NETWORK_SPEED_SIZE, SYSTEMUI_NETWORK_SPEED_DOUBLELAYER,
         CUSTOM_NETWORK_SPEED_REFRESH_INTERVAL, SYSTEMUI_NETWORK_SPEED_HIDE_SLOW,
         SYSTEMUI_NETWORK_SPEED_HIDE_BOTH, SYSTEMUI_BATTERY_PERCENTAGE,

@@ -1343,6 +1343,9 @@
     <string name="tile_reduce_bright_colors_label">Extra dim</string>
     <string name="system_ui_media_output_dialog_center_title">Center media output dialog</string>
     <string name="system_ui_media_output_dialog_center_summary">Fixes the output switcher dialog launched from the Media output tile sticking to the left edge of the screen.</string>
+    <string name="system_ui_media_output_dialog_center_native_summary">ZUXOS 2.5 centers this dialog itself, so this switch no longer applies.</string>
+    <string name="system_ui_media_output_dialog_color_title">Album-art colors for media output dialog</string>
+    <string name="system_ui_media_output_dialog_color_summary">Binds the output switcher launched from the Media output tile to the playing media and tints it with the album art.</string>
     <string name="ztool_batch_uninstall_no_apps" tools:ignore="UnusedResources">Nothing in the selection can be uninstalled or removed</string>
     <string name="system_ui_animation_wallpaper_title_suffix">\ - Animation &amp; wallpaper</string>
     <string name="system_ui_animation_wallpaper_setting_title">Animation &amp; wallpaper</string>

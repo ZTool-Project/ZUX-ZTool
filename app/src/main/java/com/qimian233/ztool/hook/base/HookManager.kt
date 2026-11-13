@@ -127,6 +127,7 @@ import com.qimian233.ztool.hook.modules.systemui.misc.ShadeReboundFix
 import com.qimian233.ztool.hook.modules.systemui.qs.BrightnessSliderPercentageHook
 import com.qimian233.ztool.hook.modules.systemui.qs.ControlCenterNoTileLabelsHook
 import com.qimian233.ztool.hook.modules.systemui.qs.MediaOutputDialogCenterHook
+import com.qimian233.ztool.hook.modules.systemui.qs.MediaOutputDialogColorHook
 import com.qimian233.ztool.hook.modules.systemui.qs.CustomQsColor
 import com.qimian233.ztool.hook.modules.systemui.qs.CustomQsRoundCorner
 import com.qimian233.ztool.hook.modules.systemui.qs.QsPanelWidthHook
@@ -309,6 +310,7 @@ object HookManager {
         registerHookModule(FineVolumeStepsSliderHook())
         registerHookModule(DisableBiometricErrorVibration())
         registerHookModule(MediaOutputDialogCenterHook())
+        registerHookModule(MediaOutputDialogColorHook())
         registerHookModule(DesktopLiveWallpaperHook())
 
         // Freeform window chrome

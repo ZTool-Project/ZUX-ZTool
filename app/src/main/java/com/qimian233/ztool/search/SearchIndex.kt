@@ -705,6 +705,11 @@ object SearchIndex {
             summaryRes = R.string.system_ui_media_output_dialog_center_summary
         ),
         systemUiControlCenter.item(
+            id = "control_center_media_output_dialog_color",
+            titleRes = R.string.system_ui_media_output_dialog_color_title,
+            summaryRes = R.string.system_ui_media_output_dialog_color_summary
+        ),
+        systemUiControlCenter.item(
             id = "control_center_custom_date_setting",
             titleRes = R.string.system_ui_control_center_custom_date_setting_title,
         ),
