@@ -1289,6 +1289,11 @@ class VolumeSliderLongPressHook : AppHookModule() {
         return entries
     }
 
+    /**
+     * One app-volume column. The audio write follows every 1% drag step, like
+     * the media/ring columns; only the Settings.System mirror waits for
+     * release, because persisting rewrites the whole uid/pct list.
+     */
     private fun buildAppColumn(
         context: Context,
         entry: AppVolumeEntry
@@ -1297,28 +1302,53 @@ class VolumeSliderLongPressHook : AppHookModule() {
             ?.let { context.packageManager.getApplicationIcon(it) }
             ?: resolveDrawableId(context, "ic_volume_media_zui")
                 ?.let { context.getDrawable(it) }
+        var appliedPercent = entry.initialPercent
         val column = buildSliderColumn(
             context, null, icon,
             initial = entry.initialPercent,
             maxValue = 100,
-            onStop = { progress -> commitAppVolume(context, entry.uid, progress) }
+            onProgress = { percent ->
+                // The 0..1000 bar reports every step; the write is 1%-granular.
+                if (percent != appliedPercent) {
+                    appliedPercent = percent
+                    applyAppVolume(context, entry.uid, percent)
+                }
+            },
+            onStop = { percent ->
+                appliedPercent = percent
+                applyAppVolume(context, entry.uid, percent)
+                persistAppVolume(context, entry.uid, percent)
+            }
         )
         (column.layoutParams as? LinearLayout.LayoutParams)?.marginStart = dp(context, 28)
         return column
     }
 
+    /** Resolved once: the app sliders write on every 1% drag step. */
+    private var setParametersMethod: Method? = null
+    private var setParametersUnavailable = false
+
     /** Same call path as RelativeVolumeHelper.setRelativeVolumeInternal. */
-    private fun commitAppVolume(context: Context, uid: Int, percent: Int) {
+    private fun applyAppVolume(context: Context, uid: Int, percent: Int) {
+        if (setParametersUnavailable) return
         val am = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        val value = percent / 100.0f
+        val setParameters = setParametersMethod ?: try {
+            am.javaClass.getMethod("setParameters", String::class.java)
+                .apply { isAccessible = true }
+                .also { setParametersMethod = it }
+        } catch (t: Throwable) {
+            setParametersUnavailable = true
+            logger.error("app volume: AudioManager.setParameters unavailable", t)
+            return
+        }
         try {
-            val setParameters = am.javaClass.getMethod("setParameters", String::class.java)
-            setParameters.isAccessible = true
-            setParameters.invoke(am, String.format(Locale.US, "uid=%d;app_volume=%f", uid, value))
+            setParameters.invoke(
+                am,
+                String.format(Locale.US, "uid=%d;app_volume=%f", uid, percent / 100.0f)
+            )
         } catch (t: Throwable) {
             logger.error("app volume setParameters failed for uid=$uid", t)
         }
-        persistAppVolume(context, uid, percent)
     }
 
     private fun loadPersistedAppVolumes(context: Context): Map<Int, Float> {
