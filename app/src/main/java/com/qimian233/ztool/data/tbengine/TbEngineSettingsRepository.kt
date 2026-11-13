@@ -324,10 +324,15 @@ class TbEngineSettingsRepository(
         prefsUtils.saveStringSetting(KEY_CUSTOM_OTA_TARGET_DEVICE_ID, value)
     }
 
+    /**
+     * Returns the firmware version as the OTA request sees it: the engine sends
+     * `Build.VERSION.INCREMENTAL` as `curfirmwarever`, so the disguise hint must show
+     * that value rather than `Build.DISPLAY` (DISPLAY only as a fallback).
+     */
     fun loadCurrentDeviceInfo(): TbEngineCurrentDeviceInfo {
-        val version = Build.DISPLAY.ifEmpty {
-            context.getString(R.string.common_unknown)
-        }
+        val version = Build.VERSION.INCREMENTAL?.takeIf { it.isNotEmpty() }
+            ?: Build.DISPLAY?.takeIf { it.isNotEmpty() }
+            ?: context.getString(R.string.common_unknown)
         val sn = getMachineSnByProps()?.takeIf { it.isNotEmpty() }
             ?: context.getString(R.string.common_unknown)
         return TbEngineCurrentDeviceInfo(version = version, sn = sn)

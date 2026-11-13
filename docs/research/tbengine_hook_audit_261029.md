@@ -142,7 +142,28 @@ primary job on `boot_complete`, so a workflow that is already in flight keeps ru
 reboot; and `AppDataProcessing` installs an already-staged app/data package on `boot_complete` even
 with 禁用预装应用自动更新 on (the hook only gates the download trigger).
 
-No code or string change is made for any of the above in this round.
+## 4a. Copy fixes applied (no hook change)
+
+The deviations in §4 were corrected in the string resources and one UI data source; the hooks are
+untouched.
+
+- 禁用固件自动下载: added "an already running download is not stopped".
+- 禁用自动安装: split the A/B and A-only wording, replaced the "manually confirmed reboot install"
+  clause with "manually confirmed installs (including local packages) are blocked", added the
+  in-progress caveat.
+- 禁用预装应用与数据包更新: title now says app **and data package**, and the summary says the
+  manually confirmed update is blocked too and already downloaded packages are still installed.
+- 禁用 UPS 推送: dropped the "receiving update pushes" claim, added "an already registered device is
+  not unregistered".
+- 本地安装包重签: documented the `ota.zip` location, the certificate module precondition and the
+  mutual exclusion with 禁用自动安装.
+- 证书未生成 hint: now tells the user to reopen the page (that is what regenerates the keys).
+- OTA 请求伪装: description now names the version query and the two fields.
+- Feature card description: now lists the reporting switch, the disguise and the re-signing switch.
+- `TbEngineSettingsRepository.loadCurrentDeviceInfo()` now reports `Build.VERSION.INCREMENTAL`
+  (the value the engine actually sends as `curfirmwarever`), `Build.DISPLAY` only as a fallback, so
+  a user who copies the hint cannot put the request permanently out of sync with the device.
+
 
 ## 5. Version comparison: V1.1.1.260616 (baseline) → V1.1.1.261029 (current)
 
