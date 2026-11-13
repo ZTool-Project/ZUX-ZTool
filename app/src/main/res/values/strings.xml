@@ -286,6 +286,7 @@
     <string name="page_settings_about_acknowledgements_open_source_title">开源软件</string>
     <string name="page_settings_about_acknowledgements_license_apache_2_0" translatable="false">Apache-2.0</string>
     <string name="page_settings_about_acknowledgements_license_bsd_2_clause" translatable="false">BSD-2-Clause</string>
+    <string name="page_settings_about_acknowledgements_license_isc" translatable="false">ISC</string>
     <string name="page_settings_about_acknowledgements_license_mit" translatable="false">MIT</string>
     <string name="page_settings_about_acknowledgements_license_unstated_label">未声明许可证</string>
     <string name="page_settings_about_acknowledgements_oss_androidx_name" translatable="false">AndroidX / Jetpack Compose</string>
@@ -312,6 +313,8 @@
     <string name="page_settings_about_acknowledgements_oss_hidden_api_bypass_summary">绕过 Android 非 SDK 接口限制的库</string>
     <string name="page_settings_about_acknowledgements_oss_gh_proxy_name" translatable="false">gh-proxy</string>
     <string name="page_settings_about_acknowledgements_oss_gh_proxy_summary">GitHub Release、Archive 与项目文件的加速服务</string>
+    <string name="page_settings_about_acknowledgements_oss_koa_api_name" translatable="false">koa-api</string>
+    <string name="page_settings_about_acknowledgements_oss_koa_api_summary">锁屏随机签名默认一言 API 的服务端实现（api.xygeng.cn/one）</string>
     <string name="page_settings_about_acknowledgements_oss_leakcanary_name" translatable="false">LeakCanary</string>
     <string name="page_settings_about_acknowledgements_oss_leakcanary_summary">Debug 构建使用的 Android 内存泄漏检测工具</string>
     <string name="page_settings_final_confirmation_title">最后一次确认</string>

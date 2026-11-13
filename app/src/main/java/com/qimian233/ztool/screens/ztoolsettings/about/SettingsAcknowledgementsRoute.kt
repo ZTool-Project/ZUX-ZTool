@@ -42,6 +42,10 @@ private const val ZUXOS_PLUS_URL = "https://github.com/morannlx/me.inkdye.zuxos"
 // hunshcn/gh-proxy is the upstream project; gh-proxy.com is one of its deployments.
 private const val GH_PROXY_URL = "https://github.com/hunshcn/gh-proxy"
 
+// xygengcn/koa-api is the upstream project; api.xygeng.cn/one is its deployment and the default
+// lock-screen quote API, so the credited source is the repository rather than the API domain.
+private const val KOA_API_URL = "https://github.com/xygengcn/koa-api"
+
 private val openSourceProjects = listOf(
     OpenSourceProject(
         nameRes = R.string.page_settings_about_acknowledgements_oss_androidx_name,
@@ -114,6 +118,12 @@ private val openSourceProjects = listOf(
         licenseRes = R.string.page_settings_about_acknowledgements_license_mit,
         summaryRes = R.string.page_settings_about_acknowledgements_oss_gh_proxy_summary,
         url = GH_PROXY_URL
+    ),
+    OpenSourceProject(
+        nameRes = R.string.page_settings_about_acknowledgements_oss_koa_api_name,
+        licenseRes = R.string.page_settings_about_acknowledgements_license_isc,
+        summaryRes = R.string.page_settings_about_acknowledgements_oss_koa_api_summary,
+        url = KOA_API_URL
     ),
     OpenSourceProject(
         nameRes = R.string.page_settings_about_acknowledgements_oss_leakcanary_name,

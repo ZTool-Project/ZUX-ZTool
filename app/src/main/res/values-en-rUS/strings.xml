@@ -1144,6 +1144,8 @@
 
     <string name="page_settings_about_acknowledgements_oss_gh_proxy_summary">Acceleration service for GitHub releases, archives, and project files</string>
 
+    <string name="page_settings_about_acknowledgements_oss_koa_api_summary">Server implementation of the default lock-screen quote API (api.xygeng.cn/one)</string>
+
     <string name="page_settings_about_acknowledgements_oss_leakcanary_summary">Android memory-leak detection tool used in debug builds</string>
     <string name="ztool_ram_formatter" tools:ignore="UnusedResources">%1$s Used | %2$s</string>
     <string name="ztool_media_output_label" tools:ignore="UnusedResources">Media output</string>
