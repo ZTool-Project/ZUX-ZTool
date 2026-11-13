@@ -315,7 +315,9 @@ class VolumeSliderPercentageHook : AppHookModule() {
                 return
             }
             val rawProgress2 = getVolumeRawProgress(sliderView, rawProgress)
-            val volumeProgress = getVolumeProgress(sliderView)
+            val volumeProgress = rawProgress2?.let {
+                resolvePercent(sliderView, it, rawProgress != null)
+            }
             if (rawProgress2 == null || volumeProgress == null) {
                 setPercentTextIfChanged(percentView, "--%")
                 return
@@ -335,7 +337,7 @@ class VolumeSliderPercentageHook : AppHookModule() {
         }
         try {
             val rawProgress2 = getVolumeRawProgress(sliderView, null)
-            val volumeProgress = getVolumeProgress(sliderView)
+            val volumeProgress = rawProgress2?.let { resolvePercent(sliderView, it, false) }
             if (rawProgress2 == null || volumeProgress == null) {
                 return
             }
@@ -356,7 +358,7 @@ class VolumeSliderPercentageHook : AppHookModule() {
     private fun getVolumeRawProgress(sliderView: Any, rawProgress: Int?): Int? {
         return try {
             val volumeSlider = sliderView.javaClass
-                .getDeclaredField("mMediaVolumeSlider").get(sliderView) as SeekBar
+                .getDeclaredField(MEDIA_VOLUME_SLIDER_FIELD).get(sliderView) as SeekBar
             val progress = rawProgress ?: volumeSlider.progress
             // The stock color ramp below is defined on the stock 0..100000 raw
             // range; with fine volume steps the slider max grows beyond that,
@@ -367,6 +369,28 @@ class VolumeSliderPercentageHook : AppHookModule() {
         } catch (_: Throwable) {
             null
         }
+    }
+
+    /**
+     * Percentage shown in the label: the bar position while the slider is held (1% steps, as
+     * the pre-3060ffa6 builds showed), the applied stream level otherwise (MediaOutputDialog's
+     * number). See docs/research/media_output_dialog_volume_percentage.md
+     */
+    private fun resolvePercent(sliderView: Any, normalizedProgress: Int, userDrag: Boolean): Int? {
+        if (userDrag || isVolumeSliderPressed(sliderView)) {
+            return percentFromNormalizedProgress(normalizedProgress)
+        }
+        return getVolumeProgress(sliderView) ?: percentFromNormalizedProgress(normalizedProgress)
+    }
+
+    private fun percentFromNormalizedProgress(normalizedProgress: Int): Int =
+        ((normalizedProgress * 100f) / STOCK_VOLUME_RAW_RANGE).roundToInt().coerceIn(0, 100)
+
+    private fun isVolumeSliderPressed(sliderView: Any): Boolean = try {
+        val slider = sliderView.javaClass.getDeclaredField(MEDIA_VOLUME_SLIDER_FIELD).get(sliderView)
+        (slider as? View)?.isPressed == true
+    } catch (_: Throwable) {
+        false
     }
 
     // See docs/research/media_output_dialog_volume_percentage.md
@@ -449,7 +473,7 @@ class VolumeSliderPercentageHook : AppHookModule() {
 
     private fun isVolumeSlider(sliderView: Any, view: Any): Boolean {
         return try {
-            val slider = sliderView.javaClass.getDeclaredField("mMediaVolumeSlider").get(sliderView)
+            val slider = sliderView.javaClass.getDeclaredField(MEDIA_VOLUME_SLIDER_FIELD).get(sliderView)
             slider == view
         } catch (_: Throwable) {
             false
@@ -623,6 +647,7 @@ class VolumeSliderPercentageHook : AppHookModule() {
         private const val LEGACY_PROGRESS_LISTENER_CLASS =
             "com.android.systemui.settings.ToggleSliderView\$2"
         private const val SLIDER_PERCENT_TAG = "ztool_control_center_slider_percent"
+        private const val MEDIA_VOLUME_SLIDER_FIELD = "mMediaVolumeSlider"
         private const val VOLUME_ROOT_FIELD = "mVolumeSliderRoot"
         private const val VOLUME_ICON_FIELD = "mMediaVolumeIconMark"
         private const val LABEL_GAP_DP = 2

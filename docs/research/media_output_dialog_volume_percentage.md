@@ -110,7 +110,7 @@ max level **only while that realignment is active**.
 
 **Option A — read the same source as the dialog (exact for the active route).** The hook's
 callbacks run after `chain.proceed()`, so during a drag the stream already holds the
-ceil'd level. **This is what `VolumeSliderPercentageHook` implements now:**
+ceil'd level. **This is what `VolumeSliderPercentageHook` reports once the slider is released:**
 
 ```kotlin
 val am = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
@@ -120,7 +120,9 @@ val percent = if (maxLevel <= 0) 0 else (level * 100) / maxLevel   // int divisi
 ```
 
 Immune to causes 2, 3 and 4. Downside: the label follows the applied step, not the finger
-(which is exactly what the dialog does).
+(which is exactly what the dialog does), and its granularity is `100 / maxLevel` (6.7% at the
+stock 15 steps) — that is why the label additionally follows the bar position while the slider
+is held; see `volume_slider_percentage_step_granularity.md`.
 
 **Option B — keep reading the slider, quantize like ZUI, truncate like the dialog.**
 
