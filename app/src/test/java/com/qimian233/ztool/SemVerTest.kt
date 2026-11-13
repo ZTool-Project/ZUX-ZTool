@@ -39,13 +39,4 @@ class SemVerTest {
         assertEquals(ReleaseChannel.CANARY, ReleaseChannel.ofTag("v1.1.0-canary.20261103"))
         assertNull(ReleaseChannel.ofTag("v1.0.0+build"))
     }
-
-    @Test
-    fun `classifies installed version names`() {
-        assertEquals(ReleaseChannel.STABLE, ReleaseChannel.ofVersionName("v1.0.0"))
-        assertEquals(ReleaseChannel.STABLE, ReleaseChannel.ofVersionName("Beta/261027"))
-        assertEquals(ReleaseChannel.BETA, ReleaseChannel.ofVersionName("v1.0.0-beta.2"))
-        assertEquals(ReleaseChannel.CANARY, ReleaseChannel.ofVersionName("v1.1.0-canary.20261103"))
-        assertEquals(ReleaseChannel.CANARY, ReleaseChannel.ofVersionName("v1.0.0-dev.abc1234"))
-    }
 }

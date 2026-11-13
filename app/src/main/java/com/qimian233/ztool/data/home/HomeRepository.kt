@@ -13,7 +13,6 @@ import com.qimian233.ztool.viewmodel.UpdateInfo
 import androidx.core.content.edit
 import com.qimian233.ztool.XposedServiceBridge
 import com.qimian233.ztool.data.keys.PreferenceKeys
-import com.qimian233.ztool.data.update.ReleaseChannel
 import com.qimian233.ztool.data.update.ReleaseFeedClient
 import com.qimian233.ztool.data.update.ReleaseSelector
 
@@ -115,7 +114,7 @@ class HomeRepository(
 
     fun checkAppUpdate(): UpdateCheckResult {
         val currentVersionCode = getCurrentVersionCode()
-        val installedChannel = ReleaseChannel.ofVersionName(getCurrentVersionName())
+        val receivePrerelease = isPrereleaseChannelEnabled()
         val ignoredVersion = context
             .getSharedPreferences(PREF_NAME_UPDATE, Context.MODE_PRIVATE)
             .getInt(KEY_IGNORE_VERSION, 0)
@@ -124,12 +123,11 @@ class HomeRepository(
             val entry = ReleaseSelector.select(
                 entries = releaseFeedClient.load(),
                 installedCode = currentVersionCode,
-                installedChannel = installedChannel,
-                receivePrerelease = isPrereleaseChannelEnabled(),
+                receivePrerelease = receivePrerelease,
                 ignoredCode = ignoredVersion
             )
             if (entry == null) {
-                Log.i(TAG, "No update available: installed=$currentVersionCode channel=$installedChannel")
+                Log.i(TAG, "No update available: installed=$currentVersionCode prerelease=$receivePrerelease")
                 UpdateCheckResult.Success(null)
             } else {
                 Log.i(TAG, "Update available: ${entry.tag} (c${entry.versionCode}) on ${entry.channel}")
@@ -200,12 +198,6 @@ class HomeRepository(
             @Suppress("DEPRECATION")
             packageInfo.versionCode
         }
-    }
-
-    private fun getCurrentVersionName(): String {
-        return runCatching {
-            context.packageManager.getPackageInfo(context.packageName, 0).versionName.orEmpty()
-        }.getOrDefault("")
     }
 
     private fun getCurrentBootSlot(): String {

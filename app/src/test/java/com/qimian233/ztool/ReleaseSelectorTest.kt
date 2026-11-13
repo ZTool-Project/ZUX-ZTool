@@ -14,11 +14,10 @@ class ReleaseSelectorTest {
     private val canary = entry("v1.1.0-canary.20261103", 2500, ReleaseChannel.CANARY)
 
     @Test
-    fun `stable installs ignore pre-releases by default`() {
+    fun `switch off exposes stable releases only`() {
         val selected = ReleaseSelector.select(
             entries = listOf(stable, beta, canary),
             installedCode = 2300,
-            installedChannel = ReleaseChannel.STABLE,
             receivePrerelease = false,
             ignoredCode = 0
         )
@@ -26,24 +25,22 @@ class ReleaseSelectorTest {
     }
 
     @Test
-    fun `enabling pre-release updates exposes the newest channel`() {
+    fun `switch off hides pre-releases regardless of the installed build`() {
         val selected = ReleaseSelector.select(
-            entries = listOf(stable, beta, canary),
+            entries = listOf(beta, canary),
             installedCode = 2300,
-            installedChannel = ReleaseChannel.STABLE,
-            receivePrerelease = true,
+            receivePrerelease = false,
             ignoredCode = 0
         )
-        assertEquals(canary, selected)
+        assertNull(selected)
     }
 
     @Test
-    fun `canary installs keep receiving canary even with the switch off`() {
+    fun `switch on exposes the newest release across channels`() {
         val selected = ReleaseSelector.select(
             entries = listOf(stable, beta, canary),
-            installedCode = 2200,
-            installedChannel = ReleaseChannel.CANARY,
-            receivePrerelease = false,
+            installedCode = 2300,
+            receivePrerelease = true,
             ignoredCode = 0
         )
         assertEquals(canary, selected)
@@ -54,7 +51,6 @@ class ReleaseSelectorTest {
         val selected = ReleaseSelector.select(
             entries = listOf(stable, beta, canary),
             installedCode = 2300,
-            installedChannel = ReleaseChannel.STABLE,
             receivePrerelease = true,
             ignoredCode = 2500
         )
@@ -67,7 +63,6 @@ class ReleaseSelectorTest {
             ReleaseSelector.select(
                 entries = listOf(stable, beta, canary),
                 installedCode = 2400,
-                installedChannel = ReleaseChannel.STABLE,
                 receivePrerelease = false,
                 ignoredCode = 0
             )

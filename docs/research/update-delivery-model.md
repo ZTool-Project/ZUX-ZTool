@@ -157,15 +157,18 @@ comparison is code-based.
 
 ### 4.2 Channels
 
-| Channel | Tag shape | `prerelease` | Who sees it |
-|---|---|---|---|
-| stable | `v1.0.0` | false | stable, beta, canary installs |
-| beta | `v1.0.0-beta.2`, `-rc.1` | true | beta, canary installs |
-| canary | `v1.1.0-canary.20261120` | true | canary installs only |
+| Channel | Tag shape | `prerelease` | Switch off | Switch on |
+|---|---|---|---|---|
+| stable | `v1.0.0` | false | offered | offered |
+| beta | `v1.0.0-beta.2`, `-rc.1` | true | filtered out | offered |
+| canary | `v1.1.0-canary.20261120` | true | filtered out | offered |
 
-The installed channel is parsed from its own `versionName`; no preference and no UI are needed in
-phase 1. A stable user cannot accidentally receive a beta, and a canary user silently falls back to
-beta/stable when no newer canary exists.
+Channel visibility is a preference, not a property of the installed build: the in-app "接收测试版更新"
+switch alone decides whether beta and canary entries are eligible. With it off, only stable entries are
+selectable, whatever build is installed, so an installed beta/canary build stops receiving pre-releases
+until it turns the switch back on. The version-code comparison still prevents downgrades, so nothing
+moves backwards; the build simply waits for the next stable release. The feed-window guard below keeps
+the canary slot to one entry, and the selection takes the highest code among the eligible channels.
 
 **Feed-window guard.** Only one canary release exists at any time: the nightly job deletes the
 previous canary release (and its tag) before creating the new one. The feed therefore holds one
@@ -200,7 +203,7 @@ fetch (direct → proxies, cache-busted, 5 s each)
   → channel = tag suffix contains "canary" → canary
               tag suffix non-empty otherwise → beta
               else                          → stable
-  → keep channel rank ≤ installed channel rank
+  → keep channel rank ≤ the rank the receive-beta switch allows (off: stable; on: canary)
   → versionCode = regex \(c(\d+)\) on the entry title
   → best = max(versionCode), semver as fallback for entries without a counter
   → update iff best.code > installed.code and best.code != ignored.code
@@ -361,8 +364,9 @@ guaranteed to redirect forever.
 3. **Changelog source**: one Markdown file per release under `docs/changelog/v<major>/`; the old
    `更新日志.txt` history is archived under `v0/`.
 4. **Channel selection**: an in-app "接收测试版更新" switch replaces the old Actions link. Off means
-   stable only; on means beta and canary too. An installed beta/canary build always keeps its own
-   channel, so switching the toggle off cannot strand it on an older stable release.
+   stable only; on means beta and canary too. The switch alone decides channel visibility, whatever
+   build is installed; the version-code comparison prevents a downgrade, so turning it off cannot
+   offer an older release.
 
 ## 9. Verification plan
 

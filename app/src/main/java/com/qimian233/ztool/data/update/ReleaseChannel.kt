@@ -7,16 +7,6 @@ enum class ReleaseChannel(val rank: Int) {
     CANARY(2);
 
     companion object {
-        /** Reads the channel back from an installed or tagged version name. */
-        fun ofVersionName(versionName: String): ReleaseChannel {
-            val normalized = versionName.lowercase()
-            return when {
-                normalized.contains("-canary") || normalized.contains("-dev") -> CANARY
-                normalized.contains("-beta") || normalized.contains("-rc") -> BETA
-                else -> STABLE
-            }
-        }
-
         fun ofTag(tag: String): ReleaseChannel? {
             val semver = SemVer.parseTag(tag) ?: return null
             val prerelease = semver.prerelease ?: return STABLE

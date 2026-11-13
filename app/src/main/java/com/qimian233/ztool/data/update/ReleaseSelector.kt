@@ -1,19 +1,15 @@
 package com.qimian233.ztool.data.update
 
-/** Picks the newest release the installed build is allowed to receive. */
+/** Picks the newest release the receive-beta switch allows. */
 object ReleaseSelector {
 
     fun select(
         entries: List<ReleaseEntry>,
         installedCode: Int,
-        installedChannel: ReleaseChannel,
         receivePrerelease: Boolean,
         ignoredCode: Int
     ): ReleaseEntry? {
-        val allowedRank = maxOf(
-            installedChannel.rank,
-            if (receivePrerelease) ReleaseChannel.CANARY.rank else ReleaseChannel.STABLE.rank
-        )
+        val allowedRank = if (receivePrerelease) ReleaseChannel.CANARY.rank else ReleaseChannel.STABLE.rank
         val best = entries
             .asSequence()
             .filter { it.channel.rank <= allowedRank }
