@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Color
 import android.graphics.Typeface
+import android.os.Build
 import android.text.TextUtils
 import android.util.AttributeSet
 import android.view.Gravity
@@ -42,7 +43,7 @@ class BrightnessSliderPercentageHook : AppHookModule() {
         updatePrefs()
         hookToggleSliderViewLifecycle(classLoader)
         hookBrightnessControllerCallbacks(classLoader)
-        hookSeekProgressChanges()
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.CINNAMON_BUN) hookSeekProgressChanges()
         logger.info("Brightness slider percentage hooks installed")
     }
 
