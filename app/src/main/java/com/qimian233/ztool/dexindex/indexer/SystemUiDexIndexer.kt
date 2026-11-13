@@ -18,6 +18,7 @@ import org.luckypray.dexkit.query.matchers.FieldsMatcher
  * Migrated as-is from the DexKit queries of these Hooks:
  * - NoChargeAnimation (Handler field name of ChargingAnimationController)
  * - SystemUINetworkSpeeddoublelayerHook (Handler inner class name of NetworkSpeedView)
+ * - VolumeSliderPercentageHook (anonymous progress listener class of ToggleSliderView)
  */
 class SystemUiDexIndexer : DexIndexer {
 
@@ -29,6 +30,10 @@ class SystemUiDexIndexer : DexIndexer {
         modules.add(
             DexIndexConstants.ModuleKeys.SYSTEMUI_NETWORK_SPEED_DOUBLELAYER,
             indexNetworkSpeedDoublelayer(bridge)
+        )
+        modules.add(
+            DexIndexConstants.ModuleKeys.VOLUME_SLIDER_PERCENTAGE,
+            indexVolumeSliderPercentage(bridge)
         )
         return modules
     }
@@ -110,7 +115,36 @@ class SystemUiDexIndexer : DexIndexer {
                 || typeName == "float" || typeName == "double" || typeName == "void"
     }
 
+    /**
+     * Anonymous SeekBar.OnSeekBarChangeListener declared inside ToggleSliderView; R8 renumbers
+     * its class name per build, so it is matched by the callback signature instead.
+     */
+    private fun indexVolumeSliderPercentage(bridge: DexKitBridge): JsonObject {
+        val out = JsonObject()
+        try {
+            val method = bridge.findMethod {
+                searchPackages(scopePackage)
+                matcher {
+                    name("onProgressChanged")
+                    paramTypes("android.widget.SeekBar", "int", "boolean")
+                    returnType = "void"
+                }
+            }.firstOrNull {
+                it.declaredClass?.name?.startsWith(TOGGLE_SLIDER_VIEW_PREFIX) == true
+            }
+            val listenerClass = method?.declaredClass?.name
+            if (listenerClass != null) {
+                out.addProperty(DexIndexConstants.Keys.VOLUME_SLIDER_PROGRESS_LISTENER_CLASS, listenerClass)
+                Log.i(TAG, "VolumeSliderPercentageHook: listener class = $listenerClass")
+            }
+        } catch (t: Throwable) {
+            Log.w(TAG, "VolumeSliderPercentageHook: listener query failed", t)
+        }
+        return out
+    }
+
     private companion object {
         const val TAG = "SystemUiDexIndexer"
+        const val TOGGLE_SLIDER_VIEW_PREFIX = "com.android.systemui.settings.ToggleSliderView$"
     }
 }

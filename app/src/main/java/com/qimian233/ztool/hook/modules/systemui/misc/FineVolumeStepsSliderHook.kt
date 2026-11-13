@@ -20,7 +20,7 @@ import io.github.libxposed.api.XposedModuleInterface.PackageLoadedParam
  * conversion around it is step-count-agnostic:
  * - setVolumeProgress(v)            -> slider progress = v * 10000
  * - getVolumeProgressReal$1()       -> level = ceil(progress / 10000)
- * - drag (ToggleSliderView$2)       -> setStreamVolume(3, ceil(progress/10000))
+ * - drag (the anonymous seek listener) -> setStreamVolume(3, ceil(progress/10000))
  *
  * With the stream raised to 38 steps the hardcoded max makes the slider top
  * out at volume 15/38. Re-asserting max = getStreamMaxVolume(3) * 10000 (and

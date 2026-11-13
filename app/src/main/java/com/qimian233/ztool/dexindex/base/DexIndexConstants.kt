@@ -16,10 +16,11 @@ object DexIndexConstants {
      * only on a bump, a system fingerprint change, or an apk fingerprint change, so adding an
      * output key to an existing indexer requires one.
      *
-     * v4: added `systemFingerprint` (OTA detection); v3: DisableDockBackground query;
-     * v2: flat modules map (v1 nested it and the reader NPE'd on a null value).
+     * v5: volume slider progress listener class; v4: added `systemFingerprint` (OTA detection);
+     * v3: DisableDockBackground query; v2: flat modules map (v1 nested it and the reader NPE'd
+     * on a null value).
      */
-    const val SCHEMA_VERSION = 4
+    const val SCHEMA_VERSION = 5
 
     const val JSON_SCHEMA_VERSION = "schemaVersion"
     const val JSON_GENERATED_AT = "generatedAt"
@@ -49,6 +50,7 @@ object DexIndexConstants {
         val BYPASS_SHARE_WARNING = PreferenceKeys.BYPASS_SHARE_WARNING.name
         val DISABLE_NEARBY_SHARE_COUNTDOWN = PreferenceKeys.DISABLE_NEARBY_SHARE_COUNTDOWN.name
         val AUTO_ACCEPT_FILE_TRANSFER = PreferenceKeys.AUTO_ACCEPT_FILE_TRANSFER.name
+        val VOLUME_SLIDER_PERCENTAGE = PreferenceKeys.VOLUME_SLIDER_PERCENTAGE.name
     }
 
     /** Output field keys per module. */
@@ -85,5 +87,7 @@ object DexIndexConstants {
         const val ACCEPTED_FIELD_NAME = "acceptedFieldName"
         const val LIVE_DATA_FIELD_NAME = "liveDataFieldName"
         const val LIVE_DATA_UPDATE_METHOD = "liveDataUpdateMethod"
+        // VolumeSliderPercentageHook
+        const val VOLUME_SLIDER_PROGRESS_LISTENER_CLASS = "progressListenerClass"
     }
 }

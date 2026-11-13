@@ -17,7 +17,9 @@ import android.widget.TextView
 import com.qimian233.ztool.data.keys.PreferenceKeys
 import io.github.libxposed.api.XposedInterface
 import com.qimian233.ztool.data.keys.ScopeKeys
+import com.qimian233.ztool.dexindex.base.DexIndexConstants
 import com.qimian233.ztool.hook.base.AppHookModule
+import com.qimian233.ztool.hook.base.DexIndexStore
 import io.github.libxposed.api.XposedModuleInterface.PackageLoadedParam
 import java.lang.reflect.Constructor
 import java.lang.reflect.Method
@@ -126,31 +128,130 @@ class VolumeSliderPercentageHook : AppHookModule() {
     }
 
     private fun hookSeekProgressChanges(classLoader: ClassLoader) {
-        try {
-            val onProgressChangedMethod: Method = classLoader
-                .loadClass($$"com.android.systemui.settings.ToggleSliderView$2")
-                .getDeclaredMethod(
-                    "onProgressChanged",
+        val listenerClasses = resolveProgressListenerClasses(classLoader)
+        if (listenerClasses.isEmpty()) {
+            logger.error("Failed to resolve ToggleSliderView.onProgressChanged for volume percentage")
+            return
+        }
+        listenerClasses.forEachIndexed { index, listenerClass ->
+            try {
+                val onProgressChangedMethod: Method = listenerClass.getDeclaredMethod(
+                    PROGRESS_CALLBACK,
                     SeekBar::class.java,
                     Int::class.javaPrimitiveType,
                     Boolean::class.javaPrimitiveType
                 )
-            hookWithId(onProgressChangedMethod, "on_progress_changed", priority = XposedInterface.PRIORITY_LOWEST) { chain ->
-                val result = chain.proceed()
-                val seekBar = chain.args[0] as SeekBar
-                val sliderView = findToggleSliderView(seekBar)
-                if (sliderView == null || !isVolumeSlider(sliderView, seekBar)) {
-                    return@hookWithId result
+                hookWithId(onProgressChangedMethod, progressHookId(index), priority = XposedInterface.PRIORITY_LOWEST) { chain ->
+                    val result = chain.proceed()
+                    val seekBar = chain.args[0] as SeekBar
+                    val sliderView = findToggleSliderView(seekBar)
+                    if (sliderView == null || !isVolumeSlider(sliderView, seekBar)) {
+                        return@hookWithId result
+                    }
+                    if (java.lang.Boolean.TRUE == chain.args[2]) {
+                        refreshVolumeLabel(sliderView, chain.args[1] as Int)
+                    }
+                    result
                 }
-                if (java.lang.Boolean.TRUE == chain.args[2]) {
-                    refreshVolumeLabel(sliderView, chain.args[1] as Int)
-                }
-                result
+                logger.info("Hooked volume slider progress listener: ${listenerClass.name}")
+            } catch (t: Throwable) {
+                logger.error("Failed to hook ToggleSliderView.onProgressChanged for volume percentage", t)
             }
-        } catch (t: Throwable) {
-            logger.error("Failed to hook ToggleSliderView.onProgressChanged for volume percentage", t)
         }
     }
+
+    /**
+     * Resolves the progress-listener classes of ToggleSliderView: install-time probe first,
+     * offline DexIndex second, the pre-probe hardcoded name last.
+     *
+     * See docs/research/toggle_slider_view_listener_discovery.md
+     */
+    private fun resolveProgressListenerClasses(classLoader: ClassLoader): List<Class<*>> {
+        val sliderClass = try {
+            classLoader.loadClass(TOGGLE_SLIDER_VIEW_CLASS)
+        } catch (t: Throwable) {
+            logger.error("Failed to load ToggleSliderView for volume percentage", t)
+            return emptyList()
+        }
+
+        val probed = probeListenerFieldTypes(sliderClass)
+        if (probed.isNotEmpty()) {
+            logger.info("Volume slider listener resolved online: " + probed.joinToString { it.name })
+            return probed
+        }
+
+        val indexed = loadIndexedListenerClass(classLoader)
+        if (indexed != null) {
+            logger.info("Volume slider listener resolved from DexIndex: ${indexed.name}")
+            return listOf(indexed)
+        }
+
+        val legacy = try {
+            classLoader.loadClass(LEGACY_PROGRESS_LISTENER_CLASS)
+        } catch (_: Throwable) {
+            null
+        }
+        if (legacy != null) {
+            logger.warn("Volume slider listener unresolved online; using $LEGACY_PROGRESS_LISTENER_CLASS")
+            return listOf(legacy)
+        }
+        return emptyList()
+    }
+
+    /**
+     * Collects ToggleSliderView field types that implement the framework progress listener.
+     * Nested candidates are preferred so that unrelated widgets held by the view (e.g. the
+     * brightness seek bar, which implements the same interface) are not hooked.
+     */
+    private fun probeListenerFieldTypes(sliderClass: Class<*>): List<Class<*>> {
+        val listenerType = SeekBar.OnSeekBarChangeListener::class.java
+        val candidates = try {
+            sliderClass.declaredFields
+                .mapNotNull { field -> runCatching { field.type }.getOrNull() }
+                .filter { type ->
+                    !type.isInterface &&
+                        listenerType.isAssignableFrom(type) &&
+                        declaresProgressCallback(type)
+                }
+                .distinct()
+        } catch (t: Throwable) {
+            logger.warn("Volume slider listener field probe failed: $t")
+            return emptyList()
+        }
+        val nestedPrefix = sliderClass.name + "$"
+        val nested = candidates.filter { it.name.startsWith(nestedPrefix) }
+        return if (nested.isNotEmpty()) nested else candidates
+    }
+
+    private fun declaresProgressCallback(candidate: Class<*>): Boolean = try {
+        candidate.getDeclaredMethod(
+            PROGRESS_CALLBACK,
+            SeekBar::class.java,
+            Int::class.javaPrimitiveType,
+            Boolean::class.javaPrimitiveType
+        )
+        true
+    } catch (_: Throwable) {
+        false
+    }
+
+    private fun loadIndexedListenerClass(classLoader: ClassLoader): Class<*>? {
+        val name = DexIndexStore.string(
+            xposed,
+            SYSTEM_UI_PACKAGE,
+            DexIndexConstants.ModuleKeys.VOLUME_SLIDER_PERCENTAGE,
+            DexIndexConstants.Keys.VOLUME_SLIDER_PROGRESS_LISTENER_CLASS
+        ) ?: return null
+        return try {
+            classLoader.loadClass(name)
+        } catch (t: Throwable) {
+            logger.warn("Indexed volume slider listener is not loadable: $name ($t)")
+            null
+        }
+    }
+
+    private fun progressHookId(index: Int): String =
+        if (index == 0) PROGRESS_HOOK_ID else "${PROGRESS_HOOK_ID}_${index + 1}"
 
     private fun attachSliderLabel(sliderView: Any) {
         try {
@@ -515,6 +616,12 @@ class VolumeSliderPercentageHook : AppHookModule() {
     companion object {
         private val SYSTEM_UI_PACKAGE = ScopeKeys.SYSTEM_UI.packageName
         private const val TOGGLE_SLIDER_VIEW_CLASS = "com.android.systemui.settings.ToggleSliderView"
+        private const val PROGRESS_CALLBACK = "onProgressChanged"
+        private const val PROGRESS_HOOK_ID = "on_progress_changed"
+
+        /** Listener class name hardcoded before the install-time probe existed (R8 renumbers it per build). */
+        private const val LEGACY_PROGRESS_LISTENER_CLASS =
+            "com.android.systemui.settings.ToggleSliderView\$2"
         private const val SLIDER_PERCENT_TAG = "ztool_control_center_slider_percent"
         private const val VOLUME_ROOT_FIELD = "mVolumeSliderRoot"
         private const val VOLUME_ICON_FIELD = "mMediaVolumeIconMark"

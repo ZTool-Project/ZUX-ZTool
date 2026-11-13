@@ -77,7 +77,7 @@ ZUI's own raw↔step conversions around that slider (ZUI `ToggleSliderView`):
 | ctor: `mMediaVolumeSlider.setMax(150000); setMin(0)` | 15 stock steps × 10000 raw units |
 | `setVolumeProgress(level)` → `setProgress(level * 10000)` | slider position is step-aligned once settled |
 | `getVolumeProgressReal$1()` → `ceil(progress / 10000)` | raw progress → stream level (**ceil**, not floor) |
-| `ToggleSliderView$2.onProgressChanged` (user drag) → `setStreamVolume(3, ceil(progress/10000), 0)` | the applied level is the ceil'd one |
+| `ToggleSliderView`'s seek listener `onProgressChanged` (user drag; the R8-assigned class number is resolved at runtime, see `toggle_slider_view_listener_discovery.md`) → `setStreamVolume(3, ceil(progress/10000), 0)` | the applied level is the ceil'd one |
 | `SeekBarNps.onTouchEvent` → `clamp(start + (int)(dx * max/width))` | raw progress is **not** quantized while dragging |
 
 `FineVolumeStepsSliderHook` re-asserts `max = getStreamMaxVolume(3) * 10000` after the
