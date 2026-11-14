@@ -672,6 +672,8 @@
     <string name="system_ui_lock_screen_widgets_title">锁屏组件</string>
     <string name="system_ui_lock_screen_yi_yan_switch_title">随机锁屏签名</string>
     <string name="system_ui_lock_screen_yi_yan_summary">在锁屏页面显示从网络获取的随机文本</string>
+    <string name="system_ui_lock_screen_override_device_owner_title">覆写设备级锁屏签名配置</string>
+    <string name="system_ui_lock_screen_override_device_owner_summary">用随机文本替换设备级锁屏签名的显示，适用于配置了管理策略签名的设备</string>
     <string name="system_ui_animation_charge_anim_duration_title">自定义充电动画时长</string>
     <string name="system_ui_animation_charge_anim_duration_slider_title">动画时长</string>
     <string name="system_ui_animation_charge_anim_duration_value">%.1f 秒</string>

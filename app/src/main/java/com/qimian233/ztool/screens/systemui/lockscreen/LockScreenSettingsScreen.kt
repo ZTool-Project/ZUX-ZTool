@@ -96,6 +96,7 @@ fun LockScreenSettingsRoute(
             state = uiState,
             onBack = onBack,
             onYiYanChanged = viewModel::setYiYanEnabled,
+            onOverrideDeviceOwnerInfoChanged = viewModel::setOverrideDeviceOwnerInfo,
             onNativeAodChanged = viewModel::setNativeAodEnabled,
             onLenovoAodChanged = viewModel::setLenovoAodEnabled,
             onOpenLenovoAodSettings = viewModel::openLenovoAodSettings,
@@ -180,6 +181,7 @@ private fun LockScreenSettingsScreen(
     state: LockScreenSettingsUiState,
     onBack: () -> Unit,
     onYiYanChanged: (Boolean) -> Unit,
+    onOverrideDeviceOwnerInfoChanged: (Boolean) -> Unit,
     onNativeAodChanged: (Boolean) -> Unit,
     onLenovoAodChanged: (Boolean) -> Unit,
     onOpenLenovoAodSettings: () -> Unit,
@@ -240,6 +242,7 @@ private fun LockScreenSettingsScreen(
                     sections = lockScreenSettingsSections(
                         state = state,
                         onYiYanChanged = onYiYanChanged,
+                        onOverrideDeviceOwnerInfoChanged = onOverrideDeviceOwnerInfoChanged,
                         onNativeAodChanged = onNativeAodChanged,
                         onLenovoAodChanged = onLenovoAodChanged,
                         onOpenLenovoAodSettings = onOpenLenovoAodSettings,
@@ -270,6 +273,7 @@ private fun LockScreenSettingsScreen(
 private fun lockScreenSettingsSections(
     state: LockScreenSettingsUiState,
     onYiYanChanged: (Boolean) -> Unit,
+    onOverrideDeviceOwnerInfoChanged: (Boolean) -> Unit,
     onNativeAodChanged: (Boolean) -> Unit,
     onLenovoAodChanged: (Boolean) -> Unit,
     onOpenLenovoAodSettings: () -> Unit,
@@ -299,6 +303,15 @@ private fun lockScreenSettingsSections(
             )
         )
         if (state.yiYanEnabled) {
+            add(
+                SettingItem.Switch(
+                    title = stringResource(R.string.system_ui_lock_screen_override_device_owner_title),
+                    summary = stringResource(R.string.system_ui_lock_screen_override_device_owner_summary),
+                    checked = state.overrideDeviceOwnerInfo,
+                    onCheckedChange = onOverrideDeviceOwnerInfoChanged,
+                    key = "lock_screen_override_device_owner"
+                )
+            )
             add(
                 SettingItem.Custom(
                     key = "lock_screen_yi_yan_config",
@@ -397,7 +410,6 @@ private fun lockScreenSettingsSections(
             )
         )
 
-        // Expand sub-switches when "actual power" is selected
         val isActualWatts = state.chargeWattsOption == stringResource(R.string.system_ui_common_watt_option_actual)
         if (isActualWatts) {
             if (!state.customFormatEnabled) {
@@ -443,7 +455,6 @@ private fun lockScreenSettingsSections(
                     )
                 )
             }
-            // Advanced custom format
             add(
                 SettingItem.Switch(
                     title = stringResource(R.string.system_ui_lock_screen_realwatts_custom_format_enabled),

@@ -38,6 +38,10 @@ class LockScreenSettingsRepository(
             nativeAod = prefsUtils.loadBooleanSetting(KEY_FORCE_NATIVE_AOD, false),
             lenovoAod = prefsUtils.loadBooleanSetting(KEY_FORCE_LENOVO_AOD, false),
             yiYanEnabled = prefsUtils.loadBooleanSetting(KEY_AUTO_OWNER_INFO, false),
+            overrideDeviceOwnerInfo = prefsUtils.loadBooleanSetting(
+                PreferenceKeys.OWNER_INFO_OVERRIDE_DEVICE.name,
+                PreferenceKeys.OWNER_INFO_OVERRIDE_DEVICE.default
+            ),
             apiAddress = yiYanPrefs.loadStringSetting(KEY_API_URL, PreferenceKeys.API_URL.default),
             regex = yiYanPrefs.loadStringSetting(KEY_REGULAR, PreferenceKeys.REGULAR.default),
             chargeWattsOption = chargeWattsOption,
@@ -55,11 +59,11 @@ class LockScreenSettingsRepository(
 
     fun saveYiYanEnabled(enabled: Boolean) {
         prefsUtils.saveBooleanSetting(KEY_YIYAN, enabled)
-        if (!enabled) {
-            prefsUtils.saveBooleanSetting(KEY_AUTO_OWNER_INFO, false)
-        } else if (yiYanPrefs.loadStringSetting(KEY_API_URL, "").isNotEmpty()) {
-            prefsUtils.saveBooleanSetting(KEY_AUTO_OWNER_INFO, true)
-        }
+        prefsUtils.saveBooleanSetting(KEY_AUTO_OWNER_INFO, enabled)
+    }
+
+    fun saveOverrideDeviceOwnerInfo(enabled: Boolean) {
+        prefsUtils.saveBooleanSetting(PreferenceKeys.OWNER_INFO_OVERRIDE_DEVICE.name, enabled)
     }
 
     fun saveNativeAod(enabled: Boolean) {

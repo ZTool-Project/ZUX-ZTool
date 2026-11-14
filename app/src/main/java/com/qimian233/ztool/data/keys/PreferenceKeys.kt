@@ -1,15 +1,6 @@
 package com.qimian233.ztool.data.keys
 
-/**
- * Single source of truth for all xposed_module_config preference keys.
- *
- * Keys are grouped by data type and also exposed as named constants, for use by
- * Repositories, hooks, and ModulePreferencesUtils backup/restore type inference.
- *
- * Usage examples:
- * - Kotlin:  PreferenceKeys.DISABLE_FORCE_STOP.name
- * - Java:    PreferenceKeys.DISABLE_FORCE_STOP.getName()
- */
+/** A boolean preference key and its default value. */
 data class BoolKey(val name: String, val default: Boolean)
 data class IntKey(val name: String, val default: Int)
 data class FloatKey(val name: String, val default: Float)
@@ -184,6 +175,7 @@ object PreferenceKeys {
     val ALLOW_DISPLAY_DOLBY = BoolKey("allow_display_dolby", false)
     val PERMISSION_CONTROLLER_HOOK = BoolKey("PermissionControllerHook", false)
     val AUTO_OWNER_INFO = BoolKey("auto_owner_info", false)
+    val OWNER_INFO_OVERRIDE_DEVICE = BoolKey("owner_info_override_device", false)
     val SPLIT_SCREEN_MANDATORY = BoolKey("Split_Screen_mandatory", false)
     val APP_DETAILS = BoolKey("app_details", false)
     val SETTINGS_APP_ICON_UNMASK = BoolKey("settings_app_icon_unmask", false)
@@ -477,7 +469,7 @@ object PreferenceKeys {
         CUSTOMIZE_SLIDER_STYLE_VALUE, CUSTOMIZE_SLIDER_STYLE_PREVIOUS,
         CUSTOMIZE_SLIDER_STYLE_PREVIOUS_VALUE,
         REMOVE_BLACKLIST, ALLOW_DISPLAY_DOLBY, PERMISSION_CONTROLLER_HOOK,
-        AUTO_OWNER_INFO, SPLIT_SCREEN_MANDATORY, APP_DETAILS,
+        AUTO_OWNER_INFO, OWNER_INFO_OVERRIDE_DEVICE, SPLIT_SCREEN_MANDATORY, APP_DETAILS,
         ABOUT_DEVICE_INFO, ZTOOL_SETTINGS_ENTRY, ZTOOL_SETTINGS_SHOW_ALL_APPS, HIDE_OTA_UPDATE_HINT, ALLOW_ADD_LANGUAGE,
         ABOUT_DEVICE_INFO_MODEL_ENABLED, ABOUT_DEVICE_INFO_CPU_ENABLED,
         ABOUT_DEVICE_INFO_RAM_ENABLED, ABOUT_DEVICE_INFO_ROM_ENABLED,

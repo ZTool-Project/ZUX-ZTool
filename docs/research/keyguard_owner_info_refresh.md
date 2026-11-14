@@ -3,8 +3,9 @@
 Examined on 2026-11-14 through Jadx MCP: `com.android.systemui`, manifest
 `versionName=17`, `versionCode=37`, compile/min/target SDK 37. This is static
 analysis of the loaded APK, with the controller's visibility/Doze branches and
-owner-info task dispatch cross-checked against smali. No device validation or
-production hook changes have been made. Older SystemUI versions need separate
+owner-info task dispatch cross-checked against smali. The implementation below
+was added after this investigation; no device validation has been performed.
+Older SystemUI versions need separate
 member checks. The related issue is `TODOS.md`, lock-screen signature (line 69
 at the time of investigation).
 
@@ -23,9 +24,9 @@ controller. There is no dedicated `updateOwnerInfo()` method in this APK.
 The boolean parameter controls the urgency of the battery indication; passing
 `true` does not make owner info urgent.
 
-For reliable refresh after an asynchronous quote request, notify SystemUI
-**after a successful owner-info write**, then call this entry point on the
-main thread. A screen-on trigger alone cannot order the read after the write.
+For reliable refresh after an asynchronous quote request, publish the cache
+**after a successful request**, then call this entry point on the main thread.
+The implemented display-only approach avoids LockSettings persistence entirely.
 This establishes a refresh request, not an unconditional immediate display:
 Doze, visibility, managed-device text, competing indications and asynchronous
 execution still apply.
@@ -122,9 +123,9 @@ then calls `switchIndication(...)` if the type or message changed. The view
 updates text through its animation path. A direct `TextView.setText()` bypasses
 the stored message and rotation state and will be overwritten later.
 
-## Why the existing implementation can appear unstable
+## Why the previous persistent implementation could appear unstable
 
-Confirmed from repository code:
+Confirmed from repository code before the writers were removed:
 
 - `OwnerInfoSettingsHook` waits for Settings resume hooks to register a screen
   receiver. Its availability depends on the Settings process and registration.
@@ -151,61 +152,70 @@ HTTP completes -> owner info is written -> no explicit subsequent refresh.
 Another native event may eventually make the new text appear. This is an
 inference from the two observed pipelines, not a measured device trace.
 
-## Recommended implementation boundary
+## Implemented display-only approach
 
-### Minimal fix retaining persistent owner info
+`OwnerInfoSystemUiHook` replaces `OwnerInfoSettingsHook`, `OwnerInfoSystemHook`
+and `OwnerInfoUpdater`. It uses the existing `AUTO_OWNER_INFO`, `API_URL` and
+`REGULAR` preferences, and runs only in `ScopeKeys.SYSTEM_UI`. Scope declarations
+remain intact because the other hooks still require Settings and framework.
 
-1. Add a SystemUI companion hook using `PreferenceKeys.AUTO_OWNER_INFO.name`
-   and `ScopeKeys.SYSTEM_UI.packageName`, registered in
-   `HookManager.registerSystemUIModules()`. SystemUI is already scoped; retain
-   existing scope/resource contracts.
-2. Capture the active controller after `setIndicationArea(ViewGroup)` using
-   `chain.proceed()` first; also capture on the central refresh method so a
-   hot-reloaded hook does not depend solely on a past initialization event.
-   Resolve members at installation time; avoid synthetic lambda class IDs as
-   permanent hook targets.
-3. Start/coalesce quote requests at visible non-dozing keyguard refreshes, or
-   at the concrete screen observer plus a visibility/Doze retry. Use one active
-   request and a defined freshness interval. Never fetch on every battery,
-   biometric or touch callback without a guard.
-4. Make the privileged writer report actual write success and the target user;
-   update its cache only on success. Deliver a trusted completion signal to the
-   SystemUI companion after persistence finishes. Do not assume SystemUI can
-   write lock settings merely because it can read them or has INTERNET permission.
-5. On SystemUI's main thread, verify the current controller/view, enabled flag,
-   user, keyguard showing, `mVisible` and `!mDozing`, then invoke
-   `updateDeviceEntryIndication(false)`. If hidden/dozing, keep a dirty marker
-   for the next eligible native event. Do not overwrite visibility or Doze flags.
-6. Guard self-generated refreshes so completion does not launch another fetch.
-   Serialize/coalesce completion refreshes and discard stale user/request/view
-   results. Recheck enablement after the network request completes.
+The hook captures the controller and its `mLockPatternUtils` using weak
+references after `setIndicationArea(ViewGroup)` and before native refreshes.
+Reader interception requires identity equality with that instance; personal
+reader calls must also address the controller's current user. It resolves all
+reflection targets at installation, without hooking synthetic lambda classes.
+The central refresh method falls back to the older `updateIndication(boolean)`
+name when `updateDeviceEntryIndication(boolean)` is absent; the other members
+still need separate validation on older SystemUI builds.
 
-This fix closes the missing write-to-read edge while retaining native rotation.
-If the requirement includes promptly displaying the changed signature while
-another indication is active, also prioritize **only owner-info type 0** at
-`updateIndication(int, KeyguardIndication, boolean)` when applying the pending
-update. Do not force every indication's boolean or call `showIndication(0)`
-unconditionally; those approaches interfere with authentication/charging hints.
-Any adjustment must leave managed-device owner text precedence intact.
+| Mode | Reader behavior |
+| --- | --- |
+| Default: personal owner info | `getDeviceOwnerInfo()` stays native. `isOwnerInfoEnabled(userId)` starts/coalesces a request and returns true only when a quote is cached; without a cache, its original result is preserved. `getOwnerInfo(userId)` returns cached text or its original result. Existing device-owner text retains priority. |
+| Opt-in: override device-level signature configuration | `getDeviceOwnerInfo()` starts/coalesces a request and returns cached text or its original result. Personal `isOwnerInfoEnabled` and `getOwnerInfo` calls stay native. This changes only the displayed signature, not device policy or stored configuration. |
+| Feature disabled / unrelated instance or user | All readers return native results. |
 
-### Display-only alternative
+The opt-in preference is `OWNER_INFO_OVERRIDE_DEVICE`, default false, exposed
+as the searchable child row `lock_screen_override_device_owner` under the
+random-signature switch. Existing API and enablement preference names remain
+compatible. Enabling the feature without a saved endpoint now uses its default.
 
-If persistent Settings owner info is no longer a requirement, maintain the
-quote cache in SystemUI and feed it into the owner's normal result/indication
-pipeline. That removes the privileged writer and IPC, but changes feature
-semantics: the system's saved signature stays unchanged. It also requires
-handling later native reads, disablement, managed-device precedence and process
-restart. Treat it as a separate product decision rather than silently changing
-the existing behavior.
+`OwnerInfoQuoteCache` coalesces concurrent readers into one request across user
+and configuration changes. It retains the last successful text during refresh
+or failure, with a **60-second** interval measured from completion; an empty
+initial cache falls back to native values. User, URL, regex or mode changes
+invalidate the cache and increment a generation. A stale request cannot publish
+after switching away and back to the same configuration. Disabled-feature
+completion is also rejected.
+
+`OwnerInfoQuoteClient` uses a dedicated daemon request thread, UTF-8 response
+decoding, connect/read timeouts, and a bounded response buffer. Only a nonblank
+first regex capture is accepted; JSON escapes including Unicode are decoded.
+HTTP errors, missing matches, malformed escapes and exceptions never become
+displayed error text. Quote contents are not logged or shared with another app.
+
+On completion, the main-thread callback rechecks current configuration, updates
+the cache and refreshes the active controller only when the view is attached,
+visible, non-dozing and keyguard is still showing. Otherwise the cache remains
+ready for the next native refresh. A completion refresh reads the cache without
+launching another request. No persistent owner-info writes or custom IPC remain.
+Native rotation and managed-owner priority remain unchanged in default mode.
+Memory caches reset after SystemUI restart or module hot reload; completion
+callbacks invoke the installed reader pipeline instead of directly setting text.
+
+Verification: `assembleDebug`, `OwnerInfoQuoteCacheTest` (11 cases) and
+`SearchIndexConsistencyTest` passed. String locales have zero missing/extra
+entries; the sole unused `search_title` resource predates this change. On-device
+latency and host-member compatibility still require the checks below.
 
 ## Device verification still required
 
 Use `assembleDev` / `app-dev.apk` on LSPosed devices. Trace request completion,
-successful persistence, native refresh invocation, owner-info read completion,
+cache publication, native refresh invocation, owner-info read completion,
 type-0 map update and actual text display as separate timestamps. Verify a slow
 HTTP response finishing while the lock screen remains visible, screen off/on
 without unlocking, AOD exit, an update during charging/biometric hints, user
-switch during a request, disablement during a request, identical-content retry
-after write failure, and SystemUI restart/hot reload. Preserve the last valid
+switch during a request, disablement during a request, both modes with empty and
+populated caches, personal-info-disabled and managed-device signatures, retries
+after network failure, and SystemUI restart/hot reload. Preserve the last valid
 signature on network failure. A successful static member lookup alone does not
 establish a guaranteed device refresh latency.

@@ -37,6 +37,11 @@ class LockScreenSettingsViewModel(
         repository.saveYiYanEnabled(enabled)
     }
 
+    fun setOverrideDeviceOwnerInfo(enabled: Boolean) {
+        _uiState.value = _uiState.value.copy(overrideDeviceOwnerInfo = enabled)
+        repository.saveOverrideDeviceOwnerInfo(enabled)
+    }
+
     fun setNativeAodEnabled(enabled: Boolean) {
         _uiState.value = _uiState.value.copy(nativeAod = enabled)
         repository.saveNativeAod(enabled)
@@ -223,13 +228,13 @@ data class LockScreenSettingsUiState(
     val nativeAod: Boolean = false,
     val lenovoAod: Boolean = false,
     val yiYanEnabled: Boolean = false,
+    val overrideDeviceOwnerInfo: Boolean = false,
     val apiAddress: String = "",
     val regex: String = "",
     val chargeWattsOption: String = "",
     val isTestingApi: Boolean = false,
     val showRootPermissionDialog: Boolean = false,
     val apiTestResult: ApiTestResult? = null,
-    // RealWatts sub-switches
     val showVoltage: Boolean = false,
     val showCurrent: Boolean = false,
     val showPower: Boolean = true,
@@ -237,7 +242,6 @@ data class LockScreenSettingsUiState(
     val showIndicator: Boolean = true,
     val customFormatEnabled: Boolean = false,
     val customFormat: String = "",
-    // Lock screen clock color
     val clockColorCustom: Boolean = false,
     val clockColor: Int = 0xFFFFFFFF.toInt(),
     val clockColorText: String = "FFFFFFFF",

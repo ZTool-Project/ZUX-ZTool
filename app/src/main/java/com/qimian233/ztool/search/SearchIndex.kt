@@ -9,19 +9,10 @@ import com.qimian233.ztool.data.features.FeatureDestination
 import com.qimian233.ztool.screens.ztoolsettings.about.SettingsAboutRouteName
 import com.qimian233.ztool.ui.components.SearchHighlightIndexBridge
 
-/**
- * How the [SearchEntry.parentTitleRes] gate is satisfied on the target screen.
- * Most conditional rows appear when the parent switch is ON; a few
- * (package-installer rows, launcher "larger dock") appear only when it is OFF.
- */
+/** The required state of a searchable row's parent switch. */
 enum class SearchParentMode { REQUIRE_ON, REQUIRE_OFF }
 
-/**
- * One searchable destination. The id is derived from the title resource name so it
- * stays stable across refactors; routes must be route names already registered in
- * com.qimian233.ztool.navigation.ZToolNavHost — phase 1 never creates new
- * destinations besides the search page itself.
- */
+/** A searchable destination with a stable id and an existing navigation route. */
 data class SearchEntry(
     val id: String,
     val route: String,
@@ -45,11 +36,8 @@ data class SearchEntry(
     @param:StringRes val groupSuffixRes: Int? = null
 )
 
-/**
- * Static search index of every non-Home destination. Maintenance rule: a new visible
- * setting row must register a matching [SearchEntry] here (see
- * docs/archive/hook_guide/add_frontend_item.md).
- */
+/** The searchable settings and feature destinations. */
+// See docs/hook/add_frontend_item.md for index and highlight contracts.
 object SearchIndex {
 
     private class Screen(
@@ -528,6 +516,13 @@ object SearchIndex {
             id = "lock_screen_yi_yan",
             titleRes = R.string.system_ui_lock_screen_yi_yan_switch_title,
             summaryRes = R.string.system_ui_lock_screen_yi_yan_summary
+        ),
+        systemUiLockScreen.item(
+            id = "lock_screen_override_device_owner",
+            titleRes = R.string.system_ui_lock_screen_override_device_owner_title,
+            summaryRes = R.string.system_ui_lock_screen_override_device_owner_summary,
+            parentTitleRes = R.string.system_ui_lock_screen_yi_yan_switch_title,
+            parentKey = "lock_screen_yi_yan"
         ),
         systemUiLockScreen.item(
             id = "lock_screen_clock_color",
@@ -2055,19 +2050,13 @@ object SearchIndex {
 
     fun byId(id: String): SearchEntry? = byIdMap[id]
 
-    /**
-     * Navigation route for a search result: the entry's destination with its id
-     * attached as the optional highlight target. Feature cards navigate bare (cards
-     * are not rows and never highlight).
-     */
+    /** Returns the destination route with a highlight target for setting rows. */
     fun targetRoute(entry: SearchEntry): String {
         if (entry.isFeatureCard) return entry.route
         return "${entry.route}?target=${java.net.URLEncoder.encode(entry.id, "UTF-8")}"
     }
 
     init {
-        // Let the highlight controller resolve parent fallbacks without a hard
-        // dependency from ui/components on the search package.
         SearchHighlightIndexBridge.parentKeyOf = { id -> byId(id)?.parentKey }
         SearchHighlightIndexBridge.routeOfId = { id -> byId(id)?.route }
     }

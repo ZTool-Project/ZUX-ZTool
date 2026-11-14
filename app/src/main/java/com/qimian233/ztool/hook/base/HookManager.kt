@@ -71,7 +71,6 @@ import com.qimian233.ztool.hook.modules.setting.CustomizeAboutDeviceInfo
 import com.qimian233.ztool.hook.modules.setting.HideOtaUpdateHint
 import com.qimian233.ztool.hook.modules.setting.LocaleListEditorHook
 import com.qimian233.ztool.hook.modules.setting.OneVisionCompletion
-import com.qimian233.ztool.hook.modules.setting.OwnerInfoSettingsHook
 import com.qimian233.ztool.hook.modules.setting.PermissionControllerHook
 import com.qimian233.ztool.hook.modules.setting.SettingsAppIconUnmaskHook
 import com.qimian233.ztool.hook.modules.setting.SplitScreenMandatory as SettingSplitScreenMandatory
@@ -94,7 +93,6 @@ import com.qimian233.ztool.hook.modules.systemframework.FreeformKeepAliveSystemH
 import com.qimian233.ztool.hook.modules.systemframework.ForceRelativeAppFreeform
 import com.qimian233.ztool.hook.modules.systemframework.ForceScreenOnOffAnimation
 import com.qimian233.ztool.hook.modules.systemframework.KeepRotation
-import com.qimian233.ztool.hook.modules.systemframework.OwnerInfoSystemHook
 import com.qimian233.ztool.hook.modules.systemframework.PackageManagerArscBypassHook
 import com.qimian233.ztool.hook.modules.systemframework.PackageManagerDigestBypassHook
 import com.qimian233.ztool.hook.modules.systemframework.PackageManagerDowngradeHook
@@ -113,6 +111,7 @@ import com.qimian233.ztool.hook.modules.systemui.keyguard.LockScreenClockColorHo
 import com.qimian233.ztool.hook.modules.systemui.keyguard.ForceLenovoAOD
 import com.qimian233.ztool.hook.modules.systemui.keyguard.ForceNativeAod
 import com.qimian233.ztool.hook.modules.systemui.keyguard.SystemUIChargeWattsHook
+import com.qimian233.ztool.hook.modules.systemui.keyguard.OwnerInfoSystemUiHook
 import com.qimian233.ztool.hook.modules.systemui.keyguard.SystemUIRealWatts
 import com.qimian233.ztool.hook.modules.systemui.misc.AospScrollCaptureHook
 import com.qimian233.ztool.hook.modules.systemui.misc.CustomChargeAnimation
@@ -232,7 +231,6 @@ object HookManager {
         registerHookModule(FineVolumeSteps())
         registerHookModule(VolumeKeyNonlinearRamp())
         registerHookModule(PenHapticWaveformRedirectHook())
-        registerHookModule(OwnerInfoSystemHook())
         registerHookModule(DisableGameAudio())
     }
 
@@ -247,6 +245,7 @@ object HookManager {
     }
 
     private fun registerSystemUIModules() {
+        registerHookModule(OwnerInfoSystemUiHook())
         registerHookModule(StatusBarClockSecondsHook())
         registerHookModule(CustomStatusBarClock())
         registerHookModule(SystemUIChargeWattsHook())
@@ -298,7 +297,6 @@ object HookManager {
     private fun registerSettingsModules() {
         registerHookModule(OneVisionCompletion())
         registerHookModule(AllowDisplayDolbyHook())
-        registerHookModule(OwnerInfoSettingsHook())
         registerHookModule(SettingSplitScreenMandatory())
         registerHookModule(AppInfoHeaderDetailsHook())
         registerHookModule(CustomizeAboutDeviceInfo())

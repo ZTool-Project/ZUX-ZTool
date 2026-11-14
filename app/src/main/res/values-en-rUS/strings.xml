@@ -560,6 +560,8 @@
     <string name="system_ui_lock_screen_widgets_title">Lockscreen widgets</string>
     <string name="system_ui_lock_screen_yi_yan_switch_title">Random lock screen signature</string>
     <string name="system_ui_lock_screen_yi_yan_summary">Show random text fetched from the network on the lock screen.</string>
+    <string name="system_ui_lock_screen_override_device_owner_title">Override device-level lock screen signature configuration</string>
+    <string name="system_ui_lock_screen_override_device_owner_summary">Replace the displayed device-level signature with random text, including signatures configured by device management policies.</string>
     <string name="system_ui_animation_charge_anim_duration_title">Custom charging animation duration</string>
     <string name="system_ui_animation_charge_anim_duration_slider_title">Animation duration</string>
     <string name="system_ui_animation_charge_anim_duration_value">%.1f s</string>
