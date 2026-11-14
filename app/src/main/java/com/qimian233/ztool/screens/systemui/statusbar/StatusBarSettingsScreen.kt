@@ -491,9 +491,18 @@ private fun statusBarSettingsSections(
                 ),
                 SettingItem.Switch(
                     title = stringResource(R.string.system_ui_status_bar_notification_icon_native_title),
-                    summary = stringResource(R.string.system_ui_status_bar_notification_icon_native_summary),
-                    checked = state.nativeNotificationIcon,
-                    onCheckedChange = onNativeNotificationIconChanged,
+                    summary = if (state.nativeNotificationIconSupported) {
+                        stringResource(R.string.system_ui_status_bar_notification_icon_native_summary)
+                    } else {
+                        stringResource(R.string.system_ui_status_bar_notification_icon_native_unsupported_summary)
+                    },
+                    checked = state.nativeNotificationIconSupported && state.nativeNotificationIcon,
+                    onCheckedChange = if (state.nativeNotificationIconSupported) {
+                        onNativeNotificationIconChanged
+                    } else {
+                        {}
+                    },
+                    enabled = state.nativeNotificationIconSupported,
                     key = "status_bar_notification_icon_native"
                 )
             )

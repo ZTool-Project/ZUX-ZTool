@@ -23,12 +23,16 @@ class NotificationOverflowDotHook : AppHookModule() {
         try {
             val iconViewClass = classLoader.loadClass(STATUS_BAR_ICON_VIEW_CLASS)
             // The third parameter is a compiler-generated lambda class, so match by arity.
-            val setVisibleState = iconViewClass.declaredMethods.firstOrNull {
-                it.name == "setVisibleState" && it.parameterTypes.size == 4
-            } ?: run {
-                logger.warn("StatusBarIconView.setVisibleState(int, boolean, ..., long) not found")
-                return
-            }
+            // Android 17 dropped the trailing delay argument; pick 3 before 4 when both exist.
+            val setVisibleState = iconViewClass.declaredMethods
+                .filter {
+                    it.name == "setVisibleState" && it.parameterTypes.size in SET_VISIBLE_STATE_ARITIES
+                }
+                .minByOrNull { it.parameterTypes.size }
+                ?: run {
+                    logger.warn("StatusBarIconView.setVisibleState(int, boolean, ...) not found")
+                    return
+                }
 
             val statusBarIconsId = try {
                 classLoader.loadClass(SYSTEM_UI_R_ID_CLASS)
@@ -62,5 +66,6 @@ class NotificationOverflowDotHook : AppHookModule() {
         // StatusIconDisplayable states: 0 = ICON, 1 = DOT, 2 = HIDDEN
         private const val DOT_STATE = 1
         private const val HIDDEN_STATE = 2
+        private val SET_VISIBLE_STATE_ARITIES = 3..4
     }
 }

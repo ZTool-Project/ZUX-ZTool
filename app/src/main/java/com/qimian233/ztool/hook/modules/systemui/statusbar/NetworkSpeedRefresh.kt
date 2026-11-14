@@ -7,20 +7,21 @@ import io.github.libxposed.api.XposedModuleInterface
 import java.lang.reflect.Method
 
 /**
- * Test hook - verifies the hypothesis that sendEmptyMessageDelayed in NetworkSpeedView
- * controls the refresh interval.
+ * Custom status-bar network-speed refresh interval.
  *
- * Hooks android.os.Handler.sendEmptyMessageDelayed(int, long); when the caller is
- * NetworkSpeedView's internal Handler, logs the what and delayMillis.
- *
- * getModuleName() returns "test_hook", always enabled, no frontend switch needed.
+ * Targets `NetworkSpeedView`'s internal handler through `Handler.sendEmptyMessageDelayed`;
+ * the handler-class prefix differs between the legacy ZUI and the Android 17 SystemUI builds.
  */
 @SuppressLint("PrivateApi")
 class NetworkSpeedRefresh : AppHookModule() {
 
     companion object {
         private val SYSTEMUI_PACKAGE = ScopeKeys.SYSTEM_UI.packageName
-        private const val NETWORK_SPEED_VIEW_CLASS = "com.android.systemui.zui.NetworkSpeedView"
+        // Ordered: the Android 17 view first, the legacy ZUI path second.
+        private val NETWORK_SPEED_HANDLER_PREFIXES = arrayOf(
+            "com.android.systemui.statusbar.view.NetworkSpeedView\$",
+            "com.android.systemui.zui.NetworkSpeedView\$",
+        )
     }
 
     override fun getModuleName(): String = "custom_network_speed_refresh_interval"
@@ -55,13 +56,12 @@ class NetworkSpeedRefresh : AppHookModule() {
 
                 // Determine whether this is NetworkSpeedView's internal Handler
                 val handlerClassName = handler.javaClass.name
-                if (handlerClassName.startsWith("$NETWORK_SPEED_VIEW_CLASS$")) {
+                if (NETWORK_SPEED_HANDLER_PREFIXES.any { handlerClassName.startsWith(it) }) {
                     logger.debug(
                         "[SpeedRefreshTest] sendEmptyMessageDelayed called: " +
                             "handler=$handlerClassName, what=$what, delayMillis=$delayMillis ms"
                     )
 
-                    // Optional: change the interval to 1s to verify the effect (uncomment the next line)
                     chain.proceed(arrayOf<Any>(what, refreshInterval))
                 } else {
                     chain.proceed()
