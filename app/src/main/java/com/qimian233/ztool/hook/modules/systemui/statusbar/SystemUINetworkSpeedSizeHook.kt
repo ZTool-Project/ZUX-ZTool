@@ -23,10 +23,6 @@ import io.github.libxposed.api.XposedModuleInterface.PackageLoadedParam
 @SuppressLint("PrivateApi")
 class SystemUINetworkSpeedSizeHook : AppHookModule() {
 
-    companion object {
-        private const val NETWORK_SPEED_VIEW_CLASS = "com.android.systemui.zui.NetworkSpeedView"
-    }
-
     override fun getModuleName(): String = PreferenceKeys.SYSTEMUI_NETWORK_SPEED_SIZE.name
 
     override fun getTargetPackages(): Array<String> = arrayOf(ScopeKeys.SYSTEM_UI.packageName)
@@ -36,8 +32,11 @@ class SystemUINetworkSpeedSizeHook : AppHookModule() {
             logger.info("Hooking SystemUI network speed display")
 
             // Load the NetworkSpeedView class for caller type checks in the callback
-            val networkSpeedViewClass =
-                param.defaultClassLoader.loadClass(NETWORK_SPEED_VIEW_CLASS)
+            val networkSpeedViewClass = try {
+                param.defaultClassLoader.loadClass("com.android.systemui.statusbar.view.NetworkSpeedView")
+            } catch (_: Exception) {
+                param.defaultClassLoader.loadClass("com.android.systemui.zui.NetworkSpeedView")
+            }
 
             // Use the hook callback to avoid recursive calls
             val setTextMethod =
