@@ -20,6 +20,7 @@
     <string name="page_home_framework">Framework info</string>
     <string name="settings_misc">Misc</string>
     <string name="common_app_icon">App Icon</string>
+    <string name="common_android_version_unsupported_hint">Not supported on the current system version</string>
     <string name="page_firstrun_agreement_title">Swipe to read the complete user agreement</string>
     <string name="page_firstrun_agreement_confirm">I agree</string>
     <string name="page_firstrun_agreement_dismiss">I disagree, exit</string>
@@ -540,7 +541,6 @@
     <string name="system_ui_status_bar_notification_overflow_dot_summary">Hide the dot placeholder shown when notification icons do not fit.</string>
     <string name="system_ui_status_bar_notification_icon_native_title">Use native notification icons</string>
     <string name="system_ui_status_bar_notification_icon_native_summary">No effect for unsupported apps.</string>
-    <string name="system_ui_status_bar_notification_icon_native_unsupported_summary">Not supported on this system version</string>
     <string name="system_ui_status_bar_title_suffix">\ - Status Bar Settings</string>
     <string name="system_ui_status_bar_network_title">Network speed</string>
     <string name="system_ui_status_bar_network_size_title">Optimize network speed scale</string>

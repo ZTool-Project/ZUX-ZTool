@@ -388,7 +388,6 @@ data class ControlCenterSettingsUiState(
     val customSecondLabelColor: Boolean = false,
     val noTileLabels: Boolean = false,
     val mediaOutputDialogCenter: Boolean = false,
-    val nativeMediaOutputDialogCenter: Boolean = false,
     val mediaOutputDialogColor: Boolean = true,
     val customQsActiveColor: Int = ControlCenterSettingsRepository.DEFAULT_QS_ACTIVE_COLOR,
     val customLabelActiveColor: Int = ControlCenterSettingsRepository.DEFAULT_LABEL_ACTIVE_COLOR,

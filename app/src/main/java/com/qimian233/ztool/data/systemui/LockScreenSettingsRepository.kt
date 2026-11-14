@@ -50,7 +50,6 @@ class LockScreenSettingsRepository(
             customFormat = prefsUtils.loadStringSetting(KEY_RW_CUSTOM_FORMAT, ""),
             clockColorCustom = prefsUtils.loadBooleanSetting(KEY_CLOCK_COLOR_CUSTOM, false),
             clockColor = prefsUtils.loadIntegerSetting(KEY_CLOCK_COLOR_VALUE, DEFAULT_CLOCK_COLOR),
-            nativeClockColorAvailable = android.os.Build.VERSION.SDK_INT >= NATIVE_FEATURE_SDK,
         )
     }
 
@@ -263,6 +262,5 @@ class LockScreenSettingsRepository(
         private val KEY_CLOCK_COLOR_VALUE = PreferenceKeys.LOCK_SCREEN_CLOCK_COLOR_VALUE.name
 
         const val DEFAULT_CLOCK_COLOR = 0xFFFFFFFF.toInt()
-        const val NATIVE_FEATURE_SDK = 36
     }
 }

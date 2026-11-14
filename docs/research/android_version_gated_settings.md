@@ -1,6 +1,6 @@
 # Android-version gated settings rows — research and migration design
 
-Status: research only. No production code was changed.
+Status: implemented. This note records the design and migration decisions.
 
 Scope: the generic `SettingItem` availability model and the four rows the user
 identified for migration. Related gates (section-level, menu-level, hook-only) are
@@ -39,10 +39,10 @@ use the codename constants, not raw numbers.
 
 | # | Row | Screen | Current gate | New bounds | Hook-side guard today |
 |---|-----|--------|--------------|------------|-----------------------|
-| 1 | 使用原生通知图标 | `screens/systemui/statusbar/StatusBarSettingsScreen.kt:492` | `SDK_INT < 36` | `maxAndroidVersion = Build.VERSION_CODES.VANILLA_ICE_CREAM` (35) | none (see §5.7) |
-| 2 | 自定义锁屏时钟颜色 | `screens/systemui/lockscreen/LockScreenSettingsScreen.kt:317` | `SDK_INT >= 36` native | `maxAndroidVersion = Build.VERSION_CODES.VANILLA_ICE_CREAM` (35) | `LockScreenClockColorHook` returns on `>= 36` |
-| 3 | 媒体输出弹窗居中 | `screens/systemui/controlcenter/ControlCenterSettingsScreen.kt:472` | `SDK_INT >= 37` native | `maxAndroidVersion = Build.VERSION_CODES.BAKLAVA` (36) | `MediaOutputDialogCenterHook` returns on `>= 37` |
-| 4 | 修复控制中心回弹延迟 | `screens/systemui/misc/SystemUiMiscSettingsScreen.kt:237` | `SDK_INT >= 37` fixed | `minAndroidVersion = Build.VERSION_CODES.VANILLA_ICE_CREAM` (35), `maxAndroidVersion = Build.VERSION_CODES.BAKLAVA` (36) | `ShadeReboundFix` returns on `>= 37`; no lower guard |
+| 1 | 使用原生通知图标 | `screens/systemui/statusbar/StatusBarSettingsScreen.kt:492` | `SDK_INT < 36` | `maxSdkVersion = Build.VERSION_CODES.VANILLA_ICE_CREAM` (35) | none (see §5.7) |
+| 2 | 自定义锁屏时钟颜色 | `screens/systemui/lockscreen/LockScreenSettingsScreen.kt:317` | `SDK_INT >= 36` native | `maxSdkVersion = Build.VERSION_CODES.VANILLA_ICE_CREAM` (35) | `LockScreenClockColorHook` returns on `>= 36` |
+| 3 | 媒体输出弹窗居中 | `screens/systemui/controlcenter/ControlCenterSettingsScreen.kt:472` | `SDK_INT >= 37` native | `maxSdkVersion = Build.VERSION_CODES.BAKLAVA` (36) | `MediaOutputDialogCenterHook` returns on `>= 37` |
+| 4 | 修复控制中心回弹延迟 | `screens/systemui/misc/SystemUiMiscSettingsScreen.kt:237` | `SDK_INT >= 37` fixed | `minSdkVersion = Build.VERSION_CODES.VANILLA_ICE_CREAM` (35), `maxSdkVersion = Build.VERSION_CODES.BAKLAVA` (36) | `ShadeReboundFix` returns on `>= 37`; no lower guard |
 
 Notes:
 
@@ -60,9 +60,8 @@ Notes:
   explain *why* the row is unavailable. Row 4's reason differs by bound: Android 17+
   is "ZUXOS 2.0 fixed it"; Android 14 and below is "not supported". Resolve the hint
   at the call site (see §6.4).
-- The parameter names `minAndroidVersion` / `maxAndroidVersion` are retained per the
-  request, but their unit is the SDK API level. If the naming is allowed to change,
-  `minSdkVersion` / `maxSdkVersion` would be less ambiguous.
+- The parameters are `minSdkVersion` / `maxSdkVersion`; their unit is the SDK API
+  level. Call sites use the codename constants rather than raw numbers.
 
 ## 2. How the current settings UI is built
 
@@ -130,11 +129,11 @@ surfaces (`ZToolSettingsList`).
 
 ### 3.1 Version bounds
 
-- `minAndroidVersion`, `maxAndroidVersion`: nullable SDK API levels.
+- `minSdkVersion`, `maxSdkVersion`: nullable SDK API levels.
 - Both `null` → available on every version.
 - Comparison is inclusive on both ends: API 35 is available with
-  `maxAndroidVersion = Build.VERSION_CODES.VANILLA_ICE_CREAM`; API 35 is available with
-  `minAndroidVersion = Build.VERSION_CODES.VANILLA_ICE_CREAM`.
+  `maxSdkVersion = Build.VERSION_CODES.VANILLA_ICE_CREAM`; API 35 is available with
+  `minSdkVersion = Build.VERSION_CODES.VANILLA_ICE_CREAM`.
 - Suggested validation: if both are non-null and `min > max`, treat as unsupported
   and log in debug builds (do not crash release builds on a typo).
 
@@ -333,10 +332,10 @@ sealed interface SettingItem {
     val enabled: Boolean
 
     /** Minimum SDK API level, inclusive; null = unbounded. */
-    val minAndroidVersion: Int? get() = null
+    val minSdkVersion: Int? get() = null
 
     /** Maximum SDK API level, inclusive; null = unbounded. */
-    val maxAndroidVersion: Int? get() = null
+    val maxSdkVersion: Int? get() = null
 
     /** Replaces [summary] when the current SDK level is outside the bounds. */
     val unsupportedHint: String? get() = null
@@ -349,8 +348,8 @@ data class Switch(
     val summary: String? = null,
     val icon: ImageVector? = null,
     override val enabled: Boolean = true,
-    override val minAndroidVersion: Int? = null,
-    override val maxAndroidVersion: Int? = null,
+    override val minSdkVersion: Int? = null,
+    override val maxSdkVersion: Int? = null,
     override val unsupportedHint: String? = null,
     override val key: String
 ) : SettingItem
@@ -361,8 +360,9 @@ constructions), and `Custom` simply inherits `null` without pretending it can be
 If the team prefers a value object, the same three fields can live in a
 `SettingAvailability` data class, but that deviates from the requested parameter names.
 
-The row composables should also accept the three params (or a precomputed gate) so
-direct callers are not second-class. Defaults keep current behavior.
+The funnel passes the resolved `enabled`, `checked`, `summary`, and `rippleOnly`
+values to the rows. Row composables do not need the gate params; direct callers that
+need availability can use `isAndroidVersionSupported` and pass the resolved values.
 
 ### 5.2 Resolve once in the funnel
 
@@ -370,7 +370,7 @@ direct callers are not second-class. Defaults keep current behavior.
 
 ```kotlin
 val sdk = Build.VERSION.SDK_INT
-val supported = isAndroidVersionSupported(sdk, item.minAndroidVersion, item.maxAndroidVersion)
+val supported = isAndroidVersionSupported(sdk, item.minSdkVersion, item.maxSdkVersion)
 val effectiveEnabled = item.enabled && supported
 val effectiveSummary = if (supported) item.summary else
     item.unsupportedHint?.takeIf { it.isNotBlank() }
@@ -478,12 +478,12 @@ semantics, and would fire on top of nested controls.
 |---|---|---|---|---|---|
 | `Switch` | yes | yes (`onCheckedChange` no-op) | yes | yes (setter `false`) | yes |
 | `Checkbox` | yes | yes | yes | yes (setter `false`) | yes |
-| `Entry` | n/a | yes (`onClick` no-op) | yes | optional `onUnsupported` | yes |
-| `Action` | n/a | yes | yes | optional `onUnsupported` | yes |
-| `ColorPreview` | n/a | yes | yes | optional `onUnsupported` | yes |
-| `Dropdown` | n/a | yes (popup must not open) | yes | optional `onUnsupported` | yes |
-| `Slider` | n/a | slider disabled | yes | optional `onUnsupported` | no (sliders have no row ripple) |
-| `TextInput` | n/a | field disabled | yes | optional `onUnsupported` | no |
+| `Entry` | n/a | yes (`onClick` no-op) | yes | repository/VM reset | yes |
+| `Action` | n/a | yes | yes | repository/VM reset | yes |
+| `ColorPreview` | n/a | yes | yes | repository/VM reset | yes |
+| `Dropdown` | n/a | yes (popup must not open) | yes | repository/VM reset | yes |
+| `Slider` | n/a | slider disabled | yes | repository/VM reset | no (sliders have no row ripple) |
+| `TextInput` | n/a | field disabled | yes | repository/VM reset | no |
 | `Custom` | n/a | not enforceable | no | no | no |
 
 `Custom` is the one exception to "all rows". It is used for sliders, popup fields,
@@ -555,7 +555,7 @@ SettingItem.Switch(
     summary = stringResource(R.string.system_ui_status_bar_notification_icon_native_summary),
     checked = state.nativeNotificationIcon,
     onCheckedChange = onNativeNotificationIconChanged,
-    maxAndroidVersion = Build.VERSION_CODES.VANILLA_ICE_CREAM,
+    maxSdkVersion = Build.VERSION_CODES.VANILLA_ICE_CREAM,
     key = "status_bar_notification_icon_native"
 )
 ```
@@ -577,7 +577,7 @@ SettingItem.Switch(
     summary = stringResource(R.string.system_ui_lock_screen_clock_color_summary),
     checked = state.clockColorCustom,
     onCheckedChange = onClockColorCustomChanged,
-    maxAndroidVersion = Build.VERSION_CODES.VANILLA_ICE_CREAM,
+    maxSdkVersion = Build.VERSION_CODES.VANILLA_ICE_CREAM,
     unsupportedHint = stringResource(R.string.system_ui_lock_screen_clock_color_native_summary),
     key = "lock_screen_clock_color"
 )
@@ -593,7 +593,7 @@ mostly a first-frame safety net (state may still be `true` before the effect run
 ### 6.3 Control center — media output dialog center
 
 Same pattern as 6.2 with
-`maxAndroidVersion = Build.VERSION_CODES.BAKLAVA` and
+`maxSdkVersion = Build.VERSION_CODES.BAKLAVA` and
 `unsupportedHint = stringResource(R.string.system_ui_media_output_dialog_center_native_summary)`.
 Remove `nativeMediaOutputDialogCenter` from the UiState and repository.
 
@@ -608,8 +608,8 @@ SettingItem.Switch(
     summary = stringResource(R.string.system_ui_misc_shade_rebound_fix_summary),
     checked = state.shadeReboundFix,
     onCheckedChange = onShadeReboundFixChanged,
-    minAndroidVersion = Build.VERSION_CODES.VANILLA_ICE_CREAM,
-    maxAndroidVersion = Build.VERSION_CODES.BAKLAVA,
+    minSdkVersion = Build.VERSION_CODES.VANILLA_ICE_CREAM,
+    maxSdkVersion = Build.VERSION_CODES.BAKLAVA,
     unsupportedHint = if (Build.VERSION.SDK_INT > Build.VERSION_CODES.BAKLAVA) {
         stringResource(R.string.system_ui_misc_shade_rebound_fix_fixed_summary)
     } else {
@@ -629,22 +629,23 @@ Remove the duplicated `if (state.shadeReboundFixFixed)` branch, the
 in `loadState()` (the funnel now performs the reset for both bounds). Add the `< 35`
 return to `ShadeReboundFix` (§5.7).
 
-## 7. Files expected to change
+## 7. Files changed
 
-Production (implementation phase, not this research):
+Production:
 
 - `ui/components/ZToolSettingsModel.kt` — interface members + 8 variant constructors +
   funnel resolution + one-shot reset in `Switch`/`Checkbox`.
 - `ui/components/ZToolSettings.kt` — `rippleOnly` on `ZToolSwitchRow`,
   `ZToolCheckboxRow`, `ZListItem`, `ZToolPopupMenuSettingRow`; Miuix color handling.
-- The four screens and their repositories/UiStates/ViewModels listed in §6.
+- `ui/components/AndroidVersionGate.kt` (new) — inclusive bounds helper.
+- The four screens and their repositories/UiStates listed in §6.
 - `res/values/strings.xml`, `res/values-en-rUS/strings.xml`.
-- `docs/hook/add_frontend_item.md` — document the three params, the persistence
-  side effect, and the `Custom` limitation.
-- `app/src/test/java/com/qimian233/ztool/AndroidVersionGateTest.kt` (new; pure bounds
-  helper only, no Android framework calls).
+- `docs/hook/add_frontend_item.md` — documents the params, persistence and `Custom`
+  limitation.
+- `app/src/test/java/com/qimian233/ztool/ui/components/AndroidVersionGateTest.kt`
+  (new).
 
-Not expected to change:
+Not changed:
 
 - `SearchIndex.kt` — rows keep their `key`, so the consistency test still passes; the
   search result will show the static summary, not the unsupported hint.
@@ -654,9 +655,8 @@ Not expected to change:
 
 ## 8. Risks and open questions
 
-1. **Parameter naming.** `minAndroidVersion` now holds an SDK API level, not an
-   Android marketing version. Keep the requested names with KDoc, or rename to
-   `minSdkVersion` / `maxSdkVersion` before the API spreads.
+1. **Version model.** Resolved: the params are SDK API levels and call sites use
+   `Build.VERSION_CODES.*`; do not reintroduce marketing-version numbers.
 2. **Persistence timing.** The reset runs when the row is composed (page opened). A
    user who receives an OTA and never opens the page keeps the old `true` until then.
    Keep cheap hook guards, or add an app-start migration if that window matters.

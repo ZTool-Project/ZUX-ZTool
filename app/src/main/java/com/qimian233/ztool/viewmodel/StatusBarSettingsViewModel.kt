@@ -223,7 +223,6 @@ data class StatusBarSettingsUiState(
     val notificationIconLimitOption: String = "",
     val hideNotificationOverflowDot: Boolean = false,
     val nativeNotificationIcon: Boolean = false,
-    val nativeNotificationIconSupported: Boolean = true,
     val networkSpeedSize: Boolean = false,
     val networkSpeedDoubleLayer: Boolean = false,
     val networkSpeedRefreshEnabled: Boolean = false,

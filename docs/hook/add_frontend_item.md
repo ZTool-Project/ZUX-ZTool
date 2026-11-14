@@ -301,6 +301,26 @@ SettingItem.Custom(
 )
 ```
 
+### SDK 版本可用性
+
+`SettingItem` 的交互行支持三个可选参数：
+
+- `minSdkVersion` / `maxSdkVersion`：`Int?`，与 `Build.VERSION.SDK_INT` 比较的闭区间；`null` 表示不限。调用点使用 `Build.VERSION_CODES.*` 常量（如 `VANILLA_ICE_CREAM` 35、`BAKLAVA` 36、`CINNAMON_BUN` 37），不要写营销版本号。
+- `unsupportedHint`：不可用时替换 `summary` 的文案；为空时使用 `common_android_version_unsupported_hint`。
+
+当前 SDK 不在区间内时，`ZToolSettingItem` 会强制 `checked = false`、`enabled = false`，用户点击只保留涟漪。`Switch` / `Checkbox` 行若原本为开，会通过原 setter 写入一次 `false`，避免 Hook 继续生效；`SettingItem.Custom` 没有 `enabled` 语义，不能使用该门控。
+
+```kotlin
+SettingItem.Switch(
+    title = stringResource(R.string.example_title),
+    checked = state.example,
+    onCheckedChange = onExampleChanged,
+    maxSdkVersion = Build.VERSION_CODES.VANILLA_ICE_CREAM,
+    unsupportedHint = stringResource(R.string.example_unsupported_hint),
+    key = "example_key"
+)
+```
+
 ## 字符串和文案
 
 新增 UI 文案应写入 `app/src/main/res/values` 中的字符串资源文件，考虑 i18n，不要只写一个 strings.xml，页面中使用 `stringResource(R.string.xxx)`。不要在 Composable 中硬编码中文或英文文本，除非是调试临时内容。

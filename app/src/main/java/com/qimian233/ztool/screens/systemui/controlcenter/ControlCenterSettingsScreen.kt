@@ -5,6 +5,7 @@ package com.qimian233.ztool.screens.systemui.controlcenter
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.os.Build
 import android.widget.Toast
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.Box
@@ -469,28 +470,15 @@ private fun controlCenterSettingsSections(
                         key = "control_center_long_press"
                     )
                 )
-                if (state.nativeMediaOutputDialogCenter) {
-                    add(
-                        SettingItem.Switch(
-                            title = stringResource(R.string.system_ui_media_output_dialog_center_title),
-                            summary = stringResource(R.string.system_ui_media_output_dialog_center_native_summary),
-                            checked = false,
-                            onCheckedChange = {},
-                            enabled = false,
-                            key = "control_center_media_output_dialog_center"
-                        )
-                    )
-                } else {
-                    add(
-                        SettingItem.Switch(
-                            title = stringResource(R.string.system_ui_media_output_dialog_center_title),
-                            summary = stringResource(R.string.system_ui_media_output_dialog_center_summary),
-                            checked = state.mediaOutputDialogCenter,
-                            onCheckedChange = onMediaOutputDialogCenterChanged,
-                            key = "control_center_media_output_dialog_center"
-                        )
-                    )
-                }
+                SettingItem.Switch(
+                    title = stringResource(R.string.system_ui_media_output_dialog_center_title),
+                    summary = stringResource(R.string.system_ui_media_output_dialog_center_summary),
+                    checked = state.mediaOutputDialogCenter,
+                    onCheckedChange = onMediaOutputDialogCenterChanged,
+                    maxSdkVersion = Build.VERSION_CODES.BAKLAVA,
+                    unsupportedHint = stringResource(R.string.system_ui_media_output_dialog_center_native_summary),
+                    key = "control_center_media_output_dialog_center"
+                )
                 add(
                     SettingItem.Switch(
                         title = stringResource(R.string.system_ui_media_output_dialog_color_title),

@@ -1,7 +1,6 @@
 package com.qimian233.ztool.data.systemui
 
 import android.content.Context
-import android.os.Build
 import android.util.Log
 import com.qimian233.ztool.data.features.FeatureDestination
 import com.qimian233.ztool.R
@@ -23,7 +22,6 @@ class StatusBarSettingsRepository(
             displaySeconds = prefsUtils.loadBooleanSetting(KEY_DISPLAY_SECONDS, false),
             customClock = prefsUtils.loadBooleanSetting(KEY_CUSTOM_CLOCK, false),
             nativeNotificationIcon = prefsUtils.loadBooleanSetting(KEY_NATIVE_NOTIFICATION_ICON, false),
-            nativeNotificationIconSupported = Build.VERSION.SDK_INT < NATIVE_NOTIFICATION_ICON_UNSUPPORTED_SDK,
             networkSpeedSize = prefsUtils.loadBooleanSetting(KEY_NETWORK_SPEED_SIZE, false),
             networkSpeedDoubleLayer = prefsUtils.loadBooleanSetting(KEY_NETWORK_SPEED_DOUBLE_LAYER, false),
             networkSpeedRefreshEnabled = prefsUtils.loadBooleanSetting(KEY_NETWORK_SPEED_REFRESH_ENABLED, false),
@@ -214,8 +212,5 @@ class StatusBarSettingsRepository(
         private val KEY_BATTERY_EXTERNAL = PreferenceKeys.SYSTEMUI_BATTERY_PERCENTAGE.name
         private const val DEFAULT_REFRESH_INTERVAL = 3.0f
         private const val DEFAULT_HIDE_THRESHOLD = 10f
-
-        /** ZUXOS 1.5 (Android 16) removed the SystemUI small-icon replacement path this hook needs. */
-        private const val NATIVE_NOTIFICATION_ICON_UNSUPPORTED_SDK = 36
     }
 }

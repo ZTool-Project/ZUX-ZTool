@@ -2,6 +2,7 @@ package com.qimian233.ztool.screens.systemui.statusbar
 
 import android.content.ClipData
 import android.content.ClipboardManager
+import android.os.Build
 import android.widget.Toast
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.Box
@@ -491,18 +492,10 @@ private fun statusBarSettingsSections(
                 ),
                 SettingItem.Switch(
                     title = stringResource(R.string.system_ui_status_bar_notification_icon_native_title),
-                    summary = if (state.nativeNotificationIconSupported) {
-                        stringResource(R.string.system_ui_status_bar_notification_icon_native_summary)
-                    } else {
-                        stringResource(R.string.system_ui_status_bar_notification_icon_native_unsupported_summary)
-                    },
-                    checked = state.nativeNotificationIconSupported && state.nativeNotificationIcon,
-                    onCheckedChange = if (state.nativeNotificationIconSupported) {
-                        onNativeNotificationIconChanged
-                    } else {
-                        {}
-                    },
-                    enabled = state.nativeNotificationIconSupported,
+                    summary = stringResource(R.string.system_ui_status_bar_notification_icon_native_summary),
+                    checked = state.nativeNotificationIcon,
+                    onCheckedChange = onNativeNotificationIconChanged,
+                    maxSdkVersion = Build.VERSION_CODES.VANILLA_ICE_CREAM,
                     key = "status_bar_notification_icon_native"
                 )
             )

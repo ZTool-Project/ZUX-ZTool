@@ -1,5 +1,6 @@
 package com.qimian233.ztool.screens.systemui.lockscreen
 
+import android.os.Build
 import android.widget.Toast
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.Box
@@ -314,45 +315,36 @@ private fun lockScreenSettingsSections(
                 )
             )
         }
-        if (state.nativeClockColorAvailable) {
+        add(
+            SettingItem.Switch(
+                title = stringResource(R.string.system_ui_lock_screen_clock_color_title),
+                summary = stringResource(R.string.system_ui_lock_screen_clock_color_summary),
+                checked = state.clockColorCustom,
+                onCheckedChange = onClockColorCustomChanged,
+                maxSdkVersion = Build.VERSION_CODES.VANILLA_ICE_CREAM,
+                unsupportedHint = stringResource(R.string.system_ui_lock_screen_clock_color_native_summary),
+                key = "lock_screen_clock_color"
+            )
+        )
+        if (state.clockColorCustom &&
+            Build.VERSION.SDK_INT <= Build.VERSION_CODES.VANILLA_ICE_CREAM
+        ) {
             add(
-                SettingItem.Switch(
-                    title = stringResource(R.string.system_ui_lock_screen_clock_color_title),
-                    summary = stringResource(R.string.system_ui_lock_screen_clock_color_native_summary),
-                    checked = false,
-                    onCheckedChange = {},
-                    enabled = false,
-                    key = "lock_screen_clock_color"
+                SettingItem.Custom(
+                    key = "lock_screen_clock_color_picker",
+                    content = {
+                        ZToolArgbColorTextFieldRow(
+                            label = stringResource(R.string.system_ui_lock_screen_clock_color_picker_label),
+                            value = state.clockColorText,
+                            onValueChange = onClockColorTextChanged,
+                            defaultText = "FFFFFFFF",
+                            summary = "#%08X".format(state.clockColor),
+                            errorText = stringResource(R.string.system_ui_common_argb_color_input_error),
+                            onEditingFinished = onClockColorEditingFinished
+                        )
+                    }
                 )
             )
-        } else {
-            add(
-                SettingItem.Switch(
-                    title = stringResource(R.string.system_ui_lock_screen_clock_color_title),
-                    summary = stringResource(R.string.system_ui_lock_screen_clock_color_summary),
-                    checked = state.clockColorCustom,
-                    onCheckedChange = onClockColorCustomChanged,
-                    key = "lock_screen_clock_color"
-                )
-            )
-            if (state.clockColorCustom) {
-                add(
-                    SettingItem.Custom(
-                        key = "lock_screen_clock_color_picker",
-                        content = {
-                            ZToolArgbColorTextFieldRow(
-                                label = stringResource(R.string.system_ui_lock_screen_clock_color_picker_label),
-                                value = state.clockColorText,
-                                onValueChange = onClockColorTextChanged,
-                                defaultText = "FFFFFFFF",
-                                summary = "#%08X".format(state.clockColor),
-                                errorText = stringResource(R.string.system_ui_common_argb_color_input_error),
-                                onEditingFinished = onClockColorEditingFinished
-                            )
-                        }
-                    )
-                )
-            }
         }
     }
 

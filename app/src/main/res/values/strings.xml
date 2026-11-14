@@ -20,6 +20,7 @@
     <string name="page_home_framework">框架信息</string>
     <string name="settings_misc">杂项</string>
     <string name="common_app_icon">应用图标</string>
+    <string name="common_android_version_unsupported_hint">当前系统版本不支持此功能</string>
     <!--FirstRun资源值-->
     <string name="page_firstrun_agreement_title">请滑动阅读用户协议</string>
     <string name="page_firstrun_agreement_confirm">同意并进入</string>
@@ -631,7 +632,6 @@
     <string name="system_ui_status_bar_notification_overflow_dot_summary">通知图标放不下时不再显示圆点占位</string>
     <string name="system_ui_status_bar_notification_icon_native_title">使用原生通知图标</string>
     <string name="system_ui_status_bar_notification_icon_native_summary">对未适配APP无效</string>
-    <string name="system_ui_status_bar_notification_icon_native_unsupported_summary">当前系统版本不支持此功能</string>
     <string name="system_ui_status_bar_title_suffix">\ - 状态栏设置</string>
     <string-array name="notify_num_size_options">
         <item>0</item>

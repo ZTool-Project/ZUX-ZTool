@@ -1,5 +1,6 @@
 package com.qimian233.ztool.screens.systemui.misc
 
+import android.os.Build
 import android.widget.Toast
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.Box
@@ -234,28 +235,22 @@ private fun systemUiMiscSettingsSections(
                         key = "system_ui_misc_aosp_scroll_capture"
                     )
                 )
-                if (state.shadeReboundFixFixed) {
-                    add(
-                        SettingItem.Switch(
-                            title = stringResource(R.string.system_ui_misc_shade_rebound_fix_title),
-                            summary = stringResource(R.string.system_ui_misc_shade_rebound_fix_fixed_summary),
-                            checked = false,
-                            onCheckedChange = {},
-                            enabled = false,
-                            key = "system_ui_misc_shade_rebound_fix"
-                        )
+                add(
+                    SettingItem.Switch(
+                        title = stringResource(R.string.system_ui_misc_shade_rebound_fix_title),
+                        summary = stringResource(R.string.system_ui_misc_shade_rebound_fix_summary),
+                        checked = state.shadeReboundFix,
+                        onCheckedChange = onShadeReboundFixChanged,
+                        minSdkVersion = Build.VERSION_CODES.VANILLA_ICE_CREAM,
+                        maxSdkVersion = Build.VERSION_CODES.BAKLAVA,
+                        unsupportedHint = if (Build.VERSION.SDK_INT > Build.VERSION_CODES.BAKLAVA) {
+                            stringResource(R.string.system_ui_misc_shade_rebound_fix_fixed_summary)
+                        } else {
+                            null
+                        },
+                        key = "system_ui_misc_shade_rebound_fix"
                     )
-                } else {
-                    add(
-                        SettingItem.Switch(
-                            title = stringResource(R.string.system_ui_misc_shade_rebound_fix_title),
-                            summary = stringResource(R.string.system_ui_misc_shade_rebound_fix_summary),
-                            checked = state.shadeReboundFix,
-                            onCheckedChange = onShadeReboundFixChanged,
-                            key = "system_ui_misc_shade_rebound_fix"
-                        )
-                    )
-                }
+                )
             }
         )
     )

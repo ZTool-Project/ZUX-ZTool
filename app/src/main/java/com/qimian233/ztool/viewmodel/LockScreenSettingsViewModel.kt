@@ -241,7 +241,6 @@ data class LockScreenSettingsUiState(
     val clockColorCustom: Boolean = false,
     val clockColor: Int = 0xFFFFFFFF.toInt(),
     val clockColorText: String = "FFFFFFFF",
-    val nativeClockColorAvailable: Boolean = false,
     val isRestartProcessing: Boolean = false,
     val showRestartDialog: Boolean = false
 )

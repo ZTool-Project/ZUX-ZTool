@@ -60,6 +60,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.disabled
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -72,10 +74,12 @@ import com.qimian233.ztool.ui.theme.FrontendStyle
 import com.qimian233.ztool.ui.theme.LocalZToolThemeSpec
 import top.yukonga.miuix.kmp.icon.basic.ArrowUpDown
 import top.yukonga.miuix.kmp.basic.BasicComponent as MiuixBasicComponent
+import top.yukonga.miuix.kmp.basic.BasicComponentDefaults
 import top.yukonga.miuix.kmp.basic.ListPopupColumn as MiuixListPopupColumn
 import top.yukonga.miuix.kmp.basic.PopupPositionProvider as MiuixPopupPositionProvider
 import top.yukonga.miuix.kmp.basic.Switch as MiuixSwitch
 import top.yukonga.miuix.kmp.icon.MiuixIcons.Basic as MiuixIcons
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.window.WindowListPopup as MiuixWindowListPopup
 
 /**
@@ -91,6 +95,24 @@ private fun trailingControlMinimumInteractiveSize(horizontalPadding: Dp): Dp {
 }
 
 @Composable
+private fun miuixRowTitleColor(enabled: Boolean) =
+    if (enabled) {
+        BasicComponentDefaults.titleColor()
+    } else {
+        val color = MiuixTheme.colorScheme.disabledOnSecondaryVariant
+        BasicComponentDefaults.titleColor(color = color, disabledColor = color)
+    }
+
+@Composable
+private fun miuixRowSummaryColor(enabled: Boolean) =
+    if (enabled) {
+        BasicComponentDefaults.summaryColor()
+    } else {
+        val color = MiuixTheme.colorScheme.disabledOnSecondaryVariant
+        BasicComponentDefaults.summaryColor(color = color, disabledColor = color)
+    }
+
+@Composable
 fun ZListItem(
     title: String,
     modifier: Modifier = Modifier,
@@ -98,13 +120,16 @@ fun ZListItem(
     enabled: Boolean = true,
     onClick: (() -> Unit)? = null,
     leadingContent: @Composable (RowScope.() -> Unit)? = null,
-    trailingContent: @Composable (RowScope.() -> Unit)? = null
+    trailingContent: @Composable (RowScope.() -> Unit)? = null,
+    rippleOnly: Boolean = false
 ) {
     if (LocalZToolThemeSpec.current.style == FrontendStyle.Miuix) {
         MiuixBasicComponent(
-            modifier = modifier,
+            modifier = modifier.semantics { if (!enabled) disabled() },
             title = title,
+            titleColor = miuixRowTitleColor(enabled),
             summary = summary,
+            summaryColor = miuixRowSummaryColor(enabled),
             startAction = leadingContent?.let {
                 {
                     Row {
@@ -114,8 +139,8 @@ fun ZListItem(
             },
             endActions = trailingContent,
             insideMargin = PaddingValues(horizontal = 24.dp, vertical = 16.dp),
-            onClick = onClick,
-            enabled = enabled
+            onClick = onClick?.let { action -> { if (enabled) action() } },
+            enabled = enabled || rippleOnly
         )
         return
     }
@@ -126,11 +151,14 @@ fun ZListItem(
             .heightIn(min = if (summary == null) 56.dp else 72.dp)
             .then(
                 if (onClick != null) {
-                    Modifier.clickable(enabled = enabled) { onClick() }
+                    Modifier.clickable(enabled = enabled || rippleOnly) {
+                        if (enabled) onClick()
+                    }
                 } else {
                     Modifier
                 }
             )
+            .semantics { if (!enabled) disabled() }
             .padding(horizontal = 24.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -205,13 +233,16 @@ fun ZToolSwitchRow(
     summary: String? = null,
     enabled: Boolean = true,
     icon: ImageVector? = null,
-    padding: Dp = 24.dp
+    padding: Dp = 24.dp,
+    rippleOnly: Boolean = false
 ) {
     if (LocalZToolThemeSpec.current.style == FrontendStyle.Miuix) {
         MiuixBasicComponent(
-            modifier = modifier,
+            modifier = modifier.semantics { if (!enabled) disabled() },
             title = title,
+            titleColor = miuixRowTitleColor(enabled),
             summary = summary,
+            summaryColor = miuixRowSummaryColor(enabled),
             startAction = icon?.let { ic ->
                 { ZToolSettingLeadingIcon(icon = ic, enabled = enabled) }
             },
@@ -228,8 +259,8 @@ fun ZToolSwitchRow(
                 horizontal = padding,
                 vertical = if (summary == null) 14.dp else 16.dp
             ),
-            onClick = { onCheckedChange(!checked) },
-            enabled = enabled
+            onClick = { if (enabled) onCheckedChange(!checked) },
+            enabled = enabled || rippleOnly
         )
         return
     }
@@ -238,7 +269,10 @@ fun ZToolSwitchRow(
         modifier = modifier
             .fillMaxWidth()
             .heightIn(min = if (summary == null) 56.dp else 72.dp)
-            .clickable(enabled = enabled) { onCheckedChange(!checked) }
+            .clickable(enabled = enabled || rippleOnly) {
+                if (enabled) onCheckedChange(!checked)
+            }
+            .semantics { if (!enabled) disabled() }
             .padding(horizontal = padding, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -313,13 +347,16 @@ fun ZToolCheckboxRow(
     modifier: Modifier = Modifier,
     summary: String? = null,
     enabled: Boolean = true,
-    icon: ImageVector? = null
+    icon: ImageVector? = null,
+    rippleOnly: Boolean = false
 ) {
     if (LocalZToolThemeSpec.current.style == FrontendStyle.Miuix) {
         MiuixBasicComponent(
-            modifier = modifier,
+            modifier = modifier.semantics { if (!enabled) disabled() },
             title = title,
+            titleColor = miuixRowTitleColor(enabled),
             summary = summary,
+            summaryColor = miuixRowSummaryColor(enabled),
             startAction = icon?.let { ic ->
                 { ZToolSettingLeadingIcon(icon = ic, enabled = enabled) }
             },
@@ -334,8 +371,8 @@ fun ZToolCheckboxRow(
                 horizontal = 24.dp,
                 vertical = if (summary == null) 14.dp else 16.dp
             ),
-            onClick = { onCheckedChange(!checked) },
-            enabled = enabled
+            onClick = { if (enabled) onCheckedChange(!checked) },
+            enabled = enabled || rippleOnly
         )
         return
     }
@@ -344,7 +381,10 @@ fun ZToolCheckboxRow(
         modifier = modifier
             .fillMaxWidth()
             .heightIn(min = if (summary == null) 56.dp else 72.dp)
-            .clickable(enabled = enabled) { onCheckedChange(!checked) }
+            .clickable(enabled = enabled || rippleOnly) {
+                if (enabled) onCheckedChange(!checked)
+            }
+            .semantics { if (!enabled) disabled() }
             .padding(horizontal = 24.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -490,15 +530,18 @@ fun <T> ZToolPopupMenuSettingRow(
     icon: ImageVector? = null,
     enabled: Boolean = true,
     fieldMinWidth: Dp = 132.dp,
-    fieldMaxWidth: Dp = 180.dp
+    fieldMaxWidth: Dp = 180.dp,
+    rippleOnly: Boolean = false
 ) {
     var expanded by remember { mutableStateOf(false) }
 
     if (LocalZToolThemeSpec.current.style == FrontendStyle.Miuix) {
         MiuixBasicComponent(
-            modifier = modifier,
+            modifier = modifier.semantics { if (!enabled) disabled() },
             title = title,
+            titleColor = miuixRowTitleColor(enabled),
             summary = summary,
+            summaryColor = miuixRowSummaryColor(enabled),
             startAction = icon?.let { ic ->
                 { ZToolSettingLeadingIcon(icon = ic, enabled = enabled) }
             },
@@ -525,7 +568,7 @@ fun <T> ZToolPopupMenuSettingRow(
                     expanded = true
                 }
             },
-            enabled = enabled
+            enabled = enabled || rippleOnly
         )
         return
     }
@@ -534,9 +577,12 @@ fun <T> ZToolPopupMenuSettingRow(
         modifier = modifier
             .fillMaxWidth()
             .heightIn(min = if (summary == null) 56.dp else 72.dp)
-            .clickable(enabled = enabled && options.isNotEmpty()) {
-                expanded = true
+            .clickable(enabled = (enabled || rippleOnly) && options.isNotEmpty()) {
+                if (enabled && options.isNotEmpty()) {
+                    expanded = true
+                }
             }
+            .semantics { if (!enabled) disabled() }
             .padding(horizontal = 24.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {

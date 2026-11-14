@@ -36,8 +36,10 @@ class ShadeReboundFix : AppHookModule() {
 
     override fun handleLoadPackage(param: PackageLoadedParam) {
         if (param.packageName != ScopeKeys.SYSTEM_UI.packageName) return
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.CINNAMON_BUN) {
-            logger.info("No need to enable shade rebound fix on android 17 and above.")
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.VANILLA_ICE_CREAM ||
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.CINNAMON_BUN
+        ) {
+            logger.info("Shade rebound fix is only needed on Android 15-16.")
             return
         }
 

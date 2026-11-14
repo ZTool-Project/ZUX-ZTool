@@ -1,5 +1,6 @@
 package com.qimian233.ztool.ui.components
 
+import android.os.Build
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -29,6 +30,7 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -37,12 +39,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigationevent.compose.LocalNavigationEventDispatcherOwner
 import androidx.navigationevent.compose.rememberNavigationEventDispatcherOwner
+import com.qimian233.ztool.R
 import com.qimian233.ztool.ui.theme.FrontendStyle
 import com.qimian233.ztool.ui.theme.LocalZToolThemeSpec
 import top.yukonga.miuix.kmp.basic.Slider as MiuixSlider
@@ -57,6 +61,15 @@ sealed interface SettingItem {
     val key: String
     val enabled: Boolean
 
+    /** Minimum SDK API level, inclusive; null = unbounded. */
+    val minSdkVersion: Int? get() = null
+
+    /** Maximum SDK API level, inclusive; null = unbounded. */
+    val maxSdkVersion: Int? get() = null
+
+    /** Replaces `summary` when the current SDK level is outside the bounds. */
+    val unsupportedHint: String? get() = null
+
     data class Switch(
         val title: String,
         val checked: Boolean,
@@ -64,6 +77,9 @@ sealed interface SettingItem {
         val summary: String? = null,
         val icon: ImageVector? = null,
         override val enabled: Boolean = true,
+        override val minSdkVersion: Int? = null,
+        override val maxSdkVersion: Int? = null,
+        override val unsupportedHint: String? = null,
         override val key: String
     ) : SettingItem
 
@@ -74,6 +90,9 @@ sealed interface SettingItem {
         val summary: String? = null,
         val icon: ImageVector? = null,
         override val enabled: Boolean = true,
+        override val minSdkVersion: Int? = null,
+        override val maxSdkVersion: Int? = null,
+        override val unsupportedHint: String? = null,
         override val key: String
     ) : SettingItem
 
@@ -85,6 +104,9 @@ sealed interface SettingItem {
         val leadingContent: (@Composable RowScope.() -> Unit)? = null,
         val trailingContent: (@Composable RowScope.() -> Unit)? = null,
         override val enabled: Boolean = true,
+        override val minSdkVersion: Int? = null,
+        override val maxSdkVersion: Int? = null,
+        override val unsupportedHint: String? = null,
         override val key: String
     ) : SettingItem
 
@@ -97,6 +119,9 @@ sealed interface SettingItem {
         val summary: String? = null,
         val icon: ImageVector? = null,
         override val enabled: Boolean = true,
+        override val minSdkVersion: Int? = null,
+        override val maxSdkVersion: Int? = null,
+        override val unsupportedHint: String? = null,
         override val key: String
     ) : SettingItem
 
@@ -111,6 +136,9 @@ sealed interface SettingItem {
         val onValueChangeFinished: (() -> Unit)? = null,
         val icon: ImageVector? = null,
         override val enabled: Boolean = true,
+        override val minSdkVersion: Int? = null,
+        override val maxSdkVersion: Int? = null,
+        override val unsupportedHint: String? = null,
         override val key: String
     ) : SettingItem
 
@@ -124,6 +152,9 @@ sealed interface SettingItem {
         val singleLine: Boolean = true,
         val icon: ImageVector? = null,
         override val enabled: Boolean = true,
+        override val minSdkVersion: Int? = null,
+        override val maxSdkVersion: Int? = null,
+        override val unsupportedHint: String? = null,
         override val key: String
     ) : SettingItem
 
@@ -134,6 +165,9 @@ sealed interface SettingItem {
         val summary: String? = null,
         val icon: ImageVector? = null,
         override val enabled: Boolean = true,
+        override val minSdkVersion: Int? = null,
+        override val maxSdkVersion: Int? = null,
+        override val unsupportedHint: String? = null,
         override val key: String
     ) : SettingItem
 
@@ -145,6 +179,9 @@ sealed interface SettingItem {
         val leadingContent: (@Composable RowScope.() -> Unit)? = null,
         val trailingContent: (@Composable RowScope.() -> Unit)? = null,
         override val enabled: Boolean = true,
+        override val minSdkVersion: Int? = null,
+        override val maxSdkVersion: Int? = null,
+        override val unsupportedHint: String? = null,
         override val key: String
     ) : SettingItem
 
@@ -389,26 +426,47 @@ fun ZToolSettingItem(
     item: SettingItem,
     modifier: Modifier = Modifier
 ) {
+    val supported = isAndroidVersionSupported(
+        sdkInt = Build.VERSION.SDK_INT,
+        minSdkVersion = item.minSdkVersion,
+        maxSdkVersion = item.maxSdkVersion
+    )
+    val effectiveEnabled = item.enabled && supported
+    val unsupportedSummary = if (supported) {
+        null
+    } else {
+        item.unsupportedHint?.takeIf { it.isNotBlank() }
+            ?: stringResource(R.string.common_android_version_unsupported_hint)
+    }
+
     when (item) {
         is SettingItem.Switch -> {
+            LaunchedEffect(item.key, supported, item.checked) {
+                if (!supported && item.checked) item.onCheckedChange(false)
+            }
             ZToolSwitchRow(
                 title = item.title,
-                summary = item.summary,
-                checked = item.checked,
-                onCheckedChange = item.onCheckedChange,
-                enabled = item.enabled,
+                summary = unsupportedSummary ?: item.summary,
+                checked = if (supported) item.checked else false,
+                onCheckedChange = if (supported) item.onCheckedChange else { _ -> },
+                enabled = effectiveEnabled,
+                rippleOnly = !supported,
                 icon = item.icon,
                 modifier = modifier
             )
         }
 
         is SettingItem.Checkbox -> {
+            LaunchedEffect(item.key, supported, item.checked) {
+                if (!supported && item.checked) item.onCheckedChange(false)
+            }
             ZToolCheckboxRow(
                 title = item.title,
-                summary = item.summary,
-                checked = item.checked,
-                onCheckedChange = item.onCheckedChange,
-                enabled = item.enabled,
+                summary = unsupportedSummary ?: item.summary,
+                checked = if (supported) item.checked else false,
+                onCheckedChange = if (supported) item.onCheckedChange else { _ -> },
+                enabled = effectiveEnabled,
+                rippleOnly = !supported,
                 icon = item.icon,
                 modifier = modifier
             )
@@ -417,32 +475,39 @@ fun ZToolSettingItem(
         is SettingItem.Entry -> {
             ZListItem(
                 title = item.title,
-                summary = item.summary,
-                enabled = item.enabled,
+                summary = unsupportedSummary ?: item.summary,
+                enabled = effectiveEnabled,
                 onClick = item.onClick,
                 leadingContent = item.leadingContent ?: item.icon?.let { icon ->
-                    { ZToolSettingLeadingIcon(icon = icon, enabled = item.enabled) }
+                    { ZToolSettingLeadingIcon(icon = icon, enabled = effectiveEnabled) }
                 },
                 trailingContent = item.trailingContent,
+                rippleOnly = !supported,
                 modifier = modifier
             )
         }
 
         is SettingItem.Dropdown<*> -> {
-            ZToolPopupMenuSettingItem(item = item, modifier = modifier)
+            ZToolPopupMenuSettingItem(
+                item = item,
+                modifier = modifier,
+                supported = supported,
+                enabled = effectiveEnabled,
+                summary = unsupportedSummary ?: item.summary
+            )
         }
 
         is SettingItem.Slider -> {
             ZToolSliderRow(
                 title = item.title,
-                summary = item.summary,
+                summary = unsupportedSummary ?: item.summary,
                 value = item.value,
                 valueText = item.valueText,
                 valueRange = item.valueRange,
                 steps = item.steps,
                 onValueChange = item.onValueChange,
                 onValueChangeFinished = item.onValueChangeFinished,
-                enabled = item.enabled,
+                enabled = effectiveEnabled,
                 icon = item.icon,
                 modifier = modifier
             )
@@ -454,10 +519,10 @@ fun ZToolSettingItem(
                 value = item.value,
                 onValueChange = item.onValueChange,
                 title = item.title,
-                summary = item.summary,
+                summary = unsupportedSummary ?: item.summary,
                 placeholder = item.placeholder,
                 singleLine = item.singleLine,
-                enabled = item.enabled,
+                enabled = effectiveEnabled,
                 icon = item.icon,
                 modifier = modifier
             )
@@ -466,11 +531,11 @@ fun ZToolSettingItem(
         is SettingItem.ColorPreview -> {
             ZListItem(
                 title = item.title,
-                summary = item.summary,
-                enabled = item.enabled,
+                summary = unsupportedSummary ?: item.summary,
+                enabled = effectiveEnabled,
                 onClick = item.onClick,
                 leadingContent = item.icon?.let { icon ->
-                    { ZToolSettingLeadingIcon(icon = icon, enabled = item.enabled) }
+                    { ZToolSettingLeadingIcon(icon = icon, enabled = effectiveEnabled) }
                 },
                 trailingContent = {
                     Box(
@@ -479,6 +544,7 @@ fun ZToolSettingItem(
                             .background(item.color, CircleShape)
                     )
                 },
+                rippleOnly = !supported,
                 modifier = modifier
             )
         }
@@ -486,13 +552,14 @@ fun ZToolSettingItem(
         is SettingItem.Action -> {
             ZListItem(
                 title = item.title,
-                summary = item.summary,
-                enabled = item.enabled,
+                summary = unsupportedSummary ?: item.summary,
+                enabled = effectiveEnabled,
                 onClick = item.onClick,
                 leadingContent = item.leadingContent ?: item.icon?.let { icon ->
-                    { ZToolSettingLeadingIcon(icon = icon, enabled = item.enabled) }
+                    { ZToolSettingLeadingIcon(icon = icon, enabled = effectiveEnabled) }
                 },
                 trailingContent = item.trailingContent,
+                rippleOnly = !supported,
                 modifier = modifier
             )
         }
@@ -508,7 +575,10 @@ fun ZToolSettingItem(
 @Composable
 private fun <T> ZToolPopupMenuSettingItem(
     item: SettingItem.Dropdown<T>,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    supported: Boolean = true,
+    enabled: Boolean = item.enabled,
+    summary: String? = item.summary
 ) {
     ZToolPopupMenuSettingRow(
         title = item.label,
@@ -516,8 +586,9 @@ private fun <T> ZToolPopupMenuSettingItem(
         options = item.options,
         optionLabel = item.optionLabel,
         onOptionSelected = item.onOptionSelected,
-        summary = item.summary,
-        enabled = item.enabled,
+        summary = summary,
+        enabled = enabled,
+        rippleOnly = !supported,
         icon = item.icon,
         modifier = modifier
     )
