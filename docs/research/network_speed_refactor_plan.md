@@ -1,6 +1,7 @@
 # Network speed refactor plan
 
-Status: analysis and planning complete; implementation has not started.
+Status: implemented; debug build and focused unit tests verified. Device behavior
+has not been verified in this task.
 
 Evidence date: 2026-11-14. Host evidence comes from the SystemUI APK currently
 loaded in Jadx MCP: package `com.android.systemui`, versionName `17`, versionCode
@@ -62,10 +63,10 @@ the existing icon-manager path and native callbacks on device.
 
 | Existing implementation | Problem to remove |
 | --- | --- |
-| [NetworkSpeedRefresh](../../app/src/main/java/com/qimian233/ztool/hook/modules/systemui/statusbar/NetworkSpeedRefresh.kt) | Independently resolves/hooks the Handler, rescales already truncated arg1, rewrites delayed messages, and exits early when double-layer is enabled |
-| [SystemUINetworkSpeeddoublelayerHook](../../app/src/main/java/com/qimian233/ztool/hook/modules/systemui/statusbar/SystemUINetworkSpeeddoublelayerHook.kt) | Short-circuits messages 10/1; maintains three per-View weak maps; puts LongArray in Message.obj; uses wall time and whole-second division; always reads the stored interval regardless of its enable switch |
-| [NetworkSpeedHideSlowHook](../../app/src/main/java/com/qimian233/ztool/hook/modules/systemui/statusbar/NetworkSpeedHideSlowHook.kt) | Samples traffic independently, falsifies Settings.System reads process-wide, tracks constructor calls without deduplication, and runs a recurring watcher to restart sampling after hiding stopped it |
-| [SystemUINetworkSpeedSizeHook](../../app/src/main/java/com/qimian233/ztool/hook/modules/systemui/statusbar/SystemUINetworkSpeedSizeHook.kt) | Hooks TextView.setText separately and treats any two-line text as number/unit, including double-layer upload/download text; discards existing spans |
+| `NetworkSpeedRefresh` | Independently resolves/hooks the Handler, rescales already truncated arg1, rewrites delayed messages, and exits early when double-layer is enabled |
+| `SystemUINetworkSpeeddoublelayerHook` | Short-circuits messages 10/1; maintains three per-View weak maps; puts LongArray in Message.obj; uses wall time and whole-second division; always reads the stored interval regardless of its enable switch |
+| `NetworkSpeedHideSlowHook` | Samples traffic independently, falsifies Settings.System reads process-wide, tracks constructor calls without deduplication, and runs a recurring watcher to restart sampling after hiding stopped it |
+| `SystemUINetworkSpeedSizeHook` | Hooks TextView.setText separately and treats any two-line text as number/unit, including double-layer upload/download text; discards existing spans |
 | [SystemUiDexIndexer](../../app/src/main/java/com/qimian233/ztool/dexindex/indexer/SystemUiDexIndexer.kt) | Network-speed Handler index only matches the old View package, and is named after double-layer despite describing shared host infrastructure |
 
 There are two independently installed Handler.handleMessage hooks, not four.
@@ -100,7 +101,7 @@ Preference read failure disables installation or passes through an existing hook
 | All off | None |
 | S only | Shared NetworkSpeedView resolution and one scoped TextView.setText hook; no sampling or scheduling hook |
 | D or R or H | One Handler.handleMessage hook, shared sampling/frame transport, status/reset and detach hooks |
-| D | Shared text transformation and host-style lifecycle hooks |
+| D | Shared text transformation and size spans; host style remains in charge of configuration changes |
 | R | Scoped rewrite of native message-10 rearm; only install after rate correction is usable |
 | H | NetworkSpeedView.isIconVisible and presentation application after native status/display updates |
 | Any combination | Union of the above; each target is installed once by the owner |
@@ -128,9 +129,9 @@ backup formats stable. In particular:
 | Hide-both | Only when H is enabled: hide if download **and** upload are each below threshold; independent of display mode |
 
 Treat non-finite or malformed floats as their registered defaults before clamping.
-Default threshold remains 10 KB/s. S and D compose through one semantic formatter;
-the double-layer constructor's current 1.1x font adjustment must be derived from
-the host baseline and reapplied after configuration changes, without compounding.
+Default threshold remains 10 KB/s. S and D compose through one semantic formatter.
+The former double-layer constructor's 1.1x adjustment is now a whole-text span,
+so the host's configuration-dependent base text size is never modified.
 
 ## Shared runtime pipeline
 
@@ -168,10 +169,10 @@ refresh entry for users whose cached host fingerprint has not changed. If the
 index schema is extended later, bump its schema version then.
 
 Maintain one weak per-View state containing baseline counters/timestamp, generation,
-last valid frame, slow decision and original style metrics. Do not put a strong
+last valid frame and slow decision. Do not put a strong
 reference to the weak-map key or its Handler in the value. Constructor hooks are
 unnecessary for traffic state: initialize lazily from status/Handler callbacks.
-Attach/configuration hooks, when needed for D styling, must be idempotent.
+D's size adjustment is a text span; attach/configuration style hooks are unnecessary.
 
 Use SystemClock.elapsedRealtime and millisecond precision:
 `rateBps = deltaBytes * 1000.0 / elapsedMs`. Keep Long counters and Double/Long
@@ -311,16 +312,17 @@ be a shared adapter for all modes with separately verified native gates/lifecycl
 
 ## Implementation sequence
 
-These are future implementation tasks, not changes made by this planning commit.
+The implementation work below is complete. On-device acceptance remains a manual
+follow-up; this task does not claim the device matrix was executed.
 
-1. [ ] Add the unified owner and pure Kotlin options/snapshot/frame/format policy. Implement resolution, feature OR and the installation matrix; keep native behavior initially.
-2. [ ] Add shared message-10 sampling, frame association and message-1 Long-based rate correction. Validate warm-up, resets, stale messages and unrelated receivers.
-3. [ ] Move custom refresh into the owner, strictly filtering native rearm. Verify 0.5/1/3/10 s and stored interval with R disabled.
-4. [ ] Move double-layer and S into the single text renderer; validate both-line spans, zero text, configuration reapplication and host width/height.
-5. [ ] Move H and its parameters into the shared frame/presentation policy; remove global settings interception and watcher after recovery/layout validation.
-6. [ ] Replace the four old registrations/classes atomically; broaden the offline Handler index and manually regenerate it on the test device. Preserve user edits and migrate relevant reverse-engineering comments into this research document.
-7. [ ] Run focused policy tests, assembleDebug and the on-device matrix using assembleDev. Confirm there are no duplicate native rearms or module-owned recurring tasks.
-8. [ ] Review diff/check staged changes, commit the implementation, record verification results, and archive the completed implementation plan only when every task is complete.
+1. [x] Add the unified owner and pure Kotlin options/snapshot/frame/format policy with feature-selected installation.
+2. [x] Add shared sampling, native-message frame association, measured-window correction and stale-generation rejection.
+3. [x] Move custom refresh into the owner and strictly filter native rearm; test disabled R with a stored interval.
+4. [x] Move double-layer and S into one renderer; test semantic segment ranges and leave host sizing/configuration untouched.
+5. [x] Move H into the shared frame/presentation policy and remove global settings hooks and the watcher.
+6. [x] Replace the old registrations/classes, broaden the offline index and retain its namespace. The user's old hide-slow overload reduction is superseded by removing that interceptor entirely.
+7. [x] Run focused policy tests and assembleDebug; review native-rearm and reflection contracts. Device verification is explicitly pending.
+8. [x] Review scoped changes, record verification limits and archive the execution checklist for the implementation commit.
 
 Expected implementation footprint: four retired Hook files, the unified Hook,
 one pure Kotlin policy file, HookManager, SystemUiDexIndexer and one focused test
@@ -365,3 +367,51 @@ an improvement solely from reducing Hook class count.
 Planning acceptance is satisfied by the verified current-host contract, complete
 feature matrix and executable migration/verification sequence above. Runtime
 feasibility and older-host compatibility remain implementation validation gates.
+
+## Implementation notes and retained findings
+
+The owner is now
+[SystemUINetworkSpeedHook](../../app/src/main/java/com/qimian233/ztool/hook/modules/systemui/statusbar/SystemUINetworkSpeedHook.kt),
+with pure policies in
+[NetworkSpeedPolicy](../../app/src/main/java/com/qimian233/ztool/hook/modules/systemui/statusbar/NetworkSpeedPolicy.kt).
+The four Hook names in the historical inventory above describe retired files
+available in planning commit f677d99f, rather than active implementations.
+
+The previous refresh Hook documented a device measurement of about 4% single-core
+CPU per refresh: approximately 11.5% with the indicator disabled, 16% at 1 s and
+33% at 0.2 s. This was a historical measurement on the ZUX Android 17 test device,
+not a measurement of this implementation. The 0.5 s minimum remains unchanged.
+
+The old constructor Hook covered `(Context, AttributeSet, int)` and multiplied
+text size by 1.1. Host constructor chaining also caused the old hide-slow collector
+to collect the same View repeatedly. Lazy state and text spans remove both needs.
+
+Reflection contracts retained: both View package names; Handler.handleMessage(Message)
+declared on the resolved inner class; `this$0` declared on that same Handler class;
+TextView.setText(CharSequence) declared on TextView; sendEmptyMessageDelayed(int,
+long) resolved starting at Handler; sendMessage(Message) resolved starting at the
+network-speed Handler; updateNetworkSpeedViewStatus and isIconVisible declared
+on NetworkSpeedView. New state fields are resolved starting at NetworkSpeedView.
+The existing TrafficStats loopback methods retain reflection from TrafficStats
+with a String parameter. The counter-cache hook is optional and rolled back on
+installation failure; custom refresh requires the shared frame transport.
+
+HookManager comment migration: lifecycle parameters originate from the initial
+callbacks and are saved by HookInit.onHotReloading through savedInstanceState.
+New module generations have different classloaders and do not share static fields.
+HookInit.onHotReloaded must restore those parameters before reinitializing and
+replaying HookManager, or no hooks will be replayed. Replay isolates each module's
+failure. Registration remains per scope and interface injection follows registration.
+Shared ZUI widget hooks continue to cover each scoped host bundling their matched
+widget classes.
+
+SystemUiDexIndexer comment migration: ToggleSliderView's anonymous
+SeekBar.OnSeekBarChangeListener is renumbered by R8 across host builds, so its
+index remains matched by onProgressChanged(SeekBar, int, boolean), not by the
+anonymous class number. No charging-animation or volume-slider indexing behavior
+was changed during this refactor.
+
+Validation: `.\gradlew.bat assembleDebug testDebugUnitTest --tests
+com.qimian233.ztool.NetworkSpeedPolicyTest` passed on 2026-11-14, with 14 tests,
+zero failures and zero skips. Touched Kotlin KDoc blocks satisfy the 8-line cap.
+No UI strings or setting/search ids changed. Device testing was not performed.

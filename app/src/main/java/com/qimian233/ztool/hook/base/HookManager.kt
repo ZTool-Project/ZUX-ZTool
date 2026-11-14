@@ -139,14 +139,11 @@ import com.qimian233.ztool.hook.modules.systemui.qs.VolumeSliderLongPressHook
 import com.qimian233.ztool.hook.modules.systemui.qs.VolumeSliderPercentageHook
 import com.qimian233.ztool.hook.modules.systemui.statusbar.CustomStatusBarClock
 import com.qimian233.ztool.hook.modules.systemui.statusbar.NativeNotificationIcon
-import com.qimian233.ztool.hook.modules.systemui.statusbar.NetworkSpeedHideSlowHook
-import com.qimian233.ztool.hook.modules.systemui.statusbar.NetworkSpeedRefresh
 import com.qimian233.ztool.hook.modules.systemui.statusbar.NotificationIconHook
 import com.qimian233.ztool.hook.modules.systemui.statusbar.NotificationOverflowDotHook
 import com.qimian233.ztool.hook.modules.systemui.statusbar.StatusBarClockSecondsHook
 import com.qimian233.ztool.hook.modules.systemui.statusbar.SystemUIBatteryHook
-import com.qimian233.ztool.hook.modules.systemui.statusbar.SystemUINetworkSpeedSizeHook
-import com.qimian233.ztool.hook.modules.systemui.statusbar.SystemUINetworkSpeeddoublelayerHook
+import com.qimian233.ztool.hook.modules.systemui.statusbar.SystemUINetworkSpeedHook
 import com.qimian233.ztool.hook.modules.systemui.wallpaper.DesktopLiveWallpaperHook
 import com.qimian233.ztool.hook.modules.wallpaper.ChargeAnimationFixModule
 import com.qimian233.ztool.hook.modules.zuiui.ZuiDialogSkinHook
@@ -156,20 +153,15 @@ import com.qimian233.ztool.hook.modules.zuiui.ZuiSwitchStyleHook
 import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.api.XposedModuleInterface
 
-/**
- * Hook module manager (libxposed version, Kotlin).
- *
- * Registration is split into one private method per target scope; [registerAllModules]
- * calls all of them. Dispatch is driven by [com.qimian233.ztool.hook.HookInit].
- */
+/** Registers and dispatches hooks by target scope. */
+// See docs/research/network_speed_refactor_plan.md for lifecycle replay constraints.
 object HookManager {
 
     private val hookModules: MutableList<BaseHookModule> = ArrayList()
     private var initialized = false
 
-    // Hot reload: cache lifecycle params captured on first load, for replay after hot reload
     private val savedPackageParams: MutableList<XposedModuleInterface.PackageLoadedParam> =
-            ArrayList()
+        ArrayList()
     private var savedSystemServerParam: XposedModuleInterface.SystemServerStartingParam? = null
 
     fun initialize(xposed: XposedInterface) {
@@ -177,10 +169,6 @@ object HookManager {
         registerAllModules(xposed)
     }
 
-    /**
-     * Registers all Hook modules and injects the XposedInterface.
-     * Shared by [initialize] and [reinitializeForHotReload].
-     */
     private fun registerAllModules(xposed: XposedInterface) {
         registerSystemServerModules()
         registerAndroidFrameworkModules()
@@ -205,7 +193,6 @@ object HookManager {
         registerZuiPerformanceModules()
         registerSogouImeModules()
 
-        // Inject the XposedInterface
         for (module in hookModules) {
             module.setXposedInterface(xposed)
         }
@@ -213,10 +200,6 @@ object HookManager {
         initialized = true
     }
 
-    /**
-     * System server hooks: `ScopeKeys.SYSTEM_SERVER` (`system`), including the
-     * package manager core patch set.
-     */
     private fun registerSystemServerModules() {
         registerHookModule(DisableFlagSecure())
         registerHookModule(AllowGetPackages())
@@ -245,7 +228,6 @@ object HookManager {
         registerHookModule(PackageManagerArscBypassHook())
     }
 
-    /** System framework hooks: `ScopeKeys.ANDROID_SYSTEM` (`android`). */
     private fun registerAndroidFrameworkModules() {
         registerHookModule(FineVolumeSteps())
         registerHookModule(VolumeKeyNonlinearRamp())
@@ -254,22 +236,16 @@ object HookManager {
         registerHookModule(DisableGameAudio())
     }
 
-    /** Every-process hooks: `ScopeKeys.UNRESTRICTED` (`all`). */
     private fun registerAllProcessModules() {
         registerHookModule(AiInputExpand())
     }
 
-    /**
-     * Shared ZUI widget hooks: dialogs, the loading indicator and switch styling. The
-     * switch hook matches its host class, so any scoped app that bundles it is covered.
-     */
     private fun registerZuiWidgetModules() {
         registerHookModule(ZuiDialogSkinHook())
         registerHookModule(ZuiLoadingIndicatorHook())
         registerHookModule(ZuiSwitchStyleHook())
     }
 
-    /** SystemUI hooks: `ScopeKeys.SYSTEM_UI`, including freeform window and taskbar controls. */
     private fun registerSystemUIModules() {
         registerHookModule(StatusBarClockSecondsHook())
         registerHookModule(CustomStatusBarClock())
@@ -281,10 +257,7 @@ object HookManager {
         registerHookModule(ControlCenterNoTileLabelsHook())
         registerHookModule(NoChargeAnimation())
         registerHookModule(NativeNotificationIcon())
-        registerHookModule(SystemUINetworkSpeedSizeHook())
-        registerHookModule(SystemUINetworkSpeeddoublelayerHook())
-        registerHookModule(NetworkSpeedRefresh())
-        registerHookModule(NetworkSpeedHideSlowHook())
+        registerHookModule(SystemUINetworkSpeedHook())
         registerHookModule(SystemUIBatteryHook())
         registerHookModule(ForceImmersiveMode())
         registerHookModule(AospScrollCaptureHook())
@@ -322,7 +295,6 @@ object HookManager {
         registerHookModule(PcTaskbarCompactControls())
     }
 
-    /** Settings hooks: `ScopeKeys.SETTINGS`; AllowDisplayDolbyHook also targets SystemUI. */
     private fun registerSettingsModules() {
         registerHookModule(OneVisionCompletion())
         registerHookModule(AllowDisplayDolbyHook())
@@ -336,15 +308,10 @@ object HookManager {
         registerHookModule(SettingsAppIconUnmaskHook())
     }
 
-    /**
-     * Permission controller hooks: `ScopeKeys.PERMISSION_CONTROLLER`;
-     * PermissionControllerHook also targets Settings and ZUI Safe Center.
-     */
     private fun registerPermissionControllerModules() {
         registerHookModule(PermissionControllerHook())
     }
 
-    /** Package installer hooks: `ScopeKeys.PACKAGE_INSTALLER`. */
     private fun registerPackageInstallerModules() {
         registerHookModule(PackageInstallerHookScan())
         registerHookModule(PackageInstallerPermissionHook())
@@ -354,7 +321,6 @@ object HookManager {
         registerHookModule(PackageInstallerNoDeleteModule())
     }
 
-    /** Launcher hooks: `ScopeKeys.LAUNCHER`. */
     private fun registerLauncherModules() {
         registerHookModule(DisableForceStop())
         registerHookModule(ZuiLauncherHotseatHook())
@@ -379,14 +345,12 @@ object HookManager {
         registerHookModule(IconScaleOverrideHook())
     }
 
-    /** Desktop launcher (PC mode) hooks: `ScopeKeys.DESKTOP_LAUNCHER`. */
     private fun registerDesktopLauncherModules() {
         registerHookModule(WorkDesktopPortrait())
         registerHookModule(PcAllAppsPortraitGrid())
         registerHookModule(WorkspaceLabelTwoLine())
     }
 
-    /** Game Helper hooks: `ScopeKeys.GAME_SERVICE`. */
     private fun registerGameServiceModules() {
         registerHookModule(AutoMistakeTouchHook())
         registerHookModule(DisableGameAudioApp())
@@ -395,7 +359,6 @@ object HookManager {
         registerHookModule(SocTemperatureFix())
     }
 
-    /** Lenovo OTA hooks: `ScopeKeys.OTA`. */
     private fun registerOtaModules() {
         registerHookModule(DisableOtaCheck())
         registerHookModule(NoAutoOtaInstall())
@@ -403,35 +366,29 @@ object HookManager {
         registerHookModule(HideOtaNotifications())
     }
 
-    /** Wallpaper settings hooks: `ScopeKeys.WALLPAPER_SETTINGS`. */
     private fun registerWallpaperSettingsModules() {
         registerHookModule(ChargeAnimationFixModule())
     }
 
-    /** DocumentsUI hooks: `ScopeKeys.DOCUMENTS_UI`. */
     private fun registerDocumentsUIModules() {
         registerHookModule(DocumentsUIBypass())
     }
 
-    /** Freeform sidebar hooks: `ScopeKeys.FREEFORM_SIDEBAR`. */
     private fun registerFreeformSidebarModules() {
         registerHookModule(SidebarDrawerHook())
     }
 
-    /** Safe Center hooks: `ScopeKeys.LENOVO_SAFE_CENTER` and `ScopeKeys.ZUI_SAFE_CENTER`. */
     private fun registerSafeCenterModules() {
         registerHookModule(DisableAllVirusScans())
         registerHookModule(EnableAutorunByDefault())
     }
 
-    /** Motorola mobile desktop hooks: `ScopeKeys.MOBILE_DESKTOP`. */
     private fun registerMobileDesktopModules() {
         registerHookModule(AutoAcceptFileTransferHook())
         registerHookModule(BypassShareWarningHook())
         registerHookModule(DisableNearbyShareAutoOffHook())
     }
 
-    /** Lenovo TB Engine hooks: `ScopeKeys.TB_ENGINE`, including the local OTA signer. */
     private fun registerTbEngineModules() {
         registerHookModule(DisableTbEngineAutoDownload())
         registerHookModule(DisableTbEngineAutoInstall())
@@ -442,25 +399,21 @@ object HookManager {
         registerHookModule(LenovoOTAHook())
     }
 
-    /** Lenovo device service hooks: `ScopeKeys.LENOVO_DEVICE_SERVICE`. */
     private fun registerLenovoDeviceServiceModules() {
         registerHookModule(DisableLsfDevicePush())
         registerHookModule(DisableLsfDeviceAutoInstall())
         registerHookModule(DisableLsfDeviceAppListReporting())
     }
 
-    /** Tab push-out hooks: `ScopeKeys.TAB_PUSHOUT`. */
     private fun registerTabPushoutModules() {
         registerHookModule(DisableTabPushoutSdacRegister())
     }
 
-    /** ZUI performance service hooks: `ScopeKeys.ZUI_PERFORMANCE`. */
     private fun registerZuiPerformanceModules() {
         registerHookModule(BlockPowerPolicySync())
         registerHookModule(BlockGamePolicyUpdate())
     }
 
-    /** Sogou OEM input method hooks: `ScopeKeys.SOGOU_OEM_IME`. */
     private fun registerSogouImeModules() {
         registerHookModule(HalfWidthPunctHook())
         registerHookModule(SogouEnterKeyHook())
@@ -486,38 +439,15 @@ object HookManager {
         }
     }
 
-    /**
-     * Returns the saved package-load lifecycle params (passed from old code to new code on hot reload).
-     * <p>
-     * Hot reload creates a new generation of module code (new classloader);
-     * static fields are not shared across generations, so these params must be
-     * passed explicitly by the old code via
-     * [XposedModuleInterface.HotReloadingParam.setSavedInstanceState] in
-     * [onHotReloading][XposedModuleInterface.HotReloadingParam], then restored
-     * by the new code via [restoreLifecycleParams] in
-     * [onHotReloaded][XposedModuleInterface.HotReloadedParam].
-     * </p>
-     */
+    /** Returns saved package-load parameters for hot reload. */
     fun getSavedPackageParams(): List<XposedModuleInterface.PackageLoadedParam> =
-            savedPackageParams
+        savedPackageParams
 
-    /**
-     * Returns the saved system server start param (passed from old code to new code on hot reload).
-     *
-     * @see getSavedPackageParams
-     */
+    /** Returns saved system-server parameters for hot reload. */
     fun getSavedSystemServerParam(): XposedModuleInterface.SystemServerStartingParam? =
-            savedSystemServerParam
+        savedSystemServerParam
 
-    /**
-     * Restores the lifecycle params passed from the previous code generation, for use by [replayAllHooks].
-     * <p>
-     * Must be called in [onHotReloaded][XposedModuleInterface.HotReloadedParam] (new code)
-     * after hot reload, before calling [replayAllHooks]; otherwise under the new
-     * classloader [savedPackageParams] / [savedSystemServerParam] are empty and
-     * the replay will install no hooks.
-     * </p>
-     */
+    /** Restores lifecycle parameters from the previous module generation. */
     fun restoreLifecycleParams(
         packageParams: List<XposedModuleInterface.PackageLoadedParam>?,
         systemServerParam: XposedModuleInterface.SystemServerStartingParam?
@@ -529,28 +459,13 @@ object HookManager {
         savedSystemServerParam = systemServerParam
     }
 
-    /**
-     * Re-initializes after hot reload: clears the old module list and re-registers all modules with the new XposedInterface.
-     * <p>
-     * Lifecycle params ([savedPackageParams] / [savedSystemServerParam]) are
-     * passed by the old code via savedInstanceState in
-     * [onHotReloading][XposedModuleInterface.HotReloadingParam]; the new code
-     * must call [restoreLifecycleParams] first to restore them, then replay.
-     * </p>
-     */
+    /** Registers the new generation of Hook modules. */
     fun reinitializeForHotReload(xposed: XposedInterface) {
         hookModules.clear()
         registerAllModules(xposed)
     }
 
-    /**
-     * Replays the saved lifecycle params after hot reload, letting new modules reinstall their hooks.
-     * <p>
-     * [restoreLifecycleParams] must be called first to restore the params passed
-     * from the old code. Each module call is wrapped in try-catch; a single
-     * module's failure does not affect the others.
-     * </p>
-     */
+    /** Replays saved lifecycle events for the current Hook modules. */
     fun replayAllHooks() {
         for (module in hookModules) {
             val systemServer = savedSystemServerParam

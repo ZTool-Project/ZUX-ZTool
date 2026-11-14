@@ -12,14 +12,7 @@ import org.luckypray.dexkit.query.matchers.ClassMatcher
 import org.luckypray.dexkit.query.matchers.FieldMatcher
 import org.luckypray.dexkit.query.matchers.FieldsMatcher
 
-/**
- * systemui scope (com.android.systemui) offline indexer.
- *
- * Migrated as-is from the DexKit queries of these Hooks:
- * - NoChargeAnimation (Handler field name of ChargingAnimationController)
- * - SystemUINetworkSpeeddoublelayerHook (Handler inner class name of NetworkSpeedView)
- * - VolumeSliderPercentageHook (anonymous progress listener class of ToggleSliderView)
- */
+/** Builds offline member indexes for SystemUI hooks. */
 class SystemUiDexIndexer : DexIndexer {
 
     override val scopePackage: String = ScopeKeys.SYSTEM_UI.packageName
@@ -29,7 +22,7 @@ class SystemUiDexIndexer : DexIndexer {
         modules.add(DexIndexConstants.ModuleKeys.NO_CHARGE_ANIMATION, indexNoChargeAnimation(bridge))
         modules.add(
             DexIndexConstants.ModuleKeys.SYSTEMUI_NETWORK_SPEED_DOUBLELAYER,
-            indexNetworkSpeedDoublelayer(bridge)
+            indexNetworkSpeedHandler(bridge)
         )
         modules.add(
             DexIndexConstants.ModuleKeys.VOLUME_SLIDER_PERCENTAGE,
@@ -56,7 +49,6 @@ class SystemUiDexIndexer : DexIndexer {
 
             if (classData != null) {
                 val fields = classData.fields
-                // 1) Prefer Handler-type fields (including $ inner-class forms)
                 var handlerFieldName: String? = null
                 for (fd in fields) {
                     val ft = fd.typeName
@@ -65,7 +57,6 @@ class SystemUiDexIndexer : DexIndexer {
                         break
                     }
                 }
-                // 2) Fallback: first non-primitive field whose type is not java./android.
                 if (handlerFieldName == null) {
                     for (fd in fields) {
                         val ft = fd.typeName
@@ -86,9 +77,8 @@ class SystemUiDexIndexer : DexIndexer {
         return out
     }
 
-    private fun indexNetworkSpeedDoublelayer(bridge: DexKitBridge): JsonObject {
+    private fun indexNetworkSpeedHandler(bridge: DexKitBridge): JsonObject {
         val out = JsonObject()
-        // Inner class with superClass = Handler whose name starts with NetworkSpeedView$
         try {
             val matches = bridge.findClass(
                 FindClass.create()
@@ -97,14 +87,15 @@ class SystemUiDexIndexer : DexIndexer {
             )
             for (cd in matches) {
                 val name = cd.name
-                if (name.startsWith("com.android.systemui.zui.NetworkSpeedView$")) {
+                if (name.startsWith("com.android.systemui.zui.NetworkSpeedView$") ||
+                    name.startsWith("com.android.systemui.statusbar.view.NetworkSpeedView$")) {
                     out.addProperty(DexIndexConstants.Keys.HANDLER_INNER_CLASS, name)
-                    Log.i(TAG, "SystemUINetworkSpeeddoublelayerHook: handler inner class = $name")
+                    Log.i(TAG, "SystemUINetworkSpeedHook: handler inner class = $name")
                     break
                 }
             }
         } catch (t: Throwable) {
-            Log.w(TAG, "SystemUINetworkSpeeddoublelayerHook: handler class query failed", t)
+            Log.w(TAG, "SystemUINetworkSpeedHook: handler class query failed", t)
         }
         return out
     }
@@ -115,10 +106,6 @@ class SystemUiDexIndexer : DexIndexer {
                 || typeName == "float" || typeName == "double" || typeName == "void"
     }
 
-    /**
-     * Anonymous SeekBar.OnSeekBarChangeListener declared inside ToggleSliderView; R8 renumbers
-     * its class name per build, so it is matched by the callback signature instead.
-     */
     private fun indexVolumeSliderPercentage(bridge: DexKitBridge): JsonObject {
         val out = JsonObject()
         try {
