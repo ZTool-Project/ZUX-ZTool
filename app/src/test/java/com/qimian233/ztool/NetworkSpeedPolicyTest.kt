@@ -147,4 +147,34 @@ class NetworkSpeedPolicyTest {
         })
         assertEquals(listOf(1.3f, 0.9f, 1.3f, 0.9f), formatted.segments.map { it.scale })
     }
+
+    @Test
+    fun samplingRecoversFromSlowTrafficWithoutAcceptingADisplayMessage() {
+        for (doubleLayer in listOf(false, true)) {
+            val options = NetworkSpeedOptions(hideSlow = true, doubleLayer = doubleLayer)
+            val session = NetworkSpeedSession()
+            session.update(NetworkSpeedSnapshot(0, 0, 100), options)
+            session.update(NetworkSpeedSnapshot(0, 0, 600), options)
+            assertTrue(session.slow)
+            val recovered = session.update(NetworkSpeedSnapshot(10_240, 0, 1100), options)
+            assertFalse(session.slow)
+            assertEquals(20_480.0, session.lastRate!!.down, 0.0)
+            assertEquals(recovered, session.latestFrame)
+            session.update(NetworkSpeedSnapshot(10_240, 0, 1600), options)
+            assertTrue(session.slow)
+        }
+    }
+
+    @Test
+    fun disablingHideSlowRecoversAtTheNextSample() {
+        val options = NetworkSpeedOptions(hideSlow = true, customRefresh = true)
+        val session = NetworkSpeedSession()
+        session.update(NetworkSpeedSnapshot(0, 0, 100), options)
+        session.update(NetworkSpeedSnapshot(0, 0, 600), options)
+        assertTrue(session.slow)
+        session.update(null, options.copy(hideSlow = false))
+        assertFalse(session.slow)
+        session.reset()
+        assertNull(session.latestFrame)
+    }
 }

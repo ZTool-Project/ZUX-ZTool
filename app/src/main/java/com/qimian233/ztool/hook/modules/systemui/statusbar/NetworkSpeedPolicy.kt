@@ -49,6 +49,8 @@ internal class NetworkSpeedSession {
         private set
     var lastRate: NetworkSpeedRate? = null
         private set
+    var latestFrame: NetworkSpeedFrame? = null
+        private set
     var slow = false
     private var baseline: NetworkSpeedSnapshot? = null
 
@@ -56,6 +58,15 @@ internal class NetworkSpeedSession {
         generation++
         baseline = null
         lastRate = null
+        latestFrame = null
+    }
+
+    fun update(snapshot: NetworkSpeedSnapshot?, options: NetworkSpeedOptions): NetworkSpeedFrame {
+        if (!options.hideSlow) slow = false
+        val frame = sample(snapshot)
+        latestFrame = frame
+        accept(frame, options)
+        return frame
     }
 
     fun sample(snapshot: NetworkSpeedSnapshot?): NetworkSpeedFrame {

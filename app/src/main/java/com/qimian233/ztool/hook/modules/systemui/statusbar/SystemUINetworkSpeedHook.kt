@@ -186,32 +186,37 @@ class SystemUINetworkSpeedHook : AppHookModule() {
             val message = chain.args[0] as Message
             val options = options()
             val session = session(view)
+            val wasSlow = session.slow
             if (!options.hideSlow) session.slow = false
             when (message.what) {
                 SAMPLE -> {
                     if (!options.needsHandler) {
                         session.reset()
                         val result = chain.proceed()
-                        applyVisibility(host, view, session, options)
+                        applyVisibility(host, view, session, options, wasSlow != session.slow)
                         return@hookWithId result
                     }
                     if (host.restartField?.getBoolean(view) == true) session.reset()
-                    val frame = session.sample(readSnapshot())
+                    val frame = session.update(readSnapshot(), options)
                     val previous = sampling.get()
                     sampling.set(Sampling(handler, session, frame, options))
-                    try {
+                    val result = try {
                         chain.proceed()
                     } finally {
                         restore(sampling, previous)
                     }
+                    val changed = wasSlow != session.slow
+                    if (changed) logger.debug("Network speed slow state -> ${session.slow}, rate=${frame.rate}")
+                    applyVisibility(host, view, session, options, changed)
+                    result
                 }
                 RATE -> {
                     val queued = pending.remove(message)
                     if (queued != null && (queued.session !== session || queued.frame.generation != session.generation)) {
                         return@hookWithId null
                     }
-                    val frame = queued?.frame
-                    val accepted = frame != null && session.accept(frame, options)
+                    val frame = queued?.frame ?: session.latestFrame
+                    val accepted = frame?.generation == session.generation && frame.rate != null
                     val rate = if (accepted && options.needsHandler) {
                         if (frame.warmup) session.lastRate ?: NetworkSpeedRate.ZERO else frame.rate
                     } else null
@@ -223,7 +228,7 @@ class SystemUINetworkSpeedHook : AppHookModule() {
                     } finally {
                         restore(display, previous)
                     }
-                    applyVisibility(host, view, session, options)
+                    applyVisibility(host, view, session, options, wasSlow != session.slow)
                     result
                 }
                 else -> chain.proceed()
@@ -251,13 +256,23 @@ class SystemUINetworkSpeedHook : AppHookModule() {
         }
     }
 
-    private fun applyVisibility(host: Host, view: TextView, session: NetworkSpeedSession, options: NetworkSpeedOptions) {
+    private fun applyVisibility(
+        host: Host,
+        view: TextView,
+        session: NetworkSpeedSession,
+        options: NetworkSpeedOptions,
+        forceLayout: Boolean = false,
+    ) {
         if (!installed.hideSlow) return
         val visible = host.enabledField.getBoolean(view) && !(options.hideSlow && session.slow)
         val target = if (visible) TextView.VISIBLE else TextView.GONE
-        if (view.visibility != target) {
+        val changed = view.visibility != target
+        if (changed) {
             view.visibility = target
+        }
+        if (changed || forceLayout) {
             view.requestLayout()
+            view.parent?.requestLayout()
         }
     }
 

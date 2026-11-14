@@ -142,12 +142,13 @@ flowchart TD
     C --> D[Single message 10 interceptor]
     D --> E[Shared traffic snapshot and per-View frame]
     E --> F[Original message 10 control flow]
+    F --> K[Host TextView and logical icon visibility]
     F --> G[Native message 1 carrying scalar arg1]
     F --> H[Native message 10 rearm]
     H --> D
     G --> I[Same frame: corrected rate and hide decision]
     I --> J[Original message 1 and one scoped text transformation]
-    J --> K[Host TextView and logical icon visibility]
+    J --> K
 ```
 
 ### Resolution and state ownership
@@ -193,7 +194,8 @@ presentation, or zero at first use, until a normal sample is available.
 ### Message 10: preserve native control flow
 
 Enter a scoped sampling context for this View/Handler, obtain its snapshot and
-candidate frame, then call `chain.proceed()` exactly once. Always let native
+candidate frame, update the cached rate/slow decision, then call `chain.proceed()`
+exactly once and apply presentation visibility. Always let native
 enablement, airplane-mode handling, queue cleanup and rearm decisions execute.
 Do not substitute isIconVisible for the native sampling gate.
 
@@ -231,7 +233,9 @@ R on native 3 s and log the capability degradation.
 
 Retrieve its associated frame. For valid frames set arg1 to the nonnegative,
 bounded combined B/s. Keep native number/unit formatting when D is off.
-Compute H from that same frame, not from a second TrafficStats read.
+H already uses that same frame from message 10, without a second TrafficStats read.
+If the transport side table has no entry, use the session's current-generation
+latest frame for rendering; an explicitly stale queued association is still rejected.
 
 Execute original message 1 under a display context. A single TextView.setText
 interceptor transforms only the selected NetworkSpeedView instance. When D is
@@ -256,7 +260,7 @@ explicit zero/previous-presentation policy above.
 
 ### Hide-slow: separate sampling eligibility from presentation
 
-After original status/display processing, apply presentation visibility from real
+After original status/sample/display processing, apply presentation visibility from real
 native enablement and the cached slow decision. Preserve the original
 `mShowNetworkRealtimeSpeedState`; GONE due to H must not stop message 10.
 
@@ -265,7 +269,8 @@ Intercept NetworkSpeedView.isIconVisible and return
 cached state; it never samples traffic or reads the offline index. Keep the parent
 container's block/ignore/overflow policy intact.
 
-On slow/fast transitions, update the host View visibility and request layout so
+On slow/fast transitions, update the host View visibility and request layout from
+both the View and its parent even if the visibility flag already matches, so
 StatusIconContainer releases/restores the slot. Reapply H after native status
 updates that would otherwise set VISIBLE. Never call the status updater just to
 hide/show: that resets the sampling baseline and recreates the 50 ms kick.
@@ -415,3 +420,26 @@ Validation: `.\gradlew.bat assembleDebug testDebugUnitTest --tests
 com.qimian233.ztool.NetworkSpeedPolicyTest` passed on 2026-11-14, with 14 tests,
 zero failures and zero skips. Touched Kotlin KDoc blocks satisfy the 8-line cap.
 No UI strings or setting/search ids changed. Device testing was not performed.
+
+### Hide-slow recovery correction
+
+The initial implementation updated the cached slow decision exclusively when
+message 1 had a transport-side frame association. A missing association therefore
+left the previous decision unchanged, including an indefinitely hidden state.
+Recovery must depend on sampling, not on successful display-message association.
+The correction updates the session in message 10 and applies visibility after
+native sample processing. The latest frame also supplies unassociated native
+display messages; status/detach resets clear that fallback.
+
+Jadx confirms this host's message-10 gates do not depend on View.visibility:
+mShowNetworkRealtimeSpeedState and the native connectivity/airplane flags control
+sampling. StatusIconContainer.onMeasure/onLayout additionally cache logical icon
+eligibility, and ViewState.initFrom records GONE/INVISIBLE flags, so recovery
+explicitly invalidates parent layout on decision transitions. No native sampling
+gate, system setting or reflection target was changed by this correction.
+
+Regression coverage includes slow → fast → slow sampling without accepting any
+display message, for native and double-layer modes, and disabling H at the next
+sample. All 16 NetworkSpeedPolicyTest cases and assembleDebug passed. A dev APK
+is also built for subsequent device verification; this correction does not claim
+that build success alone verifies the on-device visibility transition.
