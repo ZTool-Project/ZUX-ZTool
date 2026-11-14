@@ -1,12 +1,6 @@
 package com.qimian233.ztool.ui.components
 
 import androidx.annotation.DrawableRes
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.MutableTransitionState
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -32,21 +26,22 @@ import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuDefaults
 import com.qimian233.ztool.ui.theme.LocalZToolColorScheme
 import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -58,23 +53,21 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.takeOrElse
-import androidx.compose.ui.window.Popup
-import androidx.compose.ui.window.PopupProperties
 import com.qimian233.ztool.ui.theme.FrontendStyle
 import com.qimian233.ztool.ui.theme.LocalZToolThemeSpec
 import top.yukonga.miuix.kmp.icon.basic.ArrowUpDown
 import top.yukonga.miuix.kmp.basic.BasicComponent as MiuixBasicComponent
 import top.yukonga.miuix.kmp.basic.BasicComponentDefaults
+import top.yukonga.miuix.kmp.basic.DropdownImpl as MiuixDropdownImpl
+import top.yukonga.miuix.kmp.basic.DropdownItem as MiuixDropdownItem
 import top.yukonga.miuix.kmp.basic.ListPopupColumn as MiuixListPopupColumn
 import top.yukonga.miuix.kmp.basic.PopupPositionProvider as MiuixPopupPositionProvider
 import top.yukonga.miuix.kmp.basic.Switch as MiuixSwitch
@@ -486,7 +479,8 @@ fun <T> ZToolPopupMenuField(
     enabled: Boolean = true,
     icon: ImageVector? = null,
     externalExpanded: Boolean? = null,
-    onExternalExpandedChange: ((Boolean) -> Unit)? = null
+    onExternalExpandedChange: ((Boolean) -> Unit)? = null,
+    optionSupportingText: ((T) -> String?)? = null
 ) {
     ZToolSettingsNavigationEventProvider {
         if (LocalZToolThemeSpec.current.style == FrontendStyle.Miuix) {
@@ -494,6 +488,7 @@ fun <T> ZToolPopupMenuField(
                 value = value,
                 options = options,
                 optionLabel = optionLabel,
+                optionSupportingText = optionSupportingText,
                 onOptionSelected = onOptionSelected,
                 modifier = modifier,
                 enabled = enabled,
@@ -508,6 +503,7 @@ fun <T> ZToolPopupMenuField(
             value = value,
             options = options,
             optionLabel = optionLabel,
+            optionSupportingText = optionSupportingText,
             onOptionSelected = onOptionSelected,
             modifier = modifier,
             enabled = enabled,
@@ -531,7 +527,8 @@ fun <T> ZToolPopupMenuSettingRow(
     enabled: Boolean = true,
     fieldMinWidth: Dp = 132.dp,
     fieldMaxWidth: Dp = 180.dp,
-    rippleOnly: Boolean = false
+    rippleOnly: Boolean = false,
+    optionSupportingText: ((T) -> String?)? = null
 ) {
     var expanded by remember { mutableStateOf(false) }
 
@@ -550,6 +547,7 @@ fun <T> ZToolPopupMenuSettingRow(
                     value = value,
                     options = options,
                     optionLabel = optionLabel,
+                    optionSupportingText = optionSupportingText,
                     onOptionSelected = onOptionSelected,
                     enabled = enabled,
                     modifier = Modifier.widthIn(min = fieldMinWidth, max = fieldMaxWidth),
@@ -614,6 +612,7 @@ fun <T> ZToolPopupMenuSettingRow(
                 value = value,
                 options = options,
                 optionLabel = optionLabel,
+                optionSupportingText = optionSupportingText,
                 onOptionSelected = onOptionSelected,
                 enabled = enabled,
                 modifier = Modifier.widthIn(min = fieldMinWidth, max = fieldMaxWidth),
@@ -772,7 +771,8 @@ private fun <T> ZToolMiuixPopupMenuField(
     enabled: Boolean = true,
     icon: ImageVector? = null,
     externalExpanded: Boolean? = null,
-    onExternalExpandedChange: ((Boolean) -> Unit)? = null
+    onExternalExpandedChange: ((Boolean) -> Unit)? = null,
+    optionSupportingText: ((T) -> String?)? = null
 ) {
     val internalExpanded = remember { mutableStateOf(false) }
     val expanded = externalExpanded ?: internalExpanded.value
@@ -825,34 +825,21 @@ private fun <T> ZToolMiuixPopupMenuField(
             minWidth = 0.dp
         ) {
             MiuixListPopupColumn {
-                options.forEach { option ->
+                options.forEachIndexed { index, option ->
                     val label = optionLabel(option)
-                    val selected = label == value
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                onOptionSelected(option)
-                                setExpanded(false)
-                            }
-                            .padding(horizontal = 20.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
+                    MiuixDropdownImpl(
+                        item = MiuixDropdownItem(
                             text = label,
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = LocalZToolColorScheme.current.onSurface,
-                            modifier = Modifier.weight(1f)
-                        )
-                        if (selected) {
-                            Icon(
-                                imageVector = Icons.Filled.Check,
-                                contentDescription = null,
-                                tint = LocalZToolColorScheme.current.primary,
-                                modifier = Modifier.size(20.dp)
-                            )
+                            summary = optionSupportingText?.invoke(option)?.takeIf { it.isNotBlank() }
+                        ),
+                        optionSize = options.size,
+                        isSelected = label == value,
+                        index = index,
+                        onSelectedIndexChange = {
+                            onOptionSelected(option)
+                            setExpanded(false)
                         }
-                    }
+                    )
                 }
             }
         }
@@ -869,24 +856,17 @@ private fun <T> ZToolMaterialPopupMenuField(
     enabled: Boolean = true,
     icon: ImageVector? = null,
     externalExpanded: Boolean? = null,
-    onExternalExpandedChange: ((Boolean) -> Unit)? = null
+    onExternalExpandedChange: ((Boolean) -> Unit)? = null,
+    optionSupportingText: ((T) -> String?)? = null
 ) {
     val internalExpanded = remember { mutableStateOf(false) }
     val expanded = externalExpanded ?: internalExpanded.value
     val setExpanded: (Boolean) -> Unit = onExternalExpandedChange ?: { internalExpanded.value = it }
 
-    val transitionState = remember { MutableTransitionState(false) }
-    LaunchedEffect(expanded) {
-        transitionState.targetState = expanded
-    }
-
-    var anchorHeight by remember { mutableIntStateOf(0) }
-
     Box(modifier = modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .onSizeChanged { anchorHeight = it.height }
                 .clickable(enabled = enabled && options.isNotEmpty()) {
                     setExpanded(true)
                 }
@@ -926,74 +906,73 @@ private fun <T> ZToolMaterialPopupMenuField(
             }
         }
 
-        if (transitionState.currentState || transitionState.targetState) {
-            Popup(
-                onDismissRequest = { setExpanded(false) },
-                offset = IntOffset(0, anchorHeight),
-                properties = PopupProperties(focusable = true, dismissOnBackPress = true, dismissOnClickOutside = true),
-            ) {
-                AnimatedVisibility(
-                    visibleState = transitionState,
-                    enter = expandVertically(expandFrom = Alignment.Top) + fadeIn(),
-                    exit = shrinkVertically(shrinkTowards = Alignment.Top) + fadeOut()
-                ) {
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = LocalZToolColorScheme.current.surfaceContainerHigh,
-                    tonalElevation = 3.dp,
-                    shadowElevation = 3.dp,
-                    modifier = Modifier
-                        .heightIn(max = 360.dp)
-                        .widthIn(max = 160.dp)
-                ) {
-                    Column {
-                        options.forEach { option ->
-                            val label = optionLabel(option)
-                            val selected = label == value
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .then(
-                                        if (selected) {
-                                            Modifier.background(
-                                                color = LocalZToolColorScheme.current.primaryContainer,
-                                                shape = RoundedCornerShape(12.dp)
-                                            )
-                                        } else {
-                                            Modifier
-                                        }
-                                    )
-                                    .clickable {
-                                        onOptionSelected(option)
-                                        setExpanded(false)
-                                    }
-                                    .padding(horizontal = 12.dp, vertical = 14.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                if (selected) {
-                                    Icon(
-                                        imageVector = Icons.Filled.Check,
-                                        contentDescription = null,
-                                        tint = LocalZToolColorScheme.current.primary,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { setExpanded(false) },
+            modifier = Modifier.heightIn(max = 360.dp),
+            shape = RoundedCornerShape(12.dp),
+            containerColor = LocalZToolColorScheme.current.surfaceContainerHigh
+        ) {
+            options.forEach { option ->
+                val label = optionLabel(option)
+                val selected = label == value
+                DropdownMenuItem(
+                    text = {
+                        val supportingText = optionSupportingText?.invoke(option)
+                            ?.takeIf { it.isNotBlank() }
+                        Column(
+                            modifier = if (supportingText != null) {
+                                Modifier.padding(vertical = 8.dp)
+                            } else {
+                                Modifier
+                            }
+                        ) {
+                            Text(text = label)
+                            if (supportingText != null) {
                                 Text(
-                                    text = label,
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = if (selected) {
-                                        LocalZToolColorScheme.current.primary
-                                    } else {
-                                        LocalZToolColorScheme.current.onSurface
-                                    },
-                                    modifier = Modifier.weight(1f).padding(start = if (selected) 0.dp else 24.dp)
+                                    text = supportingText,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = LocalZToolColorScheme.current.onSurfaceVariant
                                 )
                             }
                         }
-                    }
-                }
-                }
+                    },
+                    onClick = {
+                        onOptionSelected(option)
+                        setExpanded(false)
+                    },
+                    modifier = Modifier
+                        .padding(horizontal = 8.dp)
+                        .then(
+                            if (selected) {
+                                Modifier.background(
+                                    color = LocalZToolColorScheme.current.primaryContainer,
+                                    shape = RoundedCornerShape(12.dp)
+                                )
+                            } else {
+                                Modifier
+                            }
+                        ),
+                    leadingIcon = {
+                        if (selected) {
+                            Icon(
+                                imageVector = Icons.Filled.Check,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        } else {
+                            Spacer(modifier = Modifier.size(20.dp))
+                        }
+                    },
+                    colors = MenuDefaults.itemColors(
+                        textColor = if (selected) {
+                            LocalZToolColorScheme.current.primary
+                        } else {
+                            LocalZToolColorScheme.current.onSurface
+                        },
+                        leadingIconColor = LocalZToolColorScheme.current.primary
+                    )
+                )
             }
         }
     }

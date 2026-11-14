@@ -251,11 +251,10 @@ private fun gameToolSettingsSections(
             add(
                 SettingItem.Dropdown(
                     label = stringResource(R.string.game_tool_device_model_disguise_model_label),
-                    // The collapsed field is width-capped, so show the code alone; the
-                    // opened menu uses the full `code · marketing name` labels.
                     value = selected.code,
                     options = options,
-                    optionLabel = { it.label },
+                    optionLabel = { it.code },
+                    optionSupportingText = { it.marketingName },
                     onOptionSelected = onDisguiseModelChanged,
                     summary = stringResource(R.string.game_tool_device_model_disguise_model_summary),
                     key = "game_tool_device_model_disguise_model"
