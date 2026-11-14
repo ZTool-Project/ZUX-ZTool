@@ -8,52 +8,61 @@ inventoried but explicitly out of scope.
 
 ## TL;DR
 
+- The bounds are **SDK API levels** (`Build.VERSION.SDK_INT` values). Call sites write
+  them with the codename constants: `Build.VERSION_CODES.VANILLA_ICE_CREAM` (35,
+  Android 15), `Build.VERSION_CODES.BAKLAVA` (36, Android 16),
+  `Build.VERSION_CODES.CINNAMON_BUN` (37, Android 17). Do not use marketing versions
+  (15/16/17) or parse `Build.VERSION.RELEASE`.
 - The three nullable bounds belong on `SettingItem`; the render funnel
   (`ZToolSettingItem`) is the single place that turns them into `enabled`, `checked`,
-  `summary`, and a ripple-only click. Rows built through `SettingItem` need no
-  per-screen gating code.
-- Four rows are in scope. Three of them already implement the requested behavior by
-  hand (`checked = false`, `enabled = false`, empty callback, replacement summary), so
-  the generic API is a consolidation, not a UX change. The fourth (shade rebound)
-  additionally gains a lower bound that the current code does not enforce.
-- Bounds are **Android release majors** (`15`, `16`, `17`), not SDK API levels.
-  Mapping used by the proposal: 15 → API 35, 16 → 36, 17 → 37. This matches the
-  user's manual list; if API levels were intended instead, the helper is simpler but
-  every call site must use 35/36/37.
-- Existing UI/hook drift must be resolved in the same effort:
-  - `NativeNotificationIcon`: UI caps at Android 15, but the hook has no version guard
-    and contains API 36+ code paths. A stored `true` preference still installs it.
-  - `ShadeReboundFix`: UI will now reject Android 14 and below, but the hook only
-    guards the upper bound (`>= API 37`).
-- Miuix is the main implementation trap: `BasicComponent` only attaches
+  `summary`, a ripple-only click, and the persistence side effect.
+- Unsupported is now **destructive by design for boolean rows**: force the switch off
+  and persist `false`. Preserving the old preference for a downgrade is not a
+  requirement — downgrades either trigger an SPL downgrade (which wipes data) or are
+  blocked by AVB rollback.
+- Persistence makes hook-side version guards secondary, not irrelevant. The UI clears
+  the preference when the page is composed; a user who receives an OTA and never opens
+  that page still has the old value until then. Keep cheap hook guards as
+  defense-in-depth.
+- Four rows are in scope. Three already implement the disabled look by hand; the
+  fourth (shade rebound) additionally gains a lower bound. Row 4's hint differs by
+  violated bound and must be resolved per version.
+- Miuix is the implementation trap: `BasicComponent` only attaches
   `Modifier.clickable` when `enabled && onClick != null`, so `enabled = false` yields
-  no ripple at all. "Ripple only" requires an enabled component with disabled colors
-  and a no-op callback (verified against miuix v0.9.3 source).
+  no ripple at all. "Ripple only" needs an enabled component with disabled colors and
+  a guarded callback (verified against miuix v0.9.3 source).
 
 ## 1. Confirmed migration scope
 
-The user counted four rows. Bounds below are Android release majors, inclusive.
+The user counted four rows. Bounds are SDK API levels, inclusive. Call sites should
+use the codename constants, not raw numbers.
 
 | # | Row | Screen | Current gate | New bounds | Hook-side guard today |
 |---|-----|--------|--------------|------------|-----------------------|
-| 1 | 使用原生通知图标 | `screens/systemui/statusbar/StatusBarSettingsScreen.kt:492` | `SDK_INT < 36` | `maxAndroidVersion = 15` | none (see §6) |
-| 2 | 自定义锁屏时钟颜色 | `screens/systemui/lockscreen/LockScreenSettingsScreen.kt:317` | `SDK_INT >= 36` native | `maxAndroidVersion = 15` | `LockScreenClockColorHook` returns on `>= 36` |
-| 3 | 媒体输出弹窗居中 | `screens/systemui/controlcenter/ControlCenterSettingsScreen.kt:472` | `SDK_INT >= 37` native | `maxAndroidVersion = 16` | `MediaOutputDialogCenterHook` returns on `>= 37` |
-| 4 | 修复控制中心回弹延迟 | `screens/systemui/misc/SystemUiMiscSettingsScreen.kt:237` | `SDK_INT >= 37` fixed | `minAndroidVersion = 15, maxAndroidVersion = 16` | `ShadeReboundFix` returns on `>= 37`; no lower guard |
+| 1 | 使用原生通知图标 | `screens/systemui/statusbar/StatusBarSettingsScreen.kt:492` | `SDK_INT < 36` | `maxAndroidVersion = Build.VERSION_CODES.VANILLA_ICE_CREAM` (35) | none (see §5.7) |
+| 2 | 自定义锁屏时钟颜色 | `screens/systemui/lockscreen/LockScreenSettingsScreen.kt:317` | `SDK_INT >= 36` native | `maxAndroidVersion = Build.VERSION_CODES.VANILLA_ICE_CREAM` (35) | `LockScreenClockColorHook` returns on `>= 36` |
+| 3 | 媒体输出弹窗居中 | `screens/systemui/controlcenter/ControlCenterSettingsScreen.kt:472` | `SDK_INT >= 37` native | `maxAndroidVersion = Build.VERSION_CODES.BAKLAVA` (36) | `MediaOutputDialogCenterHook` returns on `>= 37` |
+| 4 | 修复控制中心回弹延迟 | `screens/systemui/misc/SystemUiMiscSettingsScreen.kt:237` | `SDK_INT >= 37` fixed | `minAndroidVersion = Build.VERSION_CODES.VANILLA_ICE_CREAM` (35), `maxAndroidVersion = Build.VERSION_CODES.BAKLAVA` (36) | `ShadeReboundFix` returns on `>= 37`; no lower guard |
 
 Notes:
 
-- Row 1 only needs `max = 15`; its current replacement summary is literally the
+- The project already uses these codenames: `CustomGridSize` selects the API 36
+  constructor with `BAKLAVA`, and `ShadeReboundFix` / `NotificationCenterTransparency`
+  branch on `CINNAMON_BUN`. Verified against the installed Android 37 platform
+  (`javap -constants android.os.Build$VERSION_CODES`):
+  `VANILLA_ICE_CREAM = 35`, `BAKLAVA = 36`, `CINNAMON_BUN = 37`.
+- Row 1 only needs `max = 35`; its current replacement summary is literally the
   default hint text, so it can pass `unsupportedHint = null` and rely on the default.
 - Row 4 is a behavior change on Android 14 and below: the row was previously shown as
   a working switch there. The hook must gain a matching lower guard, otherwise a
-  stored `true` preference still installs it on unsupported versions.
+  stored `true` preference still installs it until the page is opened.
 - Rows 2–3 keep their feature-specific hints (`..._native_summary`) because they
-  explain *why* the row is unavailable, which is more useful than the generic text.
-  Row 4 is different: its reason differs by bound. The existing
-  `..._fixed_summary` is only correct on Android 17+ ("ZUXOS 2.0 fixed it"); on
-  Android 14 and below the generic "not supported" text is correct. Resolve the hint
-  at the call site (see §6.4) rather than using one string for both bounds.
+  explain *why* the row is unavailable. Row 4's reason differs by bound: Android 17+
+  is "ZUXOS 2.0 fixed it"; Android 14 and below is "not supported". Resolve the hint
+  at the call site (see §6.4).
+- The parameter names `minAndroidVersion` / `maxAndroidVersion` are retained per the
+  request, but their unit is the SDK API level. If the naming is allowed to change,
+  `minSdkVersion` / `maxSdkVersion` would be less ambiguous.
 
 ## 2. How the current settings UI is built
 
@@ -121,44 +130,127 @@ surfaces (`ZToolSettingsList`).
 
 ### 3.1 Version bounds
 
-- `minAndroidVersion`, `maxAndroidVersion`: nullable Android release majors.
+- `minAndroidVersion`, `maxAndroidVersion`: nullable SDK API levels.
 - Both `null` → available on every version.
-- Comparison is inclusive on both ends: Android 15 is available with
-  `maxAndroidVersion = 15`; Android 15 is available with `minAndroidVersion = 15`.
+- Comparison is inclusive on both ends: API 35 is available with
+  `maxAndroidVersion = Build.VERSION_CODES.VANILLA_ICE_CREAM`; API 35 is available with
+  `minAndroidVersion = Build.VERSION_CODES.VANILLA_ICE_CREAM`.
 - Suggested validation: if both are non-null and `min > max`, treat as unsupported
   and log in debug builds (do not crash release builds on a typo).
 
+Comparison is direct:
+
+```kotlin
+val supported = (min == null || Build.VERSION.SDK_INT >= min) &&
+    (max == null || Build.VERSION.SDK_INT <= max)
+```
+
+No marketing-version mapper is needed. `Build.VERSION_CODES.*` are just readable
+`Int` aliases; the runtime value is always `Build.VERSION.SDK_INT`.
+
 ### 3.2 Unsupported state
 
-When the current Android version is outside the bounds:
+When the current SDK level is outside the bounds:
 
 | Aspect | Required behavior |
 |---|---|
 | `enabled` | `false` (combined with the row's own `enabled` via AND) |
 | `checked` (Switch/Checkbox) | forced `false`, regardless of the stored preference |
-| Click callback | not invoked; the row still shows a press ripple |
+| User click | callback is **not** invoked; the row still shows a press ripple |
+| Programmatic one-shot | persist `false` once, so the hook cannot keep running |
 | Summary | `unsupportedHint`, or the default hint when null/blank |
-| Persistence | no write; the stored preference is preserved for a later supported version |
 | Visibility | row stays visible (the request disables it, it does not hide it) |
+
+Two different "callbacks" must be distinguished:
+
+1. **User-triggered callback**: suppressed. The row is disabled and the tap only
+   produces a ripple.
+2. **Availability-triggered persistence**: when the row is first composed as
+   unsupported and its stored value is `true`, the row invokes its setter with
+   `false` once. This is not a user action and must not produce ripple/animation.
 
 The "combined with the row's own `enabled`" part matters: rows disabled for other
 reasons (dependency on a parent switch, in-progress operation) must keep their current
-no-ripple disabled behavior. Only version-unavailability adds the ripple-only state.
+no-ripple disabled behavior and must not persist anything. Only version-unavailability
+adds the ripple-only state and the one-shot reset.
 
-### 3.3 Default hint
+### 3.3 Persistence side effect
+
+This is the main change from the first draft of this research. All boolean rows that
+become unavailable because of the SDK gate should clear their stored preference.
+
+Rationale (from the user): a user who downgrades Android already goes through an SPL
+downgrade, which wipes data; some devices cannot downgrade at all because AVB rollback
+refuses the image. Preserving the old preference "for a later downgrade" is therefore
+not a requirement, while leaving it `true` lets the hook keep running on the version
+where the feature is declared unavailable.
+
+Recommended placement: in `ZToolSettingItem`, per boolean variant, not in composition
+directly:
+
+```kotlin
+is SettingItem.Switch -> {
+    LaunchedEffect(item.key, supported, item.checked) {
+        if (!supported && item.checked) item.onCheckedChange(false)
+    }
+    ZToolSwitchRow(
+        checked = if (supported) item.checked else false,
+        onCheckedChange = if (supported) item.onCheckedChange else {},
+        enabled = item.enabled && supported,
+        rippleOnly = !supported,
+        summary = effectiveSummary,
+        // ...
+    )
+}
+```
+
+Key details:
+
+- The effect keys on `item.key`, `supported`, and `item.checked`. Keying only on
+  `supported` is a bug: if the row composes before the UiState loads (`checked` still
+  `false`), the effect would not rerun when the real `true` value arrives.
+- `item.onCheckedChange(false)` is the original setter, not the user-suppressed
+  callback. It updates the ViewModel and repository exactly like a user toggle.
+- The `item.checked` guard avoids a write when the preference is already `false`.
+- After the write, the row recomposes with `checked = false`; the effect's keys change
+  to `(key, false, false)` and it does nothing. No loop.
+- `Checkbox` gets the same treatment.
+
+Limitations:
+
+- This only covers rows that are actually composed. If the user never opens the
+  settings page after an OTA, the old `true` value survives and the hook still sees
+  it. That is why hook-side guards remain useful as defense-in-depth (§5.7), or a
+  startup migration would be needed for a stronger guarantee.
+- `Entry`, `Action`, `ColorPreview`, `Dropdown`, `Slider`, `TextInput`, and `Custom`
+  have no boolean "off" value. They cannot auto-persist through this mechanism. If a
+  future gated feature uses one of these, it needs an explicit reset callback or a
+  repository-level check. The four migration targets are all switches, so this is not
+  a blocker now. If the model needs to cover them generically, add an optional
+  `onUnsupported: (() -> Unit)?` to `SettingItem` (a fourth, optional param) and have
+  the funnel invoke it once; the boolean variants can default it to
+  `onCheckedChange(false)`.
+
+Alternative placement: clear the preference in each `Repository.loadState()` when
+unsupported (the current shade-rebound code does this). It has the same page-open
+timing, duplicates the version check in the data layer, and writes even when the row
+is collapsed. The funnel approach is preferred for boolean rows; a repository-level
+check is a reasonable defense for hooks that must not run at all.
+
+### 3.4 Default hint
 
 Text: `当前系统版本不支持此功能` / `Not supported on this system version`.
 
 The Chinese string already exists as
 `system_ui_status_bar_notification_icon_native_unsupported_summary`; the new generic
-resource should replace it so there is one source of truth (see §7).
+resource should replace it so there is one source of truth (see §5.6).
 
 ## 4. Whole-repo and Git-log inventory
 
 Search performed:
 
 ```text
-rg "Build\.VERSION\.SDK_INT|VERSION_CODES\." app/src/main/java/com/qimian233/ztool   # 54 hits
+content search for "Build.VERSION.SDK_INT|VERSION_CODES." under app/src/main/java  # 54 hits
 git log -S <each feature flag> --all
 git log --grep "Android 17|ZUXOS 2.5|unsupported|disable.*switch"
 git grep on master / android-16-archived for the same UI/data paths
@@ -171,15 +263,21 @@ found in the checked branches.
 
 | Row | Repository field | Hook module | Boundary | Commit that introduced it |
 |---|---|---|---|---|
-| 使用原生通知图标 | `StatusBarSettingsRepository.nativeNotificationIconSupported` (`SDK_INT < 36`) | `NativeNotificationIcon` (no guard) | Android 15 max | `36377374` |
-| 自定义锁屏时钟颜色 | `LockScreenSettingsRepository.nativeClockColorAvailable` (`>= 36`) | `LockScreenClockColorHook` (`>= 36` return) | Android 15 max | `d114e393` |
-| 媒体输出弹窗居中 | `ControlCenterSettingsRepository.nativeMediaOutputDialogCenter` (`>= 37`) | `MediaOutputDialogCenterHook` (`>= 37` return) | Android 16 max | `a3800d3b` |
-| 修复控制中心回弹延迟 | `SystemUiMiscSettingsRepository.shadeReboundFixFixed` (`>= 37`) | `ShadeReboundFix` (`>= 37` return) | Android 15–16 | `34239b05` |
+| 使用原生通知图标 | `StatusBarSettingsRepository.nativeNotificationIconSupported` (`SDK_INT < 36`) | `NativeNotificationIcon` (no guard) | API 35 max | `36377374` |
+| 自定义锁屏时钟颜色 | `LockScreenSettingsRepository.nativeClockColorAvailable` (`>= 36`) | `LockScreenClockColorHook` (`>= 36` return) | API 35 max | `d114e393` |
+| 媒体输出弹窗居中 | `ControlCenterSettingsRepository.nativeMediaOutputDialogCenter` (`>= 37`) | `MediaOutputDialogCenterHook` (`>= 37` return) | API 36 max | `a3800d3b` |
+| 修复控制中心回弹延迟 | `SystemUiMiscSettingsRepository.shadeReboundFixFixed` (`>= 37`) | `ShadeReboundFix` (`>= 37` return) | API 35–36 | `34239b05` |
 
 On unsupported versions all four render as `enabled = false`, `checked = false`, an
-empty callback, and a replacement summary. Rows 2–4 do this by duplicating the row in
-an `if/else` branch; row 1 inlines the same checks. The duplication is exactly what
-the new model removes.
+empty user callback, and a replacement summary. Rows 2–4 do this by duplicating the
+row in an `if/else` branch; row 1 inlines the same checks. The duplication is exactly
+what the new model removes.
+
+The persistence side effect is **not** present in any of the four today, with one
+exception: `SystemUiMiscSettingsRepository.loadState()` writes
+`saveShadeReboundFix(false)` when `SDK_INT >= 37`. That is the old upper-bound-only
+version of the behavior; the generic mechanism should replace it and extend the same
+reset to the new lower bound.
 
 ### 4.2 Adjacent gates (out of scope)
 
@@ -234,13 +332,13 @@ sealed interface SettingItem {
     val key: String
     val enabled: Boolean
 
-    /** Android release major (15 = Android 15), inclusive; null = unbounded. */
+    /** Minimum SDK API level, inclusive; null = unbounded. */
     val minAndroidVersion: Int? get() = null
 
-    /** Android release major (16 = Android 16), inclusive; null = unbounded. */
+    /** Maximum SDK API level, inclusive; null = unbounded. */
     val maxAndroidVersion: Int? get() = null
 
-    /** Replaces [summary] when the current version is outside the bounds. */
+    /** Replaces [summary] when the current SDK level is outside the bounds. */
     val unsupportedHint: String? get() = null
 }
 
@@ -266,51 +364,13 @@ If the team prefers a value object, the same three fields can live in a
 The row composables should also accept the three params (or a precomputed gate) so
 direct callers are not second-class. Defaults keep current behavior.
 
-### 5.2 Version representation and mapping
-
-`minAndroidVersion` / `maxAndroidVersion` are release majors because that is what the
-user's list uses (15/16). Internally compare API levels with a pure mapper:
-
-```kotlin
-/** Android release major for an SDK level; 0 when the level predates the mapping. */
-internal fun androidVersionOf(sdkInt: Int): Int = when {
-    sdkInt >= 35 -> sdkInt - 20          // 35 -> 15, 36 -> 16, 37 -> 17
-    sdkInt == 34 -> 14
-    sdkInt == 33 -> 13
-    sdkInt == 32 || sdkInt == 31 -> 12   // 12 and 12L
-    sdkInt == 30 -> 11
-    sdkInt == 29 -> 10
-    sdkInt == 28 -> 9
-    sdkInt == 27 -> 8                    // 8.1 reports API 27
-    else -> 0
-}
-
-internal fun isAndroidVersionSupported(
-    current: Int,
-    min: Int?,
-    max: Int?
-): Boolean = (min == null || current >= min) && (max == null || current <= max)
-```
-
-Place this in a pure Kotlin location (e.g. `utils/AndroidVersion.kt`), not in
-`ui/components`, so hook modules can share the same mapper later. `Build` is only read
-once at the call site (`androidVersionOf(Build.VERSION.SDK_INT)`), which keeps the
-functions JVM-testable.
-
-Alternative considered: parse `Build.VERSION.RELEASE` (`"15"`, `"16"`, `"8.1.0"`).
-It matches the marketing version exactly, but is OEM-dependent and fails on strings
-such as `"Android 15"`. The SDK mapping is deterministic. For the current bounds
-(15–17), `sdkInt - 20` is exact.
-
-### 5.3 Resolve once in the funnel
+### 5.2 Resolve once in the funnel
 
 `ZToolSettingItem` computes the gate and passes only concrete values to the rows:
 
 ```kotlin
-val current = androidVersionOf(Build.VERSION.SDK_INT)
-val supported = isAndroidVersionSupported(
-    current, item.minAndroidVersion, item.maxAndroidVersion
-)
+val sdk = Build.VERSION.SDK_INT
+val supported = isAndroidVersionSupported(sdk, item.minAndroidVersion, item.maxAndroidVersion)
 val effectiveEnabled = item.enabled && supported
 val effectiveSummary = if (supported) item.summary else
     item.unsupportedHint?.takeIf { it.isNotBlank() }
@@ -321,22 +381,29 @@ val effectiveChecked = if (supported) item.checked else false
 val effectiveCallback: (Boolean) -> Unit = if (supported) item.onCheckedChange else {}
 ```
 
-Then:
+Pure helper, small enough to unit test:
 
 ```kotlin
-ZToolSwitchRow(
-    checked = effectiveChecked,
-    onCheckedChange = effectiveCallback,
-    enabled = effectiveEnabled,
-    rippleOnly = !supported,
-    summary = effectiveSummary,
-    // ...
-)
+internal fun isAndroidVersionSupported(sdkInt: Int, min: Int?, max: Int?): Boolean =
+    (min == null || sdkInt >= min) && (max == null || sdkInt <= max)
 ```
 
-`rippleOnly` is the only new row-level concept. It must be distinct from `enabled`
-because non-version disabled rows (dependency gates, in-progress gates) must keep the
-current no-ripple behavior.
+### 5.3 Persistence side effect in the funnel
+
+See §3.3. The effect lives in the `Switch` / `Checkbox` branches of
+`ZToolSettingItem`, keyed on `(item.key, supported, item.checked)`. It calls the
+original setter once with `false`; the user-facing callback remains suppressed.
+
+Why not call the setter during composition: it would write on every recomposition and
+could trigger a state-update loop. Why not call it from the row's click handler: the
+row is not clickable for actions when unsupported, and the reset must happen even if
+the user never taps.
+
+Why not rely only on hooks: the hook could compute the same SDK level, but the bounds
+would then have to be duplicated in every hook module, and a stale preference would
+still install a module whose feature the UI already declared unavailable. The
+persistence write is the bridge between the UI decision and the hook process; hook
+guards remain as defense for the never-opened-page window.
 
 ### 5.4 Ripple-only disabled rows
 
@@ -407,17 +474,17 @@ semantics, and would fire on top of nested controls.
 
 ### 5.5 Per-variant behavior
 
-| Variant | Forced `checked=false` | Row click replaced | Hint replaces summary | Ripple-only required |
-|---|---|---|---|---|
-| `Switch` | yes | yes (`onCheckedChange` no-op) | yes | yes |
-| `Checkbox` | yes | yes | yes | yes |
-| `Entry` | n/a | yes (`onClick` no-op) | yes | yes |
-| `Action` | n/a | yes | yes | yes |
-| `ColorPreview` | n/a | yes | yes | yes |
-| `Dropdown` | n/a | yes (popup must not open) | yes | yes |
-| `Slider` | n/a | slider disabled | yes | no (sliders have no row ripple) |
-| `TextInput` | n/a | field disabled | yes | no |
-| `Custom` | n/a | not enforceable | no | no |
+| Variant | Forced `checked=false` | User click replaced | Hint replaces summary | Persist reset | Ripple-only |
+|---|---|---|---|---|---|
+| `Switch` | yes | yes (`onCheckedChange` no-op) | yes | yes (setter `false`) | yes |
+| `Checkbox` | yes | yes | yes | yes (setter `false`) | yes |
+| `Entry` | n/a | yes (`onClick` no-op) | yes | optional `onUnsupported` | yes |
+| `Action` | n/a | yes | yes | optional `onUnsupported` | yes |
+| `ColorPreview` | n/a | yes | yes | optional `onUnsupported` | yes |
+| `Dropdown` | n/a | yes (popup must not open) | yes | optional `onUnsupported` | yes |
+| `Slider` | n/a | slider disabled | yes | optional `onUnsupported` | no (sliders have no row ripple) |
+| `TextInput` | n/a | field disabled | yes | optional `onUnsupported` | no |
+| `Custom` | n/a | not enforceable | no | no | no |
 
 `Custom` is the one exception to "all rows". It is used for sliders, popup fields,
 color pickers, decorative notes, and compound layouts (54 constructions). Gating it
@@ -450,25 +517,25 @@ Keep the three explanatory strings:
 - `system_ui_media_output_dialog_center_native_summary`
 - `system_ui_misc_shade_rebound_fix_fixed_summary`
 
-### 5.7 Persistence and hook consistency
+### 5.7 Hook consistency after persistence
 
-The UI gate must be presentation-only:
+With the UI writing `false`, the hook sees the preference cleared once the user opens
+the page. Hook-side version guards are therefore **secondary**:
 
-- Do not call `onCheckedChange(false)` or write the preference when unsupported; a
-  user who downgrades should get their old choice back.
-- Do not copy the `SystemUiMiscSettingsRepository.loadState()` side effect
-  (`saveShadeReboundFix(false)` on `>= 37`) into the new mechanism. That side effect
-  currently clobbers the preference merely by opening the page. Removing it is a
-  behavior change worth calling out in the implementation commit.
-- The hook is the enforcement point. The UI being disabled does not stop
-  `BaseHookModule.isEnabled()` from returning `true` for a stored preference. The
-  four features need matching guards:
-  - clock color and media-output center already have upper guards;
-  - shade rebound needs a lower guard (`< 15`) in addition to its upper guard;
-  - native notification icon needs a decision: either add a `> 15` guard, or accept
-    that the hook still installs on Android 16/17 while the UI says unsupported. The
-    A17 audit (`docs/research/systemui_a17_unchecked_todo_targets.md`) says
-    `replaceTheSmallIcon` is gone on API 37, so the current UI cap is defensible.
+- Existing upper guards (`LockScreenClockColorHook`, `MediaOutputDialogCenterHook`,
+  `ShadeReboundFix`) can stay; they are cheap and cover the window before the page is
+  opened.
+- `ShadeReboundFix` still needs a lower guard (`< 35`) if the product wants the hook
+  to be correct even when the page was never opened. This is defense, not the primary
+  mechanism.
+- `NativeNotificationIcon` currently has no guard and contains API 36+ paths. With
+  persistence, an old `true` value is cleared when the status bar page is opened; if
+  that is considered sufficient, the hook can be left alone. If the feature is known
+  broken on 16/17, add the guard anyway — it is one line and protects the
+  never-opened-page case.
+- Do not duplicate the whole gate in every hook. Keep the UI as the source of truth
+  for availability, and use hook guards only where a stale preference would cause a
+  visible regression or crash.
 
 A shared constants object (e.g. `data/keys/AndroidGates.kt`) for the four bounds would
 prevent UI/hook drift, but it is optional for the first migration.
@@ -488,14 +555,14 @@ SettingItem.Switch(
     summary = stringResource(R.string.system_ui_status_bar_notification_icon_native_summary),
     checked = state.nativeNotificationIcon,
     onCheckedChange = onNativeNotificationIconChanged,
-    maxAndroidVersion = 15,
+    maxAndroidVersion = Build.VERSION_CODES.VANILLA_ICE_CREAM,
     key = "status_bar_notification_icon_native"
 )
 ```
 
 The default hint supplies the unsupported text. Remove
 `nativeNotificationIconSupported` from `StatusBarSettingsUiState` and
-`StatusBarSettingsRepository`; the hook needs the guard described in §5.7.
+`StatusBarSettingsRepository`; the funnel's one-shot reset now clears the preference.
 
 ### 6.2 Lock screen — clock color
 
@@ -510,41 +577,40 @@ SettingItem.Switch(
     summary = stringResource(R.string.system_ui_lock_screen_clock_color_summary),
     checked = state.clockColorCustom,
     onCheckedChange = onClockColorCustomChanged,
-    maxAndroidVersion = 15,
+    maxAndroidVersion = Build.VERSION_CODES.VANILLA_ICE_CREAM,
     unsupportedHint = stringResource(R.string.system_ui_lock_screen_clock_color_native_summary),
     key = "lock_screen_clock_color"
 )
-if (state.clockColorCustom && clockColorSupported) {
+if (state.clockColorCustom && Build.VERSION.SDK_INT <= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
     // existing ZToolArgbColorTextFieldRow as SettingItem.Custom
 }
 ```
 
-`clockColorSupported` is `isAndroidVersionSupported(androidVersionOf(Build.VERSION.SDK_INT), null, 15)`
-computed in the section builder (or exposed by a small helper). Without this guard an
-old `clockColorCustom = true` preference would show the picker under a disabled row.
+The picker guard uses the same boundary as the switch. The funnel's one-shot reset
+will clear `clockColorCustom` when the row is composed as unsupported, so the guard is
+mostly a first-frame safety net (state may still be `true` before the effect runs).
 
 ### 6.3 Control center — media output dialog center
 
-Same pattern as 6.2 with `maxAndroidVersion = 16` and
+Same pattern as 6.2 with
+`maxAndroidVersion = Build.VERSION_CODES.BAKLAVA` and
 `unsupportedHint = stringResource(R.string.system_ui_media_output_dialog_center_native_summary)`.
 Remove `nativeMediaOutputDialogCenter` from the UiState and repository.
 
 ### 6.4 System UI misc — shade rebound fix
 
 The hint must depend on the violated bound: Android 17+ is "system already fixed
-it"; Android 14 and below is "not supported". Resolve it at the call site with the
-same mapper:
+it"; Android 14 and below is "not supported". Resolve it at the call site:
 
 ```kotlin
-val current = androidVersionOf(Build.VERSION.SDK_INT)
 SettingItem.Switch(
     title = stringResource(R.string.system_ui_misc_shade_rebound_fix_title),
     summary = stringResource(R.string.system_ui_misc_shade_rebound_fix_summary),
     checked = state.shadeReboundFix,
     onCheckedChange = onShadeReboundFixChanged,
-    minAndroidVersion = 15,
-    maxAndroidVersion = 16,
-    unsupportedHint = if (current > 16) {
+    minAndroidVersion = Build.VERSION_CODES.VANILLA_ICE_CREAM,
+    maxAndroidVersion = Build.VERSION_CODES.BAKLAVA,
+    unsupportedHint = if (Build.VERSION.SDK_INT > Build.VERSION_CODES.BAKLAVA) {
         stringResource(R.string.system_ui_misc_shade_rebound_fix_fixed_summary)
     } else {
         null // default "not supported on this version"
@@ -560,22 +626,23 @@ reason; row 4 is the counterexample.
 
 Remove the duplicated `if (state.shadeReboundFixFixed)` branch, the
 `shadeReboundFixFixed` state field, and the forced `saveShadeReboundFix(false)` write
-(see §5.7). Add the `< 15` return to `ShadeReboundFix`.
+in `loadState()` (the funnel now performs the reset for both bounds). Add the `< 35`
+return to `ShadeReboundFix` (§5.7).
 
 ## 7. Files expected to change
 
 Production (implementation phase, not this research):
 
 - `ui/components/ZToolSettingsModel.kt` — interface members + 8 variant constructors +
-  funnel resolution.
+  funnel resolution + one-shot reset in `Switch`/`Checkbox`.
 - `ui/components/ZToolSettings.kt` — `rippleOnly` on `ZToolSwitchRow`,
   `ZToolCheckboxRow`, `ZListItem`, `ZToolPopupMenuSettingRow`; Miuix color handling.
-- `utils/AndroidVersion.kt` (new) — mapper and inclusive bounds check.
 - The four screens and their repositories/UiStates/ViewModels listed in §6.
 - `res/values/strings.xml`, `res/values-en-rUS/strings.xml`.
-- `docs/hook/add_frontend_item.md` — document the three params and the `Custom`
-  limitation.
-- `app/src/test/java/com/qimian233/ztool/AndroidVersionTest.kt` (new).
+- `docs/hook/add_frontend_item.md` — document the three params, the persistence
+  side effect, and the `Custom` limitation.
+- `app/src/test/java/com/qimian233/ztool/AndroidVersionGateTest.kt` (new; pure bounds
+  helper only, no Android framework calls).
 
 Not expected to change:
 
@@ -587,32 +654,33 @@ Not expected to change:
 
 ## 8. Risks and open questions
 
-1. **Version unit confirmation.** The design assumes `15` means Android 15 (API 35),
-   not SDK 35. If API levels were intended, every bound and helper simplifies, but
-   the user-facing "Android version" wording becomes misleading.
-2. **Native icon UI/hook mismatch.** The UI caps at Android 15 while the hook has no
-   guard and contains API 36+ paths. Confirm whether the hook should be disabled on
-   Android 16+ or the UI cap is stale.
-3. **Shade rebound lower boundary.** `min = 15` is new. Confirm the feature genuinely
+1. **Parameter naming.** `minAndroidVersion` now holds an SDK API level, not an
+   Android marketing version. Keep the requested names with KDoc, or rename to
+   `minSdkVersion` / `maxSdkVersion` before the API spreads.
+2. **Persistence timing.** The reset runs when the row is composed (page opened). A
+   user who receives an OTA and never opens the page keeps the old `true` until then.
+   Keep cheap hook guards, or add an app-start migration if that window matters.
+3. **Non-boolean rows.** `Entry`, `Action`, `ColorPreview`, `Dropdown`, `Slider`,
+   `TextInput`, and `Custom` cannot auto-reset. They need an explicit reset callback
+   or a repository check if they are ever gated.
+4. **Native icon hook mismatch.** Lower priority after persistence, but still a
+   visible inconsistency: UI says unsupported on 16+, hook has API 36+ paths. Decide
+   whether to add the guard or accept the never-opened-page case.
+5. **Shade rebound lower boundary.** `min = 35` is new. Confirm the feature genuinely
    does not work on Android 14 and below; add the hook guard accordingly.
-4. **Miuix ripple parity.** The enabled-component-with-disabled-colors approach is
+6. **Miuix ripple parity.** The enabled-component-with-disabled-colors approach is
    sound at the API level, but the press haptics and `HoldDownObserver` need a device
-   check. If it feels wrong, fall back to no ripple on Miuix and keep the Material
-   behavior, but that violates the stated requirement.
-5. **Accessibility.** `semantics { disabled() }` on an otherwise clickable row may
+   check.
+7. **Accessibility.** `semantics { disabled() }` on an otherwise clickable row may
    make TalkBack skip the row entirely. Verify; if it does, use a custom
    `onClickLabel`/role instead.
-6. **`Custom` rows.** They cannot be gated. The four migration targets avoid the
+8. **`Custom` rows.** They cannot be gated. The four migration targets avoid the
    problem by using `Switch`; future rows must not assume `Custom` honors the params.
-7. **Dependent rows.** The lock-screen color picker is the concrete case; any future
+9. **Dependent rows.** The lock-screen color picker is the concrete case; any future
    gated switch with a visible dependent row needs the same `supported &&` guard.
-8. **Preference writes.** The current shade-rebound repository clears the preference
-   on load; dropping that write changes stored state. Decide deliberately.
-9. **Search results.** Unsupported rows remain searchable and navigate to a disabled
-   row. If the product wants a "not supported" badge in search, add a condition note
-   to `SearchEntry` in a follow-up.
-10. **Android 12L mapping.** `androidVersionOf` maps API 31 and 32 both to 12; a
-    future bound that needs to distinguish 12L cannot use this integer model.
+10. **Search results.** Unsupported rows remain searchable and navigate to a disabled
+    row. If the product wants a "not supported" badge in search, add a condition note
+    to `SearchEntry` in a follow-up.
 11. **`SettingItem` equality.** Adding constructor params changes generated
     `equals`/`copy`; no current code compares `SettingItem` instances, but verify
     before relying on it.
@@ -624,10 +692,9 @@ Not expected to change:
 
 Unit tests (`app/src/test`):
 
-- `androidVersionOf`: 27→8, 28→9, 29→10, 30→11, 31→12, 32→12, 33→13, 34→14, 35→15,
-  36→16, 37→17, 0→0.
 - `isAndroidVersionSupported`: null/null, min-only boundary at equality, max-only
-  boundary at equality, both bounds, min > max.
+  boundary at equality, both bounds, min > max, and the four migration bounds with
+  `sdkInt` 34/35/36/37.
 
 Build and static checks:
 
@@ -638,16 +705,24 @@ Build and static checks:
 
 Manual matrix (at least one Material and one Miuix style):
 
-| Android version | Row 1 | Row 2 | Row 3 | Row 4 |
+| SDK / Android | Row 1 (max 35) | Row 2 (max 35) | Row 3 (max 36) | Row 4 (35–36) |
 |---|---|---|---|---|
-| 14 (API 34) | on | on | on | **off** |
-| 15 (API 35) | on | on | on | on |
-| 16 (API 36) | **off** | **off** | on | on |
-| 17 (API 37) | **off** | **off** | **off** | **off** |
+| 34 / 14 | on | on | on | **off** |
+| 35 / 15 | on | on | on | on |
+| 36 / 16 | **off** | **off** | on | on |
+| 37 / 17 | **off** | **off** | **off** | **off** |
 
-For each "off" cell verify: switch off and greyed, row ripple on tap, callback not
-invoked, hint shown, no preference write (check `xposed_module_config` before/after),
-dependent rows hidden, search entry still navigates.
+For each "off" cell verify:
+
+- switch off and greyed, row ripple on tap, user callback not invoked;
+- hint shown (row 4: generic on 14, fixed-summary on 17);
+- after opening the page, `xposed_module_config` contains `false` for the key, and the
+  hook log shows the module disabled / not installed;
+- dependent rows (lock-screen picker) hidden;
+- search entry still navigates.
+
+Also verify the one-shot reset does not loop: open the page twice on an unsupported
+version and confirm there is one write, not one per recomposition.
 
 ## 10. References
 
