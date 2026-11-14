@@ -1,76 +1,201 @@
 package com.qimian233.ztool.hook.modules.systemui.statusbar
 
 import android.annotation.SuppressLint
+import android.os.Handler
+import android.os.Message
+import android.os.SystemClock
+import com.qimian233.ztool.data.keys.PreferenceKeys
 import com.qimian233.ztool.data.keys.ScopeKeys
+import com.qimian233.ztool.dexindex.base.DexIndexConstants
 import com.qimian233.ztool.hook.base.AppHookModule
+import com.qimian233.ztool.hook.base.DexIndexStore
 import io.github.libxposed.api.XposedModuleInterface
-import java.lang.reflect.Method
+import java.util.Collections
+import java.util.WeakHashMap
+import kotlin.math.roundToInt
 
 /**
  * Custom status-bar network-speed refresh interval.
  *
- * Targets `NetworkSpeedView`'s internal handler through `Handler.sendEmptyMessageDelayed`;
- * the handler-class prefix differs between the legacy ZUI and the Android 17 SystemUI builds.
+ * `NetworkSpeedView` samples a hardcoded 3000 ms window and reports `deltaBytes / 3`, so
+ * changing only the re-arm delay would scale the shown rate. The rate message is rescaled
+ * with the window actually measured between two samples.
  */
 @SuppressLint("PrivateApi")
 class NetworkSpeedRefresh : AppHookModule() {
 
-    companion object {
-        private val SYSTEMUI_PACKAGE = ScopeKeys.SYSTEM_UI.packageName
-        // Ordered: the Android 17 view first, the legacy ZUI path second.
-        private val NETWORK_SPEED_HANDLER_PREFIXES = arrayOf(
-            "com.android.systemui.statusbar.view.NetworkSpeedView\$",
-            "com.android.systemui.zui.NetworkSpeedView\$",
-        )
+    private class SampleWindow {
+        var lastSampleAt = 0L
+        var windowMs = 0L
     }
 
-    override fun getModuleName(): String = "custom_network_speed_refresh_interval"
+    private val sampleWindows = Collections.synchronizedMap(WeakHashMap<Handler, SampleWindow>())
+    private var handlerClass: Class<*>? = null
+
+    override fun getModuleName(): String = PreferenceKeys.CUSTOM_NETWORK_SPEED_REFRESH_INTERVAL.name
 
     override fun getTargetPackages(): Array<String> = arrayOf(SYSTEMUI_PACKAGE)
 
     override fun handleLoadPackage(param: XposedModuleInterface.PackageLoadedParam) {
         if (param.packageName != SYSTEMUI_PACKAGE) return
-        if (xposed.getRemotePreferences(PREFS_NAME).getBoolean("systemui_network_speed_doublelayer", false)) {
-            logger.info("Will not load refresh interval hook when double layer network speed is enabled. This function is implemented in that hook!")
+        if (xposed.getRemotePreferences(PREFS_NAME)
+                .getBoolean(PreferenceKeys.SYSTEMUI_NETWORK_SPEED_DOUBLELAYER.name, false)) {
+            logger.info("Double-layer network speed is enabled; its hook owns interval and rate")
             return
         }
-        hookSendEmptyMessageDelayed(param.defaultClassLoader)
+        val resolved = findNetworkSpeedHandlerClass(param.defaultClassLoader)
+        if (resolved == null) {
+            logger.error("Network speed handler not found; refresh interval left untouched")
+            return
+        }
+        handlerClass = resolved
+        // Without the rescale, a non-3 s interval reports a wrong rate; keep the native 3 s then.
+        if (!hookRateRescale(resolved)) {
+            logger.error("Rate rescale unavailable; refresh interval left untouched")
+            return
+        }
+        hookRefreshInterval(param.defaultClassLoader)
     }
 
-    private fun hookSendEmptyMessageDelayed(classLoader: ClassLoader) {
+    private fun hookRateRescale(target: Class<*>): Boolean = try {
+        val handleMessage = target.getDeclaredMethod("handleMessage", Message::class.java)
+        hookWithId(handleMessage, "handle_message") { chain ->
+            val message = chain.args[0] as Message
+            val handler = chain.thisObject as Handler
+            when (message.what) {
+                SAMPLE_WHAT -> recordSample(handler)
+                RATE_WHAT -> rescaleRate(handler, message)
+            }
+            chain.proceed()
+        }
+        true
+    } catch (t: Throwable) {
+        logger.error("Failed to hook NetworkSpeedView's handleMessage", t)
+        false
+    }
+
+    private fun recordSample(handler: Handler) {
+        val now = SystemClock.elapsedRealtime()
+        val window = sampleWindows.getOrPut(handler) { SampleWindow() }
+        window.windowMs = if (window.lastSampleAt > 0L) now - window.lastSampleAt else 0L
+        window.lastSampleAt = now
+    }
+
+    /** `arg1` holds `deltaBytes / 3`; rescale it to bytes per second for the real window. */
+    private fun rescaleRate(handler: Handler, message: Message) {
+        val windowMs = sampleWindows[handler]?.windowMs ?: return
+        if (windowMs < MIN_WINDOW_MS || windowMs > MAX_WINDOW_MS) return
+        if (message.arg1 <= 0) return
+        message.arg1 = (message.arg1 * (NATIVE_WINDOW_MS / windowMs)).roundToInt()
+    }
+
+    private fun hookRefreshInterval(classLoader: ClassLoader) {
         try {
-            val handlerClass = classLoader.loadClass("android.os.Handler")
-            val refreshInterval: Long = (xposed.getRemotePreferences(PREFS_NAME).getFloat("systemui_network_speed_refresh_interval", 3.0f) * 1000.0).toLong()
-            // Hook sendEmptyMessageDelayed(int, long)
-            val method: Method = findMethod(
-                handlerClass,
+            val intervalMs = readIntervalMs()
+            val method = findMethod(
+                classLoader.loadClass("android.os.Handler"),
                 "sendEmptyMessageDelayed",
                 Int::class.javaPrimitiveType,
                 Long::class.javaPrimitiveType
             )
-
-            hookWithId(method, "method") { chain ->
+            hookWithId(method, "send_empty_message_delayed") { chain ->
                 val handler = chain.thisObject
                 val what = chain.args[0] as Int
                 val delayMillis = chain.args[1] as Long
-
-                // Determine whether this is NetworkSpeedView's internal Handler
-                val handlerClassName = handler.javaClass.name
-                if (NETWORK_SPEED_HANDLER_PREFIXES.any { handlerClassName.startsWith(it) }) {
-                    logger.debug(
-                        "[SpeedRefreshTest] sendEmptyMessageDelayed called: " +
-                            "handler=$handlerClassName, what=$what, delayMillis=$delayMillis ms"
-                    )
-
-                    chain.proceed(arrayOf<Any>(what, refreshInterval))
-                } else {
-                    chain.proceed()
+                when {
+                    !isNetworkSpeedHandler(handler) -> chain.proceed()
+                    delayMillis < REARM_MIN_DELAY_MS -> {
+                        // The 50 ms kick re-creates the sampling baseline; drop the stale window.
+                        sampleWindows.remove(handler as Handler)
+                        chain.proceed()
+                    }
+                    else -> chain.proceed(arrayOf<Any>(what, intervalMs))
                 }
             }
-
-            logger.info("[SpeedRefreshTest] Handler.sendEmptyMessageDelayed hooked successfully.")
-        } catch (e: Throwable) {
-            logger.error("[SpeedRefreshTest] Failed to hook sendEmptyMessageDelayed", e)
+            logger.info("Network speed refresh interval set to $intervalMs ms")
+        } catch (t: Throwable) {
+            logger.error("Failed to hook Handler.sendEmptyMessageDelayed", t)
         }
+    }
+
+    private fun isNetworkSpeedHandler(handler: Any): Boolean = handlerClass?.isInstance(handler) == true
+
+    private fun readIntervalMs(): Long {
+        val seconds = xposed.getRemotePreferences(PREFS_NAME)
+            .getFloat(PreferenceKeys.SYSTEMUI_NETWORK_SPEED_REFRESH_INTERVAL.name, DEFAULT_INTERVAL_S)
+        return (seconds * 1000.0).toLong().coerceIn(MIN_INTERVAL_MS, MAX_INTERVAL_MS)
+    }
+
+    private fun findNetworkSpeedHandlerClass(classLoader: ClassLoader): Class<*>? {
+        val indexed = DexIndexStore.string(
+            xposed, SYSTEMUI_PACKAGE,
+            DexIndexConstants.ModuleKeys.SYSTEMUI_NETWORK_SPEED_DOUBLELAYER,
+            DexIndexConstants.Keys.HANDLER_INNER_CLASS
+        )
+        if (indexed != null) {
+            try {
+                val cls = classLoader.loadClass(indexed)
+                cls.getDeclaredMethod("handleMessage", Message::class.java)
+                return cls
+            } catch (_: Throwable) {
+            }
+        }
+        for (viewClassName in NETWORK_SPEED_VIEW_CLASSES) {
+            val cls = handlerFromViewFields(classLoader, viewClassName)
+            if (cls != null) return cls
+        }
+        return null
+    }
+
+    /** `mNetworkSpeedHandler` is the view's only field whose type is a `Handler` subclass. */
+    private fun handlerFromViewFields(classLoader: ClassLoader, viewClassName: String): Class<*>? {
+        val viewClass = try {
+            classLoader.loadClass(viewClassName)
+        } catch (_: Throwable) {
+            return null
+        }
+        for (field in viewClass.declaredFields) {
+            val type = try {
+                field.type
+            } catch (_: Throwable) {
+                continue
+            }
+            if (type != Handler::class.java && Handler::class.java.isAssignableFrom(type)) {
+                val declaresHandleMessage = try {
+                    type.getDeclaredMethod("handleMessage", Message::class.java)
+                    true
+                } catch (_: Throwable) {
+                    false
+                }
+                if (declaresHandleMessage) return type
+            }
+        }
+        return null
+    }
+
+    private companion object {
+        private val SYSTEMUI_PACKAGE = ScopeKeys.SYSTEM_UI.packageName
+        private val NETWORK_SPEED_VIEW_CLASSES = arrayOf(
+            "com.android.systemui.statusbar.view.NetworkSpeedView",
+            "com.android.systemui.zui.NetworkSpeedView",
+        )
+
+        /** Native handler message ids: the sampling tick and the rate-reporting tick. */
+        private const val SAMPLE_WHAT = 10
+        private const val RATE_WHAT = 1
+
+        private const val NATIVE_WINDOW_MS = 3000.0
+
+        /** Only the self re-arm carries the native 3000 ms literal; the 50 ms kick must pass. */
+        private const val REARM_MIN_DELAY_MS = 1000L
+
+        /** A 0 s slider value would otherwise re-post immediately and spin a core. */
+        private const val MIN_INTERVAL_MS = 200L
+        private const val MAX_INTERVAL_MS = 60_000L
+
+        private const val MIN_WINDOW_MS = 50L
+        private const val MAX_WINDOW_MS = 600_000L
+
+        private const val DEFAULT_INTERVAL_S = 3.0f
     }
 }

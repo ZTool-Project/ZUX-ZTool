@@ -97,6 +97,26 @@ Current state:
 The hook therefore installs successfully (no exception, no warning) but the prefix test never
 matches, which is exactly the reported "对原版失效": a silent no-op rather than a crash.
 
+### 3.1 速率换算与间隔的耦合
+
+`NetworkSpeedView` 不按真实时间算速率:消息 `10` 里直接
+`messageObtainMessage.arg1 = ((int) currentTotalBytes) / 3`,即写死"采样窗口恒为 3000 ms"。
+只改 `sendEmptyMessageDelayed` 的延迟会把读数按 `interval / 3 s` 缩放(改成 1 s 只剩真实值的 1/3)。
+
+`NetworkSpeedRefresh` 现在的做法:
+
+* 间隔改写只作用于 `delayMillis >= 1000` 的自续期调用;`updateNetworkSpeedViewStatus()`
+  那次 `50L` 首帧原样放过(否则首帧要等一个完整间隔),同时清掉该 handler 的采样状态。
+* 额外 hook `NetworkSpeedView$3.handleMessage(Message)`:消息 `what == 10` 入口用
+  `SystemClock.elapsedRealtime()` 记采样时刻并算出与上一轮的窗口;`what == 1` 入口把 `arg1`
+  按 `3000 / 实测窗口` 重标定后再交给原实现格式化。默认 3 s 时系数≈1,与原值等价。
+* handler 类不再依赖 `$3` 这种编号:先读离线索引 `HANDLER_INNER_CLASS`,失败则按
+  `NetworkSpeedView` 里唯一一个 `Handler` 子类字段的类型反查,新旧两个包名都试。
+* 滑杆允许 0 s,而 `sendEmptyMessageDelayed(10, 0)` 会变成紧循环,所以实际间隔夹在 200 ms~60 s。
+
+速率重标定尚未上机验证(编译通过),`SystemUINetworkSpeeddoublelayerHook` 的自算路径不受影响:
+它自己用 `currentTime` 差值算速率,但 `timeDiff` 取整到秒,间隔小于 1 s 时 `timeDiff == 0` 会跳过更新。
+
 ## 4. 隐藏慢速 — every target still present
 
 `NetworkSpeedHideSlowHook`:
