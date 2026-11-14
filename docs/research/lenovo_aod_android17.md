@@ -3,8 +3,8 @@
 ## Scope and evidence
 
 Inspected on 2026-11-15 through the connected JADX instance, starting from
-`ForceLenovoAOD.kt`. This is a static implementation survey, not a hook adaptation
-or an on-device validation.
+`ForceLenovoAOD.kt`. The survey is based on static inspection. The subsequent
+hook adaptation is described below; neither has been validated on a device.
 
 Sample identity reported by its manifest:
 
@@ -160,21 +160,37 @@ timezone rendering branches. Preserve host spelling such as `busness`,
 
 ## Implications for ForceLenovoAOD
 
-The existing hook expects `ZuiDozeTriggers(DozeTriggers, Context)` and
+The pre-Android-17 hook expects `ZuiDozeTriggers(DozeTriggers, Context)` and
 `mIsGoingToStartAOD`. Neither is present in the inspected dex. Smali confirms that
 `ZuiDozeTriggers` contains fields and a static initializer; its construction and
 field initialization have been moved into the `DozeTriggers` constructor.
 The remaining scheduling field is `mIsAodScheduled`, whose writes and consumption
 are in `DozeTriggers.transitionTo()`.
 
-The hook's property and switch interception still matches the strings used by
-`XSystemUtil`, but it does not address the power-save gate, motion-sensor gate,
-early controller creation, or pulse duration. Simply renaming the field is not
-a complete adaptation.
+The existing property and switch interception still matches the strings used by
+`XSystemUtil`. Simply renaming the legacy field would not preserve the new
+initialization and power-save checks.
 
-For a subsequent implementation task, the stable, narrow capability entry is
-`XSystemUtil.isSupportAod()`; user-switch behavior can be handled separately via
-`isAodEnabled(Context)`. Any scheduling adaptation should inspect the actual
-`DozeTriggers.transitionTo()` state boundary and must preserve initialization,
-power/wake behavior, and pulse cleanup. Device sensor availability and panel
-behavior remain unverified. No hook code was changed by this survey.
+## Implemented adaptation
+
+`ForceLenovoAOD` selects the `DozeTriggers.transitionTo()` hook on API 37 and
+newer, retaining the constructor hook on earlier versions. Both branches retain
+the existing capability-property and user-switch bypasses. The API 37 scheduling
+callback runs after the original method and only on the `INITIALIZED` transition.
+
+It leaves a successful native schedule untouched. For a missing cached vendor
+motion sensor, it requires the module to remain enabled, both Doze machine
+objects to exist, a valid context, and `XSystemUtil.isAodEnabled()` to succeed.
+It then repeats the host's power-save check with the same Global setting and
+default before setting `mIsAodScheduled = true`. Reflection targets are resolved
+when installing the hook; callback failures retain the original method result.
+
+The bypass does not fabricate a sensor or alter sensor lists. It does not change
+`DOZE` consumption of the flag, the 50 ms delayed pulse request, the pulse reason,
+visible-duration resources/properties, timeout callbacks, or wake-up handling.
+The host therefore retains its normal 6000 ms default and extension/cancellation
+behavior. No new preference, UI row, or injection scope was added.
+
+Validation: `assembleDebug` and Git diff checks passed. Device sensor availability,
+actual pulse timing, and panel behavior remain unverified. Any LSPosed device
+verification must use an `assembleDev` APK.
