@@ -25,7 +25,8 @@ class StatusBarSettingsRepository(
             networkSpeedSize = prefsUtils.loadBooleanSetting(KEY_NETWORK_SPEED_SIZE, false),
             networkSpeedDoubleLayer = prefsUtils.loadBooleanSetting(KEY_NETWORK_SPEED_DOUBLE_LAYER, false),
             networkSpeedRefreshEnabled = prefsUtils.loadBooleanSetting(KEY_NETWORK_SPEED_REFRESH_ENABLED, false),
-            networkSpeedRefreshInterval = prefsUtils.loadFloatSetting(KEY_NETWORK_SPEED_REFRESH_INTERVAL, DEFAULT_REFRESH_INTERVAL),
+            networkSpeedRefreshInterval = prefsUtils.loadFloatSetting(KEY_NETWORK_SPEED_REFRESH_INTERVAL, DEFAULT_REFRESH_INTERVAL)
+                .coerceAtLeast(MIN_REFRESH_INTERVAL),
             networkSpeedHideSlow = prefsUtils.loadBooleanSetting(KEY_NETWORK_SPEED_HIDE_SLOW, false),
             networkSpeedHideThreshold = prefsUtils.loadFloatSetting(KEY_NETWORK_SPEED_HIDE_THRESHOLD, DEFAULT_HIDE_THRESHOLD),
             networkSpeedHideBoth = prefsUtils.loadBooleanSetting(KEY_NETWORK_SPEED_HIDE_BOTH, false),
@@ -211,6 +212,9 @@ class StatusBarSettingsRepository(
         private val KEY_NETWORK_SPEED_HIDE_BOTH = PreferenceKeys.SYSTEMUI_NETWORK_SPEED_HIDE_BOTH.name
         private val KEY_BATTERY_EXTERNAL = PreferenceKeys.SYSTEMUI_BATTERY_PERCENTAGE.name
         private const val DEFAULT_REFRESH_INTERVAL = 3.0f
+
+        /** Matches NetworkSpeedRefresh's clamp: a sub-0.5 s refresh costs ~4 % SystemUI CPU per Hz. */
+        private const val MIN_REFRESH_INTERVAL = 0.5f
         private const val DEFAULT_HIDE_THRESHOLD = 10f
     }
 }

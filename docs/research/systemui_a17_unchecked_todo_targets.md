@@ -110,9 +110,24 @@ matches, which is exactly the reported "对原版失效": a silent no-op rather 
 * 额外 hook `NetworkSpeedView$3.handleMessage(Message)`:消息 `what == 10` 入口用
   `SystemClock.elapsedRealtime()` 记采样时刻并算出与上一轮的窗口;`what == 1` 入口把 `arg1`
   按 `3000 / 实测窗口` 重标定后再交给原实现格式化。默认 3 s 时系数≈1,与原值等价。
-* handler 类不再依赖 `$3` 这种编号:先读离线索引 `HANDLER_INNER_CLASS`,失败则按
-  `NetworkSpeedView` 里唯一一个 `Handler` 子类字段的类型反查,新旧两个包名都试。
-* 滑杆允许 0 s,而 `sendEmptyMessageDelayed(10, 0)` 会变成紧循环,所以实际间隔夹在 200 ms~60 s。
+* handler 类不依赖 `$3` 这种编号:按 `NetworkSpeedView` 里唯一一个 `Handler` 子类字段的类型反查,
+  新旧两个包名都试;失败再对 `$1..$10` 逐个探测。不读 `HANDLER_INNER_CLASS` —— 那条索引是
+  doublelayer 模块的产物,且只匹配旧包名,与刷新间隔无关。
+* 间隔下限 0.5 s、上限 60 s,滑杆同步改成 `0.5..10`(0 s 位置去掉),存储值读取时也夹一次。
+
+### 3.2 每次刷新的 CPU 成本(本机实测)
+
+ZUX A17 测试机、`top` 多次采样取中位数:
+
+| 设置 | `com.android.systemui` CPU |
+| --- | --- |
+| 网速图标关闭(循环不存在) | ≈11.5 % |
+| 1.0 s | ≈16 % |
+| 0.2 s(旧版把 0 s 夹成 200 ms) | 33 %(用户实测) |
+
+即**每次刷新约 4 % 单核 CPU**,成本在原生 `setText` 引起状态栏重排 + 重绘,不在 hook 侧。
+因此 0 s 不能被解释成"越快越好":0.2 s 相当于白烧三分之一核。0.5 s ≈ +8 %,
+是滑杆保留下来的最低档;若仍嫌高,把 `MIN_INTERVAL_MS` 与滑杆下限一起抬到 1000 即可。
 
 速率重标定尚未上机验证(编译通过),`SystemUINetworkSpeeddoublelayerHook` 的自算路径不受影响:
 它自己用 `currentTime` 差值算速率,但 `timeDiff` 取整到秒,间隔小于 1 s 时 `timeDiff == 0` 会跳过更新。

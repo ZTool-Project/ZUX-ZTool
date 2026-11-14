@@ -538,8 +538,8 @@ private fun statusBarSettingsSections(
                                     title = stringResource(R.string.system_ui_status_bar_network_refresh_interval_title),
                                     value = state.networkSpeedRefreshInterval,
                                     onValueChange = onNetworkSpeedRefreshIntervalChanged,
-                                    valueRange = 0f..10f,
-                                    steps = 19,
+                                    valueRange = 0.5f..10f,
+                                    steps = 18,
                                     valueText = String.format(Locale.US, "%.1f s", state.networkSpeedRefreshInterval),
                                     horizontalPadding = 24.dp,
                                     modifier = Modifier.padding(horizontal = 0.dp)

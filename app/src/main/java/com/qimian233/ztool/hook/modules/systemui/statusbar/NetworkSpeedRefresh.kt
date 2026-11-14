@@ -6,9 +6,7 @@ import android.os.Message
 import android.os.SystemClock
 import com.qimian233.ztool.data.keys.PreferenceKeys
 import com.qimian233.ztool.data.keys.ScopeKeys
-import com.qimian233.ztool.dexindex.base.DexIndexConstants
 import com.qimian233.ztool.hook.base.AppHookModule
-import com.qimian233.ztool.hook.base.DexIndexStore
 import io.github.libxposed.api.XposedModuleInterface
 import java.util.Collections
 import java.util.WeakHashMap
@@ -127,24 +125,33 @@ class NetworkSpeedRefresh : AppHookModule() {
     }
 
     private fun findNetworkSpeedHandlerClass(classLoader: ClassLoader): Class<*>? {
-        val indexed = DexIndexStore.string(
-            xposed, SYSTEMUI_PACKAGE,
-            DexIndexConstants.ModuleKeys.SYSTEMUI_NETWORK_SPEED_DOUBLELAYER,
-            DexIndexConstants.Keys.HANDLER_INNER_CLASS
-        )
-        if (indexed != null) {
-            try {
-                val cls = classLoader.loadClass(indexed)
-                cls.getDeclaredMethod("handleMessage", Message::class.java)
-                return cls
-            } catch (_: Throwable) {
-            }
-        }
         for (viewClassName in NETWORK_SPEED_VIEW_CLASSES) {
             val cls = handlerFromViewFields(classLoader, viewClassName)
             if (cls != null) return cls
         }
+        for (viewClassName in NETWORK_SPEED_VIEW_CLASSES) {
+            for (index in 1..MAX_INNER_CLASS_INDEX) {
+                val cls = loadHandlerClass(classLoader, "$viewClassName$$index")
+                if (cls != null) return cls
+            }
+        }
         return null
+    }
+
+    private fun loadHandlerClass(classLoader: ClassLoader, className: String): Class<*>? {
+        val cls = try {
+            classLoader.loadClass(className)
+        } catch (_: Throwable) {
+            return null
+        }
+        return if (declaresHandleMessage(cls)) cls else null
+    }
+
+    private fun declaresHandleMessage(type: Class<*>): Boolean = try {
+        type.getDeclaredMethod("handleMessage", Message::class.java)
+        true
+    } catch (_: Throwable) {
+        false
     }
 
     /** `mNetworkSpeedHandler` is the view's only field whose type is a `Handler` subclass. */
@@ -160,14 +167,9 @@ class NetworkSpeedRefresh : AppHookModule() {
             } catch (_: Throwable) {
                 continue
             }
-            if (type != Handler::class.java && Handler::class.java.isAssignableFrom(type)) {
-                val declaresHandleMessage = try {
-                    type.getDeclaredMethod("handleMessage", Message::class.java)
-                    true
-                } catch (_: Throwable) {
-                    false
-                }
-                if (declaresHandleMessage) return type
+            if (type != Handler::class.java && Handler::class.java.isAssignableFrom(type)
+                    && declaresHandleMessage(type)) {
+                return type
             }
         }
         return null
@@ -189,13 +191,19 @@ class NetworkSpeedRefresh : AppHookModule() {
         /** Only the self re-arm carries the native 3000 ms literal; the 50 ms kick must pass. */
         private const val REARM_MIN_DELAY_MS = 1000L
 
-        /** A 0 s slider value would otherwise re-post immediately and spin a core. */
-        private const val MIN_INTERVAL_MS = 200L
+        /**
+         * One refresh costs ~4 % SystemUI CPU on the ZUX A17 device (TextView relayout plus
+         * status-bar redraw), measured as 16 % at 1 s, 33 % at 0.2 s; 0.5 s is the floor.
+         */
+        private const val MIN_INTERVAL_MS = 500L
         private const val MAX_INTERVAL_MS = 60_000L
 
         private const val MIN_WINDOW_MS = 50L
         private const val MAX_WINDOW_MS = 600_000L
 
         private const val DEFAULT_INTERVAL_S = 3.0f
+
+        /** R8 renumbers the view's anonymous Handler class per build; probe a bounded range. */
+        private const val MAX_INNER_CLASS_INDEX = 10
     }
 }
