@@ -19,7 +19,7 @@ SystemUI portion was verified against this vendor APK. The AOSP references below
 explain the downstream architecture; they do not establish Lenovo's exact
 framework implementation or the device's effective configuration.
 
-No device measurement was performed. No hook implementation was changed.
+No device measurement was performed. The follow-up brightness fix is described below.
 
 ## Verified SystemUI call chain
 
@@ -136,9 +136,15 @@ Without a brightness sensor it uses zero scrim opacity on a forced update.
 The APK's valid bucket opacity entries are all zero, so these base resources
 do not themselves demonstrate additional darkening.
 
-`ForceNativeAod.kt` currently overrides only `DozeParameters.getAlwaysOn()` and
-`AmbientDisplayConfiguration.alwaysOnEnabled(int)`. It does not replace the
-brightness policy, add a sensor, or bypass the brightness caps.
+Before the brightness fix, `ForceNativeAod.kt` overrode only
+`DozeParameters.getAlwaysOn()` and `AmbientDisplayConfiguration.alwaysOnEnabled(int)`.
+It did not replace the brightness policy, add a sensor, or bypass the brightness caps.
+
+The original availability hooks remain necessary: `getAlwaysOn()` affects
+`updateControlScreenOff()` and its `PowerManager.setDozeAfterScreenOff(false)` call.
+`alwaysOnEnabled(int)` reads `Settings.Secure.doze_always_on`, drives
+DozeSuppressor's DOZE/DOZE_AOD decisions, and affects DozeSensors registration.
+The native hook overrides it because it does not persist that setting through shell.
 
 For a future brightness hook, this sample's common submission point is
 `DozeBrightnessHostForwarder.setDozeScreenBrightness(float)`: changing its argument
@@ -165,3 +171,30 @@ This supports the architectural distinction: SystemUI chooses and requests brigh
 while system_server and the display stack apply it. Establishing the device's
 exact downstream clamps or physical panel brightness requires its framework and
 display configuration, beyond this SystemUI APK.
+
+## Implemented minimum brightness for both forced AOD routes
+
+`ForceNativeAod` and `ForceLenovoAOD` now share `ForcedAodHookModule` and install a
+floor on the forwarder's declared `setDozeScreenBrightness(float)` or legacy
+`setDozeScreenBrightness(int)` overloads. This intercepts default/reset and sensor
+submissions after the host caps and initialization clamp, before both framework
+submission and window-brightness storage.
+
+The initial floor is `0.10f` on the normalized brightness scale; this is not a
+measured luminance or a guarantee of ten percent panel output. The integer floor
+is `27`, rounded up from `0.10 * 254 + 1` to match BrightnessSynchronizer's positive
+integer conversion. Device calibration remains pending.
+
+Zero and small non-negative values are raised to the floor. Higher values,
+negative sentinels, NaN, and infinities are preserved. Each interceptor checks
+its owning AOD switch at invocation time. Hook IDs include the owning preference
+name, so both routes can coexist without replacing each other's callback, and
+applying the same floor twice does not increase the result again.
+
+The floor does not alter display-state transitions or scrim policy. Reflection
+installation errors are logged independently so availability/scheduling hooks
+can still install. The float signature was verified in the connected Android 17
+JADX sample; the integer overload is compatibility handling, not a verified
+older-device result. Unit tests cover low/default/sensor values, brighter values,
+platform sentinels, and repeated application. On-device visibility verification
+requires an `assembleDev` APK on an LSPosed device.

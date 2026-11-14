@@ -8,12 +8,11 @@ import android.os.PowerManager
 import android.provider.Settings
 import com.qimian233.ztool.data.keys.PreferenceKeys
 import com.qimian233.ztool.data.keys.ScopeKeys
-import com.qimian233.ztool.hook.base.AppHookModule
 import io.github.libxposed.api.XposedModuleInterface.PackageLoadedParam
 
 /** Enables Lenovo AOD on devices without the advertised capability. */
 @SuppressLint("PrivateApi")
-class ForceLenovoAOD : AppHookModule() {
+class ForceLenovoAOD : ForcedAodHookModule() {
     override fun getModuleName(): String = PreferenceKeys.FORCE_LENOVO_AOD.name
 
     override fun getTargetPackages(): Array<String> = arrayOf(ScopeKeys.SYSTEM_UI.packageName)
@@ -21,6 +20,7 @@ class ForceLenovoAOD : AppHookModule() {
     @Throws(Throwable::class)
     override fun handleLoadPackage(param: PackageLoadedParam) {
         val classLoader = param.defaultClassLoader
+        hookMinimumDozeBrightness(classLoader)
         hookAODChecks()
         // Android 17 inlines Lenovo scheduling into DozeTriggers.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.CINNAMON_BUN) {
