@@ -194,3 +194,40 @@ behavior. No new preference, UI row, or injection scope was added.
 Validation: `assembleDebug` and Git diff checks passed. Device sensor availability,
 actual pulse timing, and panel behavior remain unverified. Any LSPosed device
 verification must use an `assembleDev` APK.
+
+## Android 16 comparison sample
+
+After switching the connected JADX project on 2026-11-15 and clearing its source
+cache, the manifest reported `com.android.systemui`, `versionName = 17.5.24`,
+`versionCode = 20260716`, and compile/min/target SDK `36`. Its source marker is
+`go/retraceme 9109c6412359565c860c13a2439d221de63a1c4c77effcdd96683ab3f627a0c6`.
+
+This sample retains `ZuiDozeTriggers(DozeTriggers, Context)` and
+`mIsGoingToStartAOD`, initialized to false. `ZuiDozeMachine` is an empty class;
+the scheduling checks are already inlined into `DozeTriggers.transitionTo()`.
+The `INITIALIZED` branch checks the switch, support property, power-save policy,
+and vendor motion sensors before setting `mIsGoingToStartAOD = true`.
+
+The sensor types and platform-dependent order match the Android 17 survey: MTK
+`65620`/`65621` where applicable, then ZUI `33236547` and AMD `33171017`.
+Absence of every candidate leaves the local success flag false. Native code logs
+`AOD is not enabled` and does not set the startup flag. The `DOZE` branch then
+requires `mIsGoingToStartAOD`, clears it, and posts the pulse request after 50 ms.
+Without a hook, missing vendor sensors therefore still block this initial path.
+
+Smali confirms a critical distinction: the failure branch at `:goto_244` logs
+and exits; only `:cond_24c` writes true. Failure does not write false to the
+instance field. The only false write in `transitionTo()` consumes the flag in the
+`DOZE` branch. JADX Java output has misleading sensor conditions and a property
+branch `break`; use smali for those branches.
+
+The repository's existing legacy constructor hook writes that field true before
+native initialization checks run. Consequently, it already bypasses the missing
+motion-sensor gate in this sample, assuming installation succeeds. This also
+bypasses the initial power-save rejection: the failure branch cannot clear the
+forced flag. That is a pre-existing limitation of the legacy strategy; it is
+different from the API 37 callback, which repeats the host power-save condition.
+It does not alter the pulse-duration or pulse-end callbacks themselves.
+
+Only this comparison record was added for the Android 16 inspection. The legacy
+hook was not changed or tested on a device during this follow-up.
