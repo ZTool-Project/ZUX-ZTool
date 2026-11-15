@@ -18,6 +18,7 @@ import com.qimian233.ztool.data.keys.PreferenceKeys
 import io.github.libxposed.api.XposedInterface
 import com.qimian233.ztool.data.keys.ScopeKeys
 import com.qimian233.ztool.dexindex.base.DexIndexConstants
+import com.qimian233.ztool.dexindex.base.SystemUiDexTargets
 import com.qimian233.ztool.hook.base.AppHookModule
 import com.qimian233.ztool.hook.base.DexIndexStore
 import io.github.libxposed.api.XposedModuleInterface.PackageLoadedParam
@@ -160,12 +161,7 @@ class VolumeSliderPercentageHook : AppHookModule() {
         }
     }
 
-    /**
-     * Resolves the progress-listener classes of ToggleSliderView: install-time probe first,
-     * offline DexIndex second, the pre-probe hardcoded name last.
-     *
-     * See docs/research/toggle_slider_view_listener_discovery.md
-     */
+    // See docs/research/toggle_slider_view_listener_discovery.md.
     private fun resolveProgressListenerClasses(classLoader: ClassLoader): List<Class<*>> {
         val sliderClass = try {
             classLoader.loadClass(TOGGLE_SLIDER_VIEW_CLASS)
@@ -191,28 +187,18 @@ class VolumeSliderPercentageHook : AppHookModule() {
         } catch (_: Throwable) {
             null
         }
-        if (legacy != null) {
+        if (legacy != null && isProgressListener(legacy)) {
             logger.warn("Volume slider listener unresolved online; using $LEGACY_PROGRESS_LISTENER_CLASS")
             return listOf(legacy)
         }
         return emptyList()
     }
 
-    /**
-     * Collects ToggleSliderView field types that implement the framework progress listener.
-     * Nested candidates are preferred so that unrelated widgets held by the view (e.g. the
-     * brightness seek bar, which implements the same interface) are not hooked.
-     */
     private fun probeListenerFieldTypes(sliderClass: Class<*>): List<Class<*>> {
-        val listenerType = SeekBar.OnSeekBarChangeListener::class.java
         val candidates = try {
             sliderClass.declaredFields
                 .mapNotNull { field -> runCatching { field.type }.getOrNull() }
-                .filter { type ->
-                    !type.isInterface &&
-                        listenerType.isAssignableFrom(type) &&
-                        declaresProgressCallback(type)
-                }
+                .filter(::isProgressListener)
                 .distinct()
         } catch (t: Throwable) {
             logger.warn("Volume slider listener field probe failed: $t")
@@ -223,14 +209,17 @@ class VolumeSliderPercentageHook : AppHookModule() {
         return if (nested.isNotEmpty()) nested else candidates
     }
 
+    private fun isProgressListener(candidate: Class<*>): Boolean =
+        !candidate.isInterface && SeekBar.OnSeekBarChangeListener::class.java.isAssignableFrom(candidate) &&
+            declaresProgressCallback(candidate)
+
     private fun declaresProgressCallback(candidate: Class<*>): Boolean = try {
         candidate.getDeclaredMethod(
             PROGRESS_CALLBACK,
             SeekBar::class.java,
             Int::class.javaPrimitiveType,
             Boolean::class.javaPrimitiveType
-        )
-        true
+        ).returnType == Void.TYPE
     } catch (_: Throwable) {
         false
     }
@@ -243,7 +232,7 @@ class VolumeSliderPercentageHook : AppHookModule() {
             DexIndexConstants.Keys.VOLUME_SLIDER_PROGRESS_LISTENER_CLASS
         ) ?: return null
         return try {
-            classLoader.loadClass(name)
+            classLoader.loadClass(name).takeIf(::isProgressListener)
         } catch (t: Throwable) {
             logger.warn("Indexed volume slider listener is not loadable: $name ($t)")
             null
@@ -371,11 +360,7 @@ class VolumeSliderPercentageHook : AppHookModule() {
         }
     }
 
-    /**
-     * Percentage shown in the label: the bar position while the slider is held (1% steps, as
-     * the pre-3060ffa6 builds showed), the applied stream level otherwise (MediaOutputDialog's
-     * number). See docs/research/media_output_dialog_volume_percentage.md
-     */
+    // See docs/research/media_output_dialog_volume_percentage.md.
     private fun resolvePercent(sliderView: Any, normalizedProgress: Int, userDrag: Boolean): Int? {
         if (userDrag || isVolumeSliderPressed(sliderView)) {
             return percentFromNormalizedProgress(normalizedProgress)
@@ -394,12 +379,6 @@ class VolumeSliderPercentageHook : AppHookModule() {
     }
 
     // See docs/research/media_output_dialog_volume_percentage.md
-    /**
-     * Volume percentage, derived from the media stream exactly like MediaOutputDialog
-     * derives it from the output route: `level * 100 / maxLevel`, truncated.
-     *
-     * @return 0..100, or null when the stream max is unavailable.
-     */
     private fun getVolumeProgress(sliderView: Any): Int? {
         return try {
             val context = (sliderView as? View)?.context ?: return null
@@ -639,13 +618,12 @@ class VolumeSliderPercentageHook : AppHookModule() {
 
     companion object {
         private val SYSTEM_UI_PACKAGE = ScopeKeys.SYSTEM_UI.packageName
-        private const val TOGGLE_SLIDER_VIEW_CLASS = "com.android.systemui.settings.ToggleSliderView"
+        private const val TOGGLE_SLIDER_VIEW_CLASS = SystemUiDexTargets.TOGGLE_SLIDER_VIEW
         private const val PROGRESS_CALLBACK = "onProgressChanged"
         private const val PROGRESS_HOOK_ID = "on_progress_changed"
 
-        /** Listener class name hardcoded before the install-time probe existed (R8 renumbers it per build). */
         private const val LEGACY_PROGRESS_LISTENER_CLASS =
-            "com.android.systemui.settings.ToggleSliderView\$2"
+            "${SystemUiDexTargets.TOGGLE_SLIDER_VIEW}\$2"
         private const val SLIDER_PERCENT_TAG = "ztool_control_center_slider_percent"
         private const val MEDIA_VOLUME_SLIDER_FIELD = "mMediaVolumeSlider"
         private const val VOLUME_ROOT_FIELD = "mVolumeSliderRoot"
@@ -654,7 +632,6 @@ class VolumeSliderPercentageHook : AppHookModule() {
         private const val BASE_PERCENT_COLOR = 0xffd8d8d8.toInt()
         private const val STOCK_VOLUME_RAW_RANGE = 100_000
 
-        /** android.media.AudioManager.STREAM_MUSIC */
-        private const val STREAM_MUSIC = 3
+        private const val STREAM_MUSIC = AudioManager.STREAM_MUSIC
     }
 }

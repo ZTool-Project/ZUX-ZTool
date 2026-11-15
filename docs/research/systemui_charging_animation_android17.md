@@ -11,7 +11,8 @@ it is not an APK checksum or a verified device build number.
 The comparison baseline is the repository's Hook/indexer contracts at
 `b5a1f6e8`, not a second historical APK. Findings establish compatibility with
 this loaded sample; they do not establish every class or method removed between
-firmware releases. No Hook implementation was changed or tested on a device.
+firmware releases. The subsequent compatibility changes are recorded below;
+they have not been tested on a device.
 
 ## Class relocation
 
@@ -108,3 +109,44 @@ Adapt the three SystemUI Hooks and the charging controller's offline-index
 query together, retaining older class/field contracts if older firmware remains
 supported. `ChargeAnimationFixModule` targets the separate wallpaper APK;
 SystemUI inspection alone cannot determine its compatibility.
+
+## Implemented compatibility changes
+
+`SystemUiDexTargets` shares ordered class paths between the indexer and Hooks:
+`com.android.keyguard.charge` before `com.android.keyguard.lockscreen.charge`,
+and `com.android.systemui.statusbar.view.NetworkSpeedView` before the older
+`com.android.systemui.zui.NetworkSpeedView`. The verified ToggleSliderView
+path remains `com.android.systemui.settings.ToggleSliderView`.
+
+All three existing SystemUI index modules were checked against their consumers:
+
+| Index module | Verified current target | Writer/reader alignment |
+| --- | --- | --- |
+| `NO_CHARGE_ANIMATION` | `ChargingAnimationController.H`, type `ChargingAnimationController$1`, callback `(Message):void` | Query classes across DEX packages in preference order; check Handler ancestry and the declared callback. Store `targetClass` alongside `handlerFieldName`. Hook validates indexed fields against the selected class, then probes `H` and other typed fields. |
+| `SYSTEMUI_NETWORK_SPEED_DOUBLELAYER` | `statusbar.view.NetworkSpeedView$3`, extending Handler | Query new view first, old view second; require `(Message):void` and an assignable `this$0` owner, matching the Hook's checks. |
+| `VOLUME_SLIDER_PERCENTAGE` | `settings.ToggleSliderView$5`, implementing `SeekBar.OnSeekBarChangeListener` | Require `(SeekBar,int,boolean):void` and the listener interface; prefer nested listeners, then listener types held by slider fields. Hook validates the same interface and signature for online, indexed, and legacy candidates. `$2` is a ViewOutlineProvider in this sample, so it is rejected. |
+
+The custom-video Hook resolves the current view class before the legacy class
+at installation, then checks instances against that class. Its input files remain
+`/sdcard/Download/ZTool/charging_animation_portrait.mp4` and
+`/sdcard/Download/ZTool/charging_animation_land.mp4`. It intercepts the framework
+two-argument URI overload and passes replacement arguments explicitly.
+
+The duration Hook prefers instance `mAnimationDuration` and falls back to legacy
+static `DURATION`. It writes the selected field before `onResume`. To cover the
+literal `lapis` delay, a thread-local identifies only that activity's finish
+runnable during `onResume`; the `Handler.postDelayed(Runnable,long)` interceptor
+replaces only its delay. The context is restored in `finally`. Sleep and wake
+runnables retain their separate timing.
+
+Index schema v6 forces rebuilding previously empty or unordered SystemUI
+indexes. Earlier versions were: v5 volume listener output; v4 system fingerprint
+for OTA invalidation; v3 dock-background query; v2 flat module map replacing the
+v1 nested structure. Index files live directly in private `filesDir`, as documented
+in `docs/dex_index/readme.md`.
+
+Verification: `assembleDebug` passed. `SystemUiDexTargetsTest` covers current-path
+priority, legacy-only firmware, and missing classes; its 3 cases passed, alongside
+all 16 `NetworkSpeedPolicyTest` cases. JADX source, smali, and layout contracts
+were checked for all three index modules. Native index generation and LSPosed
+runtime behavior still need device verification with the `dev` APK.

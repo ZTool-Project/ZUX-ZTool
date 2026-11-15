@@ -2,30 +2,16 @@ package com.qimian233.ztool.dexindex.base
 
 import com.qimian233.ztool.data.keys.PreferenceKeys
 
-/**
- * Constants for the offline DexKit index.
- *
- * Directory layout: `files/dex_index/<scopePackage>.json` (module private
- * directory; the hook side reads it via libxposed Remote Files
- * (`openRemoteFile`) without needing chmod).
- */
+/** Constants for the offline DexKit index. */
 object DexIndexConstants {
 
-    /**
-     * Bumped whenever the file layout or an indexer's output keys change: `needsReindex` rebuilds
-     * only on a bump, a system fingerprint change, or an apk fingerprint change, so adding an
-     * output key to an existing indexer requires one.
-     *
-     * v5: volume slider progress listener class; v4: added `systemFingerprint` (OTA detection);
-     * v3: DisableDockBackground query; v2: flat modules map (v1 nested it and the reader NPE'd
-     * on a null value).
-     */
-    const val SCHEMA_VERSION = 5
+    // v6 rebuilds existing SystemUI indexes for ordered paths and typed callback matching.
+    // See docs/research/systemui_charging_animation_android17.md for earlier versions.
+    const val SCHEMA_VERSION = 6
 
     const val JSON_SCHEMA_VERSION = "schemaVersion"
     const val JSON_GENERATED_AT = "generatedAt"
 
-    /** `Build.FINGERPRINT` captured at index time; an OTA replaces it and invalidates every scope. */
     const val JSON_SYSTEM_FINGERPRINT = "systemFingerprint"
     const val JSON_APK = "apk"
     const val JSON_PATH = "path"
@@ -33,13 +19,10 @@ object DexIndexConstants {
     const val JSON_SIGNATURE_HASH = "signatureHash"
     const val JSON_MODULES = "modules"
 
-    /** Builds the index file name for a scope (openRemoteFile requires a simple name without / . ..). */
+    /** Builds the index file name for a scope. */
     fun fileName(scopePackage: String): String = "$scopePackage.json"
 
-    /**
-     * Module keys (matching each Hook's getModuleName() return value).
-     * The indexer writer and the hook-side reader must use the same constant.
-     */
+    /** Module keys matching each Hook's module name. */
     object ModuleKeys {
         val CLEAN_GLOBAL_SEARCH = PreferenceKeys.CLEAN_GLOBAL_SEARCH.name
         val DISABLE_FORCE_STOP = PreferenceKeys.DISABLE_FORCE_STOP.name
@@ -62,12 +45,7 @@ object DexIndexConstants {
         const val FORCE_STOP_METHOD = "forceStopMethod"
         // ZuiLauncherHotseatHook
         const val LOADER_CURSOR_B_METHOD = "loaderCursorBMethod"
-        /**
-         * DisableDockBackground: comma-separated `ZuiHotseat` Paint field names read by more
-         * than one method. Separates the dock's own paints from the edit-mode empty-cell pair,
-         * which no object-local predicate can do; see
-         * docs/research/zui_launcher_dock_background.md.
-         */
+        // See docs/research/zui_launcher_dock_background.md.
         const val DOCK_PAINT_FIELDS = "dockPaintFields"
         // NoChargeAnimation
         const val HANDLER_FIELD_NAME = "handlerFieldName"

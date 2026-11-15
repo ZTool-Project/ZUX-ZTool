@@ -12,6 +12,7 @@ import android.widget.TextView
 import com.qimian233.ztool.data.keys.PreferenceKeys
 import com.qimian233.ztool.data.keys.ScopeKeys
 import com.qimian233.ztool.dexindex.base.DexIndexConstants
+import com.qimian233.ztool.dexindex.base.SystemUiDexTargets
 import com.qimian233.ztool.hook.base.AppHookModule
 import com.qimian233.ztool.hook.base.DexIndexStore
 import io.github.libxposed.api.XposedInterface
@@ -66,7 +67,7 @@ class SystemUINetworkSpeedHook : AppHookModule() {
 
     override fun handleLoadPackage(param: PackageLoadedParam) {
         val requested = readOptions()
-        val viewClass = VIEW_CLASSES.firstNotNullOfOrNull { name ->
+        val viewClass = SystemUiDexTargets.NETWORK_SPEED_VIEWS.firstNotNullOfOrNull { name ->
             runCatching { param.defaultClassLoader.loadClass(name) }.getOrNull()
         } ?: error("NetworkSpeedView not found")
         var textReady = false
@@ -362,7 +363,6 @@ class SystemUINetworkSpeedHook : AppHookModule() {
     }
 
     private companion object {
-        val VIEW_CLASSES = arrayOf("com.android.systemui.statusbar.view.NetworkSpeedView", "com.android.systemui.zui.NetworkSpeedView")
         val LOOPBACK_RX = runCatching { TrafficStats::class.java.getDeclaredMethod("getRxBytes", String::class.java) }.getOrNull()
         val LOOPBACK_TX = runCatching { TrafficStats::class.java.getDeclaredMethod("getTxBytes", String::class.java) }.getOrNull()
         const val SAMPLE = 10
