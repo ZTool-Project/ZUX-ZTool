@@ -165,6 +165,10 @@ The user subsequently requested investigating Lenovo target discovery before
 choosing the implementation route. The
 [HA2899VJ layout investigation](lenovo_long_screenshot_device_layout.md) finds
 concrete Compose predicate failures and a landscape WeChat pane-size rejection.
+Follow-up tests show QQ's wide chat pane passes while its narrow list fails;
+WeChat's wide chat pane still fails, including away from the bottom of its history.
+The resolved SystemUI blacklists do not include either application. The WeChat
+chat failure therefore still needs application-side predicate/target diagnostics.
 Repairing discovery is now an alternative under investigation; it must also
 demonstrate correct scrolling and stitching before replacing the AOSP requirement.
 The driver direction below remains the alternative when the stock path cannot
