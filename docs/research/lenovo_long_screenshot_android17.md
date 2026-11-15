@@ -161,6 +161,15 @@ the vendor ability flag neither adds a target nor recreates AOSP.
 
 ## Required implementation direction after device feedback
 
+The user subsequently requested investigating Lenovo target discovery before
+choosing the implementation route. The
+[HA2899VJ layout investigation](lenovo_long_screenshot_device_layout.md) finds
+concrete Compose predicate failures and a landscape WeChat pane-size rejection.
+Repairing discovery is now an alternative under investigation; it must also
+demonstrate correct scrolling and stitching before replacing the AOSP requirement.
+The driver direction below remains the alternative when the stock path cannot
+deliver adequate compatibility.
+
 Use a module-owned Kotlin driver in the SystemUI scope to call the retained
 standard framework protocol. Do not require the host's empty executor/controller,
 missing SessionWrapper or synthetic lambda classes to become functional.
