@@ -20,6 +20,10 @@ class FrameworkSettingsRepository(
     fun loadState(): FrameworkSettingsUiState {
         val aiInputSigns = prefsUtils.loadStringSetting(KEY_AI_INPUT_EXPAND_SIGNS, "")
         return FrameworkSettingsUiState(
+            forceImmersiveMode = prefsUtils.loadBooleanSetting(
+                PreferenceKeys.FORCE_IMMERSIVE_MODE.name,
+                PreferenceKeys.FORCE_IMMERSIVE_MODE.default
+            ),
             allowGetPackages = prefsUtils.loadBooleanSetting(KEY_ALLOW_GET_PACKAGES, false),
             keepRotation = prefsUtils.loadBooleanSetting(KEY_KEEP_ROTATION, false),
             workModePortrait = prefsUtils.loadBooleanSetting(KEY_WORK_MODE_PORTRAIT, false),
@@ -58,6 +62,10 @@ class FrameworkSettingsRepository(
 
     fun saveKeepRotation(enabled: Boolean) {
         prefsUtils.saveBooleanSetting(KEY_KEEP_ROTATION, enabled)
+    }
+
+    fun saveForceImmersiveMode(enabled: Boolean) {
+        prefsUtils.saveBooleanSetting(PreferenceKeys.FORCE_IMMERSIVE_MODE.name, enabled)
     }
 
     fun saveWorkModePortrait(enabled: Boolean) {
@@ -241,12 +249,8 @@ class FrameworkSettingsRepository(
         }
     }
 
-    /**
-     * Clears the ZUI-persisted night-mode override (ui_night_mode_override_on/off)
-     * and kicks UiModeManagerService to recompute, restoring "sunset to sunrise"
-     * auto switching when it is pinned to light mode by a stale override.
-     * See docs/archive/bug_report_zui_dark_mode_auto.md.
-     */
+    /** Clears the persisted ZUI night-mode override and restores automatic switching. */
+    // See docs/archive/bug_report_zui_dark_mode_auto.md.
     fun fixNightModeOverride(): ShellResult {
         val clearCmd =
             "settings put secure ui_night_mode_override_off 0 && " +

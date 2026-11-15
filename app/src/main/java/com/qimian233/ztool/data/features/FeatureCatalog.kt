@@ -129,7 +129,7 @@ object FeatureCatalog {
             descriptionRes = R.string.system_framework_app_description,
             icon = FeatureIconSource.Package(ScopeKeys.ANDROID_SYSTEM.packageName),
             scope = FeatureScopeSource.Fixed(
-                listOf(ScopeKeys.ANDROID_SYSTEM, ScopeKeys.SYSTEM_SERVER)
+                listOf(ScopeKeys.ANDROID_SYSTEM, ScopeKeys.SYSTEM_SERVER, ScopeKeys.SYSTEM_UI)
             ),
             availability = FeatureAvailability.AlwaysAvailable
         ),

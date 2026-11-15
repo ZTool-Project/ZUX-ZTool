@@ -32,6 +32,11 @@ class FrameworkSettingsViewModel(
         repository.saveKeepRotation(enabled)
     }
 
+    fun setForceImmersiveMode(enabled: Boolean) {
+        _uiState.value = _uiState.value.copy(forceImmersiveMode = enabled)
+        repository.saveForceImmersiveMode(enabled)
+    }
+
     fun setWorkModePortrait(enabled: Boolean) {
         _uiState.value = _uiState.value.copy(workModePortrait = enabled)
         repository.saveWorkModePortrait(enabled)
@@ -248,6 +253,7 @@ class FrameworkSettingsViewModel(
 }
 
 data class FrameworkSettingsUiState(
+    val forceImmersiveMode: Boolean = false,
     val keepRotation: Boolean = false,
     val workModePortrait: Boolean = false,
     val allowGetPackages: Boolean = false,

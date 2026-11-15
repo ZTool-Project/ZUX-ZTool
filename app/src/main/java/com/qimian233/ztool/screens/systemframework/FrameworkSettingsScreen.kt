@@ -1,5 +1,6 @@
 package com.qimian233.ztool.screens.systemframework
 
+import android.os.Build
 import android.widget.Toast
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.clickable
@@ -108,6 +109,7 @@ fun FrameworkSettingsRoute(
             onBack = onBack,
             onRestart = viewModel::showRestartConfirmDialog,
             onKeepRotationChanged = viewModel::setKeepRotation,
+            onForceImmersiveModeChanged = viewModel::setForceImmersiveMode,
             onWorkModePortraitChanged = viewModel::setWorkModePortrait,
             onAllowGetPackagesChanged = viewModel::setAllowGetPackages,
             onDisableFlagSecureChanged = viewModel::setDisableFlagSecure,
@@ -202,6 +204,7 @@ private fun FrameworkSettingsScreen(
     onBack: () -> Unit,
     onRestart: () -> Unit,
     onKeepRotationChanged: (Boolean) -> Unit,
+    onForceImmersiveModeChanged: (Boolean) -> Unit,
     onWorkModePortraitChanged: (Boolean) -> Unit,
     onAllowGetPackagesChanged: (Boolean) -> Unit,
     onDisableFlagSecureChanged: (Boolean) -> Unit,
@@ -273,6 +276,7 @@ private fun FrameworkSettingsScreen(
                     sections = frameworkSettingsSections(
                         state = state,
                         onKeepRotationChanged = onKeepRotationChanged,
+                        onForceImmersiveModeChanged = onForceImmersiveModeChanged,
                         onWorkModePortraitChanged = onWorkModePortraitChanged,
                         onAllowGetPackagesChanged = onAllowGetPackagesChanged,
                         onDisableFlagSecureChanged = onDisableFlagSecureChanged,
@@ -316,6 +320,7 @@ private fun FrameworkSettingsScreen(
 private fun frameworkSettingsSections(
     state: FrameworkSettingsUiState,
     onKeepRotationChanged: (Boolean) -> Unit,
+    onForceImmersiveModeChanged: (Boolean) -> Unit,
     onWorkModePortraitChanged: (Boolean) -> Unit,
     onAllowGetPackagesChanged: (Boolean) -> Unit,
     onDisableFlagSecureChanged: (Boolean) -> Unit,
@@ -351,6 +356,17 @@ private fun frameworkSettingsSections(
         SettingSection(
             title = stringResource(R.string.system_framework_screen_and_display_title),
             items = buildList {
+                add(
+                    SettingItem.Switch(
+                        title = stringResource(R.string.system_framework_force_immersive_mode_title),
+                        summary = stringResource(R.string.system_framework_force_immersive_mode_summary),
+                        checked = state.forceImmersiveMode,
+                        onCheckedChange = onForceImmersiveModeChanged,
+                        minSdkVersion = Build.VERSION_CODES.CINNAMON_BUN,
+                        maxSdkVersion = Build.VERSION_CODES.CINNAMON_BUN,
+                        key = "framework_force_immersive_mode"
+                    )
+                )
                 add(
                     SettingItem.Switch(
                         title = stringResource(R.string.system_framework_keep_rotation_enable_title),

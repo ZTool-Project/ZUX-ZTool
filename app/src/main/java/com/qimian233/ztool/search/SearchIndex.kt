@@ -863,6 +863,11 @@ object SearchIndex {
         ),
 
         framework.item(
+            id = "framework_force_immersive_mode",
+            titleRes = R.string.system_framework_force_immersive_mode_title,
+            summaryRes = R.string.system_framework_force_immersive_mode_summary
+        ),
+        framework.item(
             id = "framework_keep_rotation",
             titleRes = R.string.system_framework_keep_rotation_enable_title,
             summaryRes = R.string.system_framework_keep_rotation_enable_summary
