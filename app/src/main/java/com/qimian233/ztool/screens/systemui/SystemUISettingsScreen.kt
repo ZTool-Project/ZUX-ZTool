@@ -214,7 +214,7 @@ private fun systemUiSettingsSections(
                 ),
                 systemUiNavigationItem(
                     title = stringResource(R.string.system_ui_common_misc),
-                    summary = "访客模式、生物识别震动等杂项设置",
+                    summary = stringResource(R.string.system_ui_misc_setting_summary),
                     onClick = onOpenMisc,
                     key = "system_ui_hub_misc"
                 )

@@ -36,11 +36,6 @@ class SystemUiMiscSettingsViewModel(
         repository.saveGuestModeController(enabled)
     }
 
-    fun setDisableBiometricErrorVibration(enabled: Boolean) {
-        _uiState.value = _uiState.value.copy(disableBiometricErrorVibration = enabled)
-        repository.saveDisableBiometricErrorVibration(enabled)
-    }
-
     fun setBypassFaceAuthTimeout(enabled: Boolean) {
         _uiState.value = _uiState.value.copy(bypassFaceAuthTimeout = enabled)
         repository.saveBypassFaceAuthTimeout(enabled)

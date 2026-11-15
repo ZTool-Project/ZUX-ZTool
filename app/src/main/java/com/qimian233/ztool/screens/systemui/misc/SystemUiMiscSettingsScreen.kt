@@ -82,7 +82,6 @@ fun SystemUiMiscSettingsRoute(
             state = uiState,
             onBack = onBack,
             onGuestModeChanged = viewModel::setGuestModeController,
-            onDisableBiometricErrorVibrationChanged = viewModel::setDisableBiometricErrorVibration,
             onBypassFaceAuthTimeoutChanged = viewModel::setBypassFaceAuthTimeout,
             onAospScrollCaptureChanged = viewModel::setAospScrollCapture,
             onShadeReboundFixChanged = viewModel::setShadeReboundFix,
@@ -127,7 +126,6 @@ private fun SystemUiMiscSettingsScreen(
     state: SystemUiMiscSettingsUiState,
     onBack: () -> Unit,
     onGuestModeChanged: (Boolean) -> Unit,
-    onDisableBiometricErrorVibrationChanged: (Boolean) -> Unit,
     onBypassFaceAuthTimeoutChanged: (Boolean) -> Unit,
     onAospScrollCaptureChanged: (Boolean) -> Unit,
     onShadeReboundFixChanged: (Boolean) -> Unit,
@@ -174,7 +172,6 @@ private fun SystemUiMiscSettingsScreen(
                     sections = systemUiMiscSettingsSections(
                         state = state,
                         onGuestModeChanged = onGuestModeChanged,
-                        onDisableBiometricErrorVibrationChanged = onDisableBiometricErrorVibrationChanged,
                         onBypassFaceAuthTimeoutChanged = onBypassFaceAuthTimeoutChanged,
                         onAospScrollCaptureChanged = onAospScrollCaptureChanged,
                         onShadeReboundFixChanged = onShadeReboundFixChanged,
@@ -191,7 +188,6 @@ private fun SystemUiMiscSettingsScreen(
 private fun systemUiMiscSettingsSections(
     state: SystemUiMiscSettingsUiState,
     onGuestModeChanged: (Boolean) -> Unit,
-    onDisableBiometricErrorVibrationChanged: (Boolean) -> Unit,
     onBypassFaceAuthTimeoutChanged: (Boolean) -> Unit,
     onAospScrollCaptureChanged: (Boolean) -> Unit,
     onShadeReboundFixChanged: (Boolean) -> Unit,
@@ -207,14 +203,6 @@ private fun systemUiMiscSettingsSections(
                         checked = state.guestModeController,
                         onCheckedChange = onGuestModeChanged,
                         key = "system_ui_misc_disable_guest_user"
-                    )
-                )
-                add(
-                    SettingItem.Switch(
-                        title = stringResource(R.string.system_ui_misc_disable_biometric_error_vibration_title),
-                        checked = state.disableBiometricErrorVibration,
-                        onCheckedChange = onDisableBiometricErrorVibrationChanged,
-                        key = "system_ui_misc_disable_biometric_error_vibration"
                     )
                 )
                 add(

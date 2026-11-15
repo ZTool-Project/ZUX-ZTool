@@ -611,7 +611,6 @@
     <string name="system_ui_common_misc">杂项</string>
     <string name="system_ui_misc_disable_guest_user_enable_title">禁止访客用户自动创建</string>
     <string name="system_ui_misc_disable_guest_user_enable_summary">仅在多用户启用时允许创建访客用户</string>
-    <string name="system_ui_misc_disable_biometric_error_vibration_title">关闭生物识别失败震动</string>
     <string name="system_ui_misc_bypass_face_auth_timeout_title">跳过人脸识别超时限制</string>
     <string name="system_ui_misc_bypass_face_auth_timeout_summary">移除 4 小时未使用人脸需密码/图案验证的超时门禁</string>
     <string name="system_ui_misc_aosp_scroll_capture_title">AOSP 长截屏</string>
@@ -1408,7 +1407,7 @@
     <string name="system_ui_animation_wallpaper_title_suffix">\ - 动画与壁纸</string>
     <string name="system_ui_animation_wallpaper_setting_title">动画与壁纸</string>
     <string name="system_ui_animation_wallpaper_setting_summary">充电动画与桌面动态壁纸设置</string>
-    <string name="system_ui_misc_setting_summary">访客模式、生物识别震动等杂项设置</string>
+    <string name="system_ui_misc_setting_summary">访客模式、人脸识别超时等杂项设置</string>
     <string name="search_title">搜索</string>
     <string name="search_hint">搜索功能与设置</string>
     <string name="search_no_results">没有匹配的结果</string>

@@ -522,7 +522,6 @@
     <string name="system_ui_common_misc">Misc</string>
     <string name="system_ui_misc_disable_guest_user_enable_title">Prevent automatic guest user creation</string>
     <string name="system_ui_misc_disable_guest_user_enable_summary">Only allow guest user creation when multi-user is enabled.</string>
-    <string name="system_ui_misc_disable_biometric_error_vibration_title">Disable haptics of biometric auth failure</string>
     <string name="system_ui_misc_bypass_face_auth_timeout_title">Skip face unlock timeout restriction</string>
     <string name="system_ui_misc_bypass_face_auth_timeout_summary">Remove 4-hour face unlock timeout gate that requires password/pattern re-verification</string>
     <string name="system_ui_misc_aosp_scroll_capture_title">AOSP long screenshot</string>
@@ -1353,7 +1352,7 @@
     <string name="system_ui_animation_wallpaper_title_suffix">\ - Animation &amp; wallpaper</string>
     <string name="system_ui_animation_wallpaper_setting_title">Animation &amp; wallpaper</string>
     <string name="system_ui_animation_wallpaper_setting_summary">Charging animation and desktop live wallpaper settings</string>
-    <string name="system_ui_misc_setting_summary">Guest mode, biometric error vibration and other misc settings</string>
+    <string name="system_ui_misc_setting_summary">Guest mode, face authentication timeout and other misc settings</string>
     <string name="search_title">Search</string>
     <string name="search_hint">Search features &amp; settings</string>
     <string name="search_no_results">No matching results</string>
