@@ -7,14 +7,10 @@ enum class HowToRestart {
     AmStop,
     Reboot
 }
-/**
- * String variables storing scope package names. Reduces errors and duplicated input,
- * and lets IDE auto-completion handle everything.
- *
- * Could be improved further by also describing the preferred way to restart each scope.
- *
- */
+/** Package names and restart policies for hook targets. */
 object ScopeKeys {
+    val ZTOOL = Scope("com.qimian233.ztool", HowToRestart.AmStop)
+    val QQ = Scope("com.tencent.mobileqq", HowToRestart.AmStop)
     val UNRESTRICTED = Scope ("all", HowToRestart.Reboot) // For AiInputExpand.kt only
     val SETTINGS = Scope("com.android.settings", HowToRestart.AmStop)
     val PERMISSION_CONTROLLER = Scope("com.android.permissioncontroller", HowToRestart.AmStop)

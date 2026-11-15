@@ -269,7 +269,8 @@ after a forced ability result.
 A repair should first demonstrate target selection, actual scrolling and valid
 displacement on this failing ZTool scene, then validate landscape/portrait and
 multiple panes. Standard AOSP capture remains an alternative with explicit
-region/ScrollCapture callbacks. This investigation changes no Hook behavior.
+region/ScrollCapture callbacks. The layout investigation changed no Hook behavior;
+subsequent development-only tests are in [the hook experiment report](lenovo_long_screenshot_hook_test.md).
 
 ## Diagnostic incident and cleanup
 
@@ -281,5 +282,5 @@ not evidence that the stock capture code itself caused an ANR.
 The old process disconnected before the temporary pointer field could be restored;
 its termination discarded that instance and all debugger breakpoints. The ADB
 forward tcp:9402 was removed and the foreground ZTool window was verified again.
-No diagnostic APK or Hook was installed. Future runtime diagnostics must avoid
+No diagnostic APK or Hook was installed during that initial investigation. Future runtime diagnostics must avoid
 holding an input-facing application thread at an interactive breakpoint.
