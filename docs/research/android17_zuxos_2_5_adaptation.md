@@ -48,10 +48,14 @@ jadx shows a Kotlin `metadata` display name that differs from the runtime name
   `ZuiFaceAuthAIDLDelegate` only reads enrollment/vibration state and delegates
   detection to `DeviceEntryFaceAuthRepositoryImpl`/`faceManager.detectFace`.
   The timeout gates are on the platform side: `LockSettingsStrongAuth`
-  (24h non-strong-biometric, idle timeout using BackupManager constants) and
+  (24h non-strong-biometric fallback and 4h non-strong-biometric idle timeout) and
   `DevicePolicyManager.DEFAULT_STRONG_AUTH_TIMEOUT_MS` (72h). No 12h constant
   exists in the three decompiled trees; the ZUI 12h gate either disappeared with
   the delegate or lives in `com.zui.uface`/vendor code that is not in this set.
+  The 4h timer and eligibility propagation are confirmed in
+  [the focused investigation](face_auth_four_hour_idle_timeout.md).
+  Jadx's equal-value BackupManager constant substitution does not imply a
+  dependency on backup configuration.
 - Volume panel: `SystemUIDialog.updateWindowSize` takes a `Window`.
 - Media output: `MediaOutputBaseDialog` is gone; `MediaOutputDialogManager`
   exposes `createAndShow(UserHandle, String, boolean, Controller, boolean,
