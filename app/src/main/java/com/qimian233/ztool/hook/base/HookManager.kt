@@ -1,10 +1,6 @@
 package com.qimian233.ztool.hook.base
 
 import com.qimian233.ztool.hook.modules.documentsui.DocumentsUIBypass
-import com.qimian233.ztool.BuildConfig
-import com.qimian233.ztool.data.keys.ScopeKeys
-import com.qimian233.ztool.hook.modules.qq.LenovoLongScreenshotTestHook
-import com.qimian233.ztool.hook.modules.systemui.misc.LenovoScreenshotOutputTestHook
 import com.qimian233.ztool.hook.modules.systemframework.BypassWeakBiometricTimeout
 import com.qimian233.ztool.hook.modules.freeformbar.SidebarDrawerHook
 import com.qimian233.ztool.hook.modules.gametool.AutoMistakeTouchHook
@@ -177,7 +173,6 @@ object HookManager {
         registerSystemServerModules()
         registerAndroidFrameworkModules()
         registerAllProcessModules()
-        registerLongScreenshotTestModules()
         registerZuiWidgetModules()
         registerSystemUIModules()
         registerSettingsModules()
@@ -197,12 +192,6 @@ object HookManager {
         registerTabPushoutModules()
         registerZuiPerformanceModules()
         registerSogouImeModules()
-
-        if (BuildConfig.APPLICATION_ID != ScopeKeys.ZTOOL.packageName) {
-            hookModules.removeAll {
-                it !is LenovoLongScreenshotTestHook && it !is LenovoScreenshotOutputTestHook
-            }
-        }
 
         for (module in hookModules) {
             module.setXposedInterface(xposed)
@@ -252,11 +241,6 @@ object HookManager {
         registerHookModule(AiInputExpand())
     }
 
-    /** Registers experimental QQ and ZTool screenshot hooks. */
-    private fun registerLongScreenshotTestModules() {
-        registerHookModule(LenovoLongScreenshotTestHook())
-    }
-
     private fun registerZuiWidgetModules() {
         registerHookModule(ZuiDialogSkinHook())
         registerHookModule(ZuiLoadingIndicatorHook())
@@ -264,7 +248,6 @@ object HookManager {
     }
 
     private fun registerSystemUIModules() {
-        registerHookModule(LenovoScreenshotOutputTestHook())
         registerHookModule(OwnerInfoSystemUiHook())
         registerHookModule(StatusBarClockSecondsHook())
         registerHookModule(CustomStatusBarClock())

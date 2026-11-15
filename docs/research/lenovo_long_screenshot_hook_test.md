@@ -4,10 +4,28 @@ Tested on HA2899VJ (TB710FU, ZUXOS 2.5.10.102), November 15–16, 2026.
 WeChat is excluded from these experiments. The preceding analysis is in
 [the device layout report](lenovo_long_screenshot_device_layout.md).
 
+**Retired on November 16, 2026.** The application-side repair requires injection
+into third-party applications. The project does not permit this approach,
+especially for QQ and WeChat, so it was abandoned. Both experimental hooks,
+their registration/isolation logic and the added QQ/ZTool scope declarations
+have been removed. The test device's QQ scope was removed and its existing
+process stopped to unload the hook. The implementation described below is
+historical and can be found in commit `6c27cffb`.
+
+The existing AOSP long-screenshot setting now has `maxSdkVersion = 36`
+(`Build.VERSION_CODES.BAKLAVA`). Android 17 and later show the standard
+unsupported-version hint and disable the switch; the shared setting component
+also writes an existing enabled value back to `false` when rendered.
+
+The retirement change passed `assembleDebug` and `assembleDev`. The dev APK
+was installed on HA2899VJ, and its packaged scope list excludes QQ and ZTool.
+The Android 17 UI dump confirmed an unchecked, disabled AOSP long-screenshot
+row with the standard unsupported-version message.
+
 ## Experimental implementation
 
-`LenovoLongScreenshotTestHook` uses `TEST_HOOK` and runs only in debug/dev
-builds on SDK 37. Its explicit application targets are QQ and ZTool. It does
+`LenovoLongScreenshotTestHook` used `TEST_HOOK` and ran only in debug/dev
+builds on SDK 37. Its explicit application targets were QQ and ZTool. It did
 not change the AOSP screenshot toggle or force a successful ability result
 without finding a scrollable target.
 
@@ -83,50 +101,29 @@ Diagnostic files are placed in SystemUI's private files directory with the
 sources stay outside Git under
 `F:\AgentTempWorkzone\long_screenshot_a17\hook_test`.
 
-## Scope and build procedure
+## Historical test isolation and cleanup
 
 LSPosed rejects a module targeting itself. ZTool's Compose test consequently
 used a temporary module with application ID
 `com.qimian233.ztool.screenshotprobe`, targeting ZTool and SystemUI. The probe
-registration filters out every module except the screenshot experiments.
-QQ can be targeted directly by the ordinary ZTool dev module.
-
-An external Gradle init script changes only the test APK's identity:
-
-```groovy
-allprojects { p ->
-    p.plugins.withId('com.android.application') {
-        p.androidComponents.finalizeDsl { dsl ->
-            dsl.defaultConfig.applicationId = 'com.qimian233.ztool.screenshotprobe'
-        }
-    }
-}
-```
-
-Both normal `assembleDebug` and `assembleDev` builds are required. Only dev
-APKs are installed on the LSPosed device. The test APK is built with
-`assembleDev --init-script <external-script>`; no new production flavor is added.
-Device scopes are managed using the installed LSPosed `lspctl` CLI, never by
-editing its live SQLite database. SystemUI's original scope is restored after
-temporary isolation. The probe APK and its private diagnostic exports are
-removed after verification.
+registration filtered out every module except the screenshot experiments.
+QQ was targeted by the ordinary ZTool dev module during this test only.
+An external Gradle init script changed the probe APK's application ID; no
+production flavor was added. Scopes were managed through LSPosed's `lspctl` CLI.
 
 Both final normal builds passed, and the normal dev APK was reinstalled on
 HA2899VJ. The temporary probe was disabled and uninstalled, its four private
 diagnostic PNGs were removed after copying the final images to the host, and
-SystemUI was restarted to unload the exporter. The ordinary module retains its
-original SystemUI scope and the explicit QQ test scope. ZTool's Compose adapter
-is no longer injected after the probe is removed; repeat that experiment with
-the separate probe identity. QQ's test hook remains active in this dev build;
-release builds do not install either experimental hook.
+SystemUI was restarted to unload the exporter. The ordinary module's original
+SystemUI scope was restored. The QQ scope was subsequently removed when the
+experiment was abandoned. Neither experimental hook remains in the project.
 
 ## Interpretation
 
 The known Lenovo points can be repaired in application processes. This is a
 useful compatibility experiment, not a general replacement for AOSP capture.
-A production implementation still needs an explicit application injection
-strategy, broader scrolling-state adapters, multiple-region selection and
-cropping that excludes fixed panes, plus verification of the ordinary
-editor/save pipeline. Self-injection remains
-unavailable to the ordinary ZTool module. WeChat's separate failure is not
-addressed by these results.
+It cannot become a project feature under the prohibition on third-party
+application injection. The experiment also leaves multiple-region selection,
+fixed-pane cropping and the ordinary editor/save pipeline unresolved.
+Self-injection is unavailable to the ordinary ZTool module. WeChat's separate
+failure is not addressed by these results.

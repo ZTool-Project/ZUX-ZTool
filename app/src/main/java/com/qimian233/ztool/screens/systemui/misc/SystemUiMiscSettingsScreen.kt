@@ -222,6 +222,7 @@ private fun systemUiMiscSettingsSections(
                         summary = stringResource(R.string.system_ui_misc_aosp_scroll_capture_summary),
                         checked = state.aospScrollCapture,
                         onCheckedChange = onAospScrollCaptureChanged,
+                        maxSdkVersion = Build.VERSION_CODES.BAKLAVA,
                         key = "system_ui_misc_aosp_scroll_capture"
                     )
                 )
