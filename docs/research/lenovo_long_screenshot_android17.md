@@ -11,18 +11,24 @@ vendor Binder methods run framework code inside the foreground application:
 ActivityThread delegates to android.app.LongScreenshotUtils, which discovers a
 scrollable View and drives it automatically.
 
-Consequently, mandatory vendor integration is not a reason to enable AOSP scroll
-capture on this build. There is still a potential compatibility reason: Lenovo's
-View-tree heuristics can reject or mismeasure interfaces that expose useful
-capture targets through standard ScrollCapture callbacks or Compose semantics.
-That advantage needs testing against specific applications; this investigation
-does not establish that all Compose pages fail or that AOSP captures every page.
+The user's subsequent device tests found that only a small number of popular
+applications support the Lenovo channel; the remaining tested applications cannot
+take long screenshots. The automatic framework mechanism therefore does not
+establish adequate application compatibility on Android 17. These tests supersede
+the initial assessment that restoring AOSP was only potentially worthwhile.
+
+**Restoring standard AOSP scroll capture remains a required Android 17 adaptation.**
+Leaving the chip on the stock Lenovo channel is a temporary failure recovery path,
+not completion of this feature. The tests establish the compatibility problem,
+but do not establish its exact cause: no application list, per-target discovery
+logs or capture failure traces were supplied. They do not contradict the presence
+of automatic View discovery or prove mandatory vendor SDK integration.
 
 The current module's AOSP reroute cannot restore capture by changing a flag or
 method name. The SystemUI executor and tile set are empty, the client keeps only
 a constant, the controller has only a ratio getter, and the LongScreenshot result
-class is absent. Restoring
-the standard path requires supplying the missing capture implementation. The
+class is absent. Restoring the standard path requires supplying the missing
+capture implementation. The
 framework's standard request/search/connection and View capture support still
 exist, but an end-to-end WMS/session/image test has not been performed.
 
@@ -148,11 +154,41 @@ capture reroute correctly skips this build.
 | LongScreenshot | Absent from APK class definitions |
 | LongScreenshotData | AtomicReference holder; not a capture driver |
 
-Preserve the existing capability guard. If actual applications fail on the stock
-path, record candidate discovery and movement failures first. For applications
-with standard capture targets, a separate implementation of standard session
-management, image collection, stitching/export and UI handoff may be worthwhile.
-Simply forcing the vendor ability flag neither adds a target nor recreates AOSP.
+The existing capability guard correctly prevents the legacy driver from using
+missing host classes. It must not be treated as the completed Android 17 adaptation:
+an independent driver is needed when the host pipeline is absent. Simply forcing
+the vendor ability flag neither adds a target nor recreates AOSP.
+
+## Required implementation direction after device feedback
+
+Use a module-owned Kotlin driver in the SystemUI scope to call the retained
+standard framework protocol. Do not require the host's empty executor/controller,
+missing SessionWrapper or synthetic lambda classes to become functional.
+
+The current AospScrollCaptureHook also depends on
+`ScrollCaptureClient$1` for its response listener, the host SessionWrapper for
+capture callbacks, host controller methods for the tile loop, and LongScreenshot
+for its result. Bypassing hasAospScrollPipeline alone will therefore fail further
+down the chain.
+
+Implementation sequence:
+
+1. Verify the Android 17 WMS request signature and standard Binder callback
+   contracts, then implement response and session callbacks owned by the module.
+2. Request standard targets and drive startCapture, requestImage and endCapture;
+   receive images through ImageReader with cancellation, timeouts and cleanup.
+3. Implement tile placement, overlap handling, image stitching and export without
+   depending on SystemUI's stub ImageTileSet or absent LongScreenshot.
+4. Connect the existing chip to this driver. Verify crop/save/share handoff before
+   reusing the retained LongScreenshotActivity; its presence alone is insufficient.
+5. Verify on the LSPosed device using the dev APK. Confirm that applications failing
+   through Lenovo can produce valid long images through standard capture, and
+   check repeated sessions, cancellation and target-without-callback behavior.
+
+Keep the legacy AOSP driver on builds with an intact host pipeline. A standard
+target failure must remain distinguishable from successful capture; a stock Lenovo
+fallback does not satisfy the Android 17 acceptance requirement. No claim is made
+that standard capture supports every application or bypasses secure windows.
 
 This task records findings only; no Hook, UI or preference behavior was changed,
 and no APK was built or installed.

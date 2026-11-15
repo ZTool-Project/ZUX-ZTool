@@ -93,7 +93,7 @@
       - [x] 禁止 Guest 自动创建（无法测试，但是 Hook 触发了，当做已修复）
       - [x] 关闭生物识别失败时的震动（已移除该功能）
       - [ ] 禁用生物识别超时（宿主已移除 ZuiFaceAuthDelegate，超时判定在 system_server 与人脸服务）
-      - [ ] 强开长截屏（ZUXOS 2.5 的 AOSP ScrollCapture 管线已被移除，当前仅安全降级）
+      - [ ] 强开长截屏（Android 17 实测联想通道仅少量热门应用可用；必须补齐 AOSP ScrollCapture，当前降级不算完成适配）
       - [x] 回弹动画（关闭）
   - [ ] 桌面
     - [x] 无字模式（动画阶段无字 Hook 失效）
