@@ -113,6 +113,7 @@ fun FrameworkSettingsRoute(
             onWorkModePortraitChanged = viewModel::setWorkModePortrait,
             onAllowGetPackagesChanged = viewModel::setAllowGetPackages,
             onDisableFlagSecureChanged = viewModel::setDisableFlagSecure,
+            onBypassWeakBiometricTimeoutChanged = viewModel::setBypassWeakBiometricTimeout,
             onForceOnOffAnimationChanged = viewModel::setForceOnOffAnimation,
             onForceOnOffAnimationDurationChanged = viewModel::setOnOffScreenAnimationDuration,
             onAiInputExpandChanged = viewModel::setAiInputExpand,
@@ -208,6 +209,7 @@ private fun FrameworkSettingsScreen(
     onWorkModePortraitChanged: (Boolean) -> Unit,
     onAllowGetPackagesChanged: (Boolean) -> Unit,
     onDisableFlagSecureChanged: (Boolean) -> Unit,
+    onBypassWeakBiometricTimeoutChanged: (Boolean) -> Unit,
     onForceOnOffAnimationChanged: (Boolean) -> Unit,
     onAllowUntrustedTouch: (Boolean) -> Unit,
     onAllowAllRestrictedSettingsChanged: (Boolean) -> Unit,
@@ -280,6 +282,7 @@ private fun FrameworkSettingsScreen(
                         onWorkModePortraitChanged = onWorkModePortraitChanged,
                         onAllowGetPackagesChanged = onAllowGetPackagesChanged,
                         onDisableFlagSecureChanged = onDisableFlagSecureChanged,
+                        onBypassWeakBiometricTimeoutChanged = onBypassWeakBiometricTimeoutChanged,
                         onForceOnOffAnimationChanged = onForceOnOffAnimationChanged,
                         onForceOnOffAnimationDurationChanged = onForceOnOffAnimationDurationChanged,
                         onAiInputExpandChanged = onAiInputExpandChanged,
@@ -324,6 +327,7 @@ private fun frameworkSettingsSections(
     onWorkModePortraitChanged: (Boolean) -> Unit,
     onAllowGetPackagesChanged: (Boolean) -> Unit,
     onDisableFlagSecureChanged: (Boolean) -> Unit,
+    onBypassWeakBiometricTimeoutChanged: (Boolean) -> Unit,
     onForceOnOffAnimationChanged: (Boolean) -> Unit,
     onAllowUntrustedTouch: (Boolean) -> Unit,
     onAllowAllRestrictedSettingsChanged: (Boolean) -> Unit,
@@ -461,6 +465,16 @@ private fun frameworkSettingsSections(
                         checked = state.disableFlagSecure,
                         onCheckedChange = onDisableFlagSecureChanged,
                         key = "framework_disable_flag_secure"
+                    )
+                )
+                add(
+                    SettingItem.Switch(
+                        title = stringResource(R.string.system_framework_bypass_weak_biometric_timeout_title),
+                        summary = stringResource(R.string.system_framework_bypass_weak_biometric_timeout_summary),
+                        checked = state.bypassWeakBiometricTimeout,
+                        onCheckedChange = onBypassWeakBiometricTimeoutChanged,
+                        minSdkVersion = Build.VERSION_CODES.CINNAMON_BUN,
+                        key = "framework_bypass_weak_biometric_timeout"
                     )
                 )
                 add(

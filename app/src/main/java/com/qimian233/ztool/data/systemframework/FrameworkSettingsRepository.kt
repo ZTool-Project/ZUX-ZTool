@@ -28,6 +28,10 @@ class FrameworkSettingsRepository(
             keepRotation = prefsUtils.loadBooleanSetting(KEY_KEEP_ROTATION, false),
             workModePortrait = prefsUtils.loadBooleanSetting(KEY_WORK_MODE_PORTRAIT, false),
             disableFlagSecure = prefsUtils.loadBooleanSetting(KEY_DISABLE_FLAG_SECURE, false),
+            bypassWeakBiometricTimeout = prefsUtils.loadBooleanSetting(
+                PreferenceKeys.BYPASS_WEAK_BIOMETRIC_TIMEOUT.name,
+                PreferenceKeys.BYPASS_WEAK_BIOMETRIC_TIMEOUT.default
+            ),
             aiInputExpand = prefsUtils.loadBooleanSetting(KEY_AI_INPUT_EXPAND, false),
             forceOnOffAnimation = prefsUtils.loadBooleanSetting(KEY_FORCE_ON_OFF_ANIMATION, false),
             forceOnOffAnimationDuration = normalizeScreenOnOffAnimationDuration(
@@ -78,6 +82,10 @@ class FrameworkSettingsRepository(
 
     fun saveDisableFlagSecure(enabled: Boolean) {
         prefsUtils.saveBooleanSetting(KEY_DISABLE_FLAG_SECURE, enabled)
+    }
+
+    fun saveBypassWeakBiometricTimeout(enabled: Boolean) {
+        prefsUtils.saveBooleanSetting(PreferenceKeys.BYPASS_WEAK_BIOMETRIC_TIMEOUT.name, enabled)
     }
 
     fun saveAiInputExpand(enabled: Boolean) {

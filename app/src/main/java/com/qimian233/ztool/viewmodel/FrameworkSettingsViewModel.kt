@@ -52,6 +52,11 @@ class FrameworkSettingsViewModel(
         repository.saveDisableFlagSecure(enabled)
     }
 
+    fun setBypassWeakBiometricTimeout(enabled: Boolean) {
+        _uiState.value = _uiState.value.copy(bypassWeakBiometricTimeout = enabled)
+        repository.saveBypassWeakBiometricTimeout(enabled)
+    }
+
     fun setForceOnOffAnimation(enabled: Boolean) {
         _uiState.value = _uiState.value.copy(forceOnOffAnimation = enabled)
         repository.saveForceScreenOnOffAnimation(enabled)
@@ -258,6 +263,7 @@ data class FrameworkSettingsUiState(
     val workModePortrait: Boolean = false,
     val allowGetPackages: Boolean = false,
     val disableFlagSecure: Boolean = false,
+    val bypassWeakBiometricTimeout: Boolean = false,
     val aiInputExpand: Boolean = false,
     val aiInputSigns: String = "",
     val aiInputSignsError: String? = null,

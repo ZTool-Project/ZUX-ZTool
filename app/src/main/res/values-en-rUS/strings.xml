@@ -522,8 +522,11 @@
     <string name="system_ui_common_misc">Misc</string>
     <string name="system_ui_misc_disable_guest_user_enable_title">Prevent automatic guest user creation</string>
     <string name="system_ui_misc_disable_guest_user_enable_summary">Only allow guest user creation when multi-user is enabled.</string>
-    <string name="system_ui_misc_bypass_face_auth_timeout_title">Skip face unlock timeout restriction</string>
-    <string name="system_ui_misc_bypass_face_auth_timeout_summary">Remove 4-hour face unlock timeout gate that requires password/pattern re-verification</string>
+    <string name="system_ui_misc_bypass_face_auth_timeout_title">Skip weak biometric timeout</string>
+    <string name="system_ui_misc_bypass_face_auth_timeout_summary">Skip ZUI face unlock’s 4/12/24-hour authentication timeout restrictions on Android 16 and earlier</string>
+    <string name="system_ui_misc_bypass_face_auth_timeout_unsupported_hint">Use Skip weak biometric timeout on the System framework feature page</string>
+    <string name="system_framework_bypass_weak_biometric_timeout_title">Skip weak biometric timeout</string>
+    <string name="system_framework_bypass_weak_biometric_timeout_summary">Skip weak biometrics’ 4-hour idle and 24-hour authentication timeout restrictions on Android 17 and later</string>
     <string name="system_ui_misc_aosp_scroll_capture_title">AOSP long screenshot</string>
     <string name="system_ui_misc_aosp_scroll_capture_summary">Use AOSP screenshot infrastructure to keep long screenshot available. Does not guarantee good capture results.</string>
     <string name="system_ui_misc_shade_rebound_fix_title">Fix shade rebound delay</string>

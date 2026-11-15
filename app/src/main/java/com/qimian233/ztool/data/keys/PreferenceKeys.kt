@@ -34,6 +34,7 @@ object PreferenceKeys {
         BoolKey("zui_loading_indicator_follow_system_colors", true)
 
     val DISABLE_FLAG_SECURE = BoolKey("disable_flag_secure", false)
+    val BYPASS_WEAK_BIOMETRIC_TIMEOUT = BoolKey("bypass_weak_biometric_timeout", false)
     val ALLOW_GET_PACKAGES = BoolKey("allow_get_packages", false)
     val ALLOW_UNTRUSTED_TOUCH = BoolKey("allow_untrusted_touch", false)
     val ALLOW_ALL_RESTRICTED_SETTINGS = BoolKey("allow_all_restricted_settings", false)
@@ -417,7 +418,7 @@ object PreferenceKeys {
     // and by hook-side loop matching
 
     val booleanKeys: List<BoolKey> = listOf(
-        DISABLE_FLAG_SECURE, ALLOW_GET_PACKAGES,
+        DISABLE_FLAG_SECURE, BYPASS_WEAK_BIOMETRIC_TIMEOUT, ALLOW_GET_PACKAGES,
         ALLOW_UNTRUSTED_TOUCH, ALLOW_ALL_RESTRICTED_SETTINGS,
         FORCE_SCREEN_ON_OFF_ANIMATION, AI_INPUT_EXPAND,
         KEEP_ROTATION, WORK_MODE_PORTRAIT, ALLOW_RELATIVE_APP_LAUNCH, FORCE_RELATIVE_APP_FREEFORM,

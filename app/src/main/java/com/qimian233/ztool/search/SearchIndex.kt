@@ -993,6 +993,11 @@ object SearchIndex {
             summaryRes = R.string.system_framework_disable_flag_secure_summary
         ),
         framework.item(
+            id = "framework_bypass_weak_biometric_timeout",
+            titleRes = R.string.system_framework_bypass_weak_biometric_timeout_title,
+            summaryRes = R.string.system_framework_bypass_weak_biometric_timeout_summary
+        ),
+        framework.item(
             id = "framework_clipboard_access_toast",
             titleRes = R.string.system_framework_clipboard_toast_suppress_title,
             summaryRes = R.string.system_framework_clipboard_toast_suppress_summary

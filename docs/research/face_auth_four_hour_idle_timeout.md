@@ -11,8 +11,9 @@ and its state reaches the SystemUI face authentication gate. The timer and
 the authoritative allowed/disallowed state belong to system_server.
 
 This is not a face-only timeout: it applies to non-strong biometrics. The
-device's runtime face sensor strength still needs to be checked before
-attributing an observed face authentication restriction to this exact path.
+user subsequently confirmed that the tested device's face sensor is a weak
+biometric authenticator, so its face authentication uses this eligibility
+path. The external event that starts the idle timer still needs tracing.
 Strong biometric authentication can restore eligibility, as can successful
 primary credential authentication. Four hours does not itself set a global
 "PIN only" strong-auth flag.
@@ -154,18 +155,42 @@ Jadx may render unrelated equal-valued literals as
 `BackupManagerConstants.DEFAULT_KEY_VALUE_BACKUP_INTERVAL_MILLISECONDS`.
 That rendering does not mean lock settings reads the backup configuration.
 
-## Implication for a future hook
+## Implemented bypass
 
-The specific system_server investigation targets are
-`handleScheduleNonStrongBiometricIdleTimeout(int)` and
-`LockSettingsStrongAuth$NonStrongBiometricIdleTimeoutAlarmListener.onAlarm()`.
-Keeping the old SystemUI delegate's timestamps fresh cannot prevent the
-system_server idle callback from changing eligibility on this build.
+`BypassWeakBiometricTimeout` is registered in the system_server scope with
+the independent `PreferenceKeys.BYPASS_WEAK_BIOMETRIC_TIMEOUT` switch. Both
+the Hook and its framework setting row require Android 17 or later.
 
-Before implementing a bypass, verify the sensor strength and the transition
-of the non-strong allowed state on-device, and identify the external
-scheduling event. A scheduling-only change also needs to account for an
-already queued alarm or an already expired false state. Broadly clearing
-strong-auth flags would change separate lockout/credential policies and is
-not equivalent to targeting this idle timeout. No hook behavior was changed
-as part of this investigation.
+The Hook intercepts only the two non-strong timeout listeners' `onAlarm`
+methods. When enabled, each returns without executing its original callback:
+the idle callback cannot set eligibility to false, and the fallback callback
+cannot enqueue `requireStrongAuth(128, userId)`. When disabled, each continues
+the original chain. Timer scheduling is retained, including already queued
+alarms; callback IDs are stable for libxposed hot reload.
+
+The general `requireStrongAuth`, normal strong-auth timeout listener and
+lockout paths are untouched. The Hook does not clear a restriction that
+expired before installation; successful primary credential authentication
+resets that existing state through the platform's normal recovery path.
+On-device validation of both expiry paths remains necessary.
+
+## Complementary legacy SystemUI bypass
+
+`BypassFaceAuthTimeout` and its SystemUI row are limited to Android 16 and
+earlier, preserving the existing `bypass_face_auth_timeout` preference.
+Both rows are titled "Skip weak biometric timeout"; the Android 17+
+SystemUI row directs users to the framework feature page.
+
+The legacy ZUI findings previously recorded in Kotlin comments are retained
+here: `ZuiFaceAuthDelegate.checkAndStartFaceDetecting(boolean)` evaluates
+4/12-hour and 24-hour gates using `currentTimeOn`, `secureTime` and
+`mAdditionSecureTime`. The Hook sets `currentTimeOn` to the current wall time,
+zeroes the latter two values, and clears the sticky
+`KeyguardFaceUnlockManager.mSecurityTime` flag before and after the call.
+The original method is the known writer of the true flag. This bypass does
+not cover per-wake retry limits or system_server lockout/strong-auth flags.
+
+The Android 17 `ZuiFaceAuthAIDLDelegate` replacement lacks the old timeout
+gate. The framework callbacks documented above establish system_server as
+the policy owner; the presence of an AIDL delegate does not establish that
+the timeout is implemented in a vendor AIDL service.

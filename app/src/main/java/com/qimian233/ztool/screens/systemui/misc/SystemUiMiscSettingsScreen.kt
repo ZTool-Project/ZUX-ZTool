@@ -211,6 +211,8 @@ private fun systemUiMiscSettingsSections(
                         summary = stringResource(R.string.system_ui_misc_bypass_face_auth_timeout_summary),
                         checked = state.bypassFaceAuthTimeout,
                         onCheckedChange = onBypassFaceAuthTimeoutChanged,
+                        maxSdkVersion = Build.VERSION_CODES.BAKLAVA,
+                        unsupportedHint = stringResource(R.string.system_ui_misc_bypass_face_auth_timeout_unsupported_hint),
                         key = "system_ui_misc_bypass_face_auth_timeout"
                     )
                 )

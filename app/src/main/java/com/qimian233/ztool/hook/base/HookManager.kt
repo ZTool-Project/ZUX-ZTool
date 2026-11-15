@@ -1,6 +1,7 @@
 package com.qimian233.ztool.hook.base
 
 import com.qimian233.ztool.hook.modules.documentsui.DocumentsUIBypass
+import com.qimian233.ztool.hook.modules.systemframework.BypassWeakBiometricTimeout
 import com.qimian233.ztool.hook.modules.freeformbar.SidebarDrawerHook
 import com.qimian233.ztool.hook.modules.gametool.AutoMistakeTouchHook
 import com.qimian233.ztool.hook.modules.gametool.CpuFrequencyFix
@@ -202,6 +203,7 @@ object HookManager {
     private fun registerSystemServerModules() {
         registerHookModule(ForceImmersiveModeSystemHook())
         registerHookModule(DisableFlagSecure())
+        registerHookModule(BypassWeakBiometricTimeout())
         registerHookModule(AllowGetPackages())
         registerHookModule(AllowAllRestrictedSettings())
         registerHookModule(AllowUntrustedTouch())

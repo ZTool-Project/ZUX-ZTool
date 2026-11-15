@@ -611,8 +611,11 @@
     <string name="system_ui_common_misc">杂项</string>
     <string name="system_ui_misc_disable_guest_user_enable_title">禁止访客用户自动创建</string>
     <string name="system_ui_misc_disable_guest_user_enable_summary">仅在多用户启用时允许创建访客用户</string>
-    <string name="system_ui_misc_bypass_face_auth_timeout_title">跳过人脸识别超时限制</string>
-    <string name="system_ui_misc_bypass_face_auth_timeout_summary">移除 4 小时未使用人脸需密码/图案验证的超时门禁</string>
+    <string name="system_ui_misc_bypass_face_auth_timeout_title">跳过弱生物识别超时</string>
+    <string name="system_ui_misc_bypass_face_auth_timeout_summary">跳过 Android 16 及以下 ZUI 人脸解锁的 4/12/24 小时超时认证限制</string>
+    <string name="system_ui_misc_bypass_face_auth_timeout_unsupported_hint">请使用系统框架功能页提供的跳过弱生物识别超时功能</string>
+    <string name="system_framework_bypass_weak_biometric_timeout_title">跳过弱生物识别超时</string>
+    <string name="system_framework_bypass_weak_biometric_timeout_summary">跳过 Android 17 及以上弱生物识别的 4 小时空闲与 24 小时认证超时限制</string>
     <string name="system_ui_misc_aosp_scroll_capture_title">AOSP 长截屏</string>
     <string name="system_ui_misc_aosp_scroll_capture_summary">借用 AOSP 基础设施让长截屏功能始终可用，不保证截屏效果良好。</string>
     <string name="system_ui_misc_shade_rebound_fix_title">修复控制中心回弹延迟</string>
