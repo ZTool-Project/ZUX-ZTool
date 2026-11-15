@@ -40,10 +40,14 @@ jadx shows a Kotlin `metadata` display name that differs from the runtime name
   RequestCallbackImpl)`, `mCanBeLongScreenshotMotoFlag`, `window`, `context` and
   `scrollCaptureExecutor`. `ScreenshotView.canLongScreenshot` now takes a
   `Context`. The AOSP scroll-capture pipeline is a stub in this build
-  (`ScrollCaptureExecutor`, `ScrollCaptureClient`, `ScrollCaptureController`,
-  `ImageTileSet` are empty; `scroll/LongScreenshot` is missing), so the AOSP
+  (`ScrollCaptureExecutor`/`ImageTileSet` are empty, `ScrollCaptureClient` only
+  keeps a constant, `ScrollCaptureController` only keeps a ratio getter, and
+  `scroll/LongScreenshot` is missing), so the AOSP
   reroute cannot be restored; the stock long screenshot goes through the Moto
-  `QuickScreenshotImpl`/`LongScreenshotOverlay` path.
+  `QuickScreenshotImpl`/`LongScreenshotOverlay` path. Its app-side framework
+  implementation automatically discovers and scrolls Views; vendor SDK adoption
+  is not required. See [the focused investigation](lenovo_long_screenshot_android17.md)
+  for the chain, compatibility limits and retained standard framework protocol.
 - Face auth: `ZuiFaceAuthDelegate` and `KeyguardFaceUnlockManager` are gone.
   `ZuiFaceAuthAIDLDelegate` only reads enrollment/vibration state and delegates
   detection to `DeviceEntryFaceAuthRepositoryImpl`/`faceManager.detectFace`.
