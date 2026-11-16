@@ -887,10 +887,11 @@ private fun MaterialSettingListItem(
     }
     val padding = PaddingValues(horizontal = horizontalPadding, vertical = 8.dp)
     if (checked != null) {
+        val settingShapes = shapes.copy(selectedShape = shapes.shape)
         SegmentedListItem(
             checked = checked,
             onCheckedChange = { if (enabled) onClick?.invoke() },
-            shapes = shapes,
+            shapes = settingShapes,
             modifier = rowModifier,
             enabled = enabled || rippleOnly,
             leadingContent = leadingContent,

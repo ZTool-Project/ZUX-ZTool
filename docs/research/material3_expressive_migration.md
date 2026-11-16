@@ -32,6 +32,8 @@ Sources:
   a modifier element for custom section content and a composition local for typed items.
   Slider, text-input and custom content use a passive segmented container. Nested switches
   and checkboxes delegate toggling to the row, preserving a single accessibility target.
+  Checked setting rows override selectedShape with the resolved base shape so toggling
+  preserves the group's corner outline. Pressed shape animation and selected colors remain.
 - Search anchors retain their existing keys and bounds registration. The highlight pulse
   tint is composed into opaque Material list colors, so it remains visible after migration.
 - Existing DockedSearchBar and stateless Slider overloads remain functional but deprecated
