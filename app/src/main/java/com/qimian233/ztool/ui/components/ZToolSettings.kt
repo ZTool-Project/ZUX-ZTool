@@ -956,7 +956,12 @@ internal fun ZToolSegmentedSettingContainer(
                 containerColor = LocalSettingHighlightTint.current.compositeOver(baseColor)
             ),
             contentPadding = PaddingValues(0.dp),
-            content = content
+            // The Material content slot measures one root; custom rows may emit several.
+            content = {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    content()
+                }
+            }
         )
     }
 }

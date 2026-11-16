@@ -536,3 +536,15 @@ LoadingIndicator; Miuix uses InfiniteProgressIndicator. Existing row keys and ac
 remain unchanged.
 
 Verification: assembleDebug passed. Device installation was not performed.
+
+
+## 2026-11-17 — Conditional custom-row overlap
+
+Fixed the passive Material segmented container to wrap custom content in a single
+Column. Custom rows emitting a switch and conditional fields now measure their full
+height and place all children vertically instead of overlapping.
+
+Verification: assembleDebug, assembleDev, and both search consistency tests passed.
+Installed the dev APK on the wired LSPosed device and verified Sogou half-width
+punctuation content expanded, collapsed, and re-expanded without overlap. Restored
+the initial switch state and preserved its text value.

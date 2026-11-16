@@ -34,6 +34,9 @@ Sources:
   and checkboxes delegate toggling to the row, preserving a single accessibility target.
   Checked setting rows override selectedShape with the resolved base shape so toggling
   preserves the group's corner outline. Pressed shape animation and selected colors remain.
+  Passive containers wrap content in a Column: the Material content slot measures only
+  its first root, while custom settings may emit a switch followed by conditional fields.
+  The wrapper ensures all children contribute to the group's height and placement.
 - Search anchors retain their existing keys and bounds registration. The highlight pulse
   tint is composed into opaque Material list colors, so it remains visible after migration.
 - Existing DockedSearchBar and stateless Slider overloads remain functional but deprecated
@@ -274,3 +277,17 @@ Wallpaper seed reads occur only when dynamic color is enabled without a manual s
 - No new strings, preferences, feature entries, or search identifiers.
 - On-device visual and interaction verification was not performed. An LSPosed device
   must use assembleDev/app-dev.apk for that verification.
+
+## 2026-11-17 — Conditional custom content measurement
+
+The Sogou half-width punctuation custom item emits a switch followed by a conditional
+text field. InteractiveListItemMeasurePolicy in Material 3 1.5.0-rc01 measures only
+contentMeasurable.firstOrNull(), so passing both roots directly leaves the field out
+of measured height and causes overlap. The passive shared container now supplies a
+single Column root to measure and vertically place all custom children.
+
+Validation: assembleDebug, assembleDev, and both SearchIndexConsistencyTest checks
+passed. Installed app-dev.apk on the wired TB710FU with LSPosed enabled. The expanded
+switch bounds were [330,498][3110,678], and the field bounds were [390,698][3050,908],
+with no overlap. Collapse removed the field; re-expansion restored the separate layout.
+The original enabled switch and #*-+= field value were restored/preserved.
