@@ -1,8 +1,16 @@
 package com.qimian233.ztool.screens.search
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.FiniteAnimationSpec
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
@@ -23,13 +31,14 @@ import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.Search
-import androidx.compose.material3.ExpandedDockedSearchBar
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SearchBar
 import androidx.compose.material3.SearchBarDefaults
 import androidx.compose.material3.SearchBarValue
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.contentColorFor
 import androidx.compose.material3.rememberSearchBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -43,9 +52,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
@@ -163,34 +176,70 @@ private fun Material3FeatureSearchBar(
         }
     }
 
-    val inputField = @Composable {
-        SearchBarDefaults.InputField(
-            // Stretch the tap/focus target to match the full-width bar around it.
-            modifier = Modifier.fillMaxWidth(),
-            textFieldState = textFieldState,
-            searchBarState = searchBarState,
-            onSearch = { onExpandedChange(false) },
-            placeholder = { Text(stringResource(R.string.search_hint)) },
-            leadingIcon = {
-                Icon(
-                    imageVector = Icons.Rounded.Search,
-                    contentDescription = null
-                )
+    val colors = SearchBarDefaults.colors()
+    Surface(
+        shape = SearchBarDefaults.dockedShape,
+        color = colors.containerColor,
+        contentColor = contentColorFor(colors.containerColor),
+        tonalElevation = SearchBarDefaults.TonalElevation,
+        shadowElevation = SearchBarDefaults.ShadowElevation,
+        modifier = modifier.zIndex(1f)
+    ) {
+        Column {
+            SearchBarDefaults.InputField(
+                // Stretch the tap/focus target to match the full-width bar around it.
+                modifier = Modifier.fillMaxWidth(),
+                textFieldState = textFieldState,
+                searchBarState = searchBarState,
+                onSearch = { onExpandedChange(false) },
+                placeholder = { Text(stringResource(R.string.search_hint)) },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Rounded.Search,
+                        contentDescription = null
+                    )
+                },
+                colors = colors.inputFieldColors
+            )
+
+            AnimatedVisibility(
+                visible = expanded,
+                enter = DockedEnterTransition,
+                exit = DockedExitTransition
+            ) {
+                val windowContainerHeight = with(LocalDensity.current) {
+                    LocalWindowInfo.current.containerSize.height.toDp()
+                }
+                val maxHeight = windowContainerHeight * DockedExpandedTableMaxHeightScreenRatio
+                val minHeight = DockedExpandedTableMinHeight.coerceAtMost(maxHeight)
+
+                Column(Modifier.heightIn(min = minHeight, max = maxHeight)) {
+                    HorizontalDivider(color = colors.dividerColor)
+                    ResultsContent(uiState, onOpenEntry)
+                }
             }
-        )
+        }
     }
 
-    SearchBar(
-        state = searchBarState,
-        inputField = inputField,
-        modifier = modifier
-    )
-    ExpandedDockedSearchBar(
-        state = searchBarState,
-        inputField = inputField,
-        content = { ResultsContent(uiState, onOpenEntry) }
-    )
+    BackHandler(enabled = expanded) { onExpandedChange(false) }
 }
+
+private val DockedExpandedTableMinHeight = 240.dp
+private const val DockedExpandedTableMaxHeightScreenRatio = 2f / 3f
+private val DockedEnterEasing = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1.0f)
+private val DockedExitEasing = CubicBezierEasing(0.0f, 1.0f, 0.0f, 1.0f)
+private val DockedEnterFloatSpec: FiniteAnimationSpec<Float> =
+    tween(durationMillis = 600, delayMillis = 100, easing = DockedEnterEasing)
+private val DockedExitFloatSpec: FiniteAnimationSpec<Float> =
+    tween(durationMillis = 350, delayMillis = 100, easing = DockedExitEasing)
+private val DockedEnterSizeSpec: FiniteAnimationSpec<IntSize> =
+    tween(durationMillis = 600, delayMillis = 100, easing = DockedEnterEasing)
+private val DockedExitSizeSpec: FiniteAnimationSpec<IntSize> =
+    tween(durationMillis = 350, delayMillis = 100, easing = DockedExitEasing)
+private val DockedEnterTransition: EnterTransition =
+    fadeIn(DockedEnterFloatSpec) + expandVertically(DockedEnterSizeSpec)
+private val DockedExitTransition: ExitTransition =
+    fadeOut(DockedExitFloatSpec) + shrinkVertically(DockedExitSizeSpec)
 
 @Composable
 private fun MiuixFeatureSearchBar(
