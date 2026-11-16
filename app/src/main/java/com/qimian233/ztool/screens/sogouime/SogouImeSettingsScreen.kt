@@ -33,6 +33,7 @@ import com.qimian233.ztool.data.sogouime.SogouEnterKeyMode
 import com.qimian233.ztool.data.sogouime.SogouImeSettingsRepository
 import com.qimian233.ztool.ui.components.HighlightAnchorRegistry
 import com.qimian233.ztool.ui.components.HighlightController
+import com.qimian233.ztool.ui.components.SettingItem
 import com.qimian233.ztool.ui.components.SettingSection
 import com.qimian233.ztool.ui.components.ZToolDialog
 import com.qimian233.ztool.ui.components.ZToolExtendedFloatingActionButton
@@ -215,18 +216,28 @@ private fun sogouImeSettingsSections(
     return listOf(
         com.qimian233.ztool.ui.components.SettingSection(
             title = stringResource(R.string.sogou_ime_punct_section_title),
-            items = listOf(
-                com.qimian233.ztool.ui.components.SettingItem.Custom(
-                    content = {
-                        HalfWidthPunctSettingsContent(
-                            state = state,
-                            onHalfWidthPunctChanged = onHalfWidthPunctChanged,
-                            onHalfWidthPunctSignsChanged = onHalfWidthPunctSignsChanged
-                        )
-                    },
-                    key = "sogou_ime_half_width_punct"
+            items = buildList {
+                add(
+                    SettingItem.Switch(
+                        key = "sogou_ime_half_width_punct",
+                        title = stringResource(R.string.system_framework_half_width_punct_title),
+                        summary = stringResource(R.string.system_framework_half_width_punct_summary),
+                        checked = state.halfWidthPunct,
+                        onCheckedChange = onHalfWidthPunctChanged
+                    )
                 )
-            )
+                if (state.halfWidthPunct) {
+                    add(
+                        SettingItem.TextInput(
+                            key = "sogou_ime_half_width_punct_signs",
+                            label = stringResource(R.string.system_framework_half_width_punct_hint),
+                            summary = stringResource(R.string.system_framework_half_width_punct_supporting),
+                            value = state.halfWidthPunctSigns,
+                            onValueChange = onHalfWidthPunctSignsChanged
+                        )
+                    )
+                }
+            }
         ),
         com.qimian233.ztool.ui.components.SettingSection(
             title = stringResource(R.string.sogou_ime_enter_key_section_title),

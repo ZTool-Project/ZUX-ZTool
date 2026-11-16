@@ -1722,6 +1722,14 @@ object SearchIndex {
             summaryRes = R.string.system_framework_half_width_punct_summary
         ),
         sogouIme.item(
+            id = "sogou_ime_half_width_punct_signs",
+            titleRes = R.string.system_framework_half_width_punct_hint,
+            summaryRes = R.string.system_framework_half_width_punct_supporting,
+            parentTitleRes = R.string.system_framework_half_width_punct_title,
+            parentKey = "sogou_ime_half_width_punct",
+            parentMode = SearchParentMode.REQUIRE_ON
+        ),
+        sogouIme.item(
             id = "sogou_ime_enter_key",
             titleRes = R.string.sogou_ime_enter_key_title,
             summaryRes = R.string.sogou_ime_enter_key_summary

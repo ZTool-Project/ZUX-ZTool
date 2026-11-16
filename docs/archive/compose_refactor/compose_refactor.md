@@ -548,3 +548,16 @@ Verification: assembleDebug, assembleDev, and both search consistency tests pass
 Installed the dev APK on the wired LSPosed device and verified Sogou half-width
 punctuation content expanded, collapsed, and re-expanded without overlap. Restored
 the initial switch state and preserved its text value.
+
+
+## 2026-11-17 — Separate half-width punctuation input row
+
+Sogou half-width punctuation settings now use a Switch item and a conditional
+TextInput item, matching the settings-detail screen pattern. Removed the custom
+compound-row helper. The input has its own search entry and falls back to its parent
+switch when hidden; existing text resources and persistence callbacks are reused.
+
+Verification: assembleDebug, assembleDev, and both search consistency tests passed.
+Installed the dev APK on the wired LSPosed device and verified separate segmented
+rows, collapse, and re-expansion without overlap. Restored the initial enabled state
+and preserved the punctuation value.
