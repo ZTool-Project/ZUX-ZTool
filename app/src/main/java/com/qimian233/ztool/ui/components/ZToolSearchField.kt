@@ -31,7 +31,8 @@ import com.qimian233.ztool.ui.theme.LocalZToolThemeSpec
 fun ZToolSearchField(
     state: TextFieldState,
     placeholder: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onSearch: (String) -> Unit = {}
 ) {
     val focusManager = LocalFocusManager.current
     if (LocalZToolThemeSpec.current.style == FrontendStyle.Miuix) {
@@ -42,6 +43,7 @@ fun ZToolSearchField(
             onSearch = {
                 expanded = false
                 focusManager.clearFocus()
+                onSearch(it)
             },
             expanded = expanded,
             onExpandedChange = { expanded = it },
@@ -56,7 +58,10 @@ fun ZToolSearchField(
     SearchBarDefaults.InputField(
         textFieldState = state,
         searchBarState = searchBarState,
-        onSearch = { focusManager.clearFocus() },
+        onSearch = {
+            focusManager.clearFocus()
+            onSearch(it)
+        },
         modifier = modifier.fillMaxWidth(),
         placeholder = { Text(placeholder) },
         leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },

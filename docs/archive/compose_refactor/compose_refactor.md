@@ -574,3 +574,15 @@ Verification: assembleDebug and assembleDev passed; string resources have zero l
 differences and no newly unused entries. Installed the dev APK on the wired LSPosed
 device and verified the Material capsule, name/package filtering, clearing, and search
 submission. Left the dialog open with an empty query and its original selection.
+
+
+## 2026-11-17 — Capsule search for policy lookup
+
+The policy lookup page now uses ZToolSearchField with the existing keyword and result
+callbacks. The search button remains, and the shared field accepts an optional search
+callback so the keyboard search action also submits the current keyword. The input
+and button share the card's horizontal inset.
+
+Verification: assembleDebug and assembleDev passed. Installed the dev APK on the wired
+LSPosed device and verified the Material capsule, button and keyboard submissions,
+clearing, and an empty-result query. Restored the initial ztool query and policy result.

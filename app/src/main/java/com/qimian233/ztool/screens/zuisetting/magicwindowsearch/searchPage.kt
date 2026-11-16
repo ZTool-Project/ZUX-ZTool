@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
@@ -30,6 +31,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -47,7 +50,7 @@ import com.qimian233.ztool.ui.components.ZToolCard
 import com.qimian233.ztool.ui.components.ZToolDialog
 import com.qimian233.ztool.ui.components.ZToolPageSurface
 import com.qimian233.ztool.ui.components.ZToolScaffold
-import com.qimian233.ztool.ui.components.ZToolTextInputRow
+import com.qimian233.ztool.ui.components.ZToolSearchField
 import com.qimian233.ztool.ui.components.ZToolTopAppBar
 import com.qimian233.ztool.viewmodel.SearchPageUiState
 import com.qimian233.ztool.viewmodel.SearchPageViewModel
@@ -174,6 +177,15 @@ private fun SearchCard(
     onKeywordChanged: (String) -> Unit,
     onSearch: () -> Unit
 ) {
+    val keywordState = rememberTextFieldState(initialText = keyword)
+    val currentOnKeywordChanged by rememberUpdatedState(onKeywordChanged)
+    LaunchedEffect(keywordState) {
+        snapshotFlow { keywordState.text.toString() }.collect { currentOnKeywordChanged(it) }
+    }
+    val submitSearch = {
+        onKeywordChanged(keywordState.text.toString())
+        onSearch()
+    }
     ZToolCard(modifier = Modifier.fillMaxWidth()) {
         Column {
             Column(modifier = Modifier.padding(start = 24.dp, top = 16.dp)) {
@@ -181,7 +193,7 @@ private fun SearchCard(
                     text = stringResource(R.string.settings_find_rules),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
-                    color = LocalZToolColorScheme.current.onSurface // temporary fix, do not spread this pattern
+                    color = LocalZToolColorScheme.current.onSurface
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
@@ -192,18 +204,19 @@ private fun SearchCard(
             }
             Spacer(modifier = Modifier.height(16.dp))
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                ZToolTextInputRow(
-                    value = keyword,
-                    onValueChange = onKeywordChanged,
+                ZToolSearchField(
+                    state = keywordState,
+                    placeholder = stringResource(R.string.settings_find_rules_hint),
                     modifier = Modifier.weight(1f),
-                    singleLine = true,
-                    label = stringResource(R.string.settings_find_rules_hint),
+                    onSearch = { submitSearch() }
                 )
                 Spacer(modifier = Modifier.width(8.dp))
-                ZToolButton(onClick = onSearch) {
+                ZToolButton(onClick = submitSearch) {
                     Text(stringResource(R.string.settings_search_rules))
                 }
             }
