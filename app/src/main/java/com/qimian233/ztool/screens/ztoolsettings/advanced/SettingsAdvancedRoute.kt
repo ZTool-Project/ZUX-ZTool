@@ -6,7 +6,6 @@ import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
@@ -21,7 +20,6 @@ import androidx.compose.material.icons.rounded.RocketLaunch
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.SettingsBackupRestore
 import androidx.compose.material.icons.rounded.Widgets
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -57,6 +55,7 @@ import com.qimian233.ztool.ui.components.HighlightAnchorRegistry
 import com.qimian233.ztool.ui.components.HighlightController
 import com.qimian233.ztool.ui.components.SettingItem
 import com.qimian233.ztool.ui.components.SettingSection
+import com.qimian233.ztool.ui.components.ZToolCircularProgressIndicator
 import com.qimian233.ztool.ui.components.ZToolDialog
 import com.qimian233.ztool.ui.components.ZToolPageSurface
 import com.qimian233.ztool.ui.components.ZToolScaffold
@@ -152,7 +151,6 @@ fun SettingsAdvancedRoute(
         )
     }
 
-    // DexKit manual refresh: foreground progress Dialog + result Toast when done
     if (dexIndexState.refreshing) {
         DexIndexProgressDialog(progress = dexIndexState.progress)
     }
@@ -303,12 +301,7 @@ private fun advancedSettingsSections(
                     icon = if (state.importInProgress) null else Icons.Rounded.SettingsBackupRestore,
                     trailingContent = if (state.importInProgress) {
                         {
-                            CircularProgressIndicator(
-                                modifier = Modifier
-                                    .height(20.dp)
-                                    .padding(0.dp),
-                                strokeWidth = 2.dp
-                            )
+                            ZToolCircularProgressIndicator(modifier = Modifier.size(28.dp))
                         }
                     } else null
                 ),
@@ -321,12 +314,7 @@ private fun advancedSettingsSections(
                     icon = if (dexIndexInProgress) null else Icons.Rounded.Search,
                     trailingContent = if (dexIndexInProgress) {
                         {
-                            CircularProgressIndicator(
-                                modifier = Modifier
-                                    .height(20.dp)
-                                    .padding(0.dp),
-                                strokeWidth = 2.dp
-                            )
+                            ZToolCircularProgressIndicator(modifier = Modifier.size(28.dp))
                         }
                     } else null
                 ),
@@ -342,12 +330,7 @@ private fun advancedSettingsSections(
                     icon = if (state.resetInProgress) null else Icons.Rounded.Restore,
                     trailingContent = if (state.resetInProgress) {
                         {
-                            CircularProgressIndicator(
-                                modifier = Modifier
-                                    .height(20.dp)
-                                    .padding(0.dp),
-                                strokeWidth = 2.dp
-                            )
+                            ZToolCircularProgressIndicator(modifier = Modifier.size(28.dp))
                         }
                     } else null
                 ),
@@ -366,12 +349,7 @@ private fun advancedSettingsSections(
                     icon = if (state.hotReloadInProgress) null else Icons.Rounded.Refresh,
                     trailingContent = if (state.hotReloadInProgress) {
                         {
-                            CircularProgressIndicator(
-                                modifier = Modifier
-                                    .height(20.dp)
-                                    .padding(0.dp),
-                                strokeWidth = 2.dp
-                            )
+                            ZToolCircularProgressIndicator(modifier = Modifier.size(28.dp))
                         }
                     } else null
                 ),
@@ -405,11 +383,6 @@ private fun advancedSettingsSections(
     ) + buildResetDetailSection(state) + buildHotReloadDetailSection(state)
 }
 
-/**
- * Rows that exist only in development builds. `BuildConfig.IS_DEV_BUILD` is a
- * constant per build, so the official release both hides the entry and lets R8
- * drop the code behind it (the home-card preview screen).
- */
 @Composable
 private fun devOnlyAdvancedRows(onOpenHomeCardPreview: () -> Unit): List<SettingItem> = listOf(
     SettingItem.Action(
@@ -667,10 +640,6 @@ private fun HotReloadConfirmDialog(
     )
 }
 
-/**
- * Summarizes the DexKit index state: takes the most recent successful index time
- * across all scopes and formats it as display text.
- */
 private fun buildDexIndexSummary(context: Context): String {
     val latest = DexIndexRegistry.indexers
         .map { DexIndexManager.lastIndexedAt(context, it.scopePackage) }

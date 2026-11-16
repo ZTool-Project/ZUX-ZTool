@@ -525,3 +525,14 @@ Verification: assembleDebug and both SearchIndexConsistencyTest checks passed;
 debugRuntimeClasspath resolves material3-android to 1.5.0-rc01.
 Next: verify appearance and interactions with an assembleDev APK on the LSPosed device.
 See docs/research/material3_expressive_migration.md for API and compatibility notes.
+
+
+## 2026-11-16 — Inline loading indicators
+
+Seven busy setting rows (component scanning, preference import, DexKit refresh,
+value reset, hook hot reload, OTA package deletion, and night-mode repair) now use
+ZToolCircularProgressIndicator at the same 28dp size as LoadingDialog. Material uses
+LoadingIndicator; Miuix uses InfiniteProgressIndicator. Existing row keys and actions
+remain unchanged.
+
+Verification: assembleDebug passed. Device installation was not performed.

@@ -5,7 +5,7 @@ import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
@@ -15,7 +15,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Search
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -46,6 +45,7 @@ import com.qimian233.ztool.ui.components.HighlightController
 import com.qimian233.ztool.ui.components.SettingItem
 import com.qimian233.ztool.ui.components.SettingSection
 import com.qimian233.ztool.ui.components.ZToolArgbColorTextFieldRow
+import com.qimian233.ztool.ui.components.ZToolCircularProgressIndicator
 import com.qimian233.ztool.ui.components.ZToolDialog
 import com.qimian233.ztool.ui.components.ZToolExtendedFloatingActionButton
 import com.qimian233.ztool.ui.components.ZToolScaffold
@@ -441,7 +441,6 @@ private fun zuiUiComponentsSections(
                     )
                 )
                 if (state.loadingIndicatorEnabled) {
-                    // Adding a style only needs a new LoadingIndicatorStyle entry plus its string.
                     val styleLabels = LoadingIndicatorStyle.entries.associateWith {
                         stringResource(it.labelRes)
                     }
@@ -590,10 +589,7 @@ private fun zuiUiComponentsSections(
                         icon = if (scanState.running) null else Icons.Rounded.Search,
                         trailingContent = if (scanState.running) {
                             {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.height(20.dp),
-                                    strokeWidth = 2.dp
-                                )
+                                ZToolCircularProgressIndicator(modifier = Modifier.size(28.dp))
                             }
                         } else null
                     )

@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
@@ -26,7 +27,6 @@ import androidx.compose.material.icons.rounded.Build
 import androidx.compose.material.icons.rounded.BuildCircle
 import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.DeleteForever
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -58,6 +58,7 @@ import com.qimian233.ztool.ui.components.HighlightController
 import com.qimian233.ztool.ui.components.SettingItem
 import com.qimian233.ztool.ui.components.SettingSection
 import com.qimian233.ztool.ui.components.ZToolButton
+import com.qimian233.ztool.ui.components.ZToolCircularProgressIndicator
 import com.qimian233.ztool.ui.components.ZToolDialog
 import com.qimian233.ztool.ui.components.ZToolPageSurface
 import com.qimian233.ztool.ui.components.ZToolScaffold
@@ -72,10 +73,6 @@ import com.qimian233.ztool.viewmodel.MiscSettingsUiState
 import com.qimian233.ztool.viewmodel.MiscSettingsViewModel
 import com.qimian233.ztool.viewmodel.PcFlashFirmwareUiState
 
-/**
- * Miscellaneous settings: those that live on the Advanced route historically
- * but are neither experimental nor under active exploration.
- */
 private const val SETTINGS_PACKAGE = "com.android.settings"
 
 @Composable
@@ -130,7 +127,6 @@ fun SettingsMiscRoute(
         )
     }
 
-    // Delete system update package: show a result Toast when done (SUCCEEDED / NOT_EXIST / FAILED)
     LaunchedEffect(uiState.deleteOtaPackageStatus) {
         uiState.deleteOtaPackageStatus?.let { status ->
             val message = when (status) {
@@ -272,12 +268,7 @@ private fun miscSettingsSections(
                     icon = if (state.deleteOtaPackageInProgress) null else Icons.Rounded.DeleteForever,
                     trailingContent = if (state.deleteOtaPackageInProgress) {
                         {
-                            CircularProgressIndicator(
-                                modifier = Modifier
-                                    .height(20.dp)
-                                    .padding(0.dp),
-                                strokeWidth = 2.dp
-                            )
+                            ZToolCircularProgressIndicator(modifier = Modifier.size(28.dp))
                         }
                     } else null
                 ),
@@ -290,12 +281,7 @@ private fun miscSettingsSections(
                     icon = if (state.fixNightModeOverrideInProgress) null else Icons.Rounded.Brightness4,
                     trailingContent = if (state.fixNightModeOverrideInProgress) {
                         {
-                            CircularProgressIndicator(
-                                modifier = Modifier
-                                    .height(20.dp)
-                                    .padding(0.dp),
-                                strokeWidth = 2.dp
-                            )
+                            ZToolCircularProgressIndicator(modifier = Modifier.size(28.dp))
                         }
                     } else null
                 ),
@@ -366,10 +352,7 @@ private fun miscSettingsSections(
     )
 }
 
-/**
- * Opens an explicit Settings sub-page; most Settings sub-activities are not
- * exported, so failures surface as ActivityNotFoundException on some builds.
- */
+/** Opens a Settings sub-page and displays launch failures. */
 internal fun openSettingsActivity(context: Context, activityClassName: String) {
     try {
         context.startActivity(Intent().apply {
