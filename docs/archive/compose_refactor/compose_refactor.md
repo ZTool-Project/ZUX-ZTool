@@ -586,3 +586,14 @@ and button share the card's horizontal inset.
 Verification: assembleDebug and assembleDev passed. Installed the dev APK on the wired
 LSPosed device and verified the Material capsule, button and keyboard submissions,
 clearing, and an empty-result query. Restored the initial ztool query and policy result.
+
+
+## 2026-11-17 — Primary colors for selected dropdown items
+
+The Material dropdown adapter now supplies MenuDefaults.selectableItemColors with
+primaryContainer for the selected surface and onPrimaryContainer for selected text,
+leading icons, and trailing content.
+
+Verification: assembleDebug and assembleDev passed. Installed the dev APK on the wired
+LSPosed device and verified the selected Material entry uses the blue primary
+container with readable foreground content. Left the theme-style menu open.

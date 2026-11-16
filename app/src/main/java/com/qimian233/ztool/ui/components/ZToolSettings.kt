@@ -821,12 +821,20 @@ private fun <T> ZToolMaterialPopupMenuField(
                 containerColor = LocalZToolColorScheme.current.surfaceContainerHigh,
                 modifier = Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState())
             ) {
+                val colorScheme = LocalZToolColorScheme.current
+                val itemColors = MenuDefaults.selectableItemColors(
+                    selectedContainerColor = colorScheme.primaryContainer,
+                    selectedTextColor = colorScheme.onPrimaryContainer,
+                    selectedLeadingIconColor = colorScheme.onPrimaryContainer,
+                    selectedTrailingContentColor = colorScheme.onPrimaryContainer
+                )
                 options.forEachIndexed { index, option ->
                     val label = optionLabel(option)
                     val supportingText = optionSupportingText?.invoke(option)?.takeIf { it.isNotBlank() }
                     SelectableDropdownMenuItem(
                         selected = label == value,
                         shapes = MenuDefaults.itemShape(index = index, count = options.size),
+                        colors = itemColors,
                         text = { Text(label) },
                         supportingText = supportingText?.let { { Text(it) } },
                         onClick = {
