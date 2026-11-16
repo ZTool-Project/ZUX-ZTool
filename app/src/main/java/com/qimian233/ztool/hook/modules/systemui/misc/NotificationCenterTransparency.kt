@@ -100,13 +100,19 @@ class NotificationCenterTransparency : AppHookModule() {
             else
                 classLoader.loadClass("com.android.systemui.statusbar.NotificationShadeDepthController")
                 .getDeclaredMethod("animateBlur", Float::class.javaPrimitiveType, Boolean::class.javaPrimitiveType)
-            hookWithId(animateBlurMethod, "animate_blur") { chain ->
-                val newBlur = scaleBlur(chain.args[0] as Float)
-                var newAnimate = chain.args[1] as Boolean
-                if (isBlurCleared()) {
-                    newAnimate = false
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.CINNAMON_BUN) {
+                hookWithId(animateBlurMethod, "animate_blur") { chain ->
+                    chain.proceed(arrayOf(false, chain.args[1]))
                 }
-                chain.proceed(arrayOf<Any>(newBlur, newAnimate))
+            } else {
+                hookWithId(animateBlurMethod, "animate_blur") { chain ->
+                    val newBlur = scaleBlur(chain.args[0] as Float)
+                    var newAnimate = chain.args[1] as Boolean
+                    if (isBlurCleared()) {
+                        newAnimate = false
+                    }
+                    chain.proceed(arrayOf<Any>(newBlur, newAnimate))
+                }
             }
         } catch (t: Throwable) {
             logger.error("Failed to hook NotificationShadeDepthController.animateBlur", t)
