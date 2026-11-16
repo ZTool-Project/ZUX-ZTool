@@ -27,6 +27,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
@@ -64,6 +65,7 @@ fun ZuiUiComponentsRoute(
     targetId: String? = null
 ) {
     val context = LocalContext.current
+    val resources = LocalResources.current
     val owner = LocalViewModelStoreOwner.current
         ?: error("ZuiUiComponentsRoute requires a ViewModelStoreOwner")
     val viewModel = remember(owner) {
@@ -140,7 +142,7 @@ fun ZuiUiComponentsRoute(
                     onResult = { outcome ->
                         Toast.makeText(
                             context,
-                            context.getString(
+                            resources.getString(
                                 R.string.ui_components_reload_result_message,
                                 outcome.succeeded,
                                 outcome.failed
@@ -163,15 +165,15 @@ fun ZuiUiComponentsRoute(
                     viewModel.applyRecommendedScope { outcome ->
                         val message = when (outcome) {
                             is ScopeRequestOutcome.Approved ->
-                                context.getString(R.string.ui_components_recommend_approved)
+                                resources.getString(R.string.ui_components_recommend_approved)
 
-                            is ScopeRequestOutcome.Failed -> context.getString(
+                            is ScopeRequestOutcome.Failed -> resources.getString(
                                 R.string.ui_components_recommend_failed,
                                 outcome.reason
                             )
 
                             ScopeRequestOutcome.Unavailable ->
-                                context.getString(R.string.ui_components_recommend_unavailable)
+                                resources.getString(R.string.ui_components_recommend_unavailable)
                         }
                         Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
                     }

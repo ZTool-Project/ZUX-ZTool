@@ -18,16 +18,25 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.input.rememberTextFieldState
+import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material3.ExpandedDockedSearchBar
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SearchBar
+import androidx.compose.material3.SearchBarDefaults
+import androidx.compose.material3.SearchBarValue
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberSearchBarState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -50,15 +59,7 @@ import com.qimian233.ztool.ui.theme.FrontendStyle
 import com.qimian233.ztool.ui.theme.LocalZToolColorScheme
 import com.qimian233.ztool.ui.theme.LocalZToolThemeSpec
 
-/**
- * Docked, in-place feature search shared by the Features and Settings tabs. Both
- * frontend styles render their own search bar (material3 DockedSearchBar vs Miuix
- * SearchBar) above the same grouped result list, backed by one [SearchViewModel].
- *
- * The whole control is absent until [visible], then animates in; when collapsed it
- * animates out. It publishes its bounds to the shell's search overlay so the dim layer
- * can cut it out.
- */
+/** Docked feature search bar shared by the Features and Settings tabs. */
 @Composable
 fun FeatureSearchBar(
     visible: Boolean,
@@ -121,7 +122,6 @@ fun FeatureSearchBar(
     }
 }
 
-@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 private fun Material3FeatureSearchBar(
     expanded: Boolean,
@@ -131,30 +131,63 @@ private fun Material3FeatureSearchBar(
     onOpenEntry: (SearchEntry) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    androidx.compose.material3.DockedSearchBar(
-        inputField = {
-            androidx.compose.material3.SearchBarDefaults.InputField(
-                // Required: the field's own sizeIn(minWidth = 360.dp) is the only width driver,
-                // while the bar around it is stretched by the caller's fillMaxWidth. Without this
-                // the tap/focus target stops at 360.dp even though the bar looks full width.
-                modifier = Modifier.fillMaxWidth(),
-                query = uiState.query,
-                onQueryChange = onQueryChanged,
-                onSearch = { onExpandedChange(false) },
-                expanded = expanded,
-                onExpandedChange = onExpandedChange,
-                placeholder = { Text(stringResource(R.string.search_hint)) },
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Rounded.Search,
-                        contentDescription = null
-                    )
-                }
-            )
-        },
-        expanded = expanded,
-        onExpandedChange = onExpandedChange,
-        modifier = modifier,
+    val searchBarState = rememberSearchBarState(
+        initialValue = if (expanded) SearchBarValue.Expanded else SearchBarValue.Collapsed
+    )
+    val textFieldState = rememberTextFieldState(initialText = uiState.query)
+
+    LaunchedEffect(uiState.query) {
+        if (textFieldState.text.toString() != uiState.query) {
+            textFieldState.setTextAndPlaceCursorAtEnd(uiState.query)
+        }
+    }
+
+    LaunchedEffect(textFieldState) {
+        snapshotFlow { textFieldState.text.toString() }.collect { query ->
+            onQueryChanged(query)
+        }
+    }
+
+    LaunchedEffect(searchBarState.targetValue) {
+        val targetExpanded = searchBarState.targetValue == SearchBarValue.Expanded
+        if (targetExpanded != expanded) {
+            onExpandedChange(targetExpanded)
+        }
+    }
+
+    LaunchedEffect(expanded) {
+        if (expanded && searchBarState.targetValue != SearchBarValue.Expanded) {
+            searchBarState.animateToExpanded()
+        } else if (!expanded && searchBarState.targetValue != SearchBarValue.Collapsed) {
+            searchBarState.animateToCollapsed()
+        }
+    }
+
+    val inputField = @Composable {
+        SearchBarDefaults.InputField(
+            // Stretch the tap/focus target to match the full-width bar around it.
+            modifier = Modifier.fillMaxWidth(),
+            textFieldState = textFieldState,
+            searchBarState = searchBarState,
+            onSearch = { onExpandedChange(false) },
+            placeholder = { Text(stringResource(R.string.search_hint)) },
+            leadingIcon = {
+                Icon(
+                    imageVector = Icons.Rounded.Search,
+                    contentDescription = null
+                )
+            }
+        )
+    }
+
+    SearchBar(
+        state = searchBarState,
+        inputField = inputField,
+        modifier = modifier
+    )
+    ExpandedDockedSearchBar(
+        state = searchBarState,
+        inputField = inputField,
         content = { ResultsContent(uiState, onOpenEntry) }
     )
 }

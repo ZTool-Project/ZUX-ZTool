@@ -31,6 +31,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -135,9 +136,10 @@ private fun LauncherIconSample(
 @Composable
 private fun rememberLauncherIcon(@DrawableRes iconRes: Int, size: Dp): ImageBitmap {
     val context = LocalContext.current
+    val resources = LocalResources.current
     val sizePx = with(LocalDensity.current) { size.roundToPx() }.coerceAtLeast(1)
-    return remember(context, iconRes, sizePx) {
-        val drawable = checkNotNull(context.getDrawable(iconRes))
+    return remember(resources, context.theme, iconRes, sizePx) {
+        val drawable = checkNotNull(resources.getDrawable(iconRes, context.theme))
         drawable.toBitmap(sizePx, sizePx).asImageBitmap()
     }
 }

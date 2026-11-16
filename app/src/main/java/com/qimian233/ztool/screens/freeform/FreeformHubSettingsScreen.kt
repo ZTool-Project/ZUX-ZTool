@@ -42,6 +42,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
@@ -89,6 +90,7 @@ fun FreeformHubSettingsRoute(
     targetId: String? = null
 ) {
     val context = LocalContext.current
+    val resources = LocalResources.current
     val activity = context as? android.app.Activity
     val owner = LocalViewModelStoreOwner.current
         ?: error("FreeformHubSettingsRoute requires a ViewModelStoreOwner")
@@ -293,7 +295,7 @@ fun FreeformHubSettingsRoute(
                     val count = viewModel.deleteEmbeddingConfigs(selectedConfigs, flashedConfigs)
                     Toast.makeText(
                         context,
-                        context.resources.getString(R.string.settings_delete_success, count),
+                        resources.getString(R.string.settings_delete_success, count),
                         Toast.LENGTH_SHORT
                     ).show()
                     dialog.dismiss()
@@ -315,7 +317,7 @@ fun FreeformHubSettingsRoute(
 
                                 is SettingsDetailConfigFlashResult.Failure -> showMessageDialog(
                                     errorTitleText,
-                                    context.resources.getString(
+                                    resources.getString(
                                         R.string.settings_flash_failed_message,
                                         result.message
                                     )
@@ -405,12 +407,12 @@ fun FreeformHubSettingsRoute(
                     is SettingsDetailModuleResult.Failure -> showMessageDialog(
                         errorTitleText,
                         if (result.requestedEnabled) {
-                            context.resources.getString(
+                            resources.getString(
                                 R.string.settings_install_failed_message,
                                 result.message
                             )
                         } else {
-                            context.resources.getString(
+                            resources.getString(
                                 R.string.settings_remove_failed_message,
                                 result.message
                             )
@@ -490,7 +492,7 @@ fun FreeformHubSettingsRoute(
                         host,
                         viewModel.loadUserInstalledPackageNames(),
                         uiState.freeformKeepAlivePackages,
-                        context.getString(R.string.launcher_freeform_keep_alive_title),
+                        resources.getString(R.string.launcher_freeform_keep_alive_title),
                         object : AppChooserDialog.AppSelectionCallback {
                             override fun onSelected(selectedApps: List<AppChooserDialog.AppInfo>) {
                                 viewModel.setFreeformKeepAlivePackages(

@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Info
@@ -24,6 +23,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.qimian233.ztool.R
@@ -47,6 +47,7 @@ fun EngineeringCodesRoute(
     targetId: String? = null
 ) {
     val context = LocalContext.current
+    val resources = LocalResources.current
     val repository = remember { EngineeringCodeRepository() }
     var busyKey by remember { mutableStateOf<String?>(null) }
 
@@ -101,7 +102,7 @@ fun EngineeringCodesRoute(
                                                         else ->
                                                             Toast.makeText(
                                                                 context,
-                                                                context.getString(failedStringRes(), message),
+                                                                resources.getString(failedStringRes(), message),
                                                                 Toast.LENGTH_LONG
                                                             ).show()
                                                     }

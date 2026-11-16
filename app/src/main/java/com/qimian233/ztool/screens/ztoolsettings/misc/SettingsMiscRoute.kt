@@ -41,6 +41,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -82,6 +83,7 @@ fun SettingsMiscRoute(
     targetId: String? = null
 ) {
     val context = LocalContext.current
+    val resources = LocalResources.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val activity = context as MainActivity
     val viewModel = remember {
@@ -130,9 +132,9 @@ fun SettingsMiscRoute(
     LaunchedEffect(uiState.deleteOtaPackageStatus) {
         uiState.deleteOtaPackageStatus?.let { status ->
             val message = when (status) {
-                "SUCCEEDED" -> context.getString(R.string.page_settings_advanced_delete_ota_package_result_success)
-                "NOT_EXIST" -> context.getString(R.string.page_settings_advanced_delete_ota_package_result_not_exist)
-                else -> context.getString(
+                "SUCCEEDED" -> resources.getString(R.string.page_settings_advanced_delete_ota_package_result_success)
+                "NOT_EXIST" -> resources.getString(R.string.page_settings_advanced_delete_ota_package_result_not_exist)
+                else -> resources.getString(
                     R.string.page_settings_advanced_delete_ota_package_result_failed,
                     uiState.deleteOtaPackageMessage ?: ""
                 )

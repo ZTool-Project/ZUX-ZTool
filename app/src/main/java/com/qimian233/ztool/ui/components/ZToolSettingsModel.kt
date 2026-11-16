@@ -28,10 +28,12 @@ import androidx.compose.material3.MaterialTheme
 import com.qimian233.ztool.ui.theme.LocalZToolColorScheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
@@ -578,31 +580,19 @@ fun ZToolSliderRow(
                     icon = icon
                 )
             }
-            Row (
+            Row(
                 modifier = Modifier.padding(top = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                if (LocalZToolThemeSpec.current.style == FrontendStyle.Miuix) {
-                    MiuixSlider(
-                        value = value,
-                        onValueChange = onValueChange,
-                        enabled = enabled,
-                        valueRange = valueRange,
-                        steps = steps,
-                        onValueChangeFinished = onValueChangeFinished,
-                        modifier = Modifier.weight(1f)
-                    )
-                } else {
-                    Slider(
-                        value = value,
-                        onValueChange = onValueChange,
-                        enabled = enabled,
-                        valueRange = valueRange,
-                        steps = steps,
-                        onValueChangeFinished = onValueChangeFinished,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
+                ZToolSlider(
+                    value = value,
+                    onValueChange = onValueChange,
+                    enabled = enabled,
+                    valueRange = valueRange,
+                    steps = steps,
+                    onValueChangeFinished = onValueChangeFinished,
+                    modifier = Modifier.weight(1f)
+                )
                 if (valueText != null) {
                     Spacer(modifier = Modifier.width(12.dp))
                     Text(
@@ -639,13 +629,15 @@ fun ZToolSlider(
             onValueChangeFinished = onValueChangeFinished
         )
     } else {
+        val sliderState = remember(steps, valueRange) {
+            SliderState(value = value, steps = steps, trackRange = valueRange)
+        }
+        sliderState.value = value
         Slider(
-            value = value,
+            state = sliderState,
             onValueChange = onValueChange,
             modifier = modifier,
             enabled = enabled,
-            valueRange = valueRange,
-            steps = steps,
             onValueChangeFinished = onValueChangeFinished
         )
     }

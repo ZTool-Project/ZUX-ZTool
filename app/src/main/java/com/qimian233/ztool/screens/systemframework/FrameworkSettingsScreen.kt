@@ -32,10 +32,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
@@ -77,6 +77,7 @@ fun FrameworkSettingsRoute(
     targetId: String? = null
 ) {
     val context = LocalContext.current
+    val resources = LocalResources.current
     val owner = LocalViewModelStoreOwner.current
         ?: error("FrameworkSettingsRoute requires a ViewModelStoreOwner")
     val viewModel = remember(owner) {
@@ -130,7 +131,7 @@ fun FrameworkSettingsRoute(
                     context,
                     viewModel.loadUserInstalledPackageNames(),
                     uiState.clipboardAccessToastPackages,
-                    context.getString(R.string.system_framework_clipboard_toast_apps_picker_title),
+                    resources.getString(R.string.system_framework_clipboard_toast_apps_picker_title),
                     object : AppChooserDialog.AppSelectionCallback {
                         override fun onSelected(selectedApps: List<AppChooserDialog.AppInfo>) {
                             viewModel.setClipboardAccessToastPackages(
