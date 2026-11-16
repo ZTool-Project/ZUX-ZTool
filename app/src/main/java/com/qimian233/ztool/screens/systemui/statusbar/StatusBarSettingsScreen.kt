@@ -143,6 +143,7 @@ fun StatusBarSettingsRoute(
             onNetworkSpeedHideThresholdChanged = viewModel::setNetworkSpeedHideThreshold,
             onNetworkSpeedHideBothChanged = viewModel::setNetworkSpeedHideBoth,
             onBatteryExternalChanged = viewModel::setBatteryExternal,
+            onBatteryChargingColorChanged = viewModel::setBatteryChargingColor,
             onRestartScope = viewModel::showRestartDialog,
             scrollState = scrollState,
             highlightRegistry = highlightRegistry
@@ -229,6 +230,7 @@ private fun StatusBarSettingsScreen(
     onNetworkSpeedHideThresholdChanged: (Float) -> Unit,
     onNetworkSpeedHideBothChanged: (Boolean) -> Unit,
     onBatteryExternalChanged: (Boolean) -> Unit,
+    onBatteryChargingColorChanged: (Boolean) -> Unit,
     onRestartScope: () -> Unit,
     scrollState: ScrollState,
     highlightRegistry: HighlightAnchorRegistry
@@ -294,7 +296,8 @@ private fun StatusBarSettingsScreen(
                         onNetworkSpeedHideSlowChanged = onNetworkSpeedHideSlowChanged,
                         onNetworkSpeedHideThresholdChanged = onNetworkSpeedHideThresholdChanged,
                         onNetworkSpeedHideBothChanged = onNetworkSpeedHideBothChanged,
-                        onBatteryExternalChanged = onBatteryExternalChanged
+                        onBatteryExternalChanged = onBatteryExternalChanged,
+                        onBatteryChargingColorChanged = onBatteryChargingColorChanged
                     ),
                     bottomPadding = 96.dp,
                     highlightRegistry = highlightRegistry
@@ -330,7 +333,8 @@ private fun statusBarSettingsSections(
     onNetworkSpeedHideSlowChanged: (Boolean) -> Unit,
     onNetworkSpeedHideThresholdChanged: (Float) -> Unit,
     onNetworkSpeedHideBothChanged: (Boolean) -> Unit,
-    onBatteryExternalChanged: (Boolean) -> Unit
+    onBatteryExternalChanged: (Boolean) -> Unit,
+    onBatteryChargingColorChanged: (Boolean) -> Unit
 ): List<SettingSection> {
     return listOf(
         SettingSection(
@@ -596,6 +600,13 @@ private fun statusBarSettingsSections(
                     checked = state.batteryExternal,
                     onCheckedChange = onBatteryExternalChanged,
                     key = "status_bar_battery_external"
+                ),
+                SettingItem.Switch(
+                    title = stringResource(R.string.system_ui_status_bar_battery_charging_color_title),
+                    summary = stringResource(R.string.system_ui_status_bar_battery_charging_color_summary),
+                    checked = state.batteryChargingColor,
+                    onCheckedChange = onBatteryChargingColorChanged,
+                    key = "status_bar_battery_charging_color"
                 )
             )
         )

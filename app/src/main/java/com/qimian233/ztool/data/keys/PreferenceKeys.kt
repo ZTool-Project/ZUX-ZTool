@@ -124,6 +124,7 @@ object PreferenceKeys {
     val SYSTEMUI_NETWORK_SPEED_HIDE_SLOW = BoolKey("systemui_network_speed_hide_slow", false)
     val SYSTEMUI_NETWORK_SPEED_HIDE_BOTH = BoolKey("systemui_network_speed_hide_both", false)
     val SYSTEMUI_BATTERY_PERCENTAGE = BoolKey("systemui_battery_percentage", false)
+    val SYSTEMUI_BATTERY_CHARGING_COLOR = BoolKey("systemui_battery_charging_color", false)
     val FORCE_IMMERSIVE_MODE = BoolKey("force_immersive_mode", false)
     val FORCE_LENOVO_AOD = BoolKey("ForceLenovoAOD", false)
     val QS_ROUND_CORNER = BoolKey("qs_round_corner", false)
@@ -453,6 +454,7 @@ object PreferenceKeys {
         SYSTEMUI_NETWORK_SPEED_SIZE, SYSTEMUI_NETWORK_SPEED_DOUBLELAYER,
         CUSTOM_NETWORK_SPEED_REFRESH_INTERVAL, SYSTEMUI_NETWORK_SPEED_HIDE_SLOW,
         SYSTEMUI_NETWORK_SPEED_HIDE_BOTH, SYSTEMUI_BATTERY_PERCENTAGE,
+        SYSTEMUI_BATTERY_CHARGING_COLOR,
         FORCE_IMMERSIVE_MODE, FORCE_LENOVO_AOD, QS_ROUND_CORNER,
         BRIGHTNESS_SLIDER_PERCENTAGE, VOLUME_SLIDER_PERCENTAGE,
         CONTROL_CENTER_LONG_PRESS, VOLUME_DETAIL_PANEL, HIDE_DETAIL_INDICATOR, QS_COLOR,

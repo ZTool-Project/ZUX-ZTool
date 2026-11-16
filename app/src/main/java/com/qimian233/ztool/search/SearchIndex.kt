@@ -511,6 +511,11 @@ object SearchIndex {
             titleRes = R.string.system_ui_status_bar_syatus_battery_external_title,
             summaryRes = R.string.system_ui_status_bar_syatus_battery_external_summary
         ),
+        systemUiStatusBar.item(
+            id = "status_bar_battery_charging_color",
+            titleRes = R.string.system_ui_status_bar_battery_charging_color_title,
+            summaryRes = R.string.system_ui_status_bar_battery_charging_color_summary
+        ),
 
         systemUiLockScreen.item(
             id = "lock_screen_yi_yan",

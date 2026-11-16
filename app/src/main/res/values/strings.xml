@@ -670,6 +670,8 @@
     <string name="system_ui_status_bar_battery_title">电池</string>
     <string name="system_ui_status_bar_syatus_battery_external_title">强制电池外百分比</string>
     <string name="system_ui_status_bar_syatus_battery_external_summary">在电池图标右侧显示剩余的电量，请先关闭系统设置的百分比显示</string>
+    <string name="system_ui_status_bar_battery_charging_color_title">充电速度指示颜色</string>
+    <string name="system_ui_status_bar_battery_charging_color_summary">根据充电状态为电量填充部分着色：普通充电为绿色，快速充电为亮紫色</string>
     <!--系统界面 锁屏页资源值-->
     <string name="system_ui_lock_screen_widgets_title">锁屏组件</string>
     <string name="system_ui_lock_screen_yi_yan_switch_title">随机锁屏签名</string>

@@ -159,6 +159,11 @@ class StatusBarSettingsViewModel(
         repository.saveBatteryExternal(enabled)
     }
 
+    fun setBatteryChargingColor(enabled: Boolean) {
+        _uiState.value = _uiState.value.copy(batteryChargingColor = enabled)
+        repository.saveBatteryChargingColor(enabled)
+    }
+
     fun showFormatHelpDialog() {
         _uiState.value = _uiState.value.copy(showFormatHelpDialog = true)
     }
@@ -231,6 +236,7 @@ data class StatusBarSettingsUiState(
     val networkSpeedHideThreshold: Float = 10f,
     val networkSpeedHideBoth: Boolean = false,
     val batteryExternal: Boolean = false,
+    val batteryChargingColor: Boolean = false,
     val showFormatHelpDialog: Boolean = false,
     val showSaveSuccessDialog: Boolean = false,
     val isRestartProcessing: Boolean = false,

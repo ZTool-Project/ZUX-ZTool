@@ -559,6 +559,8 @@
     <string name="system_ui_status_bar_battery_title">Battery</string>
     <string name="system_ui_status_bar_syatus_battery_external_title">Force battery percentage outside icon</string>
     <string name="system_ui_status_bar_syatus_battery_external_summary">Show remaining battery percentage to the right of the battery icon. Disable the system percentage display first.</string>
+    <string name="system_ui_status_bar_battery_charging_color_title">Color battery fill by charging speed</string>
+    <string name="system_ui_status_bar_battery_charging_color_summary">Color the battery level fill when charging: green for normal charging, bright purple for fast charging</string>
     <string name="system_ui_lock_screen_widgets_title">Lockscreen widgets</string>
     <string name="system_ui_lock_screen_yi_yan_switch_title">Random lock screen signature</string>
     <string name="system_ui_lock_screen_yi_yan_summary">Show random text fetched from the network on the lock screen.</string>

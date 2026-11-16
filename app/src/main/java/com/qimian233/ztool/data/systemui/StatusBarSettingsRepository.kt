@@ -31,6 +31,7 @@ class StatusBarSettingsRepository(
             networkSpeedHideThreshold = prefsUtils.loadFloatSetting(KEY_NETWORK_SPEED_HIDE_THRESHOLD, DEFAULT_HIDE_THRESHOLD),
             networkSpeedHideBoth = prefsUtils.loadBooleanSetting(KEY_NETWORK_SPEED_HIDE_BOTH, false),
             batteryExternal = prefsUtils.loadBooleanSetting(KEY_BATTERY_EXTERNAL, false),
+            batteryChargingColor = prefsUtils.loadBooleanSetting(KEY_BATTERY_CHARGING_COLOR, false),
             clockFormat = loadedClockFormat,
             clockPreview = buildClockPreview(loadedClockFormat),
             textSize = prefsUtils.loadFloatSetting(KEY_CLOCK_TEXT_SIZE, 16.0f),
@@ -141,6 +142,10 @@ class StatusBarSettingsRepository(
         prefsUtils.saveBooleanSetting(KEY_BATTERY_EXTERNAL, enabled)
     }
 
+    fun saveBatteryChargingColor(enabled: Boolean) {
+        prefsUtils.saveBooleanSetting(KEY_BATTERY_CHARGING_COLOR, enabled)
+    }
+
     fun forceStopScope(): ShellActionResult {
         val scopes = ScopeUtils.getScopes(FeatureDestination.SystemUi)
         return when (val result = ScopeUtils.restartScope(scopes)) {
@@ -211,6 +216,7 @@ class StatusBarSettingsRepository(
         private val KEY_NETWORK_SPEED_HIDE_THRESHOLD = PreferenceKeys.SYSTEMUI_NETWORK_SPEED_HIDE_THRESHOLD.name
         private val KEY_NETWORK_SPEED_HIDE_BOTH = PreferenceKeys.SYSTEMUI_NETWORK_SPEED_HIDE_BOTH.name
         private val KEY_BATTERY_EXTERNAL = PreferenceKeys.SYSTEMUI_BATTERY_PERCENTAGE.name
+        private val KEY_BATTERY_CHARGING_COLOR = PreferenceKeys.SYSTEMUI_BATTERY_CHARGING_COLOR.name
         private const val DEFAULT_REFRESH_INTERVAL = 3.0f
 
         /** Matches NetworkSpeedRefresh's clamp: a sub-0.5 s refresh costs ~4 % SystemUI CPU per Hz. */
