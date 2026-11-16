@@ -23,6 +23,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import com.qimian233.ztool.ui.theme.LocalZToolColorScheme
 import androidx.compose.material3.OutlinedTextField
@@ -33,7 +34,6 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
@@ -200,12 +200,7 @@ fun ZToolSettingsList(
     sectionSpacing: Dp = 16.dp,
     bottomPadding: Dp = 0.dp,
     highlightRegistry: HighlightAnchorRegistry? = null,
-    /**
-     * Horizontal gutter this list is meant to sit in inside its host, when the host
-     * aligns it with other surfaces (the home screen lines its cards up on an 8dp
-     * gutter, for example). Null keeps the list's own default insets, which is what
-     * every full-page settings screen wants.
-     */
+
     gutter: Dp? = null
 ) {
     androidx.compose.runtime.CompositionLocalProvider(
@@ -260,15 +255,11 @@ fun ZToolSettingsSection(
             section = section,
             modifier = modifier,
             titlePadding = titlePadding,
-            // The expressive section draws every row as its own surface, so the
-            // gutter has to become the section's content inset.
             contentPadding = gutter ?: ExpressiveSectionContentPadding
         )
         return
     }
 
-    // Miuix draws one surface per section, so the gutter has to be applied around
-    // that surface instead of inside it.
     val sectionModifier = if (gutter != null) {
         modifier.padding(horizontal = gutter)
     } else {
@@ -339,9 +330,7 @@ fun ColumnScope.ExpressiveSectionItems(
     shapeForIndex: ((index: Int, count: Int) -> Shape)? = null,
     content: @Composable ColumnScope.((Int) -> Modifier) -> Unit
 ) {
-    // MIUI cards keep rows flush and transparent; the stepped chip look is M3-expressive only.
     val isMiuix = LocalZToolThemeSpec.current.style == FrontendStyle.Miuix
-    val itemColor = if (isMiuix) Color.Transparent else LocalZToolColorScheme.current.surfaceContainerHigh
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(if (isMiuix) 0.dp else 4.dp)
@@ -350,15 +339,9 @@ fun ColumnScope.ExpressiveSectionItems(
             if (isMiuix) {
                 Modifier.fillMaxWidth()
             } else {
-                val shape = shapeForIndex?.invoke(index, count)
-                    ?: expressiveSettingsItemShape(index = index, count = count)
-                Modifier
-                    .fillMaxWidth()
-                    .clip(shape)
-                    .background(
-                        color = itemColor,
-                        shape = shape
-                    )
+                Modifier.fillMaxWidth().then(
+                    ExpressiveListPosition(index, count, shapeForIndex?.invoke(index, count))
+                )
             }
         }
     }
@@ -371,54 +354,23 @@ fun ExpressiveSectionItems(
     itemSpacing: Dp = 4.dp,
     shapeForIndex: ((index: Int, count: Int) -> Shape)? = null
 ) {
-    // MIUI cards keep rows flush and transparent; the stepped chip look is M3-expressive only.
     val isMiuix = LocalZToolThemeSpec.current.style == FrontendStyle.Miuix
-    val itemColor = if (isMiuix) Color.Transparent else LocalZToolColorScheme.current.surfaceContainerHigh
     Column(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(if (isMiuix) 0.dp else itemSpacing)
     ) {
         items.forEachIndexed { index, item ->
-            val shape = if (isMiuix) {
-                null
-            } else {
-                shapeForIndex?.invoke(index, items.size)
-                    ?: expressiveSettingsItemShape(index = index, count = items.size)
-            }
-            val rowModifier = if (isMiuix) {
-                Modifier.fillMaxWidth()
-            } else {
-                Modifier
-                    .fillMaxWidth()
-                    .clip(shape!!)
-                    .background(
-                        color = itemColor,
-                        shape = shape
-                    )
-            }
-            HighlightableSettingRow(
-                highlightKey = item.key,
-                modifier = rowModifier,
-                shape = shape
-            ) {
-                ZToolSettingItem(
-                    item = item,
-                    modifier = Modifier
-                )
+            val shapes = if (isMiuix) null else ListItemDefaults.segmentedShapes(
+                index = index,
+                count = items.size,
+                defaultShapes = ListItemDefaults.shapes(shape = shapeForIndex?.invoke(index, items.size))
+            )
+            HighlightableSettingRow(highlightKey = item.key, shape = shapes?.shape) {
+                CompositionLocalProvider(LocalExpressiveListShapes provides shapes) {
+                    ZToolSettingItem(item = item, modifier = Modifier)
+                }
             }
         }
-    }
-}
-
-fun expressiveSettingsItemShape(index: Int, count: Int): Shape {
-    if (count <= 1) {
-        return RoundedCornerShape(16.dp)
-    }
-
-    return when (index) {
-        0 -> RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp, bottomStart = 4.dp, bottomEnd = 4.dp)
-        count - 1 -> RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp, bottomStart = 16.dp, bottomEnd = 16.dp)
-        else -> RoundedCornerShape(4.dp)
     }
 }
 
@@ -566,7 +518,7 @@ fun ZToolSettingItem(
         }
 
         is SettingItem.Custom -> {
-            Column(modifier = modifier.fillMaxWidth()) {
+            ZToolSegmentedSettingContainer(modifier = modifier.fillMaxWidth()) {
                 item.content()
             }
         }
@@ -612,53 +564,55 @@ fun ZToolSliderRow(
     horizontalPadding: Dp = 24.dp,
     verticalPadding: Dp = 16.dp
 ) {
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = horizontalPadding, vertical = verticalPadding)
-    ) {
-        if (title != null) {
-            SettingsTitleBlock(
-                title = title,
-                summary = summary,
-                enabled = enabled,
-                icon = icon
-            )
-        }
-        Row (
-            modifier = Modifier.padding(top = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
+    ZToolSegmentedSettingContainer(modifier) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = horizontalPadding, vertical = verticalPadding)
         ) {
-            if (LocalZToolThemeSpec.current.style == FrontendStyle.Miuix) {
-                MiuixSlider(
-                    value = value,
-                    onValueChange = onValueChange,
+            if (title != null) {
+                SettingsTitleBlock(
+                    title = title,
+                    summary = summary,
                     enabled = enabled,
-                    valueRange = valueRange,
-                    steps = steps,
-                    onValueChangeFinished = onValueChangeFinished,
-                    modifier = Modifier.weight(1f)
-                )
-            } else {
-                Slider(
-                    value = value,
-                    onValueChange = onValueChange,
-                    enabled = enabled,
-                    valueRange = valueRange,
-                    steps = steps,
-                    onValueChangeFinished = onValueChangeFinished,
-                    modifier = Modifier.weight(1f)
+                    icon = icon
                 )
             }
-            if (valueText != null) {
-                Spacer(modifier = Modifier.width(12.dp))
-                Text(
-                    text = valueText,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = LocalZToolColorScheme.current.onSurfaceVariant,
-                    maxLines = 1,
-                    modifier = Modifier.widthIn(min = 48.dp)
-                )
+            Row (
+                modifier = Modifier.padding(top = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (LocalZToolThemeSpec.current.style == FrontendStyle.Miuix) {
+                    MiuixSlider(
+                        value = value,
+                        onValueChange = onValueChange,
+                        enabled = enabled,
+                        valueRange = valueRange,
+                        steps = steps,
+                        onValueChangeFinished = onValueChangeFinished,
+                        modifier = Modifier.weight(1f)
+                    )
+                } else {
+                    Slider(
+                        value = value,
+                        onValueChange = onValueChange,
+                        enabled = enabled,
+                        valueRange = valueRange,
+                        steps = steps,
+                        onValueChangeFinished = onValueChangeFinished,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                if (valueText != null) {
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = valueText,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = LocalZToolColorScheme.current.onSurfaceVariant,
+                        maxLines = 1,
+                        modifier = Modifier.widthIn(min = 48.dp)
+                    )
+                }
             }
         }
     }
@@ -758,37 +712,39 @@ fun ZToolTextInputRow(
     horizontalPadding: Dp = 24.dp,
     verticalPadding: Dp = 16.dp
 ) {
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = horizontalPadding, vertical = verticalPadding)
-    ) {
-        if (title != null) {
-            SettingsTitleBlock(
-                title = title,
-                summary = summary,
-                enabled = enabled,
-                icon = icon
-            )
-        } else if (summary != null) {
-            Text(
-                text = summary,
-                style = MaterialTheme.typography.bodyMedium,
-                color = LocalZToolColorScheme.current.onSurfaceVariant,
-                modifier = Modifier.padding(top = 4.dp)
-            )
-        }
-        ZToolOutlinedTextField(
-            value = value,
-            onValueChange = onValueChange,
-            label = label,
-            placeholder = placeholder,
-            singleLine = singleLine,
-            enabled = enabled,
+    ZToolSegmentedSettingContainer(modifier) {
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = if (title != null || summary != null) 12.dp else 0.dp)
-        )
+                .padding(horizontal = horizontalPadding, vertical = verticalPadding)
+        ) {
+            if (title != null) {
+                SettingsTitleBlock(
+                    title = title,
+                    summary = summary,
+                    enabled = enabled,
+                    icon = icon
+                )
+            } else if (summary != null) {
+                Text(
+                    text = summary,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = LocalZToolColorScheme.current.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+            }
+            ZToolOutlinedTextField(
+                value = value,
+                onValueChange = onValueChange,
+                label = label,
+                placeholder = placeholder,
+                singleLine = singleLine,
+                enabled = enabled,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = if (title != null || summary != null) 12.dp else 0.dp)
+            )
+        }
     }
 }
 
@@ -822,46 +778,48 @@ fun ZToolArgbColorTextFieldRow(
         onEditingFinished?.invoke()
     }
 
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        if (icon != null) {
-            ZToolSettingLeadingIcon(icon = icon, enabled = enabled)
-            Spacer(modifier = Modifier.width(16.dp))
-        }
-        Box(
+    ZToolSegmentedSettingContainer(modifier) {
+        Row(
             modifier = Modifier
-                .size(previewSize)
-                .background(previewColor, RoundedCornerShape(8.dp))
-                .border(BorderStroke(1.dp, LocalZToolColorScheme.current.onSurfaceVariant), shape = RoundedCornerShape(8.dp))
-        )
-        Spacer(modifier = Modifier.width(16.dp))
-        ZToolOutlinedTextField(
-            value = value,
-            onValueChange = { onValueChange(it.sanitizeArgbColorText()) },
-            modifier = Modifier
-                .weight(1f)
-                .onFocusChanged { focusState ->
-                    if (!focusState.isFocused) {
-                        finishEditing()
-                    }
-                },
-            label = label,
-            placeholder = defaultText?.sanitizeArgbColorText(),
-            isError = hasError,
-            supportingText = if (hasError) errorText else summary,
-            enabled = enabled,
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-            keyboardActions = KeyboardActions(
-                onDone = {
-                    finishEditing()
-                    focusManager.clearFocus()
-                }
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (icon != null) {
+                ZToolSettingLeadingIcon(icon = icon, enabled = enabled)
+                Spacer(modifier = Modifier.width(16.dp))
+            }
+            Box(
+                modifier = Modifier
+                    .size(previewSize)
+                    .background(previewColor, RoundedCornerShape(8.dp))
+                    .border(BorderStroke(1.dp, LocalZToolColorScheme.current.onSurfaceVariant), shape = RoundedCornerShape(8.dp))
             )
-        )
+            Spacer(modifier = Modifier.width(16.dp))
+            ZToolOutlinedTextField(
+                value = value,
+                onValueChange = { onValueChange(it.sanitizeArgbColorText()) },
+                modifier = Modifier
+                    .weight(1f)
+                    .onFocusChanged { focusState ->
+                        if (!focusState.isFocused) {
+                            finishEditing()
+                        }
+                    },
+                label = label,
+                placeholder = defaultText?.sanitizeArgbColorText(),
+                isError = hasError,
+                supportingText = if (hasError) errorText else summary,
+                enabled = enabled,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(
+                    onDone = {
+                        finishEditing()
+                        focusManager.clearFocus()
+                    }
+                )
+            )
+        }
     }
 }
 

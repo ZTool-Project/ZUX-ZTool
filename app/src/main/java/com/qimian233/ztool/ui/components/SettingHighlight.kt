@@ -50,19 +50,8 @@ const val SCROLL_STABILIZE_TIMEOUT_MILLIS = 800L
 /** Poll interval while stabilizing the scroll offset. */
 const val SCROLL_STABILIZE_POLL_MILLIS = 64L
 
-/**
- * Row bounds (in root coordinates) keyed by [SettingItem.key]; the scroll container
- * root reports its own bounds under [HighlightContainerMarker] so the controller can
- * convert to a scroll offset. Coordinates are re-read on demand, so values stay fresh
- * as layout shifts.
- */
 class HighlightAnchorRegistry {
 
-    /**
-     * Live per-node coordinates. A LayoutCoordinates instance keeps updating itself
-     * every frame, so offsets resolved at consumption time are always current —
-     * immune to uiState-driven expansion shifts between report and consume.
-     */
     private val rows = ConcurrentHashMap<String, androidx.compose.ui.layout.LayoutCoordinates>()
     @Volatile
     private var containerCoords: androidx.compose.ui.layout.LayoutCoordinates? = null
@@ -97,12 +86,6 @@ class HighlightAnchorRegistry {
     /** Keys of all rows currently registered (used by the debug index audit). */
     fun snapshotKeys(): Set<String> = rows.keys.toSet()
 
-    /**
-     * Scroll offset that brings the row to the top of the content column, resolved
-     * from LIVE coordinates read right now. Returns null while the row or the
-     * container is absent or detached — never a stale/wrong-signed value. Detached
-     * rows (conditional child collapsed after composing) are dropped on sight.
-     */
     fun offsetFor(key: String): Int? {
         val container = containerCoords?.takeIf { it.isAttached } ?: return null
         val row = rows[key]?.takeIf { it.isAttached } ?: run {
@@ -112,11 +95,6 @@ class HighlightAnchorRegistry {
         return (row.positionInRoot().y - container.positionInRoot().y).roundToInt()
     }
 
-    /**
-     * Suspends until both the container and the row have live coordinates, then
-     * returns the offset. A row that never composes (conditional child behind an
-     * OFF parent switch) times out to null — driving the parent fallback.
-     */
     suspend fun await(key: String, timeoutMillis: Long): Int? {
         if (containerCoords == null) {
             val containerDeferred = CompletableDeferred<Unit>()
@@ -139,8 +117,7 @@ class HighlightAnchorRegistry {
                 return null
             }
         }
-        // The reporting frame may predate final layout; settle one frame, then read
-        // the live coordinates.
+        // Wait one frame for final layout before consuming coordinates.
         withFrameNanos { }
         return offsetFor(key)
     }
@@ -151,11 +128,8 @@ val LocalHighlightRegistry = staticCompositionLocalOf<HighlightAnchorRegistry?> 
 /** Id of the row currently drawing the pulse (null when idle). */
 val LocalHighlightActiveId = compositionLocalOf<String?> { null }
 
-/**
- * Place directly inside the settings list' scroll container (as the first child of the
- * content column): reports the container's root bounds so row offsets can be computed.
- * Draws and measures nothing.
- */
+internal val LocalSettingHighlightTint = compositionLocalOf { Color.Transparent }
+
 @Composable
 fun HighlightContainerMarker(registry: HighlightAnchorRegistry?) {
     if (registry == null) return
@@ -167,13 +141,6 @@ fun HighlightContainerMarker(registry: HighlightAnchorRegistry?) {
     )
 }
 
-/**
- * Runs the land-and-highlight sequence for one navigation `?target=` id: waits for the
- * row to report its bounds, scrolls to it, keeps the pulse for two cycles, and falls
- * back to the parent key when the target never rendered (conditional child behind an
- * OFF parent switch). [onConsumed] lets the screen drop the stale target so back /
- * rotation does not replay the pulse.
- */
 @Composable
 fun HighlightController(
     highlightTargetId: String?,
@@ -184,8 +151,6 @@ fun HighlightController(
 ) {
     var activeId by remember { mutableStateOf<String?>(null) }
 
-    // Debug-only index audit: once rows have composed, compare rendered keys against
-    // the static index. No target needed; release builds short-circuit to a no-op.
     val auditedRoute = highlightTargetId?.let { id ->
         SearchHighlightIndexBridge.routeOfId(id)?.substringBefore('?')
     }
@@ -220,9 +185,6 @@ fun HighlightController(
 
         if (offset != null) {
             scrollState.animateScrollTo(offset.coerceAtLeast(0))
-            // uiState loads and animateContentSize keep shifting rows right after
-            // landing; keep correcting until the target's live offset holds steady
-            // for two polls (bounded), then pulse.
             var last = offset
             var stable = 0
             val stabilizeDeadline = System.currentTimeMillis() + SCROLL_STABILIZE_TIMEOUT_MILLIS
@@ -252,13 +214,6 @@ fun HighlightController(
     CompositionLocalProvider(LocalHighlightActiveId provides activeId, content = content)
 }
 
-/**
- * Row wrapper used by the settings funnel: reports the row's bounds into the registry
- * and overlays the container-color double pulse while [LocalHighlightActiveId] equals
- * [highlightKey]. Content is rendered inside a Box so the overlay covers the whole row.
- * The pulse timeline runs only while the row is active; inactive rows pay one
- * CompositionLocal read.
- */
 @Composable
 fun HighlightableSettingRow(
     highlightKey: String?,
@@ -307,7 +262,7 @@ fun HighlightableSettingRow(
                 }
             }
             .drawWithContent {
-                // Pulse renders BEHIND the row content so text stays readable.
+
                 if (pulseAlpha > 0f) {
                     val corner = CornerRadius(12.dp.toPx(), 12.dp.toPx())
                     val color = pulseColor.copy(alpha = pulseAlpha * 0.5f)
@@ -325,7 +280,10 @@ fun HighlightableSettingRow(
                 drawContent()
             }
     ) {
-        content()
+        CompositionLocalProvider(
+            LocalSettingHighlightTint provides pulseColor.copy(alpha = pulseAlpha * 0.5f),
+            content = content
+        )
     }
 }
 
@@ -335,11 +293,6 @@ private fun androidx.compose.ui.graphics.Outline.getOutlinePath(): androidx.comp
     is androidx.compose.ui.graphics.Outline.Generic -> path
 }
 
-/**
- * Lookup seam between the highlight controller and the search index, keeping
- * ui/components free of a direct dependency on the search package. The real
- * implementation is installed from ZToolNavHost at composition root.
- */
 object SearchHighlightIndexBridge {
     @Volatile
     var parentKeyOf: (String) -> String? = { null }

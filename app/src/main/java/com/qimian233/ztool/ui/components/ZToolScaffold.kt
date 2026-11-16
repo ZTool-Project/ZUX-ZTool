@@ -2,11 +2,9 @@ package com.qimian233.ztool.ui.components
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.RowScope
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -16,25 +14,27 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
-import androidx.compose.material3.NavigationRail
-import androidx.compose.material3.NavigationRailItem
-import androidx.compose.material3.NavigationRailItemDefaults
+import androidx.compose.material3.ShortNavigationBar
+import androidx.compose.material3.ShortNavigationBarItem
+import androidx.compose.material3.ShortNavigationBarItemDefaults
+import androidx.compose.material3.WideNavigationRail
+import androidx.compose.material3.WideNavigationRailItem
+import androidx.compose.material3.WideNavigationRailItemDefaults
+import androidx.compose.material3.WideNavigationRailDefaults
+import androidx.compose.material3.WideNavigationRailValue
+import androidx.compose.material3.rememberWideNavigationRailState
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
@@ -58,6 +58,10 @@ import top.yukonga.miuix.kmp.basic.NavigationRail as MiuixNavigationRail
 import top.yukonga.miuix.kmp.basic.NavigationRailItem as MiuixNavigationRailItem
 import top.yukonga.miuix.kmp.basic.ScrollBehavior as MiuixScrollBehaviorType
 import top.yukonga.miuix.kmp.basic.TopAppBar as MiuixTopAppBar
+
+private val LocalMiuixNavigationRowScope = staticCompositionLocalOf<RowScope?> { null }
+
+private val LocalMaterialRailExpanded = staticCompositionLocalOf { false }
 
 private val LocalMiuixTopAppBarScrollBehavior = staticCompositionLocalOf<MiuixScrollBehaviorType?> { null }
 
@@ -184,11 +188,12 @@ fun ZToolTopAppBar(
         title = {
             Text(
                 text = title,
-                style = MaterialTheme.typography.headlineSmall,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
         },
+        subtitle = {},
+        titleHorizontalAlignment = Alignment.Start,
         navigationIcon = navigationIcon,
         actions = actions,
         colors = TopAppBarDefaults.topAppBarColors(
@@ -203,7 +208,7 @@ fun ZToolTopAppBar(
 fun ZToolNavigationRail(
     modifier: Modifier = Modifier,
     state: ZToolNavigationRailState? = null,
-    content: @Composable ColumnScope.() -> Unit,
+    content: @Composable () -> Unit,
 ) {
     if (LocalZToolThemeSpec.current.style == FrontendStyle.Miuix) {
         val railState = state ?: rememberZToolNavigationRailState()
@@ -223,16 +228,29 @@ fun ZToolNavigationRail(
         return
     }
 
-    NavigationRail(
-        containerColor = LocalZToolColorScheme.current.surface,
-        contentColor = LocalZToolColorScheme.current.onSurface,
-        modifier = modifier
+    val railState = state ?: rememberZToolNavigationRailState()
+    val materialState = rememberWideNavigationRailState(
+        if (railState.expanded) WideNavigationRailValue.Expanded else WideNavigationRailValue.Collapsed
+    )
+    LaunchedEffect(railState, materialState) {
+        snapshotFlow { railState.expanded }.collectLatest { expanded ->
+            if (expanded) materialState.expand() else materialState.collapse()
+        }
+    }
+    CompositionLocalProvider(
+        LocalMaterialRailExpanded provides (materialState.targetValue == WideNavigationRailValue.Expanded)
     ) {
-        Column(
-            modifier = Modifier.fillMaxHeight(),
-            verticalArrangement = Arrangement.Center,
-            content = content
-        )
+        WideNavigationRail(
+            state = materialState,
+            colors = WideNavigationRailDefaults.colors(
+                containerColor = LocalZToolColorScheme.current.surface,
+                contentColor = LocalZToolColorScheme.current.onSurface
+            ),
+            arrangement = Arrangement.Center,
+            modifier = modifier
+        ) {
+            content()
+        }
     }
 }
 
@@ -298,7 +316,8 @@ fun ZToolNavigationRailItem(
         return
     }
 
-    NavigationRailItem(
+    WideNavigationRailItem(
+        railExpanded = LocalMaterialRailExpanded.current,
         selected = selected,
         onClick = onClick,
         icon = {
@@ -310,16 +329,15 @@ fun ZToolNavigationRailItem(
         },
         label = { Text(label) },
         enabled = enabled,
-        colors = NavigationRailItemDefaults.colors(
+        colors = WideNavigationRailItemDefaults.colors(
             selectedIconColor = LocalZToolColorScheme.current.onSecondaryContainer,
-            selectedTextColor = LocalZToolColorScheme.current.onSurface,
-            indicatorColor = LocalZToolColorScheme.current.secondaryContainer,
+            selectedTextColorTopIconPosition = LocalZToolColorScheme.current.onSurface,
+            selectedTextColorStartIconPosition = LocalZToolColorScheme.current.onSurface,
+            selectedIndicatorColor = LocalZToolColorScheme.current.secondaryContainer,
             unselectedIconColor = LocalZToolColorScheme.current.onSurfaceVariant,
             unselectedTextColor = LocalZToolColorScheme.current.onSurfaceVariant
         ),
         modifier = modifier
-            .width(80.dp)
-            .height(72.dp)
     )
 }
 
@@ -327,20 +345,20 @@ fun ZToolNavigationRailItem(
 @Composable
 fun ZToolNavigationBar(
     modifier: Modifier = Modifier,
-    content: @Composable RowScope.() -> Unit
+    content: @Composable () -> Unit
 ) {
     if (LocalZToolThemeSpec.current.style == FrontendStyle.Miuix) {
         top.yukonga.miuix.kmp.basic.NavigationBar(
-            modifier = modifier.height(64.dp),
+            modifier = modifier.navigationBarsPadding().height(64.dp),
             color = LocalZToolColorScheme.current.surface,
         ) {
-            content()
+            CompositionLocalProvider(LocalMiuixNavigationRowScope provides this) { content() }
         }
         return
     }
 
-    NavigationBar(
-        modifier = modifier.height(64.dp),
+    ShortNavigationBar(
+        modifier = modifier,
         containerColor = LocalZToolColorScheme.current.surface,
         contentColor = LocalZToolColorScheme.current.onSurface,
         content = content
@@ -349,7 +367,7 @@ fun ZToolNavigationBar(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun RowScope.ZToolNavigationBarItem(
+fun ZToolNavigationBarItem(
     selected: Boolean,
     onClick: () -> Unit,
     icon: ImageVector,
@@ -358,20 +376,24 @@ fun RowScope.ZToolNavigationBarItem(
     enabled: Boolean = true
 ) {
     if (LocalZToolThemeSpec.current.style == FrontendStyle.Miuix) {
-        MiuixNavigationBarItem(
-            selected = selected,
-            onClick = onClick,
-            icon = icon,
-            label = label,
-            modifier = modifier
-                .width(80.dp)
-                .height(72.dp),
-            enabled = enabled
-        )
+        val rowScope = LocalMiuixNavigationRowScope.current ?: return
+        with(rowScope) {
+            MiuixNavigationBarItem(
+                selected = selected,
+                onClick = onClick,
+                icon = icon,
+                label = label,
+                modifier = modifier
+                    .weight(1f)
+                    .width(80.dp)
+                    .height(72.dp),
+                enabled = enabled
+            )
+        }
         return
     }
 
-    NavigationBarItem(
+    ShortNavigationBarItem(
         selected = selected,
         onClick = onClick,
         icon = {
@@ -382,14 +404,13 @@ fun RowScope.ZToolNavigationBarItem(
             )
         },
         label = { Text(label) },
-        modifier = modifier
-            .width(80.dp)
-            .height(72.dp),
+        modifier = modifier,
         enabled = enabled,
-        colors = NavigationBarItemDefaults.colors(
+        colors = ShortNavigationBarItemDefaults.colors(
             selectedIconColor = LocalZToolColorScheme.current.onSecondaryContainer,
-            selectedTextColor = LocalZToolColorScheme.current.onSurface,
-            indicatorColor = LocalZToolColorScheme.current.secondaryContainer,
+            selectedTextColorTopIconPosition = LocalZToolColorScheme.current.onSurface,
+            selectedTextColorStartIconPosition = LocalZToolColorScheme.current.onSurface,
+            selectedIndicatorColor = LocalZToolColorScheme.current.secondaryContainer,
             unselectedIconColor = LocalZToolColorScheme.current.onSurfaceVariant,
             unselectedTextColor = LocalZToolColorScheme.current.onSurfaceVariant
         )

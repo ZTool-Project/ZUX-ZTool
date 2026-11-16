@@ -4,6 +4,8 @@ import android.content.res.Configuration
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MaterialExpressiveTheme
+import androidx.compose.material3.MotionScheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.ui.graphics.Color
@@ -91,8 +93,6 @@ fun ZToolTheme(
         ThemeMode.Dark -> true
     }
 
-    // The wallpaper seed is only relevant when dynamic color is on and the user has
-    // not pinned a manual seed; all other paths carry their own seed.
     val systemSeed = if (effectiveSettings.dynamicColorEnabled && !effectiveSettings.manualColorEnabled) {
         remember(context) { readSystemPaletteSeed(context) }
     } else {
@@ -101,10 +101,6 @@ fun ZToolTheme(
 
     val isMiuixStyle = effectiveSettings.frontendStyle == FrontendStyle.Miuix
 
-    // Circuit breaker: when dynamic color is off and the Miuix front end is active,
-    // the externally derived palette is bypassed entirely — the shared scheme that
-    // every component (cards, settings rows, scaffold, dialogs) reads is rebuilt
-    // from Miuix's built-in default palette instead of the seed-derived scheme.
     val miuixBreakerActive = isMiuixStyle && !effectiveSettings.dynamicColorEnabled
     val colorScheme = remember(effectiveSettings, effectiveDarkTheme, systemSeed) {
         if (miuixBreakerActive) {
@@ -130,17 +126,12 @@ fun ZToolTheme(
 
     val themeSpec = ZToolThemeSpec(
         style = effectiveSettings.frontendStyle,
+        useExpressiveMotion = !isMiuixStyle,
         dynamicColorEnabled = effectiveSettings.dynamicColorEnabled,
         manualColorEnabled = effectiveSettings.manualColorEnabled
     )
     val movableContent = remember(content) { movableContentOf(content) }
 
-    // One pipeline for both front ends: Material3 owns the derived scheme, Miuix
-    // components receive the same scheme mapped onto Miuix color roles.
-    // Circuit breaker: when dynamic color is disabled, Miuix stops consuming the
-    // externally derived palette and falls back to its built-in default palette.
-    // Remembered because [colorScheme] is itself remembered and a plain mapping of it
-    // would otherwise be redone on every recomposition of this composable.
     val miuixColors = remember(colorScheme, effectiveDarkTheme) {
         if (effectiveSettings.dynamicColorEnabled) {
             colorScheme.toMiuixColors(darkTheme = effectiveDarkTheme)
@@ -150,14 +141,12 @@ fun ZToolTheme(
             miuixLightColorScheme()
         }
     }
-    // Miuix's Scaffold sizes itself to the largest available size and paints containerColor,
-    // so applying it inside a wrap-content dialog window stretches that window past its
-    // content (full available width, height down to the screen bottom) and leaves a solid
-    // surface-colored band under the card. Dialog content therefore gets the theme only.
+    // The Miuix Scaffold stretches platform dialog windows; apply only its theme there.
     val useMiuixScaffold = isMiuixStyle && !isPlatformDialog
 
     val themedContent: @Composable () -> Unit = {
-        MaterialTheme(
+        MaterialExpressiveTheme(
+            motionScheme = if (themeSpec.useExpressiveMotion) MotionScheme.expressive() else MotionScheme.standard(),
             colorScheme = colorScheme,
             typography = MaterialTheme.typography,
         ) {
@@ -188,12 +177,6 @@ fun ZToolTheme(
     )
 }
 
-/**
- * Inverse of [ColorScheme.toMiuixColors]: rebuilds a Material3 [ColorScheme] from a
- * Miuix palette. Used by the circuit-breaker path so shared components consume the
- * Miuix built-in default palette when dynamic color is disabled. Roles the Miuix
- * palette does not carry are filled with their closest neighbours.
- */
 private fun Colors.toMaterialColorScheme(darkTheme: Boolean): ColorScheme {
     return if (darkTheme) {
         darkColorScheme(

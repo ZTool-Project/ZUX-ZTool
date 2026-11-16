@@ -4,9 +4,10 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Button
-import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.SmallExtendedFloatingActionButton
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.MediumFloatingActionButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -48,6 +49,7 @@ fun ZToolButton(
 
     if (isPrimary) {
         Button(
+            shapes = ButtonDefaults.shapes(),
             onClick = onClick,
             modifier = effectiveModifier,
             enabled = enabled,
@@ -55,6 +57,7 @@ fun ZToolButton(
         )
     } else {
         FilledTonalButton(
+            shapes = ButtonDefaults.shapes(),
             onClick = onClick,
             modifier = effectiveModifier,
             enabled = enabled,
@@ -91,6 +94,7 @@ fun ZToolTextButton(
     }
 
     TextButton(
+        shapes = ButtonDefaults.shapes(),
         onClick = onClick,
         modifier = effectiveModifier,
         enabled = enabled,
@@ -126,7 +130,7 @@ fun ZToolExtendedFloatingActionButton(
         return
     }
 
-    ExtendedFloatingActionButton(
+    SmallExtendedFloatingActionButton(
         text = text,
         icon = icon,
         onClick = onClick,
@@ -159,7 +163,7 @@ fun ZToolFloatingActionButton(
         return
     }
 
-    FloatingActionButton(
+    MediumFloatingActionButton(
         onClick = onClick,
         modifier = modifier,
         content = content

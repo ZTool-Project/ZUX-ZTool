@@ -512,3 +512,16 @@ Result: succeeded on 2026-06-09 after removing obsolete feature Activity shells 
 transition helpers.
 - After those subtrees are Compose-owned, remove the old feature Activity launch paths,
   Manifest entries, and Activity transition helpers.
+
+
+## 2026-11-16 — Material 3 Expressive adapters
+
+Migrated shared Material theme, navigation, button/FAB, loading, menu, and segmented
+settings adapters to Material 3 1.5.0-rc01 with the user's approval (1.5.0 final is not
+published). Kept Miuix layout, existing settings/search keys, and palette behavior.
+Search highlighting now tints the official opaque list surfaces.
+
+Verification: assembleDebug and both SearchIndexConsistencyTest checks passed;
+debugRuntimeClasspath resolves material3-android to 1.5.0-rc01.
+Next: verify appearance and interactions with an assembleDev APK on the LSPosed device.
+See docs/research/material3_expressive_migration.md for API and compatibility notes.

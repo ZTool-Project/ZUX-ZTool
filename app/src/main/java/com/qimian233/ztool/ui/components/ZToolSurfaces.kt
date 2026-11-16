@@ -7,7 +7,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.LoadingIndicator
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -18,11 +22,11 @@ import com.qimian233.ztool.ui.theme.LocalZToolColorScheme
 import com.qimian233.ztool.ui.theme.LocalZToolThemeSpec
 import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
 
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun ZToolCircularProgressIndicator(
     modifier: Modifier = Modifier,
-    color: Color = LocalZToolColorScheme.current.primary,
-    strokeWidth: androidx.compose.ui.unit.Dp = 4.dp
+    color: Color = LocalZToolColorScheme.current.primary
 ) {
     if (LocalZToolThemeSpec.current.style == FrontendStyle.Miuix) {
         InfiniteProgressIndicator(
@@ -30,10 +34,9 @@ fun ZToolCircularProgressIndicator(
             color = color
         )
     } else {
-        CircularProgressIndicator(
+        LoadingIndicator(
             modifier = modifier,
-            color = color,
-            strokeWidth = strokeWidth
+            color = color
         )
     }
 }
@@ -93,5 +96,18 @@ fun ZToolCard(
         elevation = CardDefaults.cardElevation(defaultElevation = defaultElevation)
     ) {
         content()
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+fun ZToolLinearProgressIndicator(
+    progress: () -> Float,
+    modifier: Modifier = Modifier
+) {
+    if (LocalZToolThemeSpec.current.style == FrontendStyle.Miuix) {
+        LinearProgressIndicator(progress = progress, modifier = modifier)
+    } else {
+        LinearWavyProgressIndicator(progress = progress, modifier = modifier)
     }
 }

@@ -3,7 +3,6 @@ package com.qimian233.ztool.ui.components
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -14,11 +13,7 @@ import androidx.compose.ui.unit.dp
 import com.qimian233.ztool.R
 import com.qimian233.ztool.dexindex.base.DexIndexProgress
 
-/**
- * DexKit index progress dialog: scope-level progress bar with a
- * "x / total scopes" text. Shared by the home-entry staleness check
- * (non-first-run refresh) and the Settings manual refresh entry.
- */
+/** Displays scope-level DexKit indexing progress. */
 @Composable
 fun DexIndexProgressDialog(
     progress: DexIndexProgress,
@@ -45,7 +40,7 @@ fun DexIndexProgressDialog(
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth()
                 )
-                LinearProgressIndicator(
+                ZToolLinearProgressIndicator(
                     progress = { fraction.coerceIn(0f, 1f) },
                     modifier = Modifier
                         .fillMaxWidth()

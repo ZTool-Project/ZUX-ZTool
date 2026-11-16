@@ -30,6 +30,8 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
@@ -114,8 +116,6 @@ class MainActivity : ComponentActivity(),
         if (firstrunDisplayMode == null) {
             firstrunDisplayMode = resolveFirstrunDisplayMode()
         }
-        // Cold start straight into Firstrun: seed the reveal provider with a
-        // full-screen cover so the intro can uncover the welcome page.
         firstrunIntroRevealPending = savedInstanceState == null && firstrunDisplayMode != null
 
         val themeRepository = ThemePreferencesRepository(applicationContext)
@@ -138,15 +138,8 @@ class MainActivity : ComponentActivity(),
                         null
                     }
                 ) {
-                    // Owned by the app shell: MainTabletShell draws the dim layer above the
-                    // navigation chrome, and the screens below publish into this instance.
                     val searchOverlay = remember { SearchOverlayState() }
                     CompositionLocalProvider(LocalSearchOverlayState provides searchOverlay) {
-                        // The main shell stays composed at all times; the Firstrun
-                        // flow overlays it instead of replacing it, so the NavHost
-                        // and its back stack survive OOBE replay and the user lands
-                        // back on whatever screen they came from (e.g. the advanced
-                        // settings route when opened from the developer entry).
                         MainTabletShell(
                             environmentReady = isEnvironmentReady,
                             selectedRoute = currentRoute,
@@ -173,40 +166,18 @@ class MainActivity : ComponentActivity(),
 
         LogServiceManager.restartServiceIfNeeded(this)
 
-        // Restart the edge-bubble overlay service on app launch; EdgeBubbleBootReceiver
-        // covers the boot / APK-update paths so opening ZTool is not required.
-        // Off the main thread: the enable check reads RemotePreferences (a binder
-        // call to LSPosed when the module is active) and queries the overlay
-        // permission before starting the service.
         lifecycleScope.launch(Dispatchers.IO) {
             EdgeBubbleService.maybeStart(this@MainActivity.applicationContext)
         }
 
-        // Everything below is off the first-frame critical path: onCreate returns
-        // without waiting for any of it. The tasks are independent and run
-        // concurrently, except the shell work which is serialized.
-        //
-        // Process-scoped, not Activity-scoped: these are one-shot maintenance tasks,
-        // and MainActivity can be recreated for reasons the manifest cannot suppress
-        // (locale change, "don't keep activities", a system-initiated recreation).
-        // Re-running them per recreation would mean a root `su` round trip and
-        // PackageManager component writes on every such event. The scope is the
-        // Application's so a rotation landing mid-flight cannot cancel the work after
-        // the flag below has already been claimed.
         val settingsRepo = SettingsRepository(applicationContext)
-        // A freshly launched task is not excluded from recents by default;
-        // re-apply the persisted choice before the task gets snapshotted. Stays on the
-        // main thread and runs per Activity: it must see the task this Activity lives in.
         settingsRepo.applyHideFromRecents()
 
+        // Use the process scope so Activity recreation cannot cancel claimed startup work.
         if (maintenanceStarted.compareAndSet(false, true)) {
             val startupScope = ZToolApplication.startupScope
 
             startupScope.launch(Dispatchers.IO) {
-                // Component states survive app updates and a restored config can leave
-                // the icon pointing at the wrong artwork (or at none); re-assert the
-                // persisted selection. One pass, because the user-facing alias pair and
-                // the debug-only LeakCanary alias share the same PackageManager read.
                 settingsRepo.healLauncherAliasState()
             }
 
@@ -214,22 +185,12 @@ class MainActivity : ComponentActivity(),
                 settingsRepo.cleanupAppLogsIfNeeded()
             }
 
-            // Root shell: copying the LSPosed log directory can take hundreds of
-            // milliseconds, so it must never run on the main thread.
             startupScope.launch(EnhancedShellExecutor.shellWorkDispatcher) {
                 settingsRepo.syncLsposedLogs()
             }
         }
     }
 
-    /**
-     * Configuration changes listed in the manifest are handled in place instead of
-     * recreating the Activity. Compose picks the new configuration up through
-     * [androidx.compose.ui.platform.LocalConfiguration], but the system bar
-     * appearance is imperative state that only [setupSystemBars] maintains, so it has
-     * to be re-applied here — without this, toggling dark mode while the app is open
-     * would leave the status/navigation icons on the previous polarity.
-     */
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
         setupSystemBars(themeSettings)
@@ -249,13 +210,6 @@ class MainActivity : ComponentActivity(),
         LogServiceManager.clearCallbacks()
     }
 
-    /**
-     * Decides whether the first-run flow should overlay this launch, based on
-     * the per-page schema registry: FirstRun when nothing was ever accepted,
-     * UpdateOnly when any registered page is stale (accepted below its current
-     * schema version or not accepted at all). Registry bumps hence replay the
-     * whole flow until per-page replay lands.
-     */
     private fun resolveFirstrunDisplayMode(): FirstrunDisplayMode? {
         val status = firstrunSchemaRepository.loadStatus()
         if (!status.everAcceptedAny) return FirstrunDisplayMode.FirstRun
@@ -265,10 +219,6 @@ class MainActivity : ComponentActivity(),
         return if (hasStalePage) FirstrunDisplayMode.UpdateOnly else null
     }
 
-    /**
-     * Re-enter the first-run (OOBE) flow, e.g. from the advanced settings
-     * developer entry. The existing acceptance state is kept as-is.
-     */
     fun reopenFirstrun() {
         firstrunDisplayMode = FirstrunDisplayMode.FirstRun
     }
@@ -345,10 +295,6 @@ class MainActivity : ComponentActivity(),
         private const val KEY_ENVIRONMENT_READY = "environment_ready"
         private const val KEY_FIRSTRUN_DISPLAY_MODE = "firstrun_display_mode"
 
-        /**
-         * Guards the one-shot startup maintenance against Activity recreation.
-         * Process-scoped by virtue of being a companion property.
-         */
         private val maintenanceStarted = AtomicBoolean(false)
     }
 }
@@ -373,20 +319,11 @@ private fun MainTabletShell(
             ?.let(onRouteChanged)
     }
 
-    // NavHost installs navController.graph during its own composition, and it sits inside a
-    // Scaffold subcomposition, so this effect can be launched during a pass in which the
-    // graph is not installed yet — most visibly on the first composition after an Activity
-    // recreation (configuration change). popUpTo below reads navController.graph and then
-    // throws "You must call setGraph() before calling getGraph()".
-    //
-    // navController.currentDestination is null exactly while the graph is missing, so the
-    // body bails out instead of reading it. Keying on backStackReady re-runs the effect once
-    // NavHost has installed the graph; keying on backStackEntry itself would instead make the
-    // effect re-fire on every navigation and fight the back stack with a stale selectedRoute.
+    // Scaffold subcomposition may install the graph after this effect; wait for a destination.
     val backStackReady = backStackEntry != null
     LaunchedEffect(environmentReady, selectedRoute, backStackReady) {
         val targetRoute = if (environmentReady) selectedRoute else MainRoute.Home
-        // Routes may carry the optional ?target= highlight arg; compare paths only.
+
         val currentRoute = navController.currentDestination?.route?.substringBefore('?')
         if (currentRoute != null && currentRoute != targetRoute.name) {
             navController.navigate(targetRoute.name) {
@@ -403,8 +340,6 @@ private fun MainTabletShell(
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
     val ztoolThemeSpec = LocalZToolThemeSpec.current
     val enableFloatingBottomBar = LocalEnableFloatingBottomBar.current
-    // When Miuix FloatingBottomBar is enabled, force BottomBar even in landscape
-    // since the floating pill design works well in both orientations.
     val useNavigationRail = isLandscape
             && !(ztoolThemeSpec.style == FrontendStyle.Miuix && enableFloatingBottomBar)
 
@@ -419,17 +354,18 @@ private fun MainTabletShell(
             null
         }
 
-    // Drawn above the navigation chrome so the docked search's dim layer also covers the
-    // rail and the bottom bar; screens publish their search state through it.
     val searchOverlay = LocalSearchOverlayState.current
     if (useNavigationRail) {
-        // === Rail layout (landscape) ===
+
         val navigationRailState = rememberZToolNavigationRailState()
+        val density = LocalDensity.current
+        // AndroidX uses a 96dp collapsed rail; subsequent layout reports its actual width.
+        var materialRailWidth by remember(ztoolThemeSpec.style, density) { mutableStateOf(96.dp) }
         Box(
             modifier = Modifier.fillMaxSize()
         ) {
             val contentModifier = if (environmentReady) {
-                Modifier.padding(start = MainNavigationRailWidth)
+                Modifier.padding(start = if (ztoolThemeSpec.style == FrontendStyle.Miuix) MainNavigationRailWidth else materialRailWidth)
             } else {
                 Modifier
             }
@@ -447,19 +383,22 @@ private fun MainTabletShell(
                     MainNavigationRail(
                         selectedRouteState = selectedRouteState,
                         onDestinationSelectedState = onDestinationSelectedState,
-                        navigationRailState = navigationRailState
+                        navigationRailState = navigationRailState,
+                        modifier = Modifier.onSizeChanged { size ->
+                            materialRailWidth = with(density) { size.width.toDp() }
+                        }
                     )
                 }
             }
             SearchScrim(state = searchOverlay, modifier = Modifier.fillMaxSize())
         }
     } else {
-        // === Bottom bar layout (portrait) ===
+
         val useFloating = (ztoolThemeSpec.style == FrontendStyle.Miuix
                 && enableFloatingBottomBar)
 
         if (useFloating) {
-            // Floating mode: overlay the pill on top of content — no Scaffold bottomBar slot
+
             Box(
                 modifier = Modifier.fillMaxSize()
             ) {
@@ -497,7 +436,7 @@ private fun MainTabletShell(
                 SearchScrim(state = searchOverlay, modifier = Modifier.fillMaxSize())
             }
         } else {
-            // Standard mode: Scaffold with built-in bottomBar slot
+
             val bottomBar: @Composable () -> Unit = {
                 if (environmentReady) {
                     MainNavigationBar(
@@ -549,10 +488,11 @@ private fun MainTabletShell(
 private fun MainNavigationRail(
     selectedRouteState: State<MainRoute>,
     onDestinationSelectedState: State<(MainRoute) -> Unit>,
-    navigationRailState: ZToolNavigationRailState
+    navigationRailState: ZToolNavigationRailState,
+    modifier: Modifier = Modifier
 ) {
     ZToolNavigationRail(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxHeight(),
         state = navigationRailState
     ) {
@@ -637,7 +577,6 @@ private fun MainNavigationBar(
     ZToolNavigationBar(
         modifier = Modifier
             .fillMaxWidth()
-            .navigationBarsPadding()
     ) {
         MainRoute.entriesInOrder.forEach { destination ->
             MainNavigationBarItem(
@@ -650,7 +589,7 @@ private fun MainNavigationBar(
 }
 
 @Composable
-private fun RowScope.MainNavigationBarItem(
+private fun MainNavigationBarItem(
     destination: MainRoute,
     selectedRouteState: State<MainRoute>,
     onDestinationSelectedState: State<(MainRoute) -> Unit>
@@ -660,7 +599,7 @@ private fun RowScope.MainNavigationBarItem(
         onClick = { onDestinationSelectedState.value(destination) },
         icon = ImageVector.vectorResource(destination.iconRes),
         label = stringResource(destination.labelRes),
-        modifier = Modifier.weight(1f)
+        modifier = Modifier
     )
 }
 
