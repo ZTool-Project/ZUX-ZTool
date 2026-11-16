@@ -561,3 +561,16 @@ Verification: assembleDebug, assembleDev, and both search consistency tests pass
 Installed the dev APK on the wired LSPosed device and verified separate segmented
 rows, collapse, and re-expansion without overlap. Restored the initial enabled state
 and preserved the punctuation value.
+
+
+## 2026-11-17 — Capsule search in app-selection dialogs
+
+AppChooserDialog now uses a shared ZToolSearchField instead of a settings text-input
+row. Material uses SearchBarDefaults.InputField with TextFieldState, SearchBarState,
+official capsule styling, and a clear action. Miuix uses its InputField search
+component. Results stay in the existing inline list.
+
+Verification: assembleDebug and assembleDev passed; string resources have zero locale
+differences and no newly unused entries. Installed the dev APK on the wired LSPosed
+device and verified the Material capsule, name/package filtering, clearing, and search
+submission. Left the dialog open with an empty query and its original selection.

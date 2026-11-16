@@ -20,15 +20,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material3.MaterialTheme
 import com.qimian233.ztool.ui.theme.LocalZToolColorScheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -40,8 +38,8 @@ import com.qimian233.ztool.R
 import com.qimian233.ztool.ui.components.ZToolCheckbox
 import com.qimian233.ztool.ui.components.ZToolCircularProgressIndicator
 import com.qimian233.ztool.ui.components.ZToolDialog
+import com.qimian233.ztool.ui.components.ZToolSearchField
 import com.qimian233.ztool.ui.components.ZToolTextButton
-import com.qimian233.ztool.ui.components.ZToolTextInputRow
 import com.qimian233.ztool.ui.components.showPlatformComposeDialog
 import java.util.concurrent.Executors
 
@@ -220,7 +218,8 @@ private fun AppChooserContent(
     onConfirm: (Set<String>) -> Unit,
     onCancel: () -> Unit
 ) {
-    var query by remember { mutableStateOf("") }
+    val queryState = rememberTextFieldState()
+    val query = queryState.text.toString()
     val selectedPackages = remember {
         mutableStateListOf<String>().apply {
             addAll(apps.filter { it.isSelected }.map { it.packageName })
@@ -262,11 +261,10 @@ private fun AppChooserContent(
             Column(
                 modifier = Modifier.fillMaxWidth()
             ) {
-                ZToolTextInputRow(
-                    label = stringResource(R.string.common_search_hint),
-                    value = query,
-                    onValueChange = { query = it },
-                    singleLine = true
+                ZToolSearchField(
+                    state = queryState,
+                    placeholder = stringResource(R.string.common_search_hint),
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp)
                 )
 
                 Text(
