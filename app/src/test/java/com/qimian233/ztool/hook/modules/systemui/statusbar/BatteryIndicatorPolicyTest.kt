@@ -2,6 +2,7 @@ package com.qimian233.ztool.hook.modules.systemui.statusbar
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -13,12 +14,14 @@ class BatteryIndicatorPolicyTest {
         assertTrue(BatteryIndicatorOptions(externalPercent = true).enabled)
         assertTrue(BatteryIndicatorOptions(chargingColor = true).enabled)
         assertTrue(BatteryIndicatorOptions(style = BatteryIndicatorStyle.FRAMELESS).enabled)
+        assertTrue(BatteryIndicatorOptions(style = BatteryIndicatorStyle.IOS_STYLE).enabled)
     }
 
     @Test
     fun `style fromPref parses valid values and degrades unknown values to default`() {
         assertEquals(BatteryIndicatorStyle.DEFAULT_FRAMED, BatteryIndicatorStyle.fromPref("default_framed"))
         assertEquals(BatteryIndicatorStyle.FRAMELESS, BatteryIndicatorStyle.fromPref("frameless"))
+        assertEquals(BatteryIndicatorStyle.IOS_STYLE, BatteryIndicatorStyle.fromPref("ios_style"))
         assertEquals(BatteryIndicatorStyle.DEFAULT_FRAMED, BatteryIndicatorStyle.fromPref("unknown"))
         assertEquals(BatteryIndicatorStyle.DEFAULT_FRAMED, BatteryIndicatorStyle.fromPref(null))
     }
@@ -119,36 +122,85 @@ class BatteryIndicatorPolicyTest {
     }
 
     @Test
-    fun `frameless style uses translucent container on dark and light bars and ignores opaque health frame`() {
-        val options = BatteryIndicatorOptions(style = BatteryIndicatorStyle.FRAMELESS)
+    fun `filled container styles use translucent container on dark and light bars and ignore opaque health frame`() {
+        for (style in listOf(BatteryIndicatorStyle.FRAMELESS, BatteryIndicatorStyle.IOS_STYLE)) {
+            val options = BatteryIndicatorOptions(style = style)
 
-        val darkBar = BatteryIndicatorPolicy.resolveColors(
-            BatteryIndicatorState(level = 75, isBlackTheme = false, isHealthFrameActive = true),
-            options
-        )
-        assertEquals(BatteryIndicatorPolicy.COLOR_WHITE, darkBar.frameColor)
-        assertEquals(BatteryIndicatorPolicy.ALPHA_FRAMELESS_CONTAINER_DARK_BAR, darkBar.frameAlpha)
-        assertEquals(BatteryIndicatorPolicy.COLOR_WHITE, darkBar.fillColor)
-        assertEquals(BatteryIndicatorPolicy.ALPHA_FILL_PURE_DARK_BAR, darkBar.fillAlpha)
+            val darkBar = BatteryIndicatorPolicy.resolveColors(
+                BatteryIndicatorState(level = 75, isBlackTheme = false, isHealthFrameActive = true),
+                options
+            )
+            assertEquals(BatteryIndicatorPolicy.COLOR_WHITE, darkBar.frameColor)
+            assertEquals(BatteryIndicatorPolicy.ALPHA_FRAMELESS_CONTAINER_DARK_BAR, darkBar.frameAlpha)
+            assertEquals(BatteryIndicatorPolicy.COLOR_WHITE, darkBar.fillColor)
+            assertEquals(BatteryIndicatorPolicy.ALPHA_FILL_PURE_DARK_BAR, darkBar.fillAlpha)
 
-        val lightBar = BatteryIndicatorPolicy.resolveColors(
-            BatteryIndicatorState(level = 75, isBlackTheme = true),
-            options
-        )
-        assertEquals(BatteryIndicatorPolicy.COLOR_BLACK, lightBar.frameColor)
-        assertEquals(BatteryIndicatorPolicy.ALPHA_FRAMELESS_CONTAINER_LIGHT_BAR, lightBar.frameAlpha)
-        assertEquals(BatteryIndicatorPolicy.COLOR_BLACK, lightBar.fillColor)
-        assertEquals(BatteryIndicatorPolicy.ALPHA_FILL_PURE_LIGHT_BAR, lightBar.fillAlpha)
+            val lightBar = BatteryIndicatorPolicy.resolveColors(
+                BatteryIndicatorState(level = 75, isBlackTheme = true),
+                options
+            )
+            assertEquals(BatteryIndicatorPolicy.COLOR_BLACK, lightBar.frameColor)
+            assertEquals(BatteryIndicatorPolicy.ALPHA_FRAMELESS_CONTAINER_LIGHT_BAR, lightBar.frameAlpha)
+            assertEquals(BatteryIndicatorPolicy.COLOR_BLACK, lightBar.fillColor)
+            assertEquals(BatteryIndicatorPolicy.ALPHA_FILL_PURE_LIGHT_BAR, lightBar.fillAlpha)
+        }
     }
 
     @Test
-    fun `frameless style dims container and fill when inner percentage text is shown`() {
-        val resolved = BatteryIndicatorPolicy.resolveColors(
-            BatteryIndicatorState(level = 60, isBlackTheme = false, systemShowPercent = true),
-            BatteryIndicatorOptions(externalPercent = false, style = BatteryIndicatorStyle.FRAMELESS)
+    fun `filled container styles adjust container and fill for light inner percentage text`() {
+        for (style in listOf(BatteryIndicatorStyle.FRAMELESS, BatteryIndicatorStyle.IOS_STYLE)) {
+            val darkBar = BatteryIndicatorPolicy.resolveColors(
+                BatteryIndicatorState(level = 60, isBlackTheme = false, systemShowPercent = true),
+                BatteryIndicatorOptions(externalPercent = false, style = style)
+            )
+            assertEquals(BatteryIndicatorPolicy.ALPHA_FRAMELESS_CONTAINER_INNER_PERCENT, darkBar.frameAlpha)
+            assertEquals(BatteryIndicatorPolicy.ALPHA_FRAMELESS_FILL_INNER_PERCENT, darkBar.fillAlpha)
+
+            val lightBar = BatteryIndicatorPolicy.resolveColors(
+                BatteryIndicatorState(level = 60, isBlackTheme = true, systemShowPercent = true),
+                BatteryIndicatorOptions(externalPercent = false, style = style)
+            )
+            assertEquals(BatteryIndicatorPolicy.ALPHA_FRAMELESS_CONTAINER_LIGHT_INNER_PERCENT, lightBar.frameAlpha)
+            assertEquals(BatteryIndicatorPolicy.ALPHA_FRAMELESS_FILL_LIGHT_INNER_PERCENT, lightBar.fillAlpha)
+
+            val lightBarCharging = BatteryIndicatorPolicy.resolveColors(
+                BatteryIndicatorState(
+                    level = 60,
+                    isCharging = true,
+                    chargeRate = 3,
+                    isBlackTheme = true,
+                    systemShowPercent = true
+                ),
+                BatteryIndicatorOptions(externalPercent = false, chargingColor = true, style = style)
+            )
+            assertEquals(BatteryIndicatorPolicy.ALPHA_OPAQUE, lightBarCharging.fillAlpha)
+        }
+    }
+
+    @Test
+    fun `inner percentage text uses light color only for internal filled container styles`() {
+        assertNull(
+            BatteryIndicatorPolicy.resolveInnerPercentTextColor(
+                BatteryIndicatorOptions(externalPercent = false, style = BatteryIndicatorStyle.DEFAULT_FRAMED)
+            )
         )
-        assertEquals(BatteryIndicatorPolicy.ALPHA_FRAMELESS_CONTAINER_INNER_PERCENT, resolved.frameAlpha)
-        assertEquals(BatteryIndicatorPolicy.ALPHA_FRAMELESS_FILL_INNER_PERCENT, resolved.fillAlpha)
+        assertNull(
+            BatteryIndicatorPolicy.resolveInnerPercentTextColor(
+                BatteryIndicatorOptions(externalPercent = true, style = BatteryIndicatorStyle.IOS_STYLE)
+            )
+        )
+        assertEquals(
+            BatteryIndicatorPolicy.COLOR_WHITE,
+            BatteryIndicatorPolicy.resolveInnerPercentTextColor(
+                BatteryIndicatorOptions(externalPercent = false, style = BatteryIndicatorStyle.FRAMELESS)
+            )
+        )
+        assertEquals(
+            BatteryIndicatorPolicy.COLOR_WHITE,
+            BatteryIndicatorPolicy.resolveInnerPercentTextColor(
+                BatteryIndicatorOptions(externalPercent = false, style = BatteryIndicatorStyle.IOS_STYLE)
+            )
+        )
     }
 
     @Test

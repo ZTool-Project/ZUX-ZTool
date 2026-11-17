@@ -1,15 +1,14 @@
 package com.qimian233.ztool.hook.modules.systemui.statusbar
 
 import android.graphics.Canvas
-import android.graphics.Color
 import android.graphics.ColorFilter
+import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.PixelFormat
-import android.graphics.PorterDuff
-import android.graphics.PorterDuffXfermode
 import android.graphics.Rect
 import android.graphics.RectF
+import android.graphics.Shader
 import android.graphics.drawable.Drawable
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -92,6 +91,7 @@ class ZToolBatteryDrawable(
     private fun rendererForStyle(style: BatteryIndicatorStyle): BatteryShapeRenderer = when (style) {
         BatteryIndicatorStyle.DEFAULT_FRAMED -> DefaultFramedBatteryRenderer()
         BatteryIndicatorStyle.FRAMELESS -> FramelessBatteryRenderer()
+        BatteryIndicatorStyle.IOS_STYLE -> IosBatteryRenderer()
     }
 
     companion object {
@@ -202,32 +202,34 @@ class DefaultFramedBatteryRenderer : BatteryShapeRenderer {
     }
 }
 
-/** Renders a frameless translucent capsule container with an edge-flush continuous level fill. */
-class FramelessBatteryRenderer : BatteryShapeRenderer {
+/** Shared renderer for filled translucent battery containers with edge-flush level clipping. */
+open class FilledContainerBatteryRenderer(
+    private val containerRect: RectF,
+    private val cornerRadius: Float,
+    capPath: Path? = null,
+    private val fillCapOnFull: Boolean = false
+) : BatteryShapeRenderer {
     override val viewportWidth: Float = HorizontalBatteryGeometry.VIEWPORT_WIDTH
     override val viewportHeight: Float = HorizontalBatteryGeometry.VIEWPORT_HEIGHT
 
+    private val containerPath: Path = Path().apply {
+        addRoundRect(containerRect, cornerRadius, cornerRadius, Path.Direction.CW)
+        if (capPath != null) {
+            op(capPath, Path.Op.UNION)
+        }
+    }
     private val containerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
     }
-    private val capPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+    private val fullFillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
-    }
-    private val maskPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        style = Paint.Style.FILL
-        color = Color.BLACK
     }
     private val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
-        xfermode = PorterDuffXfermode(PorterDuff.Mode.SRC_IN)
     }
-    private val containerRect = RectF(
-        CONTAINER_LEFT,
-        CONTAINER_TOP,
-        CONTAINER_RIGHT,
-        CONTAINER_BOTTOM
-    )
-    private val fillRect = RectF()
+    private var cachedFillLevel: Int = -1
+    private var cachedFillRgb: Int = 0
+    private var cachedFillShader: LinearGradient? = null
 
     override fun draw(
         canvas: Canvas,
@@ -236,59 +238,122 @@ class FramelessBatteryRenderer : BatteryShapeRenderer {
         colors: BatteryResolvedColors
     ) {
         HorizontalBatteryGeometry.drawInViewport(canvas, bounds) {
+            val level = state.clampedLevel
+            val fillRight = containerRect.left + containerRect.width() * (level / 100f)
+
+            if (level == FULL_BATTERY_LEVEL && fillCapOnFull) {
+                if (colors.fillAlpha < BatteryIndicatorPolicy.ALPHA_OPAQUE) {
+                    containerPaint.color = colors.frameColor
+                    containerPaint.alpha = colors.frameAlpha
+                    canvas.drawPath(containerPath, containerPaint)
+                }
+                fullFillPaint.color = colors.fillColor
+                fullFillPaint.alpha = colors.fillAlpha
+                canvas.drawPath(containerPath, fullFillPaint)
+                return@drawInViewport
+            }
+
+            val containerSave = canvas.save()
+            if (level > 0 && colors.fillAlpha == BatteryIndicatorPolicy.ALPHA_OPAQUE) {
+                // Keep container under the fill boundary pixel to avoid a subpixel gap,
+                // while leaving the left/top/bottom outer AA edges clean against the status bar.
+                canvas.clipRect(
+                    fillRight - CONTAINER_CLIP_OVERLAP,
+                    0f,
+                    HorizontalBatteryGeometry.VIEWPORT_WIDTH,
+                    HorizontalBatteryGeometry.VIEWPORT_HEIGHT
+                )
+            }
             containerPaint.color = colors.frameColor
             containerPaint.alpha = colors.frameAlpha
-            canvas.drawRoundRect(
-                containerRect,
-                CONTAINER_CORNER_RADIUS,
-                CONTAINER_CORNER_RADIUS,
-                containerPaint
-            )
+            canvas.drawPath(containerPath, containerPaint)
+            canvas.restoreToCount(containerSave)
 
-            capPaint.color = colors.frameColor
-            capPaint.alpha = colors.frameAlpha
-            canvas.drawPath(HorizontalBatteryGeometry.CAP_PATH, capPaint)
-
-            val level = state.clampedLevel
             if (level > 0) {
-                // SRC_IN inside an offscreen layer preserves anti-aliased capsule corners
-                // without gaps or edge overhang at any battery percentage.
-                val layerSave = canvas.saveLayer(
-                    CONTAINER_LEFT - LAYER_PAD,
-                    CONTAINER_TOP - LAYER_PAD,
-                    CONTAINER_RIGHT + LAYER_PAD,
-                    CONTAINER_BOTTOM + LAYER_PAD,
+                fillPaint.shader = if (level == FULL_BATTERY_LEVEL) {
                     null
-                )
-                canvas.drawRoundRect(
-                    containerRect,
-                    CONTAINER_CORNER_RADIUS,
-                    CONTAINER_CORNER_RADIUS,
-                    maskPaint
-                )
-                val fillWidth = CONTAINER_WIDTH * (level / 100f)
-                fillRect.set(
-                    CONTAINER_LEFT,
-                    CONTAINER_TOP,
-                    CONTAINER_LEFT + fillWidth,
-                    CONTAINER_BOTTOM
-                )
+                } else {
+                    resolveFillShader(level, fillRight, colors.fillColor)
+                }
                 fillPaint.color = colors.fillColor
                 fillPaint.alpha = colors.fillAlpha
-                canvas.drawRect(fillRect, fillPaint)
-                canvas.restoreToCount(layerSave)
+                canvas.drawRoundRect(containerRect, cornerRadius, cornerRadius, fillPaint)
             }
         }
     }
 
+    private fun resolveFillShader(level: Int, fillRight: Float, fillColor: Int): LinearGradient {
+        val rgb = fillColor and RGB_MASK
+        val existing = cachedFillShader
+        if (existing != null && cachedFillLevel == level && cachedFillRgb == rgb) {
+            return existing
+        }
+        val shader = LinearGradient(
+            fillRight - GRADIENT_RAMP,
+            0f,
+            fillRight + GRADIENT_RAMP,
+            0f,
+            rgb or OPAQUE_ALPHA_MASK,
+            rgb,
+            Shader.TileMode.CLAMP
+        )
+        cachedFillLevel = level
+        cachedFillRgb = rgb
+        cachedFillShader = shader
+        return shader
+    }
+
     companion object {
-        // Matches stock outer stroke bounds vertically (y: 16..52) with a 2u gap before CAP_PATH (x: 62).
+        private const val FULL_BATTERY_LEVEL = 100
+        private const val GRADIENT_RAMP = 0.1f
+        private const val CONTAINER_CLIP_OVERLAP = 0.75f
+        private const val RGB_MASK = 0x00FFFFFF
+        private const val OPAQUE_ALPHA_MASK = -0x1000000
+    }
+}
+
+/** Renders a pure frameless translucent pill capsule container with edge-flush level fill. */
+class FramelessBatteryRenderer : FilledContainerBatteryRenderer(
+    containerRect = RectF(CONTAINER_LEFT, CONTAINER_TOP, CONTAINER_RIGHT, CONTAINER_BOTTOM),
+    cornerRadius = CONTAINER_CORNER_RADIUS,
+    capPath = null
+) {
+    companion object {
         private const val CONTAINER_LEFT = 2f
-        private const val CONTAINER_TOP = 16f
-        private const val CONTAINER_RIGHT = 60f
-        private const val CONTAINER_BOTTOM = 52f
-        private const val CONTAINER_WIDTH = CONTAINER_RIGHT - CONTAINER_LEFT
-        private const val CONTAINER_CORNER_RADIUS = 10f
-        private const val LAYER_PAD = 1f
+        private const val CONTAINER_TOP = 18f
+        private const val CONTAINER_RIGHT = 64f
+        private const val CONTAINER_BOTTOM = 50f
+        private const val CONTAINER_CORNER_RADIUS = (CONTAINER_BOTTOM - CONTAINER_TOP) / 2f
+    }
+}
+
+/** Renders an iOS-style translucent horizontal battery container with a seamless rounded-rect terminal cap. */
+class IosBatteryRenderer : FilledContainerBatteryRenderer(
+    containerRect = RectF(BODY_LEFT, BODY_TOP, BODY_RIGHT, BODY_BOTTOM),
+    cornerRadius = BODY_CORNER_RADIUS,
+    capPath = IOS_CAP_PATH,
+    fillCapOnFull = true
+) {
+    companion object {
+        // Centered 1.9:1 horizontal iOS battery proportions (x: 2.5..63.5, y: 19..49).
+        private const val BODY_LEFT = 2.5f
+        private const val BODY_TOP = 19f
+        private const val BODY_RIGHT = 59.5f
+        private const val BODY_BOTTOM = 49f
+        private const val BODY_CORNER_RADIUS = 7.5f
+        private const val CAP_OVERLAP_LEFT = BODY_RIGHT - 2f
+        private const val CAP_TOP = 29f
+        private const val CAP_BOTTOM = 39f
+        private const val CAP_PROTRUSION = 4f
+        private const val CAP_CORNER_RADIUS = 1.8f
+
+        private val IOS_CAP_PATH: Path = Path().apply {
+            addRoundRect(
+                RectF(CAP_OVERLAP_LEFT, CAP_TOP, BODY_RIGHT + CAP_PROTRUSION, CAP_BOTTOM),
+                CAP_CORNER_RADIUS,
+                CAP_CORNER_RADIUS,
+                Path.Direction.CW
+            )
+        }
     }
 }

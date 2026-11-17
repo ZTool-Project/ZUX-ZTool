@@ -152,7 +152,11 @@ class SystemUIBatteryHook : AppHookModule() {
             }.getOrNull()?.let { method ->
                 hookWithId(method, "battery_dark_changed") { chain ->
                     val result = chain.proceed()
-                    (chain.thisObject as? LinearLayout)?.let { syncBatteryDrawable(host, it, readOptions()) }
+                    (chain.thisObject as? LinearLayout)?.let { view ->
+                        val options = readOptions()
+                        syncBatteryDrawable(host, view, options)
+                        syncInnerPercentTextColor(host, view, options)
+                    }
                     result
                 }
             }
@@ -185,6 +189,8 @@ class SystemUIBatteryHook : AppHookModule() {
                     val options = readOptions()
                     if (options.externalPercent) {
                         updateExternalPercentText(host, view)
+                    } else {
+                        syncInnerPercentTextColor(host, view, options)
                     }
                 }
                 result
@@ -238,6 +244,39 @@ class SystemUIBatteryHook : AppHookModule() {
             forceShowExternalPercentage(host, view)
         }
         syncBatteryDrawable(host, view, options)
+        syncInnerPercentTextColor(host, view, options)
+    }
+
+    private fun syncInnerPercentTextColor(
+        host: Host,
+        view: LinearLayout,
+        options: BatteryIndicatorOptions
+    ) {
+        val overrideColor = BatteryIndicatorPolicy.resolveInnerPercentTextColor(options) ?: return
+        try {
+            if (isUsingStockFallback(host, view)) return
+            val percentView = host.percentViewField.get(view) as? TextView ?: return
+            if (percentView.currentTextColor != overrideColor) {
+                percentView.setTextColor(overrideColor)
+            }
+        } catch (t: Throwable) {
+            logger.error("Failed to sync inner battery percentage text color", t)
+        }
+    }
+
+    private fun isUsingStockFallback(host: Host, view: LinearLayout): Boolean {
+        val level = host.levelField.getInt(view)
+        val rawCharging = host.chargingField.getBoolean(view)
+        val bypassCharging = (host.bypassChargingMethod?.invoke(view) as? Boolean) ?: false
+        val virtualBattery = (host.virtualBatteryMethod?.invoke(view) as? Boolean) ?: false
+        val stateUnknown = host.batteryStateUnknownField?.getBoolean(view) ?: false
+        val effectiveCharging = rawCharging && !bypassCharging && !virtualBattery
+        return BatteryIndicatorPolicy.shouldUseStockDrawable(
+            level = level,
+            isCharging = effectiveCharging,
+            isStateUnknown = stateUnknown,
+            isVirtualBattery = virtualBattery
+        )
     }
 
     private fun ensureExternalPercentLayout(host: Host, view: LinearLayout) {

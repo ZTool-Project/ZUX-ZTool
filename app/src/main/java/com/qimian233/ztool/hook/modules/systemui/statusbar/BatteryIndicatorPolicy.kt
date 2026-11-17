@@ -5,7 +5,11 @@ package com.qimian233.ztool.hook.modules.systemui.statusbar
 /** Visual style of the status bar battery indicator. */
 enum class BatteryIndicatorStyle(val prefValue: String) {
     DEFAULT_FRAMED("default_framed"),
-    FRAMELESS("frameless");
+    FRAMELESS("frameless"),
+    IOS_STYLE("ios_style");
+
+    val isFilledContainer: Boolean
+        get() = this == FRAMELESS || this == IOS_STYLE
 
     companion object {
         /** Parses a persisted [prefValue], falling back to [DEFAULT_FRAMED]. */
@@ -69,8 +73,10 @@ object BatteryIndicatorPolicy {
     const val ALPHA_FRAMELESS_CONTAINER_LIGHT_BAR = 64 // 0.25f dim container on light bar
     const val ALPHA_FRAMELESS_CONTAINER_DARK_BAR = 77 // 0.30f dim container on dark bar
     const val ALPHA_FRAMELESS_CONTAINER_INNER_PERCENT = 38 // 0.15f container behind inner text
+    const val ALPHA_FRAMELESS_CONTAINER_LIGHT_INNER_PERCENT = 115 // 0.45f container on light bar for white text
     const val ALPHA_FILL_INNER_PERCENT = 51 // 0.2f when percentage text overlays the icon
     const val ALPHA_FRAMELESS_FILL_INNER_PERCENT = 64 // 0.25f fill over dim container behind text
+    const val ALPHA_FRAMELESS_FILL_LIGHT_INNER_PERCENT = 217 // 0.85f dark fill on light bar for white text
     const val ALPHA_FILL_PURE_LIGHT_BAR = 204 // 0.8f pure fill on light status bar
     const val ALPHA_FILL_PURE_DARK_BAR = 230 // 0.9f pure fill on dark status bar
     const val ALPHA_FILL_CHARGING_INNER_PERCENT = 166 // 0.65f charging fill behind inner text
@@ -82,13 +88,14 @@ object BatteryIndicatorPolicy {
     ): BatteryResolvedColors {
         val baseMonochrome = if (state.isBlackTheme) COLOR_BLACK else COLOR_WHITE
         val hasInnerPercent = state.systemShowPercent && !options.externalPercent
-        val isFrameless = options.style == BatteryIndicatorStyle.FRAMELESS
+        val isFilledContainer = options.style.isFilledContainer
 
         val frameColor: Int
         val frameAlpha: Int
-        if (isFrameless) {
+        if (isFilledContainer) {
             frameColor = baseMonochrome
             frameAlpha = when {
+                hasInnerPercent && state.isBlackTheme -> ALPHA_FRAMELESS_CONTAINER_LIGHT_INNER_PERCENT
                 hasInnerPercent -> ALPHA_FRAMELESS_CONTAINER_INNER_PERCENT
                 state.isBlackTheme -> ALPHA_FRAMELESS_CONTAINER_LIGHT_BAR
                 else -> ALPHA_FRAMELESS_CONTAINER_DARK_BAR
@@ -110,7 +117,11 @@ object BatteryIndicatorPolicy {
                 } else {
                     COLOR_NORMAL_CHARGING_FILL
                 }
-                fillAlpha = if (hasInnerPercent) ALPHA_FILL_CHARGING_INNER_PERCENT else ALPHA_OPAQUE
+                fillAlpha = if (hasInnerPercent && !(isFilledContainer && state.isBlackTheme)) {
+                    ALPHA_FILL_CHARGING_INNER_PERCENT
+                } else {
+                    ALPHA_OPAQUE
+                }
             }
             state.isPowerSave -> {
                 fillColor = COLOR_POWER_SAVE_FILL
@@ -123,7 +134,9 @@ object BatteryIndicatorPolicy {
             else -> {
                 fillColor = baseMonochrome
                 fillAlpha = when {
-                    hasInnerPercent && isFrameless -> ALPHA_FRAMELESS_FILL_INNER_PERCENT
+                    hasInnerPercent && isFilledContainer && state.isBlackTheme ->
+                        ALPHA_FRAMELESS_FILL_LIGHT_INNER_PERCENT
+                    hasInnerPercent && isFilledContainer -> ALPHA_FRAMELESS_FILL_INNER_PERCENT
                     hasInnerPercent -> ALPHA_FILL_INNER_PERCENT
                     state.isBlackTheme -> ALPHA_FILL_PURE_LIGHT_BAR
                     else -> ALPHA_FILL_PURE_DARK_BAR
@@ -137,6 +150,12 @@ object BatteryIndicatorPolicy {
             fillColor = fillColor,
             fillAlpha = fillAlpha
         )
+    }
+
+    /** Returns the override text color for inner percentage digits, or null to keep stock color. */
+    fun resolveInnerPercentTextColor(options: BatteryIndicatorOptions): Int? {
+        if (options.externalPercent || !options.style.isFilledContainer) return null
+        return COLOR_WHITE
     }
 
     /** Returns true when stock VectorDrawable should be kept instead of custom rendering. */

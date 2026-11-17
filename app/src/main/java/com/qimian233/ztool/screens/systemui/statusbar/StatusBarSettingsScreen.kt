@@ -646,6 +646,8 @@ private fun batteryStyleLabel(style: BatteryIndicatorStyle): String = when (styl
         stringResource(R.string.system_ui_status_bar_battery_style_default_framed_name)
     BatteryIndicatorStyle.FRAMELESS ->
         stringResource(R.string.system_ui_status_bar_battery_style_frameless_name)
+    BatteryIndicatorStyle.IOS_STYLE ->
+        stringResource(R.string.system_ui_status_bar_battery_style_ios_style_name)
 }
 
 @Composable
@@ -654,6 +656,8 @@ private fun batteryStyleSummary(style: BatteryIndicatorStyle): String = when (st
         stringResource(R.string.system_ui_status_bar_battery_style_default_framed_summary)
     BatteryIndicatorStyle.FRAMELESS ->
         stringResource(R.string.system_ui_status_bar_battery_style_frameless_summary)
+    BatteryIndicatorStyle.IOS_STYLE ->
+        stringResource(R.string.system_ui_status_bar_battery_style_ios_style_summary)
 }
 @Composable
 private fun CustomClockConfig(

@@ -56,9 +56,9 @@ The SystemUI status bar battery indicator module (`com.android.systemui`, target
 - [ ] Support toggling bold vs. normal typeface on `mBatteryPercentView` independently for both internal (inside icon) and external (right of icon) percentage modes in `SystemUIBatteryHook`.
 - [ ] Add the frontend switch in `StatusBarSettingsRepository`, `StatusBarSettingsViewModel`, `StatusBarSettingsScreen`, `SearchIndex`, and bilingual `strings.xml`.
 
-### 3.2 Frameless Battery Indicator (`BatteryIndicatorStyle.FRAMELESS`)
-- [x] Add `FRAMELESS` to `BatteryIndicatorStyle` and define container background alpha/color rules in `BatteryIndicatorPolicy` (translucent dark/dim filled capsule container replacing the bright stroked border).
-- [x] Implement `FramelessBatteryRenderer : BatteryShapeRenderer` in `ZToolBatteryDrawable.kt` (drawing the filled capsule track and clipping/drawing the `1%`-continuous level fill inside it).
+### 3.2 Frameless Battery Indicator (`BatteryIndicatorStyle.FRAMELESS` & `IOS_STYLE`)
+- [x] Add `FRAMELESS` and `IOS_STYLE` to `BatteryIndicatorStyle` and define container background alpha/color rules in `BatteryIndicatorPolicy` (translucent dark/dim filled containers replacing the bright stroked border).
+- [x] Implement `FilledContainerBatteryRenderer`, `FramelessBatteryRenderer` (pure capsule), and `IosBatteryRenderer` (horizontal iOS battery with seamless rounded-rect terminal cap filled only at 100%) in `ZToolBatteryDrawable.kt` with edge-flush `SRC_IN` `1%`-continuous level fill and light inner percentage text.
 - [x] Wire style selection in `PreferenceKeys`, Repository, ViewModel, Compose UI, `SearchIndex`, and unit tests.
 
 ### 3.3 Alternative Battery Indicator Shapes (`BatteryShapeRenderer` Implementations)
