@@ -74,6 +74,12 @@ class SystemUIBatteryHook : AppHookModule() {
             chargingColor = prefs.getBoolean(
                 PreferenceKeys.SYSTEMUI_BATTERY_CHARGING_COLOR.name,
                 PreferenceKeys.SYSTEMUI_BATTERY_CHARGING_COLOR.default
+            ),
+            style = BatteryIndicatorStyle.fromPref(
+                prefs.getString(
+                    PreferenceKeys.SYSTEMUI_BATTERY_INDICATOR_STYLE.name,
+                    PreferenceKeys.SYSTEMUI_BATTERY_INDICATOR_STYLE.default
+                )
             )
         )
     } catch (_: Throwable) {

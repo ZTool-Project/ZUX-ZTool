@@ -57,9 +57,9 @@ The SystemUI status bar battery indicator module (`com.android.systemui`, target
 - [ ] Add the frontend switch in `StatusBarSettingsRepository`, `StatusBarSettingsViewModel`, `StatusBarSettingsScreen`, `SearchIndex`, and bilingual `strings.xml`.
 
 ### 3.2 Frameless Battery Indicator (`BatteryIndicatorStyle.FRAMELESS`)
-- [ ] Add `FRAMELESS` to `BatteryIndicatorStyle` and define container background alpha/color rules in `BatteryIndicatorPolicy` (translucent dark/dim filled capsule container replacing the bright stroked border).
-- [ ] Implement `FramelessBatteryRenderer : BatteryShapeRenderer` in `ZToolBatteryDrawable.kt` (drawing the filled capsule track and clipping/drawing the `1%`-continuous level fill inside it).
-- [ ] Wire style selection in `PreferenceKeys`, Repository, ViewModel, Compose UI, `SearchIndex`, and unit tests.
+- [x] Add `FRAMELESS` to `BatteryIndicatorStyle` and define container background alpha/color rules in `BatteryIndicatorPolicy` (translucent dark/dim filled capsule container replacing the bright stroked border).
+- [x] Implement `FramelessBatteryRenderer : BatteryShapeRenderer` in `ZToolBatteryDrawable.kt` (drawing the filled capsule track and clipping/drawing the `1%`-continuous level fill inside it).
+- [x] Wire style selection in `PreferenceKeys`, Repository, ViewModel, Compose UI, `SearchIndex`, and unit tests.
 
 ### 3.3 Alternative Battery Indicator Shapes (`BatteryShapeRenderer` Implementations)
 - [ ] **Vertical battery icon (`BatteryIndicatorStyle.VERTICAL`)**: implement `VerticalBatteryRenderer` with top terminal cap, vertical frame/container, and bottom-to-top continuous level fill.

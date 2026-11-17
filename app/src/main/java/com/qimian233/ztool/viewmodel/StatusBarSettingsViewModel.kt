@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.qimian233.ztool.data.systemui.StatusBarSettingsRepository
+import com.qimian233.ztool.hook.modules.systemui.statusbar.BatteryIndicatorStyle
 import com.qimian233.ztool.ui.components.normalizeArgbColorTextOrNull
 import com.qimian233.ztool.ui.components.sanitizeArgbColorText
 import kotlinx.coroutines.Dispatchers
@@ -164,6 +165,11 @@ class StatusBarSettingsViewModel(
         repository.saveBatteryChargingColor(enabled)
     }
 
+    fun setBatteryStyle(style: BatteryIndicatorStyle) {
+        _uiState.value = _uiState.value.copy(batteryStyle = style)
+        repository.saveBatteryStyle(style)
+    }
+
     fun showFormatHelpDialog() {
         _uiState.value = _uiState.value.copy(showFormatHelpDialog = true)
     }
@@ -237,6 +243,7 @@ data class StatusBarSettingsUiState(
     val networkSpeedHideBoth: Boolean = false,
     val batteryExternal: Boolean = false,
     val batteryChargingColor: Boolean = false,
+    val batteryStyle: BatteryIndicatorStyle = BatteryIndicatorStyle.DEFAULT_FRAMED,
     val showFormatHelpDialog: Boolean = false,
     val showSaveSuccessDialog: Boolean = false,
     val isRestartProcessing: Boolean = false,

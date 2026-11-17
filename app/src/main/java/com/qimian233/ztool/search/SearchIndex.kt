@@ -507,6 +507,11 @@ object SearchIndex {
             parentKey = "status_bar_network_hide_slow"
         ),
         systemUiStatusBar.item(
+            id = "status_bar_battery_style",
+            titleRes = R.string.system_ui_status_bar_battery_style_label,
+            summaryRes = R.string.system_ui_status_bar_battery_style_summary
+        ),
+        systemUiStatusBar.item(
             id = "status_bar_battery_external",
             titleRes = R.string.system_ui_status_bar_syatus_battery_external_title,
             summaryRes = R.string.system_ui_status_bar_syatus_battery_external_summary

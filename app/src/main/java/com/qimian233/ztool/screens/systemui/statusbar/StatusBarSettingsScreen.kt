@@ -42,6 +42,7 @@ import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import com.qimian233.ztool.R
 import com.qimian233.ztool.data.keys.ScopeKeys
 import com.qimian233.ztool.data.systemui.StatusBarSettingsRepository
+import com.qimian233.ztool.hook.modules.systemui.statusbar.BatteryIndicatorStyle
 import com.qimian233.ztool.ui.components.QuickHelpExample
 import com.qimian233.ztool.ui.components.QuickHelpItem
 import com.qimian233.ztool.ui.components.HighlightAnchorRegistry
@@ -144,6 +145,7 @@ fun StatusBarSettingsRoute(
             onNetworkSpeedHideBothChanged = viewModel::setNetworkSpeedHideBoth,
             onBatteryExternalChanged = viewModel::setBatteryExternal,
             onBatteryChargingColorChanged = viewModel::setBatteryChargingColor,
+            onBatteryStyleChanged = viewModel::setBatteryStyle,
             onRestartScope = viewModel::showRestartDialog,
             scrollState = scrollState,
             highlightRegistry = highlightRegistry
@@ -231,6 +233,7 @@ private fun StatusBarSettingsScreen(
     onNetworkSpeedHideBothChanged: (Boolean) -> Unit,
     onBatteryExternalChanged: (Boolean) -> Unit,
     onBatteryChargingColorChanged: (Boolean) -> Unit,
+    onBatteryStyleChanged: (BatteryIndicatorStyle) -> Unit,
     onRestartScope: () -> Unit,
     scrollState: ScrollState,
     highlightRegistry: HighlightAnchorRegistry
@@ -297,7 +300,8 @@ private fun StatusBarSettingsScreen(
                         onNetworkSpeedHideThresholdChanged = onNetworkSpeedHideThresholdChanged,
                         onNetworkSpeedHideBothChanged = onNetworkSpeedHideBothChanged,
                         onBatteryExternalChanged = onBatteryExternalChanged,
-                        onBatteryChargingColorChanged = onBatteryChargingColorChanged
+                        onBatteryChargingColorChanged = onBatteryChargingColorChanged,
+                        onBatteryStyleChanged = onBatteryStyleChanged
                     ),
                     bottomPadding = 96.dp,
                     highlightRegistry = highlightRegistry
@@ -334,7 +338,8 @@ private fun statusBarSettingsSections(
     onNetworkSpeedHideThresholdChanged: (Float) -> Unit,
     onNetworkSpeedHideBothChanged: (Boolean) -> Unit,
     onBatteryExternalChanged: (Boolean) -> Unit,
-    onBatteryChargingColorChanged: (Boolean) -> Unit
+    onBatteryChargingColorChanged: (Boolean) -> Unit,
+    onBatteryStyleChanged: (BatteryIndicatorStyle) -> Unit
 ): List<SettingSection> {
     return listOf(
         SettingSection(
@@ -593,24 +598,62 @@ private fun statusBarSettingsSections(
         ),
         SettingSection(
             title = stringResource(R.string.system_ui_status_bar_battery_title),
-            items = listOf(
-                SettingItem.Switch(
-                    title = stringResource(R.string.system_ui_status_bar_syatus_battery_external_title),
-                    summary = stringResource(R.string.system_ui_status_bar_syatus_battery_external_summary),
-                    checked = state.batteryExternal,
-                    onCheckedChange = onBatteryExternalChanged,
-                    key = "status_bar_battery_external"
-                ),
-                SettingItem.Switch(
-                    title = stringResource(R.string.system_ui_status_bar_battery_charging_color_title),
-                    summary = stringResource(R.string.system_ui_status_bar_battery_charging_color_summary),
-                    checked = state.batteryChargingColor,
-                    onCheckedChange = onBatteryChargingColorChanged,
-                    key = "status_bar_battery_charging_color"
+            items = buildList {
+                val styleLabels = BatteryIndicatorStyle.entries.associateWith {
+                    batteryStyleLabel(it)
+                }
+                val styleSummaries = BatteryIndicatorStyle.entries.associateWith {
+                    batteryStyleSummary(it)
+                }
+                add(
+                    SettingItem.Dropdown(
+                        label = stringResource(R.string.system_ui_status_bar_battery_style_label),
+                        summary = stringResource(R.string.system_ui_status_bar_battery_style_summary),
+                        value = styleLabels.getValue(state.batteryStyle),
+                        options = BatteryIndicatorStyle.entries,
+                        optionLabel = { styleLabels.getValue(it) },
+                        optionSupportingText = { styleSummaries.getValue(it) },
+                        onOptionSelected = onBatteryStyleChanged,
+                        key = "status_bar_battery_style"
+                    )
                 )
-            )
+                add(
+                    SettingItem.Switch(
+                        title = stringResource(R.string.system_ui_status_bar_syatus_battery_external_title),
+                        summary = stringResource(R.string.system_ui_status_bar_syatus_battery_external_summary),
+                        checked = state.batteryExternal,
+                        onCheckedChange = onBatteryExternalChanged,
+                        key = "status_bar_battery_external"
+                    )
+                )
+                add(
+                    SettingItem.Switch(
+                        title = stringResource(R.string.system_ui_status_bar_battery_charging_color_title),
+                        summary = stringResource(R.string.system_ui_status_bar_battery_charging_color_summary),
+                        checked = state.batteryChargingColor,
+                        onCheckedChange = onBatteryChargingColorChanged,
+                        key = "status_bar_battery_charging_color"
+                    )
+                )
+            }
         )
     )
+}
+
+@Composable
+private fun batteryStyleLabel(style: BatteryIndicatorStyle): String = when (style) {
+    BatteryIndicatorStyle.DEFAULT_FRAMED ->
+        stringResource(R.string.system_ui_status_bar_battery_style_default_framed_name)
+    BatteryIndicatorStyle.FRAMELESS ->
+        stringResource(R.string.system_ui_status_bar_battery_style_frameless_name)
+}
+
+@Composable
+private fun batteryStyleSummary(style: BatteryIndicatorStyle): String = when (style) {
+    BatteryIndicatorStyle.DEFAULT_FRAMED ->
+        stringResource(R.string.system_ui_status_bar_battery_style_default_framed_summary)
+    BatteryIndicatorStyle.FRAMELESS ->
+        stringResource(R.string.system_ui_status_bar_battery_style_frameless_summary)
 }
 @Composable
 private fun CustomClockConfig(

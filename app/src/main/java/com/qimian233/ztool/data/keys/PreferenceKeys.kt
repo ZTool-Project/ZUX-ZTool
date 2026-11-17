@@ -414,6 +414,9 @@ object PreferenceKeys {
     // Enum names from SwitchStyle / SwitchMark; unknown values fall back to the defaults.
     val ZUI_SWITCH_STYLE_KIND = StringKey("zui_switch_style_kind", "indicator")
     val ZUI_SWITCH_MARK = StringKey("zui_switch_mark", "check")
+    // Enum prefValue from BatteryIndicatorStyle; unknown values fall back to default_framed.
+    val SYSTEMUI_BATTERY_INDICATOR_STYLE =
+        StringKey("systemui_battery_indicator_style", "default_framed")
 
     // Lists grouped by type — used by ModulePreferencesUtils backup/restore
     // and by hook-side loop matching
@@ -565,6 +568,7 @@ object PreferenceKeys {
         CUSTOM_STATUSBAR_CLOCK_FORMAT,
         CHARGE_WATTS_SELECTED_OPTION,
         SYSTEMUI_REALWATTS_CUSTOM_FORMAT,
+        SYSTEMUI_BATTERY_INDICATOR_STYLE,
         DESKTOP_LIVE_WALLPAPER_SCALE_MODE
     )
 

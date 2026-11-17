@@ -3,8 +3,15 @@ package com.qimian233.ztool.hook.modules.systemui.statusbar
 // See docs/research/systemui_battery_indicator.md
 
 /** Visual style of the status bar battery indicator. */
-enum class BatteryIndicatorStyle {
-    DEFAULT_FRAMED
+enum class BatteryIndicatorStyle(val prefValue: String) {
+    DEFAULT_FRAMED("default_framed"),
+    FRAMELESS("frameless");
+
+    companion object {
+        /** Parses a persisted [prefValue], falling back to [DEFAULT_FRAMED]. */
+        fun fromPref(value: String?): BatteryIndicatorStyle =
+            value?.let { stored -> entries.firstOrNull { it.prefValue == stored } } ?: DEFAULT_FRAMED
+    }
 }
 
 /** User-configured options for the status bar battery indicator hook. */
@@ -59,7 +66,11 @@ object BatteryIndicatorPolicy {
     const val ALPHA_OPAQUE = 255
     const val ALPHA_FRAME_LIGHT_BAR = 179 // 0.7f on light status bar (mIsBlackTheme = true)
     const val ALPHA_FRAME_DARK_BAR = 204 // 0.8f on dark status bar (mIsBlackTheme = false)
+    const val ALPHA_FRAMELESS_CONTAINER_LIGHT_BAR = 64 // 0.25f dim container on light bar
+    const val ALPHA_FRAMELESS_CONTAINER_DARK_BAR = 77 // 0.30f dim container on dark bar
+    const val ALPHA_FRAMELESS_CONTAINER_INNER_PERCENT = 38 // 0.15f container behind inner text
     const val ALPHA_FILL_INNER_PERCENT = 51 // 0.2f when percentage text overlays the icon
+    const val ALPHA_FRAMELESS_FILL_INNER_PERCENT = 64 // 0.25f fill over dim container behind text
     const val ALPHA_FILL_PURE_LIGHT_BAR = 204 // 0.8f pure fill on light status bar
     const val ALPHA_FILL_PURE_DARK_BAR = 230 // 0.9f pure fill on dark status bar
     const val ALPHA_FILL_CHARGING_INNER_PERCENT = 166 // 0.65f charging fill behind inner text
@@ -70,9 +81,19 @@ object BatteryIndicatorPolicy {
         options: BatteryIndicatorOptions
     ): BatteryResolvedColors {
         val baseMonochrome = if (state.isBlackTheme) COLOR_BLACK else COLOR_WHITE
+        val hasInnerPercent = state.systemShowPercent && !options.externalPercent
+        val isFrameless = options.style == BatteryIndicatorStyle.FRAMELESS
+
         val frameColor: Int
         val frameAlpha: Int
-        if (state.isHealthFrameActive) {
+        if (isFrameless) {
+            frameColor = baseMonochrome
+            frameAlpha = when {
+                hasInnerPercent -> ALPHA_FRAMELESS_CONTAINER_INNER_PERCENT
+                state.isBlackTheme -> ALPHA_FRAMELESS_CONTAINER_LIGHT_BAR
+                else -> ALPHA_FRAMELESS_CONTAINER_DARK_BAR
+            }
+        } else if (state.isHealthFrameActive) {
             frameColor = COLOR_HEALTH_FRAME
             frameAlpha = ALPHA_OPAQUE
         } else {
@@ -80,7 +101,6 @@ object BatteryIndicatorPolicy {
             frameAlpha = if (state.isBlackTheme) ALPHA_FRAME_LIGHT_BAR else ALPHA_FRAME_DARK_BAR
         }
 
-        val hasInnerPercent = state.systemShowPercent && !options.externalPercent
         val fillColor: Int
         val fillAlpha: Int
         when {
@@ -102,12 +122,11 @@ object BatteryIndicatorPolicy {
             }
             else -> {
                 fillColor = baseMonochrome
-                fillAlpha = if (hasInnerPercent) {
-                    ALPHA_FILL_INNER_PERCENT
-                } else if (state.isBlackTheme) {
-                    ALPHA_FILL_PURE_LIGHT_BAR
-                } else {
-                    ALPHA_FILL_PURE_DARK_BAR
+                fillAlpha = when {
+                    hasInnerPercent && isFrameless -> ALPHA_FRAMELESS_FILL_INNER_PERCENT
+                    hasInnerPercent -> ALPHA_FILL_INNER_PERCENT
+                    state.isBlackTheme -> ALPHA_FILL_PURE_LIGHT_BAR
+                    else -> ALPHA_FILL_PURE_DARK_BAR
                 }
             }
         }
