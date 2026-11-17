@@ -29,6 +29,10 @@ class StatusBarSettingsRepository(
             KEY_BATTERY_CHARGING_COLOR,
             PreferenceKeys.SYSTEMUI_BATTERY_CHARGING_COLOR.default
         )
+        val batteryPerformanceColor = prefsUtils.loadBooleanSetting(
+            KEY_BATTERY_PERFORMANCE_COLOR,
+            PreferenceKeys.SYSTEMUI_BATTERY_PERFORMANCE_COLOR.default
+        )
         val batteryPercentBold = prefsUtils.loadBooleanSetting(
             KEY_BATTERY_PERCENT_BOLD,
             PreferenceKeys.SYSTEMUI_BATTERY_PERCENT_BOLD.default
@@ -70,6 +74,7 @@ class StatusBarSettingsRepository(
             batteryIndicatorEnabled = batteryIndicatorEnabled,
             batteryExternal = batteryExternal,
             batteryChargingColor = batteryChargingColor,
+            batteryPerformanceColor = batteryPerformanceColor,
             batteryPercentBold = batteryPercentBold,
             batteryStyle = batteryStyle,
             batterySegmentedClassicColor = batterySegmentedClassicColor,
@@ -217,6 +222,10 @@ class StatusBarSettingsRepository(
         prefsUtils.saveBooleanSetting(KEY_BATTERY_CHARGING_COLOR, enabled)
     }
 
+    fun saveBatteryPerformanceColor(enabled: Boolean) {
+        prefsUtils.saveBooleanSetting(KEY_BATTERY_PERFORMANCE_COLOR, enabled)
+    }
+
     fun saveBatteryPercentBold(enabled: Boolean) {
         prefsUtils.saveBooleanSetting(KEY_BATTERY_PERCENT_BOLD, enabled)
     }
@@ -305,6 +314,7 @@ class StatusBarSettingsRepository(
         private val KEY_BATTERY_INDICATOR = PreferenceKeys.SYSTEMUI_BATTERY_INDICATOR.name
         private val KEY_BATTERY_EXTERNAL = PreferenceKeys.SYSTEMUI_BATTERY_PERCENTAGE.name
         private val KEY_BATTERY_CHARGING_COLOR = PreferenceKeys.SYSTEMUI_BATTERY_CHARGING_COLOR.name
+        private val KEY_BATTERY_PERFORMANCE_COLOR = PreferenceKeys.SYSTEMUI_BATTERY_PERFORMANCE_COLOR.name
         private val KEY_BATTERY_PERCENT_BOLD = PreferenceKeys.SYSTEMUI_BATTERY_PERCENT_BOLD.name
         private val KEY_BATTERY_STYLE = PreferenceKeys.SYSTEMUI_BATTERY_INDICATOR_STYLE.name
         private val KEY_BATTERY_SEGMENTED_CLASSIC_COLOR =

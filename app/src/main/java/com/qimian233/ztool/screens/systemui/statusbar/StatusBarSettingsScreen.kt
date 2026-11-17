@@ -160,6 +160,7 @@ fun StatusBarSettingsRoute(
             onBatteryIndicatorEnabledChanged = viewModel::setBatteryIndicatorEnabled,
             onBatteryExternalChanged = viewModel::setBatteryExternal,
             onBatteryChargingColorChanged = viewModel::setBatteryChargingColor,
+            onBatteryPerformanceColorChanged = viewModel::setBatteryPerformanceColor,
             onBatteryPercentBoldChanged = viewModel::setBatteryPercentBold,
             onBatteryStyleChanged = viewModel::setBatteryStyle,
             onBatterySegmentedClassicColorChanged = viewModel::setBatterySegmentedClassicColor,
@@ -252,6 +253,7 @@ private fun StatusBarSettingsScreen(
     onBatteryIndicatorEnabledChanged: (Boolean) -> Unit,
     onBatteryExternalChanged: (Boolean) -> Unit,
     onBatteryChargingColorChanged: (Boolean) -> Unit,
+    onBatteryPerformanceColorChanged: (Boolean) -> Unit,
     onBatteryPercentBoldChanged: (Boolean) -> Unit,
     onBatteryStyleChanged: (BatteryIndicatorStyle) -> Unit,
     onBatterySegmentedClassicColorChanged: (Boolean) -> Unit,
@@ -324,6 +326,7 @@ private fun StatusBarSettingsScreen(
                         onBatteryIndicatorEnabledChanged = onBatteryIndicatorEnabledChanged,
                         onBatteryExternalChanged = onBatteryExternalChanged,
                         onBatteryChargingColorChanged = onBatteryChargingColorChanged,
+                        onBatteryPerformanceColorChanged = onBatteryPerformanceColorChanged,
                         onBatteryPercentBoldChanged = onBatteryPercentBoldChanged,
                         onBatteryStyleChanged = onBatteryStyleChanged,
                         onBatterySegmentedClassicColorChanged = onBatterySegmentedClassicColorChanged,
@@ -366,6 +369,7 @@ private fun statusBarSettingsSections(
     onBatteryIndicatorEnabledChanged: (Boolean) -> Unit,
     onBatteryExternalChanged: (Boolean) -> Unit,
     onBatteryChargingColorChanged: (Boolean) -> Unit,
+    onBatteryPerformanceColorChanged: (Boolean) -> Unit,
     onBatteryPercentBoldChanged: (Boolean) -> Unit,
     onBatteryStyleChanged: (BatteryIndicatorStyle) -> Unit,
     onBatterySegmentedClassicColorChanged: (Boolean) -> Unit,
@@ -717,6 +721,15 @@ private fun statusBarSettingsSections(
                             checked = state.batteryChargingColor,
                             onCheckedChange = onBatteryChargingColorChanged,
                             key = "status_bar_battery_charging_color"
+                        )
+                    )
+                    add(
+                        SettingItem.Switch(
+                            title = stringResource(R.string.system_ui_status_bar_battery_performance_color_title),
+                            summary = stringResource(R.string.system_ui_status_bar_battery_performance_color_summary),
+                            checked = state.batteryPerformanceColor,
+                            onCheckedChange = onBatteryPerformanceColorChanged,
+                            key = "status_bar_battery_performance_color"
                         )
                     )
                 }

@@ -562,4 +562,203 @@ class BatteryIndicatorPolicyTest {
             }
         )
     }
+
+    @Test
+    fun `isHighPerformanceGameMode matches rampage performance and super god modes`() {
+        assertFalse(BatteryIndicatorPolicy.isHighPerformanceGameMode(-1))
+        assertFalse(BatteryIndicatorPolicy.isHighPerformanceGameMode(0))
+        assertFalse(BatteryIndicatorPolicy.isHighPerformanceGameMode(1))
+        assertTrue(BatteryIndicatorPolicy.isHighPerformanceGameMode(BatteryIndicatorPolicy.GAME_MODE_RAMPAGE))
+        assertFalse(BatteryIndicatorPolicy.isHighPerformanceGameMode(4))
+        assertTrue(BatteryIndicatorPolicy.isHighPerformanceGameMode(BatteryIndicatorPolicy.GAME_MODE_PERFORMANCE))
+        assertTrue(BatteryIndicatorPolicy.isHighPerformanceGameMode(BatteryIndicatorPolicy.GAME_MODE_SUPER_GOD))
+        assertTrue(
+            BatteryIndicatorPolicy.resolveMasterEnabled(
+                explicitEnabled = null,
+                externalPercent = false,
+                chargingColor = false,
+                percentBold = false,
+                style = BatteryIndicatorStyle.DEFAULT_FRAMED,
+                performanceModeColor = true
+            )
+        )
+    }
+
+    @Test
+    fun `high performance mode uses bright blue across styles when enabled`() {
+        val state = BatteryIndicatorState(
+            level = 70,
+            isCharging = false,
+            chargeRate = 0,
+            isPowerSave = false,
+            isBlackTheme = false,
+            isHealthFrameActive = false,
+            systemShowPercent = false,
+            isHighPerformance = true
+        )
+
+        val defaultFramed = BatteryIndicatorPolicy.resolveColors(
+            state = state,
+            options = BatteryIndicatorOptions(
+                enabled = true,
+                performanceModeColor = true,
+                style = BatteryIndicatorStyle.DEFAULT_FRAMED
+            )
+        )
+        assertEquals(BatteryIndicatorPolicy.COLOR_HIGH_PERFORMANCE_FILL, defaultFramed.fillColor)
+        assertEquals(BatteryIndicatorPolicy.ALPHA_OPAQUE, defaultFramed.fillAlpha)
+
+        val segmented = BatteryIndicatorPolicy.resolveColors(
+            state = state,
+            options = BatteryIndicatorOptions(
+                enabled = true,
+                performanceModeColor = true,
+                style = BatteryIndicatorStyle.SEGMENTED,
+                segmentedClassicColor = true
+            )
+        )
+        assertEquals(BatteryIndicatorPolicy.COLOR_HIGH_PERFORMANCE_FILL, segmented.fillColor)
+
+        val ring = BatteryIndicatorPolicy.resolveColors(
+            state = state,
+            options = BatteryIndicatorOptions(
+                enabled = true,
+                performanceModeColor = true,
+                style = BatteryIndicatorStyle.RING
+            )
+        )
+        assertEquals(BatteryIndicatorPolicy.COLOR_HIGH_PERFORMANCE_FILL, ring.fillColor)
+    }
+
+    @Test
+    fun `high performance mode falls back to normal colors when switch is off`() {
+        val colors = BatteryIndicatorPolicy.resolveColors(
+            state = BatteryIndicatorState(
+                level = 70,
+                isCharging = false,
+                chargeRate = 0,
+                isPowerSave = false,
+                isBlackTheme = false,
+                isHealthFrameActive = false,
+                systemShowPercent = false,
+                isHighPerformance = true
+            ),
+            options = BatteryIndicatorOptions(
+                enabled = true,
+                performanceModeColor = false,
+                style = BatteryIndicatorStyle.DEFAULT_FRAMED
+            )
+        )
+        assertEquals(BatteryIndicatorPolicy.COLOR_WHITE, colors.fillColor)
+    }
+
+    @Test
+    fun `color priority keeps high performance above charging power save and low battery`() {
+        val options = BatteryIndicatorOptions(
+            enabled = true,
+            chargingColor = true,
+            performanceModeColor = true,
+            style = BatteryIndicatorStyle.DEFAULT_FRAMED
+        )
+
+        val highPerformance = BatteryIndicatorPolicy.resolveColors(
+            state = BatteryIndicatorState(
+                level = 10,
+                isCharging = true,
+                chargeRate = BatteryIndicatorPolicy.FAST_CHARGE_RATE_THRESHOLD,
+                isPowerSave = true,
+                isBlackTheme = false,
+                isHealthFrameActive = false,
+                systemShowPercent = false,
+                isHighPerformance = true
+            ),
+            options = options
+        )
+        assertEquals(BatteryIndicatorPolicy.COLOR_HIGH_PERFORMANCE_FILL, highPerformance.fillColor)
+
+        val charging = BatteryIndicatorPolicy.resolveColors(
+            state = BatteryIndicatorState(
+                level = 10,
+                isCharging = true,
+                chargeRate = BatteryIndicatorPolicy.FAST_CHARGE_RATE_THRESHOLD,
+                isPowerSave = true,
+                isBlackTheme = false,
+                isHealthFrameActive = false,
+                systemShowPercent = false,
+                isHighPerformance = false
+            ),
+            options = options
+        )
+        assertEquals(BatteryIndicatorPolicy.COLOR_FAST_CHARGING_FILL, charging.fillColor)
+
+        val powerSave = BatteryIndicatorPolicy.resolveColors(
+            state = BatteryIndicatorState(
+                level = 10,
+                isCharging = false,
+                chargeRate = 0,
+                isPowerSave = true,
+                isBlackTheme = false,
+                isHealthFrameActive = false,
+                systemShowPercent = false,
+                isHighPerformance = false
+            ),
+            options = options
+        )
+        assertEquals(BatteryIndicatorPolicy.COLOR_POWER_SAVE_FILL, powerSave.fillColor)
+
+        val lowBattery = BatteryIndicatorPolicy.resolveColors(
+            state = BatteryIndicatorState(
+                level = 10,
+                isCharging = false,
+                chargeRate = 0,
+                isPowerSave = false,
+                isBlackTheme = false,
+                isHealthFrameActive = false,
+                systemShowPercent = false,
+                isHighPerformance = false
+            ),
+            options = options
+        )
+        assertEquals(BatteryIndicatorPolicy.COLOR_LOW_BATTERY_FILL, lowBattery.fillColor)
+    }
+
+    @Test
+    fun `high performance alpha uses inner percent contrast only when inner percent is shown`() {
+        val options = BatteryIndicatorOptions(
+            enabled = true,
+            externalPercent = false,
+            performanceModeColor = true,
+            style = BatteryIndicatorStyle.DEFAULT_FRAMED
+        )
+
+        val withInnerPercent = BatteryIndicatorPolicy.resolveColors(
+            state = BatteryIndicatorState(
+                level = 70,
+                isCharging = false,
+                chargeRate = 0,
+                isPowerSave = false,
+                isBlackTheme = false,
+                isHealthFrameActive = false,
+                systemShowPercent = true,
+                isHighPerformance = true
+            ),
+            options = options
+        )
+        assertEquals(BatteryIndicatorPolicy.ALPHA_FILL_CHARGING_INNER_PERCENT, withInnerPercent.fillAlpha)
+
+        val withExternalPercent = BatteryIndicatorPolicy.resolveColors(
+            state = BatteryIndicatorState(
+                level = 70,
+                isCharging = false,
+                chargeRate = 0,
+                isPowerSave = false,
+                isBlackTheme = false,
+                isHealthFrameActive = false,
+                systemShowPercent = true,
+                isHighPerformance = true
+            ),
+            options = options.copy(externalPercent = true)
+        )
+        assertEquals(BatteryIndicatorPolicy.ALPHA_OPAQUE, withExternalPercent.fillAlpha)
+    }
 }

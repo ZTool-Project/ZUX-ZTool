@@ -69,10 +69,10 @@ The SystemUI status bar battery indicator module (`com.android.systemui`, target
 - [x] Add frontend style selector (dropdown / popup menu row) in `StatusBarSettingsScreen` and register corresponding `SearchIndex` and bilingual string entries.
 
 ### 3.4 Power-Save & High-Performance Mode Colors
-- [ ] Inspect ZUI high-performance / beast mode state source in SystemUI (e.g., `Settings.System` / `Settings.Global` key or controller state) and document findings in `docs/research/systemui_battery_indicator.md`.
-- [ ] Extend `BatteryIndicatorState`, `BatteryIndicatorOptions`, and `BatteryIndicatorPolicy.resolveColors(...)` to support dedicated or custom colors for Power-Save mode and High-Performance mode (with well-defined priority relative to charging speed colors).
-- [ ] Add unit test cases in `BatteryIndicatorPolicyTest.kt` for power-save and high-performance color resolution.
-- [ ] Wire frontend switches (and optional color configuration) in Repository, ViewModel, `StatusBarSettingsScreen`, `SearchIndex`, and bilingual `strings.xml`.
+- [x] Inspect ZUI high-performance / beast mode state source in SystemUI (e.g., `Settings.System` / `Settings.Global` key or controller state) and document findings in `docs/research/systemui_battery_indicator.md`.
+- [x] Extend `BatteryIndicatorState`, `BatteryIndicatorOptions`, and `BatteryIndicatorPolicy.resolveColors(...)` to support dedicated or custom colors for Power-Save mode and High-Performance mode (with well-defined priority relative to charging speed colors).
+- [x] Add unit test cases in `BatteryIndicatorPolicyTest.kt` for power-save and high-performance color resolution.
+- [x] Wire frontend switches (and optional color configuration) in Repository, ViewModel, `StatusBarSettingsScreen`, `SearchIndex`, and bilingual `strings.xml`.
 
 ### 3.5 On-Device Verification & Archiving
 - [ ] Build `.\gradlew.bat assembleDev`, install `app-dev.apk` on the target ZUX OS / Android 17 device, and verify all battery styles, percentage placements, charging speed colors, power-save/performance colors, light/dark status bar transitions, and QS header rendering.

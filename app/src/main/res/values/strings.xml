@@ -692,6 +692,8 @@
     <string name="system_ui_status_bar_battery_percent_bold_summary">切换状态栏电池百分比文字的粗体与常规字重，图标内外模式均生效</string>
     <string name="system_ui_status_bar_battery_charging_color_title">充电速度指示颜色</string>
     <string name="system_ui_status_bar_battery_charging_color_summary">根据充电状态为电量填充部分着色：普通充电为绿色，快速充电为亮紫色</string>
+    <string name="system_ui_status_bar_battery_performance_color_title">性能模式指示颜色</string>
+    <string name="system_ui_status_bar_battery_performance_color_summary">在游戏助手野兽模式、性能模式或超神模式下将电量填充着色为亮蓝色</string>
     <!--系统界面 锁屏页资源值-->
     <string name="system_ui_lock_screen_widgets_title">锁屏组件</string>
     <string name="system_ui_lock_screen_yi_yan_switch_title">随机锁屏签名</string>

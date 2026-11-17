@@ -64,13 +64,35 @@ All stock battery level drawables (`stat_sys_battery_inner_*`, `stat_sys_battery
 | Fill (Low battery `1..15%`, not charging) | `#FF0000`, `alpha = 1.0` (`255`) | `#FF0000`, `alpha = 1.0` (`255`) |
 | Fill (Power save, not charging) | `#CC8E47`, `alpha = 1.0` (`255`) | `#CC8E47`, `alpha = 1.0` (`255`) |
 
-## 3. ZTool Custom Drawable Architecture
+## 3. Performance / Beast Mode State Source (Game Assistant vs. SystemUI)
+
+Reverse-engineering of both `com.android.systemui` and `com.zui.game.service` (`2.3.0.5224` / `versionCode 2305224`) via JADX established:
+
+1. **SystemUI does not natively read or track ZUI high-performance / beast mode**: Searching `com.android.systemui` (`BatteryMeterView`, `BatteryControllerImpl`, and SystemUI resources/classes) shows `mIsPowerSave` (system battery saver) and `key_game_assistant_bypass_charging` (`mGameChargingObserver`), with no references to `game_helper_game_mode` or Game Assistant mode states.
+2. **Game Assistant writes `Settings.Global` `"game_helper_game_mode"` on Android 16+**:
+   - In `com.zui.game.service.util.XpuKt.writeSavageMode(Context, String)`, on `Build.VERSION.SDK_INT > 35` (Android 16+, including ZUX OS Android 17), all mode transitions via `openOverclock(...)` call `Settings.Global.putInt(contentResolver, "game_helper_game_mode", mode)`.
+   - Mode values defined in `com.zui.game.service.core.Item$Mode`:
+     - `1` (`MODE_GAME`): balanced / normal game mode
+     - `2` (`MODE_RAMPAGE`): Rampage / Beast mode (野兽模式 / 狂暴模式)
+     - `4` (`MODE_POWER_SAVING`): power-saving game mode
+     - `8` (`MODE_PERFORMANCE`): Performance / Smart mode (高能模式 on `supportPerformanceMode` devices)
+     - `16` (`MODE_SUPER_GOD`): Super God mode (超神模式 with external cooler / HID device)
+     - `-1`: written by `GameHelperService.onGameAppExit()` when exiting a game without a prior `super_god_last_mode`
+   - Modes `{2, 8, 16}` represent high-performance states and are mapped to bright blue (`#0A84FF`) when `SYSTEMUI_BATTERY_PERFORMANCE_COLOR` is enabled.
+   - Because `Settings.Global` is world-readable from `com.android.systemui`, `SystemUIBatteryHook` registers a `ContentObserver` on `Settings.Global.getUriFor("game_helper_game_mode")` during `BatteryMeterView.onAttachedToWindow()` and unregisters it in `onDetachedFromWindow()`.
+
+## 4. ZTool Custom Drawable Architecture
 
 Instead of mutating the shared static `VectorDrawable` resources (which lack a fill `<path>` at `0%` and cannot be replaced with alternative shapes), `SystemUIBatteryHook` uses a layered rendering pipeline:
 
 1. **`BatteryIndicatorPolicy.kt`** (pure Kotlin, JVM-unit-testable):
    - Holds `BatteryIndicatorStyle`, `BatteryIndicatorOptions`, `BatteryIndicatorState`, and `BatteryResolvedColors`.
-   - `resolveBatteryColors(state, options)` computes frame and fill colors/alphas for normal, low-battery, power-save, health-frame, and charging-speed states (`#34C759` green for normal charging `mChargeRate < 3`, `#BF5AF2` bright purple for fast charging `mChargeRate >= 3`).
+   - `resolveBatteryColors(state, options)` computes frame and fill colors/alphas across states in descending priority:
+     1. High-performance mode when `options.performanceModeColor && state.isHighPerformance` (`#0A84FF` bright blue)
+     2. Charging speed colors when `options.chargingColor && state.isCharging` (`#34C759` green for normal charging `mChargeRate < 3`, `#BF5AF2` bright purple for fast charging `mChargeRate >= 3`)
+     3. Power-save mode when `state.isPowerSave` (`#CC8E47` amber)
+     4. Low battery when `!state.isCharging && level in 1..15` (`#FF0000` red)
+     5. Segmented classic bright green (`#34C759`) or monochrome status-bar tint fallback
 2. **`ZToolBatteryDrawable.kt`**:
    - Custom `Drawable` backed by a pluggable `BatteryShapeRenderer`.
    - `DefaultFramedBatteryRenderer` reproduces the stock `66 × 67` viewport outer frame, right terminal cap, and continuous `1%`-granularity rounded level bar.

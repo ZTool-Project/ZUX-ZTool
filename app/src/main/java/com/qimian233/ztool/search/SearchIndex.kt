@@ -554,6 +554,13 @@ object SearchIndex {
             parentTitleRes = R.string.system_ui_status_bar_battery_indicator_title,
             parentKey = "status_bar_battery_indicator"
         ),
+        systemUiStatusBar.item(
+            id = "status_bar_battery_performance_color",
+            titleRes = R.string.system_ui_status_bar_battery_performance_color_title,
+            summaryRes = R.string.system_ui_status_bar_battery_performance_color_summary,
+            parentTitleRes = R.string.system_ui_status_bar_battery_indicator_title,
+            parentKey = "status_bar_battery_indicator"
+        ),
 
         systemUiLockScreen.item(
             id = "lock_screen_yi_yan",

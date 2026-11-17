@@ -1,11 +1,17 @@
 package com.qimian233.ztool.hook.modules.systemui.statusbar
 
 import android.annotation.SuppressLint
+import android.content.ContentResolver
 import android.content.Context
+import android.content.SharedPreferences
+import android.database.ContentObserver
 import android.graphics.Rect
 import android.graphics.Typeface
 import android.graphics.drawable.Drawable
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
+import android.provider.Settings
 import android.text.TextPaint
 import android.util.AttributeSet
 import android.util.TypedValue
@@ -58,6 +64,11 @@ class SystemUIBatteryHook : AppHookModule() {
         Collections.synchronizedMap(WeakHashMap<ImageView, ZToolBatteryDrawable>())
     private val stockDrawables =
         Collections.synchronizedMap(WeakHashMap<ImageView, Drawable>())
+    private val trackedViews =
+        Collections.synchronizedSet(Collections.newSetFromMap(WeakHashMap<LinearLayout, Boolean>()))
+    private val gameModeObservers =
+        Collections.synchronizedMap(WeakHashMap<LinearLayout, ContentObserver>())
+    private var remotePrefsListener: SharedPreferences.OnSharedPreferenceChangeListener? = null
 
     override fun getModuleName(): String = PreferenceKeys.SYSTEMUI_BATTERY_INDICATOR.name
 
@@ -79,6 +90,10 @@ class SystemUIBatteryHook : AppHookModule() {
         val chargingColor = prefs.getBoolean(
             PreferenceKeys.SYSTEMUI_BATTERY_CHARGING_COLOR.name,
             PreferenceKeys.SYSTEMUI_BATTERY_CHARGING_COLOR.default
+        )
+        val performanceModeColor = prefs.getBoolean(
+            PreferenceKeys.SYSTEMUI_BATTERY_PERFORMANCE_COLOR.name,
+            PreferenceKeys.SYSTEMUI_BATTERY_PERFORMANCE_COLOR.default
         )
         val percentBold = prefs.getBoolean(
             PreferenceKeys.SYSTEMUI_BATTERY_PERCENT_BOLD.name,
@@ -114,10 +129,12 @@ class SystemUIBatteryHook : AppHookModule() {
                 externalPercent = externalPercent,
                 chargingColor = chargingColor,
                 percentBold = percentBold,
-                style = style
+                style = style,
+                performanceModeColor = performanceModeColor
             ),
             externalPercent = externalPercent,
             chargingColor = chargingColor,
+            performanceModeColor = performanceModeColor,
             percentBold = percentBold,
             style = style,
             segmentedClassicColor = segmentedClassicColor,
@@ -220,6 +237,37 @@ class SystemUIBatteryHook : AppHookModule() {
                 }
             }
 
+            runCatching {
+                findMethod(viewClass, "onAttachedToWindow")
+            }.getOrNull()?.let { method ->
+                hookWithId(method, "battery_attached") { chain ->
+                    val result = chain.proceed()
+                    (chain.thisObject as? LinearLayout)?.let { view ->
+                        trackedViews.add(view)
+                        val options = readOptions()
+                        if (options.enabled) {
+                            syncGameModeObserver(host, view, options)
+                            syncBatteryDrawable(host, view, options)
+                        } else {
+                            unregisterGameModeObserver(view)
+                        }
+                    }
+                    result
+                }
+            }
+
+            runCatching {
+                findMethod(viewClass, "onDetachedFromWindow")
+            }.getOrNull()?.let { method ->
+                hookWithId(method, "battery_detached") { chain ->
+                    (chain.thisObject as? LinearLayout)?.let { view ->
+                        trackedViews.remove(view)
+                        unregisterGameModeObserver(view)
+                    }
+                    chain.proceed()
+                }
+            }
+
             hookWithId(
                 findMethod(viewClass, "updateShowPercent"),
                 "battery_update_show_percent"
@@ -271,6 +319,7 @@ class SystemUIBatteryHook : AppHookModule() {
                 result
             }
 
+            registerRemotePreferenceRefresh(host)
             logger.info("SystemUI battery indicator hook loaded")
         } catch (t: Throwable) {
             logger.error("Failed to load SystemUI battery indicator hook", t)
@@ -303,6 +352,7 @@ class SystemUIBatteryHook : AppHookModule() {
     private fun syncBatteryView(host: Host, view: LinearLayout) {
         val options = readOptions()
         if (!options.enabled) {
+            unregisterGameModeObserver(view)
             restoreStockDrawable(host, view)
             return
         }
@@ -551,10 +601,13 @@ class SystemUIBatteryHook : AppHookModule() {
         view: LinearLayout,
         options: BatteryIndicatorOptions
     ) {
+        trackedViews.add(view)
         if (!options.enabled) {
+            unregisterGameModeObserver(view)
             restoreStockDrawable(host, view)
             return
         }
+        syncGameModeObserver(host, view, options)
         try {
             val iconView = host.iconViewField.get(view) as? ImageView ?: return
             val currentDrawable = iconView.drawable
@@ -597,6 +650,8 @@ class SystemUIBatteryHook : AppHookModule() {
                 level >= protectedMinLevel &&
                 !isPowerSave
             val systemShowPercent = (host.isShowPercentMethod?.invoke(view) as? Boolean) ?: false
+            val isHighPerformance = options.performanceModeColor &&
+                isHighPerformanceModeActive(view.context)
 
             val state = BatteryIndicatorState(
                 level = level,
@@ -605,7 +660,8 @@ class SystemUIBatteryHook : AppHookModule() {
                 isPowerSave = isPowerSave,
                 isBlackTheme = isBlackTheme,
                 isHealthFrameActive = isHealthFrameActive,
-                systemShowPercent = systemShowPercent
+                systemShowPercent = systemShowPercent,
+                isHighPerformance = isHighPerformance
             )
 
             val density = view.resources.displayMetrics.density
@@ -698,9 +754,81 @@ class SystemUIBatteryHook : AppHookModule() {
         }
     }
 
+    private fun isHighPerformanceModeActive(context: Context): Boolean {
+        val gameMode = runCatching {
+            Settings.Global.getInt(
+                appContentResolver(context),
+                KEY_GAME_HELPER_GAME_MODE,
+                GAME_MODE_INACTIVE
+            )
+        }.getOrDefault(GAME_MODE_INACTIVE)
+        return BatteryIndicatorPolicy.isHighPerformanceGameMode(gameMode)
+    }
+
+    private fun syncGameModeObserver(
+        host: Host,
+        view: LinearLayout,
+        options: BatteryIndicatorOptions
+    ) {
+        if (!options.enabled || !view.isAttachedToWindow) {
+            if (!options.enabled) {
+                unregisterGameModeObserver(view)
+            }
+            return
+        }
+        if (gameModeObservers.containsKey(view)) return
+        val uri = Settings.Global.getUriFor(KEY_GAME_HELPER_GAME_MODE) ?: return
+        val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
+            override fun onChange(selfChange: Boolean) {
+                val latestOptions = readOptions()
+                logger.debug(
+                    "Game mode changed: perfColor=${latestOptions.performanceModeColor}, " +
+                        "active=${isHighPerformanceModeActive(view.context)}"
+                )
+                syncBatteryDrawable(host, view, latestOptions)
+            }
+        }
+        runCatching {
+            appContentResolver(view.context).registerContentObserver(uri, false, observer)
+            gameModeObservers[view] = observer
+        }
+    }
+
+    private fun unregisterGameModeObserver(view: LinearLayout) {
+        val observer = gameModeObservers.remove(view) ?: return
+        runCatching {
+            appContentResolver(view.context).unregisterContentObserver(observer)
+        }
+    }
+
+    private fun registerRemotePreferenceRefresh(host: Host) {
+        runCatching {
+            val prefs = xposed.getRemotePreferences(PREFS_NAME)
+            remotePrefsListener?.let { prefs.unregisterOnSharedPreferenceChangeListener(it) }
+            val mainHandler = Handler(Looper.getMainLooper())
+            val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
+                mainHandler.post {
+                    val snapshot = synchronized(trackedViews) { trackedViews.toList() }
+                    for (view in snapshot) {
+                        if (view.isAttachedToWindow) {
+                            syncBatteryView(host, view)
+                        }
+                    }
+                }
+            }
+            prefs.registerOnSharedPreferenceChangeListener(listener)
+            remotePrefsListener = listener
+        }
+    }
+
+    private fun appContentResolver(context: Context): ContentResolver =
+        (context.applicationContext ?: context).contentResolver
+
     companion object {
         private const val PREFS_NAME = "xposed_module_config"
         private const val BATTERY_METER_VIEW_CLASS = "com.android.systemui.battery.BatteryMeterView"
+        private const val KEY_GAME_HELPER_GAME_MODE = "game_helper_game_mode"
+        private const val GAME_MODE_INACTIVE = -1
         private const val DEFAULT_PROTECTED_MIN_LEVEL = 40
         private const val DEFAULT_TEXT_SIZE_SP = 12f
         private const val EXTERNAL_TEXT_SIZE_BONUS_SP = 3f

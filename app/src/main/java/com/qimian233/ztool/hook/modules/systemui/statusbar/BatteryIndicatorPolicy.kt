@@ -43,6 +43,7 @@ data class BatteryIndicatorOptions(
     val enabled: Boolean = false,
     val externalPercent: Boolean = false,
     val chargingColor: Boolean = false,
+    val performanceModeColor: Boolean = false,
     val percentBold: Boolean = false,
     val style: BatteryIndicatorStyle = BatteryIndicatorStyle.DEFAULT_FRAMED,
     val segmentedClassicColor: Boolean = true,
@@ -55,6 +56,7 @@ data class BatteryIndicatorState(
     val isCharging: Boolean = false,
     val chargeRate: Int = 0,
     val isPowerSave: Boolean = false,
+    val isHighPerformance: Boolean = false,
     val isBlackTheme: Boolean = false,
     val isHealthFrameActive: Boolean = false,
     val systemShowPercent: Boolean = false
@@ -89,6 +91,11 @@ object BatteryIndicatorPolicy {
     const val FAST_CHARGE_RATE_THRESHOLD = 3
     const val LOW_BATTERY_MAX_LEVEL = 15
 
+    // Game Assistant Item$Mode values in Settings.Global["game_helper_game_mode"].
+    const val GAME_MODE_RAMPAGE = 2
+    const val GAME_MODE_PERFORMANCE = 8
+    const val GAME_MODE_SUPER_GOD = 16
+
     const val COLOR_WHITE = 0xFFFFFFFF.toInt()
     const val COLOR_BLACK = 0xFF000000.toInt()
     const val COLOR_HEALTH_FRAME = 0xFF18AD74.toInt()
@@ -96,6 +103,7 @@ object BatteryIndicatorPolicy {
     const val COLOR_LOW_BATTERY_FILL = 0xFFFF0000.toInt()
     const val COLOR_NORMAL_CHARGING_FILL = 0xFF34C759.toInt()
     const val COLOR_FAST_CHARGING_FILL = 0xFFBF5AF2.toInt()
+    const val COLOR_HIGH_PERFORMANCE_FILL = 0xFF0A84FF.toInt()
     const val COLOR_SEGMENTED_CLASSIC_FILL = COLOR_NORMAL_CHARGING_FILL
 
     const val SEGMENTED_CELL_COUNT = 4
@@ -190,17 +198,27 @@ object BatteryIndicatorPolicy {
         val fillColor: Int
         val fillAlpha: Int
         when {
+            options.performanceModeColor && state.isHighPerformance -> {
+                fillColor = COLOR_HIGH_PERFORMANCE_FILL
+                fillAlpha = resolveAccentFillAlpha(
+                    hasInnerPercent = hasInnerPercent,
+                    isHollowRing = isHollowRing,
+                    isFilledContainer = isFilledContainer,
+                    isBlackTheme = state.isBlackTheme
+                )
+            }
             options.chargingColor && state.isCharging -> {
                 fillColor = if (state.isFastCharging) {
                     COLOR_FAST_CHARGING_FILL
                 } else {
                     COLOR_NORMAL_CHARGING_FILL
                 }
-                fillAlpha = if (hasInnerPercent && !isHollowRing && !(isFilledContainer && state.isBlackTheme)) {
-                    ALPHA_FILL_CHARGING_INNER_PERCENT
-                } else {
-                    ALPHA_OPAQUE
-                }
+                fillAlpha = resolveAccentFillAlpha(
+                    hasInnerPercent = hasInnerPercent,
+                    isHollowRing = isHollowRing,
+                    isFilledContainer = isFilledContainer,
+                    isBlackTheme = state.isBlackTheme
+                )
             }
             state.isPowerSave -> {
                 fillColor = COLOR_POWER_SAVE_FILL
@@ -236,6 +254,23 @@ object BatteryIndicatorPolicy {
         )
     }
 
+    private fun resolveAccentFillAlpha(
+        hasInnerPercent: Boolean,
+        isHollowRing: Boolean,
+        isFilledContainer: Boolean,
+        isBlackTheme: Boolean
+    ): Int = if (hasInnerPercent && !isHollowRing && !(isFilledContainer && isBlackTheme)) {
+        ALPHA_FILL_CHARGING_INNER_PERCENT
+    } else {
+        ALPHA_OPAQUE
+    }
+
+    /** Returns true when Game Assistant's [gameMode] represents a high-performance state. */
+    fun isHighPerformanceGameMode(gameMode: Int): Boolean =
+        gameMode == GAME_MODE_RAMPAGE ||
+            gameMode == GAME_MODE_PERFORMANCE ||
+            gameMode == GAME_MODE_SUPER_GOD
+
     /**
      * Resolves the master toggle state, honoring [explicitEnabled] when persisted and
      * falling back to active legacy sub-options for unmigrated configurations.
@@ -245,10 +280,12 @@ object BatteryIndicatorPolicy {
         externalPercent: Boolean,
         chargingColor: Boolean,
         percentBold: Boolean,
-        style: BatteryIndicatorStyle
+        style: BatteryIndicatorStyle,
+        performanceModeColor: Boolean = false
     ): Boolean = explicitEnabled ?: (
         externalPercent ||
             chargingColor ||
+            performanceModeColor ||
             percentBold ||
             style != BatteryIndicatorStyle.DEFAULT_FRAMED
     )

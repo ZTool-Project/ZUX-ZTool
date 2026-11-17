@@ -171,6 +171,11 @@ class StatusBarSettingsViewModel(
         repository.saveBatteryChargingColor(enabled)
     }
 
+    fun setBatteryPerformanceColor(enabled: Boolean) {
+        _uiState.value = _uiState.value.copy(batteryPerformanceColor = enabled)
+        repository.saveBatteryPerformanceColor(enabled)
+    }
+
     fun setBatteryPercentBold(enabled: Boolean) {
         _uiState.value = _uiState.value.copy(batteryPercentBold = enabled)
         repository.saveBatteryPercentBold(enabled)
@@ -265,6 +270,7 @@ data class StatusBarSettingsUiState(
     val batteryIndicatorEnabled: Boolean = false,
     val batteryExternal: Boolean = false,
     val batteryChargingColor: Boolean = false,
+    val batteryPerformanceColor: Boolean = false,
     val batteryPercentBold: Boolean = false,
     val batteryStyle: BatteryIndicatorStyle = BatteryIndicatorStyle.DEFAULT_FRAMED,
     val batterySegmentedClassicColor: Boolean = true,
