@@ -155,6 +155,11 @@ class StatusBarSettingsViewModel(
         repository.saveNetworkSpeedHideBoth(enabled)
     }
 
+    fun setBatteryIndicatorEnabled(enabled: Boolean) {
+        _uiState.value = _uiState.value.copy(batteryIndicatorEnabled = enabled)
+        repository.saveBatteryIndicatorEnabled(enabled)
+    }
+
     fun setBatteryExternal(enabled: Boolean) {
         _uiState.value = _uiState.value.copy(batteryExternal = enabled)
         repository.saveBatteryExternal(enabled)
@@ -246,6 +251,7 @@ data class StatusBarSettingsUiState(
     val networkSpeedHideSlow: Boolean = false,
     val networkSpeedHideThreshold: Float = 10f,
     val networkSpeedHideBoth: Boolean = false,
+    val batteryIndicatorEnabled: Boolean = false,
     val batteryExternal: Boolean = false,
     val batteryChargingColor: Boolean = false,
     val batteryPercentBold: Boolean = false,

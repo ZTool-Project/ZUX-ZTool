@@ -20,17 +20,12 @@ enum class BatteryIndicatorStyle(val prefValue: String) {
 
 /** User-configured options for the status bar battery indicator hook. */
 data class BatteryIndicatorOptions(
+    val enabled: Boolean = false,
     val externalPercent: Boolean = false,
     val chargingColor: Boolean = false,
     val percentBold: Boolean = false,
     val style: BatteryIndicatorStyle = BatteryIndicatorStyle.DEFAULT_FRAMED
-) {
-    val enabled: Boolean
-        get() = externalPercent ||
-            chargingColor ||
-            percentBold ||
-            style != BatteryIndicatorStyle.DEFAULT_FRAMED
-}
+)
 
 /** Snapshot of host battery state used to render the battery indicator. */
 data class BatteryIndicatorState(
@@ -156,9 +151,26 @@ object BatteryIndicatorPolicy {
         )
     }
 
+    /**
+     * Resolves the master toggle state, honoring [explicitEnabled] when persisted and
+     * falling back to active legacy sub-options for unmigrated configurations.
+     */
+    fun resolveMasterEnabled(
+        explicitEnabled: Boolean?,
+        externalPercent: Boolean,
+        chargingColor: Boolean,
+        percentBold: Boolean,
+        style: BatteryIndicatorStyle
+    ): Boolean = explicitEnabled ?: (
+        externalPercent ||
+            chargingColor ||
+            percentBold ||
+            style != BatteryIndicatorStyle.DEFAULT_FRAMED
+    )
+
     /** Returns the override text color for inner percentage digits, or null to keep stock color. */
     fun resolveInnerPercentTextColor(options: BatteryIndicatorOptions): Int? {
-        if (options.externalPercent || !options.style.isFilledContainer) return null
+        if (!options.enabled || options.externalPercent || !options.style.isFilledContainer) return null
         return COLOR_WHITE
     }
 

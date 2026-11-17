@@ -8,6 +8,7 @@ import com.qimian233.ztool.utils.ModulePreferencesUtils
 import com.qimian233.ztool.utils.ScopeUtils
 import com.qimian233.ztool.data.keys.PreferenceKeys
 import com.qimian233.ztool.hook.modules.systemui.misc.CustomDateFormatter
+import com.qimian233.ztool.hook.modules.systemui.statusbar.BatteryIndicatorPolicy
 import com.qimian233.ztool.hook.modules.systemui.statusbar.BatteryIndicatorStyle
 import com.qimian233.ztool.viewmodel.StatusBarSettingsUiState
 import java.util.Date
@@ -19,6 +20,30 @@ class StatusBarSettingsRepository(
 
     fun loadState(): StatusBarSettingsUiState {
         val loadedClockFormat = prefsUtils.loadStringSetting(KEY_CUSTOM_CLOCK_FORMAT, "")
+        val batteryExternal = prefsUtils.loadBooleanSetting(
+            KEY_BATTERY_EXTERNAL,
+            PreferenceKeys.SYSTEMUI_BATTERY_PERCENTAGE.default
+        )
+        val batteryChargingColor = prefsUtils.loadBooleanSetting(
+            KEY_BATTERY_CHARGING_COLOR,
+            PreferenceKeys.SYSTEMUI_BATTERY_CHARGING_COLOR.default
+        )
+        val batteryPercentBold = prefsUtils.loadBooleanSetting(
+            KEY_BATTERY_PERCENT_BOLD,
+            PreferenceKeys.SYSTEMUI_BATTERY_PERCENT_BOLD.default
+        )
+        val batteryStyle = BatteryIndicatorStyle.fromPref(
+            prefsUtils.loadStringSetting(
+                KEY_BATTERY_STYLE,
+                PreferenceKeys.SYSTEMUI_BATTERY_INDICATOR_STYLE.default
+            )
+        )
+        val batteryIndicatorEnabled = loadBatteryIndicatorEnabled(
+            batteryExternal = batteryExternal,
+            batteryChargingColor = batteryChargingColor,
+            batteryPercentBold = batteryPercentBold,
+            batteryStyle = batteryStyle
+        )
         return StatusBarSettingsUiState(
             displaySeconds = prefsUtils.loadBooleanSetting(KEY_DISPLAY_SECONDS, false),
             customClock = prefsUtils.loadBooleanSetting(KEY_CUSTOM_CLOCK, false),
@@ -31,18 +56,11 @@ class StatusBarSettingsRepository(
             networkSpeedHideSlow = prefsUtils.loadBooleanSetting(KEY_NETWORK_SPEED_HIDE_SLOW, false),
             networkSpeedHideThreshold = prefsUtils.loadFloatSetting(KEY_NETWORK_SPEED_HIDE_THRESHOLD, DEFAULT_HIDE_THRESHOLD),
             networkSpeedHideBoth = prefsUtils.loadBooleanSetting(KEY_NETWORK_SPEED_HIDE_BOTH, false),
-            batteryExternal = prefsUtils.loadBooleanSetting(KEY_BATTERY_EXTERNAL, false),
-            batteryChargingColor = prefsUtils.loadBooleanSetting(KEY_BATTERY_CHARGING_COLOR, false),
-            batteryPercentBold = prefsUtils.loadBooleanSetting(
-                KEY_BATTERY_PERCENT_BOLD,
-                PreferenceKeys.SYSTEMUI_BATTERY_PERCENT_BOLD.default
-            ),
-            batteryStyle = BatteryIndicatorStyle.fromPref(
-                prefsUtils.loadStringSetting(
-                    KEY_BATTERY_STYLE,
-                    PreferenceKeys.SYSTEMUI_BATTERY_INDICATOR_STYLE.default
-                )
-            ),
+            batteryIndicatorEnabled = batteryIndicatorEnabled,
+            batteryExternal = batteryExternal,
+            batteryChargingColor = batteryChargingColor,
+            batteryPercentBold = batteryPercentBold,
+            batteryStyle = batteryStyle,
             clockFormat = loadedClockFormat,
             clockPreview = buildClockPreview(loadedClockFormat),
             textSize = prefsUtils.loadFloatSetting(KEY_CLOCK_TEXT_SIZE, 16.0f),
@@ -149,6 +167,35 @@ class StatusBarSettingsRepository(
         prefsUtils.saveBooleanSetting(KEY_NETWORK_SPEED_HIDE_BOTH, enabled)
     }
 
+    private fun loadBatteryIndicatorEnabled(
+        batteryExternal: Boolean,
+        batteryChargingColor: Boolean,
+        batteryPercentBold: Boolean,
+        batteryStyle: BatteryIndicatorStyle
+    ): Boolean {
+        if (prefsUtils.containsSetting(KEY_BATTERY_INDICATOR)) {
+            return prefsUtils.loadBooleanSetting(
+                KEY_BATTERY_INDICATOR,
+                PreferenceKeys.SYSTEMUI_BATTERY_INDICATOR.default
+            )
+        }
+        val migrated = BatteryIndicatorPolicy.resolveMasterEnabled(
+            explicitEnabled = null,
+            externalPercent = batteryExternal,
+            chargingColor = batteryChargingColor,
+            percentBold = batteryPercentBold,
+            style = batteryStyle
+        )
+        if (migrated) {
+            saveBatteryIndicatorEnabled(true)
+        }
+        return migrated
+    }
+
+    fun saveBatteryIndicatorEnabled(enabled: Boolean) {
+        prefsUtils.saveBooleanSetting(KEY_BATTERY_INDICATOR, enabled)
+    }
+
     fun saveBatteryExternal(enabled: Boolean) {
         prefsUtils.saveBooleanSetting(KEY_BATTERY_EXTERNAL, enabled)
     }
@@ -234,6 +281,7 @@ class StatusBarSettingsRepository(
         private val KEY_NETWORK_SPEED_HIDE_SLOW = PreferenceKeys.SYSTEMUI_NETWORK_SPEED_HIDE_SLOW.name
         private val KEY_NETWORK_SPEED_HIDE_THRESHOLD = PreferenceKeys.SYSTEMUI_NETWORK_SPEED_HIDE_THRESHOLD.name
         private val KEY_NETWORK_SPEED_HIDE_BOTH = PreferenceKeys.SYSTEMUI_NETWORK_SPEED_HIDE_BOTH.name
+        private val KEY_BATTERY_INDICATOR = PreferenceKeys.SYSTEMUI_BATTERY_INDICATOR.name
         private val KEY_BATTERY_EXTERNAL = PreferenceKeys.SYSTEMUI_BATTERY_PERCENTAGE.name
         private val KEY_BATTERY_CHARGING_COLOR = PreferenceKeys.SYSTEMUI_BATTERY_CHARGING_COLOR.name
         private val KEY_BATTERY_PERCENT_BOLD = PreferenceKeys.SYSTEMUI_BATTERY_PERCENT_BOLD.name

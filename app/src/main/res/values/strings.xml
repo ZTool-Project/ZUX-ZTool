@@ -668,6 +668,8 @@
     <string name="system_ui_status_bar_network_hide_both_summary">关闭时仅下行低于阈值即隐藏</string>
     <!--系统界面 状态栏电池显示资源值-->
     <string name="system_ui_status_bar_battery_title">电池</string>
+    <string name="system_ui_status_bar_battery_indicator_title">自定义电池指示器</string>
+    <string name="system_ui_status_bar_battery_indicator_summary">开启后允许自定义电池样式，并支持 1% 精确电量渲染</string>
     <string name="system_ui_status_bar_battery_style_label">电池图标样式</string>
     <string name="system_ui_status_bar_battery_style_summary">选择状态栏电池图标的显示样式</string>
     <string name="system_ui_status_bar_battery_style_default_framed_name">默认线框</string>

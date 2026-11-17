@@ -507,24 +507,37 @@ object SearchIndex {
             parentKey = "status_bar_network_hide_slow"
         ),
         systemUiStatusBar.item(
+            id = "status_bar_battery_indicator",
+            titleRes = R.string.system_ui_status_bar_battery_indicator_title,
+            summaryRes = R.string.system_ui_status_bar_battery_indicator_summary
+        ),
+        systemUiStatusBar.item(
             id = "status_bar_battery_style",
             titleRes = R.string.system_ui_status_bar_battery_style_label,
-            summaryRes = R.string.system_ui_status_bar_battery_style_summary
+            summaryRes = R.string.system_ui_status_bar_battery_style_summary,
+            parentTitleRes = R.string.system_ui_status_bar_battery_indicator_title,
+            parentKey = "status_bar_battery_indicator"
         ),
         systemUiStatusBar.item(
             id = "status_bar_battery_external",
             titleRes = R.string.system_ui_status_bar_syatus_battery_external_title,
-            summaryRes = R.string.system_ui_status_bar_syatus_battery_external_summary
+            summaryRes = R.string.system_ui_status_bar_syatus_battery_external_summary,
+            parentTitleRes = R.string.system_ui_status_bar_battery_indicator_title,
+            parentKey = "status_bar_battery_indicator"
         ),
         systemUiStatusBar.item(
             id = "status_bar_battery_percent_bold",
             titleRes = R.string.system_ui_status_bar_battery_percent_bold_title,
-            summaryRes = R.string.system_ui_status_bar_battery_percent_bold_summary
+            summaryRes = R.string.system_ui_status_bar_battery_percent_bold_summary,
+            parentTitleRes = R.string.system_ui_status_bar_battery_indicator_title,
+            parentKey = "status_bar_battery_indicator"
         ),
         systemUiStatusBar.item(
             id = "status_bar_battery_charging_color",
             titleRes = R.string.system_ui_status_bar_battery_charging_color_title,
-            summaryRes = R.string.system_ui_status_bar_battery_charging_color_summary
+            summaryRes = R.string.system_ui_status_bar_battery_charging_color_summary,
+            parentTitleRes = R.string.system_ui_status_bar_battery_indicator_title,
+            parentKey = "status_bar_battery_indicator"
         ),
 
         systemUiLockScreen.item(

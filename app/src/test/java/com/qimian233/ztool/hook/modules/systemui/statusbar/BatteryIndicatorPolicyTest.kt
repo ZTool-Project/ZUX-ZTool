@@ -9,13 +9,67 @@ import org.junit.Test
 class BatteryIndicatorPolicyTest {
 
     @Test
-    fun `options enabled reflects external percent, charging color, percent bold, or non-default style`() {
+    fun `master enabled flag controls renderer activation independently of sub-options`() {
         assertFalse(BatteryIndicatorOptions().enabled)
-        assertTrue(BatteryIndicatorOptions(externalPercent = true).enabled)
-        assertTrue(BatteryIndicatorOptions(chargingColor = true).enabled)
-        assertTrue(BatteryIndicatorOptions(percentBold = true).enabled)
-        assertTrue(BatteryIndicatorOptions(style = BatteryIndicatorStyle.FRAMELESS).enabled)
-        assertTrue(BatteryIndicatorOptions(style = BatteryIndicatorStyle.IOS_STYLE).enabled)
+        assertTrue(BatteryIndicatorOptions(enabled = true).enabled)
+        assertFalse(
+            BatteryIndicatorOptions(
+                enabled = false,
+                externalPercent = true,
+                chargingColor = true,
+                percentBold = true,
+                style = BatteryIndicatorStyle.IOS_STYLE
+            ).enabled
+        )
+    }
+
+    @Test
+    fun `resolveMasterEnabled honors explicit flag and falls back to legacy sub-options`() {
+        assertFalse(
+            BatteryIndicatorPolicy.resolveMasterEnabled(
+                explicitEnabled = false,
+                externalPercent = true,
+                chargingColor = true,
+                percentBold = true,
+                style = BatteryIndicatorStyle.IOS_STYLE
+            )
+        )
+        assertTrue(
+            BatteryIndicatorPolicy.resolveMasterEnabled(
+                explicitEnabled = true,
+                externalPercent = false,
+                chargingColor = false,
+                percentBold = false,
+                style = BatteryIndicatorStyle.DEFAULT_FRAMED
+            )
+        )
+        assertFalse(
+            BatteryIndicatorPolicy.resolveMasterEnabled(
+                explicitEnabled = null,
+                externalPercent = false,
+                chargingColor = false,
+                percentBold = false,
+                style = BatteryIndicatorStyle.DEFAULT_FRAMED
+            )
+        )
+        assertTrue(
+            BatteryIndicatorPolicy.resolveMasterEnabled(
+                explicitEnabled = null,
+                externalPercent = true,
+                chargingColor = false,
+                percentBold = false,
+                style = BatteryIndicatorStyle.DEFAULT_FRAMED
+            )
+        )
+        assertTrue(
+            BatteryIndicatorPolicy.resolveMasterEnabled(
+                explicitEnabled = null,
+                externalPercent = false,
+                chargingColor = false,
+                percentBold = false,
+                style = BatteryIndicatorStyle.FRAMELESS
+            )
+        )
     }
 
     @Test
@@ -179,27 +233,52 @@ class BatteryIndicatorPolicyTest {
     }
 
     @Test
-    fun `inner percentage text uses light color only for internal filled container styles`() {
+    fun `inner percentage text uses light color only when enabled with internal filled container styles`() {
         assertNull(
             BatteryIndicatorPolicy.resolveInnerPercentTextColor(
-                BatteryIndicatorOptions(externalPercent = false, style = BatteryIndicatorStyle.DEFAULT_FRAMED)
+                BatteryIndicatorOptions(
+                    enabled = false,
+                    externalPercent = false,
+                    style = BatteryIndicatorStyle.IOS_STYLE
+                )
             )
         )
         assertNull(
             BatteryIndicatorPolicy.resolveInnerPercentTextColor(
-                BatteryIndicatorOptions(externalPercent = true, style = BatteryIndicatorStyle.IOS_STYLE)
+                BatteryIndicatorOptions(
+                    enabled = true,
+                    externalPercent = false,
+                    style = BatteryIndicatorStyle.DEFAULT_FRAMED
+                )
+            )
+        )
+        assertNull(
+            BatteryIndicatorPolicy.resolveInnerPercentTextColor(
+                BatteryIndicatorOptions(
+                    enabled = true,
+                    externalPercent = true,
+                    style = BatteryIndicatorStyle.IOS_STYLE
+                )
             )
         )
         assertEquals(
             BatteryIndicatorPolicy.COLOR_WHITE,
             BatteryIndicatorPolicy.resolveInnerPercentTextColor(
-                BatteryIndicatorOptions(externalPercent = false, style = BatteryIndicatorStyle.FRAMELESS)
+                BatteryIndicatorOptions(
+                    enabled = true,
+                    externalPercent = false,
+                    style = BatteryIndicatorStyle.FRAMELESS
+                )
             )
         )
         assertEquals(
             BatteryIndicatorPolicy.COLOR_WHITE,
             BatteryIndicatorPolicy.resolveInnerPercentTextColor(
-                BatteryIndicatorOptions(externalPercent = false, style = BatteryIndicatorStyle.IOS_STYLE)
+                BatteryIndicatorOptions(
+                    enabled = true,
+                    externalPercent = false,
+                    style = BatteryIndicatorStyle.IOS_STYLE
+                )
             )
         )
     }

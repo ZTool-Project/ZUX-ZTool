@@ -557,6 +557,8 @@
     <string name="system_ui_status_bar_network_hide_both_title">Hide only when both directions are slow</string>
     <string name="system_ui_status_bar_network_hide_both_summary">When off, hides if the download speed is below the threshold</string>
     <string name="system_ui_status_bar_battery_title">Battery</string>
+    <string name="system_ui_status_bar_battery_indicator_title">Custom battery indicator</string>
+    <string name="system_ui_status_bar_battery_indicator_summary">Enable to customize the battery style and render battery level with 1% precision</string>
     <string name="system_ui_status_bar_battery_style_label">Battery icon style</string>
     <string name="system_ui_status_bar_battery_style_summary">Choose the visual style of the status bar battery icon</string>
     <string name="system_ui_status_bar_battery_style_default_framed_name">Default (framed)</string>

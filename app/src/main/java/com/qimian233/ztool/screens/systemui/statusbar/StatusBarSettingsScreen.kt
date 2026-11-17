@@ -155,6 +155,7 @@ fun StatusBarSettingsRoute(
             onNetworkSpeedHideSlowChanged = viewModel::setNetworkSpeedHideSlow,
             onNetworkSpeedHideThresholdChanged = viewModel::setNetworkSpeedHideThreshold,
             onNetworkSpeedHideBothChanged = viewModel::setNetworkSpeedHideBoth,
+            onBatteryIndicatorEnabledChanged = viewModel::setBatteryIndicatorEnabled,
             onBatteryExternalChanged = viewModel::setBatteryExternal,
             onBatteryChargingColorChanged = viewModel::setBatteryChargingColor,
             onBatteryPercentBoldChanged = viewModel::setBatteryPercentBold,
@@ -244,6 +245,7 @@ private fun StatusBarSettingsScreen(
     onNetworkSpeedHideSlowChanged: (Boolean) -> Unit,
     onNetworkSpeedHideThresholdChanged: (Float) -> Unit,
     onNetworkSpeedHideBothChanged: (Boolean) -> Unit,
+    onBatteryIndicatorEnabledChanged: (Boolean) -> Unit,
     onBatteryExternalChanged: (Boolean) -> Unit,
     onBatteryChargingColorChanged: (Boolean) -> Unit,
     onBatteryPercentBoldChanged: (Boolean) -> Unit,
@@ -313,6 +315,7 @@ private fun StatusBarSettingsScreen(
                         onNetworkSpeedHideSlowChanged = onNetworkSpeedHideSlowChanged,
                         onNetworkSpeedHideThresholdChanged = onNetworkSpeedHideThresholdChanged,
                         onNetworkSpeedHideBothChanged = onNetworkSpeedHideBothChanged,
+                        onBatteryIndicatorEnabledChanged = onBatteryIndicatorEnabledChanged,
                         onBatteryExternalChanged = onBatteryExternalChanged,
                         onBatteryChargingColorChanged = onBatteryChargingColorChanged,
                         onBatteryPercentBoldChanged = onBatteryPercentBoldChanged,
@@ -352,6 +355,7 @@ private fun statusBarSettingsSections(
     onNetworkSpeedHideSlowChanged: (Boolean) -> Unit,
     onNetworkSpeedHideThresholdChanged: (Float) -> Unit,
     onNetworkSpeedHideBothChanged: (Boolean) -> Unit,
+    onBatteryIndicatorEnabledChanged: (Boolean) -> Unit,
     onBatteryExternalChanged: (Boolean) -> Unit,
     onBatteryChargingColorChanged: (Boolean) -> Unit,
     onBatteryPercentBoldChanged: (Boolean) -> Unit,
@@ -615,50 +619,61 @@ private fun statusBarSettingsSections(
         SettingSection(
             title = stringResource(R.string.system_ui_status_bar_battery_title),
             items = buildList {
-                val styleLabels = BatteryIndicatorStyle.entries.associateWith {
-                    batteryStyleLabel(it)
+                add(
+                    SettingItem.Switch(
+                        title = stringResource(R.string.system_ui_status_bar_battery_indicator_title),
+                        summary = stringResource(R.string.system_ui_status_bar_battery_indicator_summary),
+                        checked = state.batteryIndicatorEnabled,
+                        onCheckedChange = onBatteryIndicatorEnabledChanged,
+                        key = "status_bar_battery_indicator"
+                    )
+                )
+                if (state.batteryIndicatorEnabled) {
+                    val styleLabels = BatteryIndicatorStyle.entries.associateWith {
+                        batteryStyleLabel(it)
+                    }
+                    add(
+                        SettingItem.Dropdown(
+                            label = stringResource(R.string.system_ui_status_bar_battery_style_label),
+                            summary = stringResource(R.string.system_ui_status_bar_battery_style_summary),
+                            value = styleLabels.getValue(state.batteryStyle),
+                            options = BatteryIndicatorStyle.entries,
+                            optionLabel = { styleLabels.getValue(it) },
+                            optionIcon = { style ->
+                                { BatteryStylePreviewIcon(style = style) }
+                            },
+                            onOptionSelected = onBatteryStyleChanged,
+                            key = "status_bar_battery_style"
+                        )
+                    )
+                    add(
+                        SettingItem.Switch(
+                            title = stringResource(R.string.system_ui_status_bar_syatus_battery_external_title),
+                            summary = stringResource(R.string.system_ui_status_bar_syatus_battery_external_summary),
+                            checked = state.batteryExternal,
+                            onCheckedChange = onBatteryExternalChanged,
+                            key = "status_bar_battery_external"
+                        )
+                    )
+                    add(
+                        SettingItem.Switch(
+                            title = stringResource(R.string.system_ui_status_bar_battery_percent_bold_title),
+                            summary = stringResource(R.string.system_ui_status_bar_battery_percent_bold_summary),
+                            checked = state.batteryPercentBold,
+                            onCheckedChange = onBatteryPercentBoldChanged,
+                            key = "status_bar_battery_percent_bold"
+                        )
+                    )
+                    add(
+                        SettingItem.Switch(
+                            title = stringResource(R.string.system_ui_status_bar_battery_charging_color_title),
+                            summary = stringResource(R.string.system_ui_status_bar_battery_charging_color_summary),
+                            checked = state.batteryChargingColor,
+                            onCheckedChange = onBatteryChargingColorChanged,
+                            key = "status_bar_battery_charging_color"
+                        )
+                    )
                 }
-                add(
-                    SettingItem.Dropdown(
-                        label = stringResource(R.string.system_ui_status_bar_battery_style_label),
-                        summary = stringResource(R.string.system_ui_status_bar_battery_style_summary),
-                        value = styleLabels.getValue(state.batteryStyle),
-                        options = BatteryIndicatorStyle.entries,
-                        optionLabel = { styleLabels.getValue(it) },
-                        optionIcon = { style ->
-                            { BatteryStylePreviewIcon(style = style) }
-                        },
-                        onOptionSelected = onBatteryStyleChanged,
-                        key = "status_bar_battery_style"
-                    )
-                )
-                add(
-                    SettingItem.Switch(
-                        title = stringResource(R.string.system_ui_status_bar_syatus_battery_external_title),
-                        summary = stringResource(R.string.system_ui_status_bar_syatus_battery_external_summary),
-                        checked = state.batteryExternal,
-                        onCheckedChange = onBatteryExternalChanged,
-                        key = "status_bar_battery_external"
-                    )
-                )
-                add(
-                    SettingItem.Switch(
-                        title = stringResource(R.string.system_ui_status_bar_battery_percent_bold_title),
-                        summary = stringResource(R.string.system_ui_status_bar_battery_percent_bold_summary),
-                        checked = state.batteryPercentBold,
-                        onCheckedChange = onBatteryPercentBoldChanged,
-                        key = "status_bar_battery_percent_bold"
-                    )
-                )
-                add(
-                    SettingItem.Switch(
-                        title = stringResource(R.string.system_ui_status_bar_battery_charging_color_title),
-                        summary = stringResource(R.string.system_ui_status_bar_battery_charging_color_summary),
-                        checked = state.batteryChargingColor,
-                        onCheckedChange = onBatteryChargingColorChanged,
-                        key = "status_bar_battery_charging_color"
-                    )
-                )
             }
         )
     )
@@ -687,6 +702,7 @@ private fun BatteryStylePreviewIcon(style: BatteryIndicatorStyle) {
                 systemShowPercent = false
             ),
             options = BatteryIndicatorOptions(
+                enabled = true,
                 externalPercent = true,
                 chargingColor = false,
                 style = style

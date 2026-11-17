@@ -13,7 +13,7 @@ The SystemUI status bar battery indicator module (`com.android.systemui`, target
    - Pure Kotlin with zero Android or `libxposed` dependencies so all state and color rules are directly covered by JVM unit tests (`BatteryIndicatorPolicyTest.kt`).
    - Defines:
      - `BatteryIndicatorStyle`: enum of indicator shapes (currently `DEFAULT_FRAMED`; extensible to `FRAMELESS`, `VERTICAL`, `RING`, `PIE`, `SEGMENTED`).
-     - `BatteryIndicatorOptions`: user-configured feature switches and style selection; exposes `val enabled: Boolean` for multi-switch Hook activation.
+     - `BatteryIndicatorOptions`: master `enabled` toggle plus user-configured feature switches and style selection (`resolveMasterEnabled` preserves legacy active sub-options for unmigrated configs).
      - `BatteryIndicatorState`: snapshot of host `BatteryMeterView` state (`level`, `isCharging`, `chargeRate`, `isPowerSave`, `isBlackTheme`, `isHealthFrameActive`, `systemShowPercent`).
      - `BatteryResolvedColors`: resolved opaque ARGB colors and `0..255` alphas for the container/frame and the level fill.
    - `BatteryIndicatorPolicy.resolveColors(state, options)` computes frame and fill colors/alphas across charging speeds (`mChargeRate >= 3` fast charging vs. `< 3` normal charging), power-save mode, low-battery state, health/bypass protection frame, and light/dark status bar themes.
@@ -26,7 +26,7 @@ The SystemUI status bar battery indicator module (`com.android.systemui`, target
      - Future indicator styles only need to implement `BatteryShapeRenderer` and register a branch in `ZToolBatteryDrawable.rendererForStyle(style)`.
 
 3. **Hook Coordinator Layer** (`app/src/main/java/com/qimian233/ztool/hook/modules/systemui/statusbar/SystemUIBatteryHook.kt`)
-   - Registered under `PreferenceKeys.SYSTEMUI_BATTERY_PERCENTAGE.name` and overrides `isEnabled(): Boolean = readOptions().enabled` so any active battery sub-feature enables the module.
+   - Registered under `PreferenceKeys.SYSTEMUI_BATTERY_INDICATOR.name` and overrides `isEnabled(): Boolean = readOptions().enabled` so the master switch uniformly controls the custom renderer.
    - Caches reflected `BatteryMeterView` fields and methods in a `Host` descriptor during `handleLoadPackage`.
    - Hooks `BatteryMeterView` constructor, `updateBatteryIcon`, `updateBatteryIconOTG`, `onBatteryLevelDualChanged`, `onDarkChanged`, `onPowerSaveChanged`, `updateShowPercent`, `updatePercentText`, and `scaleBatteryMeterViews`.
    - Attaches and updates `ZToolBatteryDrawable` on `mBatteryIconView` (keeping a `WeakHashMap` reference to the last stock drawable for fallback states) while letting stock `BatteryMeterView` continue managing `mBatteryChargeIconView` (the charging bolt icon).

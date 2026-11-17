@@ -53,7 +53,7 @@ class SystemUIBatteryHook : AppHookModule() {
     private val stockDrawables =
         Collections.synchronizedMap(WeakHashMap<ImageView, Drawable>())
 
-    override fun getModuleName(): String = PreferenceKeys.SYSTEMUI_BATTERY_PERCENTAGE.name
+    override fun getModuleName(): String = PreferenceKeys.SYSTEMUI_BATTERY_INDICATOR.name
 
     override fun getTargetPackages(): Array<String> = arrayOf(ScopeKeys.SYSTEM_UI.packageName)
 
@@ -66,25 +66,44 @@ class SystemUIBatteryHook : AppHookModule() {
 
     private fun readOptions(): BatteryIndicatorOptions = try {
         val prefs = xposed.getRemotePreferences(PREFS_NAME)
-        BatteryIndicatorOptions(
-            externalPercent = prefs.getBoolean(
-                PreferenceKeys.SYSTEMUI_BATTERY_PERCENTAGE.name,
-                PreferenceKeys.SYSTEMUI_BATTERY_PERCENTAGE.default
-            ),
-            chargingColor = prefs.getBoolean(
-                PreferenceKeys.SYSTEMUI_BATTERY_CHARGING_COLOR.name,
-                PreferenceKeys.SYSTEMUI_BATTERY_CHARGING_COLOR.default
-            ),
-            percentBold = prefs.getBoolean(
-                PreferenceKeys.SYSTEMUI_BATTERY_PERCENT_BOLD.name,
-                PreferenceKeys.SYSTEMUI_BATTERY_PERCENT_BOLD.default
-            ),
-            style = BatteryIndicatorStyle.fromPref(
-                prefs.getString(
-                    PreferenceKeys.SYSTEMUI_BATTERY_INDICATOR_STYLE.name,
-                    PreferenceKeys.SYSTEMUI_BATTERY_INDICATOR_STYLE.default
-                )
+        val externalPercent = prefs.getBoolean(
+            PreferenceKeys.SYSTEMUI_BATTERY_PERCENTAGE.name,
+            PreferenceKeys.SYSTEMUI_BATTERY_PERCENTAGE.default
+        )
+        val chargingColor = prefs.getBoolean(
+            PreferenceKeys.SYSTEMUI_BATTERY_CHARGING_COLOR.name,
+            PreferenceKeys.SYSTEMUI_BATTERY_CHARGING_COLOR.default
+        )
+        val percentBold = prefs.getBoolean(
+            PreferenceKeys.SYSTEMUI_BATTERY_PERCENT_BOLD.name,
+            PreferenceKeys.SYSTEMUI_BATTERY_PERCENT_BOLD.default
+        )
+        val style = BatteryIndicatorStyle.fromPref(
+            prefs.getString(
+                PreferenceKeys.SYSTEMUI_BATTERY_INDICATOR_STYLE.name,
+                PreferenceKeys.SYSTEMUI_BATTERY_INDICATOR_STYLE.default
             )
+        )
+        val explicitEnabled = if (prefs.contains(PreferenceKeys.SYSTEMUI_BATTERY_INDICATOR.name)) {
+            prefs.getBoolean(
+                PreferenceKeys.SYSTEMUI_BATTERY_INDICATOR.name,
+                PreferenceKeys.SYSTEMUI_BATTERY_INDICATOR.default
+            )
+        } else {
+            null
+        }
+        BatteryIndicatorOptions(
+            enabled = BatteryIndicatorPolicy.resolveMasterEnabled(
+                explicitEnabled = explicitEnabled,
+                externalPercent = externalPercent,
+                chargingColor = chargingColor,
+                percentBold = percentBold,
+                style = style
+            ),
+            externalPercent = externalPercent,
+            chargingColor = chargingColor,
+            percentBold = percentBold,
+            style = style
         )
     } catch (_: Throwable) {
         logger.warn("Failed to read battery indicator preferences, using defaults")
@@ -158,8 +177,12 @@ class SystemUIBatteryHook : AppHookModule() {
                     val result = chain.proceed()
                     (chain.thisObject as? LinearLayout)?.let { view ->
                         val options = readOptions()
-                        syncBatteryDrawable(host, view, options)
-                        syncInnerPercentTextColor(host, view, options)
+                        if (options.enabled) {
+                            syncBatteryDrawable(host, view, options)
+                            syncInnerPercentTextColor(host, view, options)
+                        } else {
+                            restoreStockDrawable(host, view)
+                        }
                     }
                     result
                 }
@@ -248,7 +271,10 @@ class SystemUIBatteryHook : AppHookModule() {
 
     private fun syncBatteryView(host: Host, view: LinearLayout) {
         val options = readOptions()
-        if (!options.enabled) return
+        if (!options.enabled) {
+            restoreStockDrawable(host, view)
+            return
+        }
         if (options.externalPercent) {
             ensureExternalPercentLayout(host, view)
             forceShowExternalPercentage(host, view)
@@ -379,7 +405,10 @@ class SystemUIBatteryHook : AppHookModule() {
         view: LinearLayout,
         options: BatteryIndicatorOptions
     ) {
-        if (!options.enabled) return
+        if (!options.enabled) {
+            restoreStockDrawable(host, view)
+            return
+        }
         try {
             val iconView = host.iconViewField.get(view) as? ImageView ?: return
             val currentDrawable = iconView.drawable
@@ -443,6 +472,17 @@ class SystemUIBatteryHook : AppHookModule() {
             }
         } catch (t: Throwable) {
             logger.error("Failed to sync custom battery drawable", t)
+        }
+    }
+
+    private fun restoreStockDrawable(host: Host, view: LinearLayout) {
+        try {
+            val iconView = host.iconViewField.get(view) as? ImageView ?: return
+            if (iconView.drawable is ZToolBatteryDrawable) {
+                stockDrawables[iconView]?.let { iconView.setImageDrawable(it) }
+            }
+        } catch (t: Throwable) {
+            logger.error("Failed to restore stock battery drawable", t)
         }
     }
 
