@@ -125,7 +125,8 @@ sealed interface SettingItem {
         override val maxSdkVersion: Int? = null,
         override val unsupportedHint: String? = null,
         override val key: String,
-        val optionSupportingText: ((T) -> String?)? = null
+        val optionSupportingText: ((T) -> String?)? = null,
+        val optionIcon: ((T) -> (@Composable () -> Unit)?)? = null
     ) : SettingItem
 
     data class Slider(
@@ -541,6 +542,7 @@ private fun <T> ZToolPopupMenuSettingItem(
         options = item.options,
         optionLabel = item.optionLabel,
         optionSupportingText = item.optionSupportingText,
+        optionIcon = item.optionIcon,
         onOptionSelected = item.onOptionSelected,
         summary = summary,
         enabled = enabled,

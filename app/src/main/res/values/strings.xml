@@ -671,11 +671,8 @@
     <string name="system_ui_status_bar_battery_style_label">电池图标样式</string>
     <string name="system_ui_status_bar_battery_style_summary">选择状态栏电池图标的显示样式</string>
     <string name="system_ui_status_bar_battery_style_default_framed_name">默认线框</string>
-    <string name="system_ui_status_bar_battery_style_default_framed_summary">保留系统线框轮廓，电量填充精确到 1%</string>
     <string name="system_ui_status_bar_battery_style_frameless_name">无边框胶囊</string>
-    <string name="system_ui_status_bar_battery_style_frameless_summary">以半透明暗色无边框纯胶囊容器替代亮色线框，电量填充紧密贴合容器边缘</string>
     <string name="system_ui_status_bar_battery_style_ios_style_name">iOS 风格</string>
-    <string name="system_ui_status_bar_battery_style_ios_style_summary">半透明暗色填充容器保持水平电池轮廓，圆角矩形正极无缝相连且仅满电时被填充覆盖</string>
     <string name="system_ui_status_bar_syatus_battery_external_title">强制电池外百分比</string>
     <string name="system_ui_status_bar_syatus_battery_external_summary">在电池图标右侧显示剩余的电量，请先关闭系统设置的百分比显示</string>
     <string name="system_ui_status_bar_battery_charging_color_title">充电速度指示颜色</string>

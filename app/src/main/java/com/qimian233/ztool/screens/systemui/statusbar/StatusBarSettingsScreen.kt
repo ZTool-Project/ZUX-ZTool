@@ -4,6 +4,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.os.Build
 import android.widget.Toast
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
@@ -22,6 +24,7 @@ import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import com.qimian233.ztool.ui.theme.LocalZToolColorScheme
 import androidx.compose.material3.Text
@@ -32,7 +35,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -42,7 +50,11 @@ import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import com.qimian233.ztool.R
 import com.qimian233.ztool.data.keys.ScopeKeys
 import com.qimian233.ztool.data.systemui.StatusBarSettingsRepository
+import com.qimian233.ztool.hook.modules.systemui.statusbar.BatteryIndicatorOptions
+import com.qimian233.ztool.hook.modules.systemui.statusbar.BatteryIndicatorState
 import com.qimian233.ztool.hook.modules.systemui.statusbar.BatteryIndicatorStyle
+import com.qimian233.ztool.hook.modules.systemui.statusbar.ZToolBatteryDrawable
+import kotlin.math.roundToInt
 import com.qimian233.ztool.ui.components.QuickHelpExample
 import com.qimian233.ztool.ui.components.QuickHelpItem
 import com.qimian233.ztool.ui.components.HighlightAnchorRegistry
@@ -602,9 +614,6 @@ private fun statusBarSettingsSections(
                 val styleLabels = BatteryIndicatorStyle.entries.associateWith {
                     batteryStyleLabel(it)
                 }
-                val styleSummaries = BatteryIndicatorStyle.entries.associateWith {
-                    batteryStyleSummary(it)
-                }
                 add(
                     SettingItem.Dropdown(
                         label = stringResource(R.string.system_ui_status_bar_battery_style_label),
@@ -612,7 +621,9 @@ private fun statusBarSettingsSections(
                         value = styleLabels.getValue(state.batteryStyle),
                         options = BatteryIndicatorStyle.entries,
                         optionLabel = { styleLabels.getValue(it) },
-                        optionSupportingText = { styleSummaries.getValue(it) },
+                        optionIcon = { style ->
+                            { BatteryStylePreviewIcon(style = style) }
+                        },
                         onOptionSelected = onBatteryStyleChanged,
                         key = "status_bar_battery_style"
                     )
@@ -651,14 +662,40 @@ private fun batteryStyleLabel(style: BatteryIndicatorStyle): String = when (styl
 }
 
 @Composable
-private fun batteryStyleSummary(style: BatteryIndicatorStyle): String = when (style) {
-    BatteryIndicatorStyle.DEFAULT_FRAMED ->
-        stringResource(R.string.system_ui_status_bar_battery_style_default_framed_summary)
-    BatteryIndicatorStyle.FRAMELESS ->
-        stringResource(R.string.system_ui_status_bar_battery_style_frameless_summary)
-    BatteryIndicatorStyle.IOS_STYLE ->
-        stringResource(R.string.system_ui_status_bar_battery_style_ios_style_summary)
+private fun BatteryStylePreviewIcon(style: BatteryIndicatorStyle) {
+    val density = LocalDensity.current.density
+    val useDarkGlyph = LocalContentColor.current.luminance() < 0.5f
+    val drawable = remember(density, style, useDarkGlyph) {
+        ZToolBatteryDrawable(
+            density = density,
+            state = BatteryIndicatorState(
+                level = BATTERY_STYLE_PREVIEW_LEVEL,
+                isBlackTheme = useDarkGlyph,
+                systemShowPercent = false
+            ),
+            options = BatteryIndicatorOptions(
+                externalPercent = true,
+                chargingColor = false,
+                style = style
+            )
+        )
+    }
+    Canvas(
+        modifier = Modifier
+            .size(width = 34.dp, height = 20.dp)
+            .clipToBounds()
+    ) {
+        // Center a square virtual viewport horizontally so the 66x67 battery glyph fills the row preview.
+        val virtualSize = size.width
+        val topOffset = ((size.height - virtualSize) / 2f).roundToInt()
+        drawable.setBounds(0, topOffset, virtualSize.roundToInt(), topOffset + virtualSize.roundToInt())
+        drawIntoCanvas { canvas ->
+            drawable.draw(canvas.nativeCanvas)
+        }
+    }
 }
+
+private const val BATTERY_STYLE_PREVIEW_LEVEL = 72
 @Composable
 private fun CustomClockConfig(
     clockFormat: String,

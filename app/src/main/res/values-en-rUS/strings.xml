@@ -560,11 +560,8 @@
     <string name="system_ui_status_bar_battery_style_label">Battery icon style</string>
     <string name="system_ui_status_bar_battery_style_summary">Choose the visual style of the status bar battery icon</string>
     <string name="system_ui_status_bar_battery_style_default_framed_name">Default (framed)</string>
-    <string name="system_ui_status_bar_battery_style_default_framed_summary">Keep the stock outline frame with 1%-continuous level fill</string>
     <string name="system_ui_status_bar_battery_style_frameless_name">Frameless capsule</string>
-    <string name="system_ui_status_bar_battery_style_frameless_summary">Replace bright outline with a translucent dim pure capsule container and edge-flush fill</string>
     <string name="system_ui_status_bar_battery_style_ios_style_name">iOS style</string>
-    <string name="system_ui_status_bar_battery_style_ios_style_summary">Translucent dim filled horizontal battery with a seamless rounded-rect terminal cap filled only at 100%</string>
     <string name="system_ui_status_bar_syatus_battery_external_title">Force battery percentage outside icon</string>
     <string name="system_ui_status_bar_syatus_battery_external_summary">Show remaining battery percentage to the right of the battery icon. Disable the system percentage display first.</string>
     <string name="system_ui_status_bar_battery_charging_color_title">Color battery fill by charging speed</string>

@@ -394,7 +394,8 @@ fun <T> ZToolPopupMenuField(
     icon: ImageVector? = null,
     externalExpanded: Boolean? = null,
     onExternalExpandedChange: ((Boolean) -> Unit)? = null,
-    optionSupportingText: ((T) -> String?)? = null
+    optionSupportingText: ((T) -> String?)? = null,
+    optionIcon: ((T) -> (@Composable () -> Unit)?)? = null
 ) {
     ZToolSettingsNavigationEventProvider {
         if (LocalZToolThemeSpec.current.style == FrontendStyle.Miuix) {
@@ -403,6 +404,7 @@ fun <T> ZToolPopupMenuField(
                 options = options,
                 optionLabel = optionLabel,
                 optionSupportingText = optionSupportingText,
+                optionIcon = optionIcon,
                 onOptionSelected = onOptionSelected,
                 modifier = modifier,
                 enabled = enabled,
@@ -418,6 +420,7 @@ fun <T> ZToolPopupMenuField(
             options = options,
             optionLabel = optionLabel,
             optionSupportingText = optionSupportingText,
+            optionIcon = optionIcon,
             onOptionSelected = onOptionSelected,
             modifier = modifier,
             enabled = enabled,
@@ -442,7 +445,8 @@ fun <T> ZToolPopupMenuSettingRow(
     fieldMinWidth: Dp = 132.dp,
     fieldMaxWidth: Dp = 180.dp,
     rippleOnly: Boolean = false,
-    optionSupportingText: ((T) -> String?)? = null
+    optionSupportingText: ((T) -> String?)? = null,
+    optionIcon: ((T) -> (@Composable () -> Unit)?)? = null
 ) {
     var expanded by remember { mutableStateOf(false) }
 
@@ -462,6 +466,7 @@ fun <T> ZToolPopupMenuSettingRow(
                     options = options,
                     optionLabel = optionLabel,
                     optionSupportingText = optionSupportingText,
+                    optionIcon = optionIcon,
                     onOptionSelected = onOptionSelected,
                     enabled = enabled,
                     modifier = Modifier.widthIn(min = fieldMinWidth, max = fieldMaxWidth),
@@ -501,6 +506,7 @@ fun <T> ZToolPopupMenuSettingRow(
                     options = options,
                     optionLabel = optionLabel,
                     optionSupportingText = optionSupportingText,
+                    optionIcon = optionIcon,
                     onOptionSelected = onOptionSelected,
                     enabled = enabled,
                     modifier = Modifier.widthIn(min = fieldMinWidth, max = fieldMaxWidth),
@@ -667,7 +673,8 @@ private fun <T> ZToolMiuixPopupMenuField(
     icon: ImageVector? = null,
     externalExpanded: Boolean? = null,
     onExternalExpandedChange: ((Boolean) -> Unit)? = null,
-    optionSupportingText: ((T) -> String?)? = null
+    optionSupportingText: ((T) -> String?)? = null,
+    optionIcon: ((T) -> (@Composable () -> Unit)?)? = null
 ) {
     val internalExpanded = remember { mutableStateOf(false) }
     val expanded = externalExpanded ?: internalExpanded.value
@@ -727,9 +734,21 @@ private fun <T> ZToolMiuixPopupMenuField(
             MiuixListPopupColumn {
                 options.forEachIndexed { index, option ->
                     val label = optionLabel(option)
+                    val previewIcon = optionIcon?.invoke(option)
                     MiuixDropdownImpl(
                         item = MiuixDropdownItem(
                             text = label,
+                            icon = previewIcon?.let { iconContent ->
+                                { iconModifier ->
+                                    // Miuix IconCellModifier enforces sizeIn(minHeight = 26.dp); center shorter icons cleanly.
+                                    Box(
+                                        modifier = iconModifier,
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        iconContent()
+                                    }
+                                }
+                            },
                             summary = optionSupportingText?.invoke(option)?.takeIf { it.isNotBlank() }
                         ),
                         optionSize = options.size,
@@ -758,7 +777,8 @@ private fun <T> ZToolMaterialPopupMenuField(
     icon: ImageVector? = null,
     externalExpanded: Boolean? = null,
     onExternalExpandedChange: ((Boolean) -> Unit)? = null,
-    optionSupportingText: ((T) -> String?)? = null
+    optionSupportingText: ((T) -> String?)? = null,
+    optionIcon: ((T) -> (@Composable () -> Unit)?)? = null
 ) {
     val internalExpanded = remember { mutableStateOf(false) }
     val expanded = externalExpanded ?: internalExpanded.value
@@ -831,12 +851,14 @@ private fun <T> ZToolMaterialPopupMenuField(
                 options.forEachIndexed { index, option ->
                     val label = optionLabel(option)
                     val supportingText = optionSupportingText?.invoke(option)?.takeIf { it.isNotBlank() }
+                    val previewIcon = optionIcon?.invoke(option)
                     SelectableDropdownMenuItem(
                         selected = label == value,
                         shapes = MenuDefaults.itemShape(index = index, count = options.size),
                         colors = itemColors,
                         text = { Text(label) },
                         supportingText = supportingText?.let { { Text(it) } },
+                        trailingContent = previewIcon,
                         onClick = {
                             onOptionSelected(option)
                             setExpanded(false)
