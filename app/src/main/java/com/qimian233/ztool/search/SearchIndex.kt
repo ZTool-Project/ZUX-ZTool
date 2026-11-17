@@ -516,7 +516,8 @@ object SearchIndex {
             titleRes = R.string.system_ui_status_bar_battery_style_label,
             summaryRes = R.string.system_ui_status_bar_battery_style_summary,
             parentTitleRes = R.string.system_ui_status_bar_battery_indicator_title,
-            parentKey = "status_bar_battery_indicator"
+            parentKey = "status_bar_battery_indicator",
+            keywords = listOf("立式电池", "圆环", "饼图", "Vertical", "Ring", "Pie")
         ),
         systemUiStatusBar.item(
             id = "status_bar_battery_external",

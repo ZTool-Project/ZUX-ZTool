@@ -19,6 +19,8 @@ import kotlin.math.roundToInt
 interface BatteryShapeRenderer {
     val viewportWidth: Float
     val viewportHeight: Float
+    val previewGlyphHeightFraction: Float
+        get() = 1f
 
     fun draw(
         canvas: Canvas,
@@ -40,6 +42,15 @@ class ZToolBatteryDrawable(
     private var drawableAlpha: Int = 255
     private var renderer: BatteryShapeRenderer = rendererForStyle(options.style)
 
+    val viewportWidth: Float
+        get() = renderer.viewportWidth
+
+    val viewportHeight: Float
+        get() = renderer.viewportHeight
+
+    val previewGlyphHeightFraction: Float
+        get() = renderer.previewGlyphHeightFraction
+
     /** Updates battery state and options, invalidating only when values change. */
     fun update(state: BatteryIndicatorState, options: BatteryIndicatorOptions) {
         if (currentState == state && currentOptions == options) return
@@ -52,9 +63,11 @@ class ZToolBatteryDrawable(
         invalidateSelf()
     }
 
-    override fun getIntrinsicWidth(): Int = (INTRINSIC_WIDTH_DP * density).roundToInt()
+    override fun getIntrinsicWidth(): Int =
+        (renderer.viewportWidth * DP_PER_VIEWPORT_UNIT * density).roundToInt()
 
-    override fun getIntrinsicHeight(): Int = (INTRINSIC_HEIGHT_DP * density).roundToInt()
+    override fun getIntrinsicHeight(): Int =
+        (renderer.viewportHeight * DP_PER_VIEWPORT_UNIT * density).roundToInt()
 
     override fun draw(canvas: Canvas) {
         val b = bounds
@@ -92,12 +105,35 @@ class ZToolBatteryDrawable(
         BatteryIndicatorStyle.DEFAULT_FRAMED -> DefaultFramedBatteryRenderer()
         BatteryIndicatorStyle.FRAMELESS -> FramelessBatteryRenderer()
         BatteryIndicatorStyle.IOS_STYLE -> IosBatteryRenderer()
+        BatteryIndicatorStyle.VERTICAL -> VerticalBatteryRenderer()
+        BatteryIndicatorStyle.RING -> RingBatteryRenderer()
+        BatteryIndicatorStyle.PIE -> PieBatteryRenderer()
     }
 
     companion object {
-        // Matches stock stat_sys_battery_*.xml intrinsic dimensions (26.4dp x 26.8dp).
-        private const val INTRINSIC_WIDTH_DP = 26.4f
-        private const val INTRINSIC_HEIGHT_DP = 26.8f
+        // 0.4dp per viewport unit matches stock stat_sys_battery_*.xml (66x67 -> 26.4dp x 26.8dp).
+        private const val DP_PER_VIEWPORT_UNIT = 0.4f
+    }
+}
+
+private inline fun drawInCenteredViewport(
+    canvas: Canvas,
+    bounds: Rect,
+    viewportWidth: Float,
+    viewportHeight: Float,
+    block: () -> Unit
+) {
+    if (bounds.isEmpty || viewportWidth <= 0f || viewportHeight <= 0f) return
+    val scale = min(bounds.width() / viewportWidth, bounds.height() / viewportHeight)
+    val dx = bounds.left + (bounds.width() - viewportWidth * scale) / 2f
+    val dy = bounds.top + (bounds.height() - viewportHeight * scale) / 2f
+    val saveCount = canvas.save()
+    canvas.translate(dx, dy)
+    canvas.scale(scale, scale)
+    try {
+        block()
+    } finally {
+        canvas.restoreToCount(saveCount)
     }
 }
 
@@ -114,23 +150,13 @@ private object HorizontalBatteryGeometry {
         lineTo(62f, 40f)
         close()
     }
-
-    inline fun drawInViewport(canvas: Canvas, bounds: Rect, block: () -> Unit) {
-        val saveCount = canvas.save()
-        canvas.translate(bounds.left.toFloat(), bounds.top.toFloat())
-        canvas.scale(bounds.width() / VIEWPORT_WIDTH, bounds.height() / VIEWPORT_HEIGHT)
-        try {
-            block()
-        } finally {
-            canvas.restoreToCount(saveCount)
-        }
-    }
 }
 
 /** Renders the stock ZUI 66x67 framed battery outline, terminal cap, and continuous level bar. */
 class DefaultFramedBatteryRenderer : BatteryShapeRenderer {
     override val viewportWidth: Float = HorizontalBatteryGeometry.VIEWPORT_WIDTH
     override val viewportHeight: Float = HorizontalBatteryGeometry.VIEWPORT_HEIGHT
+    override val previewGlyphHeightFraction: Float = GLYPH_HEIGHT / viewportHeight
 
     private val framePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
@@ -150,7 +176,7 @@ class DefaultFramedBatteryRenderer : BatteryShapeRenderer {
         state: BatteryIndicatorState,
         colors: BatteryResolvedColors
     ) {
-        HorizontalBatteryGeometry.drawInViewport(canvas, bounds) {
+        drawInCenteredViewport(canvas, bounds, viewportWidth, viewportHeight) {
             framePaint.color = colors.frameColor
             framePaint.alpha = colors.frameAlpha
             canvas.drawPath(FRAME_PATH, framePaint)
@@ -173,6 +199,7 @@ class DefaultFramedBatteryRenderer : BatteryShapeRenderer {
 
     companion object {
         private const val FRAME_STROKE_WIDTH = 4f
+        private const val GLYPH_HEIGHT = 36f
         private const val FILL_LEFT = 8f
         private const val FILL_TOP = 23f
         private const val FILL_BOTTOM = 45f
@@ -202,15 +229,24 @@ class DefaultFramedBatteryRenderer : BatteryShapeRenderer {
     }
 }
 
+/** Fill growth direction inside [FilledContainerBatteryRenderer]. */
+enum class BatteryFillOrientation {
+    HORIZONTAL_LEFT_TO_RIGHT,
+    VERTICAL_BOTTOM_TO_TOP
+}
+
 /** Shared renderer for filled translucent battery containers with edge-flush level clipping. */
 open class FilledContainerBatteryRenderer(
     private val containerRect: RectF,
     private val cornerRadius: Float,
     capPath: Path? = null,
-    private val fillCapOnFull: Boolean = false
+    private val fillCapOnFull: Boolean = false,
+    private val fillOrientation: BatteryFillOrientation = BatteryFillOrientation.HORIZONTAL_LEFT_TO_RIGHT,
+    override val viewportWidth: Float = HorizontalBatteryGeometry.VIEWPORT_WIDTH,
+    override val viewportHeight: Float = HorizontalBatteryGeometry.VIEWPORT_HEIGHT,
+    glyphHeight: Float = containerRect.height()
 ) : BatteryShapeRenderer {
-    override val viewportWidth: Float = HorizontalBatteryGeometry.VIEWPORT_WIDTH
-    override val viewportHeight: Float = HorizontalBatteryGeometry.VIEWPORT_HEIGHT
+    override val previewGlyphHeightFraction: Float = glyphHeight / viewportHeight
 
     private val containerPath: Path = Path().apply {
         addRoundRect(containerRect, cornerRadius, cornerRadius, Path.Direction.CW)
@@ -237,9 +273,15 @@ open class FilledContainerBatteryRenderer(
         state: BatteryIndicatorState,
         colors: BatteryResolvedColors
     ) {
-        HorizontalBatteryGeometry.drawInViewport(canvas, bounds) {
+        drawInCenteredViewport(canvas, bounds, viewportWidth, viewportHeight) {
             val level = state.clampedLevel
-            val fillRight = containerRect.left + containerRect.width() * (level / 100f)
+            val fraction = level / 100f
+            val fillEdge = when (fillOrientation) {
+                BatteryFillOrientation.HORIZONTAL_LEFT_TO_RIGHT ->
+                    containerRect.left + containerRect.width() * fraction
+                BatteryFillOrientation.VERTICAL_BOTTOM_TO_TOP ->
+                    containerRect.bottom - containerRect.height() * fraction
+            }
 
             if (level == FULL_BATTERY_LEVEL && fillCapOnFull) {
                 if (colors.fillAlpha < BatteryIndicatorPolicy.ALPHA_OPAQUE) {
@@ -250,19 +292,29 @@ open class FilledContainerBatteryRenderer(
                 fullFillPaint.color = colors.fillColor
                 fullFillPaint.alpha = colors.fillAlpha
                 canvas.drawPath(containerPath, fullFillPaint)
-                return@drawInViewport
+                return@drawInCenteredViewport
             }
 
             val containerSave = canvas.save()
             if (level > 0 && colors.fillAlpha == BatteryIndicatorPolicy.ALPHA_OPAQUE) {
                 // Keep container under the fill boundary pixel to avoid a subpixel gap,
-                // while leaving the left/top/bottom outer AA edges clean against the status bar.
-                canvas.clipRect(
-                    fillRight - CONTAINER_CLIP_OVERLAP,
-                    0f,
-                    HorizontalBatteryGeometry.VIEWPORT_WIDTH,
-                    HorizontalBatteryGeometry.VIEWPORT_HEIGHT
-                )
+                // while leaving the outer AA edges clean against the status bar.
+                when (fillOrientation) {
+                    BatteryFillOrientation.HORIZONTAL_LEFT_TO_RIGHT ->
+                        canvas.clipRect(
+                            fillEdge - CONTAINER_CLIP_OVERLAP,
+                            0f,
+                            viewportWidth,
+                            viewportHeight
+                        )
+                    BatteryFillOrientation.VERTICAL_BOTTOM_TO_TOP ->
+                        canvas.clipRect(
+                            0f,
+                            0f,
+                            viewportWidth,
+                            fillEdge + CONTAINER_CLIP_OVERLAP
+                        )
+                }
             }
             containerPaint.color = colors.frameColor
             containerPaint.alpha = colors.frameAlpha
@@ -273,7 +325,7 @@ open class FilledContainerBatteryRenderer(
                 fillPaint.shader = if (level == FULL_BATTERY_LEVEL) {
                     null
                 } else {
-                    resolveFillShader(level, fillRight, colors.fillColor)
+                    resolveFillShader(level, fillEdge, colors.fillColor)
                 }
                 fillPaint.color = colors.fillColor
                 fillPaint.alpha = colors.fillAlpha
@@ -282,21 +334,32 @@ open class FilledContainerBatteryRenderer(
         }
     }
 
-    private fun resolveFillShader(level: Int, fillRight: Float, fillColor: Int): LinearGradient {
+    private fun resolveFillShader(level: Int, fillEdge: Float, fillColor: Int): LinearGradient {
         val rgb = fillColor and RGB_MASK
         val existing = cachedFillShader
         if (existing != null && cachedFillLevel == level && cachedFillRgb == rgb) {
             return existing
         }
-        val shader = LinearGradient(
-            fillRight - GRADIENT_RAMP,
-            0f,
-            fillRight + GRADIENT_RAMP,
-            0f,
-            rgb or OPAQUE_ALPHA_MASK,
-            rgb,
-            Shader.TileMode.CLAMP
-        )
+        val shader = when (fillOrientation) {
+            BatteryFillOrientation.HORIZONTAL_LEFT_TO_RIGHT -> LinearGradient(
+                fillEdge - GRADIENT_RAMP,
+                0f,
+                fillEdge + GRADIENT_RAMP,
+                0f,
+                rgb or OPAQUE_ALPHA_MASK,
+                rgb,
+                Shader.TileMode.CLAMP
+            )
+            BatteryFillOrientation.VERTICAL_BOTTOM_TO_TOP -> LinearGradient(
+                0f,
+                fillEdge + GRADIENT_RAMP,
+                0f,
+                fillEdge - GRADIENT_RAMP,
+                rgb or OPAQUE_ALPHA_MASK,
+                rgb,
+                Shader.TileMode.CLAMP
+            )
+        }
         cachedFillLevel = level
         cachedFillRgb = rgb
         cachedFillShader = shader
@@ -355,5 +418,206 @@ class IosBatteryRenderer : FilledContainerBatteryRenderer(
                 Path.Direction.CW
             )
         }
+    }
+}
+
+/** Renders an AOSP/LineageOS-style vertical portrait battery with top terminal cap and bottom-up fill. */
+class VerticalBatteryRenderer : FilledContainerBatteryRenderer(
+    containerRect = RectF(BODY_LEFT, BODY_TOP, BODY_RIGHT, BODY_BOTTOM),
+    cornerRadius = BODY_CORNER_RADIUS,
+    capPath = VERTICAL_CAP_PATH,
+    fillCapOnFull = true,
+    fillOrientation = BatteryFillOrientation.VERTICAL_BOTTOM_TO_TOP,
+    viewportWidth = VIEWPORT_WIDTH,
+    viewportHeight = VIEWPORT_HEIGHT,
+    glyphHeight = BODY_BOTTOM - CAP_TOP
+) {
+    companion object {
+        // Proportions derived from AOSP/LineageOS portrait battery (12:19 silhouette scaled to 42u tall).
+        private const val VIEWPORT_WIDTH = 38f
+        private const val VIEWPORT_HEIGHT = 67f
+        private const val BODY_LEFT = 6f
+        private const val BODY_TOP = 17f
+        private const val BODY_RIGHT = 32f
+        private const val BODY_BOTTOM = 55f
+        private const val BODY_CORNER_RADIUS = 3.2f
+        private const val CAP_LEFT = 12.5f
+        private const val CAP_TOP = 13f
+        private const val CAP_RIGHT = 25.5f
+        private const val CAP_OVERLAP_BOTTOM = BODY_TOP + 2f
+        private const val CAP_CORNER_RADIUS = 1.6f
+
+        private val VERTICAL_CAP_PATH: Path = Path().apply {
+            addRoundRect(
+                RectF(CAP_LEFT, CAP_TOP, CAP_RIGHT, CAP_OVERLAP_BOTTOM),
+                CAP_CORNER_RADIUS,
+                CAP_CORNER_RADIUS,
+                Path.Direction.CW
+            )
+        }
+    }
+}
+
+private object CircularBatteryGeometry {
+    const val VIEWPORT_WIDTH = 48f
+    const val VIEWPORT_HEIGHT = 67f
+    const val CENTER_X = VIEWPORT_WIDTH / 2f
+    const val CENTER_Y = VIEWPORT_HEIGHT / 2f
+    const val OUTER_DIAMETER = 40f
+    const val OUTER_RADIUS = OUTER_DIAMETER / 2f
+    const val START_ANGLE = 270f
+    const val FULL_CIRCLE_DEGREES = 360f
+    const val FULL_BATTERY_LEVEL = 100
+}
+
+/** Renders a LineageOS-style circular ring battery track and clockwise level arc. */
+class RingBatteryRenderer : BatteryShapeRenderer {
+    override val viewportWidth: Float = CircularBatteryGeometry.VIEWPORT_WIDTH
+    override val viewportHeight: Float = CircularBatteryGeometry.VIEWPORT_HEIGHT
+    override val previewGlyphHeightFraction: Float =
+        CircularBatteryGeometry.OUTER_DIAMETER / CircularBatteryGeometry.VIEWPORT_HEIGHT
+
+    private val trackPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeWidth = STROKE_WIDTH
+    }
+    private val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeWidth = STROKE_WIDTH
+    }
+
+    override fun draw(
+        canvas: Canvas,
+        bounds: Rect,
+        state: BatteryIndicatorState,
+        colors: BatteryResolvedColors
+    ) {
+        drawInCenteredViewport(canvas, bounds, viewportWidth, viewportHeight) {
+            val level = state.clampedLevel
+            if (level < CircularBatteryGeometry.FULL_BATTERY_LEVEL) {
+                trackPaint.color = colors.frameColor
+                trackPaint.alpha = colors.frameAlpha
+                canvas.drawArc(
+                    ARC_RECT,
+                    CircularBatteryGeometry.START_ANGLE,
+                    CircularBatteryGeometry.FULL_CIRCLE_DEGREES,
+                    false,
+                    trackPaint
+                )
+            }
+            if (level > 0) {
+                fillPaint.color = colors.fillColor
+                fillPaint.alpha = colors.fillAlpha
+                val sweep = CircularBatteryGeometry.FULL_CIRCLE_DEGREES * (level / 100f)
+                canvas.drawArc(
+                    ARC_RECT,
+                    CircularBatteryGeometry.START_ANGLE,
+                    sweep,
+                    false,
+                    fillPaint
+                )
+            }
+        }
+    }
+
+    companion object {
+        // Matches LineageOS CircleBatteryDrawable stroke ratio (diameter / 6.5f).
+        private const val STROKE_WIDTH = CircularBatteryGeometry.OUTER_DIAMETER / 6.5f
+        private const val ARC_INSET = STROKE_WIDTH / 2f
+        private val ARC_RECT = RectF(
+            CircularBatteryGeometry.CENTER_X - CircularBatteryGeometry.OUTER_RADIUS + ARC_INSET,
+            CircularBatteryGeometry.CENTER_Y - CircularBatteryGeometry.OUTER_RADIUS + ARC_INSET,
+            CircularBatteryGeometry.CENTER_X + CircularBatteryGeometry.OUTER_RADIUS - ARC_INSET,
+            CircularBatteryGeometry.CENTER_Y + CircularBatteryGeometry.OUTER_RADIUS - ARC_INSET
+        )
+    }
+}
+
+/** Renders a circular pie-chart battery indicator with a clockwise filled level sector. */
+class PieBatteryRenderer : BatteryShapeRenderer {
+    override val viewportWidth: Float = CircularBatteryGeometry.VIEWPORT_WIDTH
+    override val viewportHeight: Float = CircularBatteryGeometry.VIEWPORT_HEIGHT
+    override val previewGlyphHeightFraction: Float =
+        CircularBatteryGeometry.OUTER_DIAMETER / CircularBatteryGeometry.VIEWPORT_HEIGHT
+
+    private val containerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.FILL
+    }
+    private val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.FILL
+    }
+
+    override fun draw(
+        canvas: Canvas,
+        bounds: Rect,
+        state: BatteryIndicatorState,
+        colors: BatteryResolvedColors
+    ) {
+        drawInCenteredViewport(canvas, bounds, viewportWidth, viewportHeight) {
+            val level = state.clampedLevel
+            if (level == CircularBatteryGeometry.FULL_BATTERY_LEVEL) {
+                if (colors.fillAlpha < BatteryIndicatorPolicy.ALPHA_OPAQUE) {
+                    containerPaint.color = colors.frameColor
+                    containerPaint.alpha = colors.frameAlpha
+                    canvas.drawCircle(
+                        CircularBatteryGeometry.CENTER_X,
+                        CircularBatteryGeometry.CENTER_Y,
+                        CircularBatteryGeometry.OUTER_RADIUS,
+                        containerPaint
+                    )
+                }
+                fillPaint.color = colors.fillColor
+                fillPaint.alpha = colors.fillAlpha
+                canvas.drawCircle(
+                    CircularBatteryGeometry.CENTER_X,
+                    CircularBatteryGeometry.CENTER_Y,
+                    CircularBatteryGeometry.OUTER_RADIUS,
+                    fillPaint
+                )
+                return@drawInCenteredViewport
+            }
+
+            val sweep = CircularBatteryGeometry.FULL_CIRCLE_DEGREES * (level / 100f)
+            containerPaint.color = colors.frameColor
+            containerPaint.alpha = colors.frameAlpha
+            if (level > 0 && colors.fillAlpha == BatteryIndicatorPolicy.ALPHA_OPAQUE) {
+                val start = CircularBatteryGeometry.START_ANGLE + sweep - SECTOR_OVERLAP_DEGREES
+                val remaining = (
+                    CircularBatteryGeometry.FULL_CIRCLE_DEGREES -
+                        sweep +
+                        SECTOR_OVERLAP_DEGREES * 2f
+                    ).coerceAtMost(CircularBatteryGeometry.FULL_CIRCLE_DEGREES)
+                canvas.drawArc(CIRCLE_RECT, start, remaining, true, containerPaint)
+            } else {
+                canvas.drawCircle(
+                    CircularBatteryGeometry.CENTER_X,
+                    CircularBatteryGeometry.CENTER_Y,
+                    CircularBatteryGeometry.OUTER_RADIUS,
+                    containerPaint
+                )
+            }
+
+            if (level > 0) {
+                fillPaint.color = colors.fillColor
+                fillPaint.alpha = colors.fillAlpha
+                canvas.drawArc(
+                    CIRCLE_RECT,
+                    CircularBatteryGeometry.START_ANGLE,
+                    sweep,
+                    true,
+                    fillPaint
+                )
+            }
+        }
+    }
+
+    companion object {
+        private const val SECTOR_OVERLAP_DEGREES = 0.5f
+        private val CIRCLE_RECT = RectF(
+            CircularBatteryGeometry.CENTER_X - CircularBatteryGeometry.OUTER_RADIUS,
+            CircularBatteryGeometry.CENTER_Y - CircularBatteryGeometry.OUTER_RADIUS,
+            CircularBatteryGeometry.CENTER_X + CircularBatteryGeometry.OUTER_RADIUS,
+            CircularBatteryGeometry.CENTER_Y + CircularBatteryGeometry.OUTER_RADIUS
+        )
     }
 }

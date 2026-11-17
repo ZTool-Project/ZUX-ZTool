@@ -2,8 +2,11 @@ package com.qimian233.ztool.hook.modules.systemui.statusbar
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.graphics.Rect
 import android.graphics.Typeface
 import android.graphics.drawable.Drawable
+import android.os.Build
+import android.text.TextPaint
 import android.util.AttributeSet
 import android.util.TypedValue
 import android.view.View
@@ -22,6 +25,9 @@ import java.util.ArrayList
 import java.util.Collections
 import java.util.Locale
 import java.util.WeakHashMap
+import kotlin.math.abs
+import kotlin.math.max
+import kotlin.math.roundToInt
 
 /** Hooks SystemUI status bar battery indicator rendering and percentage layout. */
 // See docs/research/systemui_battery_indicator.md
@@ -178,8 +184,12 @@ class SystemUIBatteryHook : AppHookModule() {
                     (chain.thisObject as? LinearLayout)?.let { view ->
                         val options = readOptions()
                         if (options.enabled) {
+                            syncPercentTypeface(host, view, options)
                             syncBatteryDrawable(host, view, options)
-                            syncInnerPercentTextColor(host, view, options)
+                            if (!options.externalPercent) {
+                                syncInnerPercentStyle(host, view, options)
+                                syncInnerPercentTextColor(host, view, options)
+                            }
                         } else {
                             restoreStockDrawable(host, view)
                         }
@@ -215,12 +225,13 @@ class SystemUIBatteryHook : AppHookModule() {
                 (chain.thisObject as? LinearLayout)?.let { view ->
                     val options = readOptions()
                     if (options.enabled) {
+                        syncPercentTypeface(host, view, options)
                         if (options.externalPercent) {
                             updateExternalPercentText(host, view)
                         } else {
+                            syncInnerPercentStyle(host, view, options)
                             syncInnerPercentTextColor(host, view, options)
                         }
-                        syncPercentTypeface(host, view, options)
                     }
                 }
                 result
@@ -234,10 +245,12 @@ class SystemUIBatteryHook : AppHookModule() {
                 (chain.thisObject as? LinearLayout)?.let { view ->
                     val options = readOptions()
                     if (options.enabled) {
+                        syncPercentTypeface(host, view, options)
                         if (options.externalPercent) {
                             applyExternalPercentStyle(host, view)
+                        } else {
+                            syncInnerPercentStyle(host, view, options)
                         }
-                        syncPercentTypeface(host, view, options)
                     }
                 }
                 result
@@ -281,7 +294,10 @@ class SystemUIBatteryHook : AppHookModule() {
         }
         syncPercentTypeface(host, view, options)
         syncBatteryDrawable(host, view, options)
-        syncInnerPercentTextColor(host, view, options)
+        if (!options.externalPercent) {
+            syncInnerPercentStyle(host, view, options)
+            syncInnerPercentTextColor(host, view, options)
+        }
     }
 
     private fun syncPercentTypeface(
@@ -304,6 +320,92 @@ class SystemUIBatteryHook : AppHookModule() {
             }
         } catch (t: Throwable) {
             logger.error("Failed to sync battery percentage typeface", t)
+        }
+    }
+
+    private fun syncInnerPercentStyle(
+        host: Host,
+        view: LinearLayout,
+        options: BatteryIndicatorOptions
+    ) {
+        try {
+            val container = host.containerField.get(view) as? FrameLayout ?: return
+            val percentView = host.percentViewField.get(view) as? TextView ?: return
+            if (percentView.parent !== container) return
+            val spec = if (isUsingStockFallback(host, view)) {
+                BatteryIndicatorPolicy.STOCK_INNER_PERCENT_LAYOUT
+            } else {
+                BatteryIndicatorPolicy.resolveInnerPercentLayoutSpec(options)
+            }
+            applyInnerPercentLayoutSpec(percentView, view.context, spec)
+        } catch (t: Throwable) {
+            logger.error("Failed to sync inner battery percentage layout", t)
+        }
+    }
+
+    private fun applyInnerPercentLayoutSpec(
+        percentView: TextView,
+        context: Context,
+        spec: InnerPercentLayoutSpec
+    ) {
+        val targetPaddingEnd = if (spec.symmetricPadding) {
+            0
+        } else {
+            dpToPx(context, STOCK_INNER_PADDING_END_DP)
+        }
+        if (percentView.paddingStart != 0 ||
+            percentView.paddingTop != 0 ||
+            percentView.paddingEnd != targetPaddingEnd ||
+            percentView.paddingBottom != 0
+        ) {
+            percentView.setPaddingRelative(0, 0, targetPaddingEnd, 0)
+        }
+        if (percentView.includeFontPadding != spec.includeFontPadding) {
+            percentView.includeFontPadding = spec.includeFontPadding
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P &&
+            percentView.isFallbackLineSpacing != spec.includeFontPadding
+        ) {
+            percentView.isFallbackLineSpacing = spec.includeFontPadding
+        }
+
+        val density = context.resources.displayMetrics.density
+        var targetPx = getOriginalTextSizePx(context) * spec.baseSizeScale
+        val maxWidthDp = spec.maxWidthDp
+        if (maxWidthDp != null) {
+            val sampleText = percentView.text?.takeIf { it.isNotEmpty() }?.toString() ?: "100"
+            val measurePaint = TextPaint(percentView.paint).apply {
+                textSize = targetPx
+            }
+            val measuredWidth = measurePaint.measureText(sampleText)
+            val maxWidthPx = maxWidthDp * density
+            if (measuredWidth > maxWidthPx && measuredWidth > 0f) {
+                targetPx = max(MIN_INNER_TEXT_SIZE_DP * density, targetPx * (maxWidthPx / measuredWidth))
+            }
+        }
+        if (abs(percentView.textSize - targetPx) > TEXT_SIZE_EPSILON_PX) {
+            percentView.setTextSize(TypedValue.COMPLEX_UNIT_PX, targetPx)
+        }
+
+        val targetTranslationY = if (!spec.includeFontPadding) {
+            val metricsPaint = TextPaint(percentView.paint).apply {
+                textSize = targetPx
+            }
+            val fm = metricsPaint.fontMetrics
+            val lineCenter = (fm.ascent + fm.descent) * 0.5f
+            val bounds = Rect()
+            metricsPaint.getTextBounds(VERTICAL_METRICS_SAMPLE, 0, VERTICAL_METRICS_SAMPLE.length, bounds)
+            val visualCenter = if (!bounds.isEmpty) {
+                (bounds.top + bounds.bottom) * 0.5f
+            } else {
+                lineCenter
+            }
+            spec.centerOffsetYDp * density + (lineCenter - visualCenter)
+        } else {
+            spec.centerOffsetYDp * density
+        }
+        if (abs(percentView.translationY - targetTranslationY) > TRANSLATION_EPSILON_PX) {
+            percentView.translationY = targetTranslationY
         }
     }
 
@@ -370,6 +472,16 @@ class SystemUIBatteryHook : AppHookModule() {
                     lp.height = ViewGroup.LayoutParams.WRAP_CONTENT
                     percentView.layoutParams = lp
                 }
+            }
+            percentView.setPaddingRelative(0, 0, 0, 0)
+            if (!percentView.includeFontPadding) {
+                percentView.includeFontPadding = true
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && !percentView.isFallbackLineSpacing) {
+                percentView.isFallbackLineSpacing = true
+            }
+            if (percentView.translationY != 0f) {
+                percentView.translationY = 0f
             }
             val originalSp = getOriginalTextSizeSp(view.context)
             percentView.setTextSize(TypedValue.COMPLEX_UNIT_SP, originalSp + EXTERNAL_TEXT_SIZE_BONUS_SP)
@@ -466,9 +578,16 @@ class SystemUIBatteryHook : AppHookModule() {
             val ztoolDrawable = customDrawables.getOrPut(iconView) {
                 ZToolBatteryDrawable(density = density, state = state, options = options)
             }
+            val oldWidth = ztoolDrawable.intrinsicWidth
             ztoolDrawable.update(state, options)
             if (iconView.drawable !== ztoolDrawable) {
                 iconView.setImageDrawable(ztoolDrawable)
+            } else if (ztoolDrawable.intrinsicWidth != oldWidth) {
+                // ImageView caches mDrawableWidth until setImageDrawable re-binds a new/null drawable.
+                iconView.setImageDrawable(null)
+                iconView.setImageDrawable(ztoolDrawable)
+                iconView.parent?.requestLayout()
+                view.requestLayout()
             }
         } catch (t: Throwable) {
             logger.error("Failed to sync custom battery drawable", t)
@@ -480,13 +599,24 @@ class SystemUIBatteryHook : AppHookModule() {
             val iconView = host.iconViewField.get(view) as? ImageView ?: return
             if (iconView.drawable is ZToolBatteryDrawable) {
                 stockDrawables[iconView]?.let { iconView.setImageDrawable(it) }
+                iconView.parent?.requestLayout()
+                view.requestLayout()
+            }
+            val container = host.containerField.get(view) as? FrameLayout
+            val percentView = host.percentViewField.get(view) as? TextView
+            if (container != null && percentView != null && percentView.parent === container) {
+                applyInnerPercentLayoutSpec(
+                    percentView,
+                    view.context,
+                    BatteryIndicatorPolicy.STOCK_INNER_PERCENT_LAYOUT
+                )
             }
         } catch (t: Throwable) {
             logger.error("Failed to restore stock battery drawable", t)
         }
     }
 
-    private fun getOriginalTextSizeSp(context: Context): Float {
+    private fun getOriginalTextSizePx(context: Context): Float {
         return try {
             val resId = context.resources.getIdentifier(
                 "status_bar_battery_text_size",
@@ -494,19 +624,31 @@ class SystemUIBatteryHook : AppHookModule() {
                 ScopeKeys.SYSTEM_UI.packageName
             )
             if (resId != 0) {
-                val px = context.resources.getDimension(resId)
-                val oneSpPx = TypedValue.applyDimension(
+                context.resources.getDimension(resId)
+            } else {
+                TypedValue.applyDimension(
                     TypedValue.COMPLEX_UNIT_SP,
-                    1f,
+                    DEFAULT_TEXT_SIZE_SP,
                     context.resources.displayMetrics
                 )
-                px / oneSpPx
-            } else {
-                DEFAULT_TEXT_SIZE_SP
             }
         } catch (_: Throwable) {
-            DEFAULT_TEXT_SIZE_SP
+            TypedValue.applyDimension(
+                TypedValue.COMPLEX_UNIT_SP,
+                DEFAULT_TEXT_SIZE_SP,
+                context.resources.displayMetrics
+            )
         }
+    }
+
+    private fun getOriginalTextSizeSp(context: Context): Float {
+        val px = getOriginalTextSizePx(context)
+        val oneSpPx = TypedValue.applyDimension(
+            TypedValue.COMPLEX_UNIT_SP,
+            1f,
+            context.resources.displayMetrics
+        )
+        return px / oneSpPx
     }
 
     private fun getQsBatteryPadding(context: Context): Int {
@@ -529,5 +671,13 @@ class SystemUIBatteryHook : AppHookModule() {
         private const val DEFAULT_TEXT_SIZE_SP = 12f
         private const val EXTERNAL_TEXT_SIZE_BONUS_SP = 3f
         private const val DEFAULT_PADDING_PX = 8
+        private const val STOCK_INNER_PADDING_END_DP = 2f
+        private const val MIN_INNER_TEXT_SIZE_DP = 5f
+        private const val TEXT_SIZE_EPSILON_PX = 0.25f
+        private const val TRANSLATION_EPSILON_PX = 0.25f
+        private const val VERTICAL_METRICS_SAMPLE = "80"
     }
 }
+
+private fun dpToPx(context: Context, dp: Float): Int =
+    (dp * context.resources.displayMetrics.density).roundToInt()

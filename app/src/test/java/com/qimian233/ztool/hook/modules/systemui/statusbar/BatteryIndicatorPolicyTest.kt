@@ -77,6 +77,9 @@ class BatteryIndicatorPolicyTest {
         assertEquals(BatteryIndicatorStyle.DEFAULT_FRAMED, BatteryIndicatorStyle.fromPref("default_framed"))
         assertEquals(BatteryIndicatorStyle.FRAMELESS, BatteryIndicatorStyle.fromPref("frameless"))
         assertEquals(BatteryIndicatorStyle.IOS_STYLE, BatteryIndicatorStyle.fromPref("ios_style"))
+        assertEquals(BatteryIndicatorStyle.VERTICAL, BatteryIndicatorStyle.fromPref("vertical"))
+        assertEquals(BatteryIndicatorStyle.RING, BatteryIndicatorStyle.fromPref("ring"))
+        assertEquals(BatteryIndicatorStyle.PIE, BatteryIndicatorStyle.fromPref("pie"))
         assertEquals(BatteryIndicatorStyle.DEFAULT_FRAMED, BatteryIndicatorStyle.fromPref("unknown"))
         assertEquals(BatteryIndicatorStyle.DEFAULT_FRAMED, BatteryIndicatorStyle.fromPref(null))
     }
@@ -178,7 +181,12 @@ class BatteryIndicatorPolicyTest {
 
     @Test
     fun `filled container styles use translucent container on dark and light bars and ignore opaque health frame`() {
-        for (style in listOf(BatteryIndicatorStyle.FRAMELESS, BatteryIndicatorStyle.IOS_STYLE)) {
+        for (style in listOf(
+            BatteryIndicatorStyle.FRAMELESS,
+            BatteryIndicatorStyle.IOS_STYLE,
+            BatteryIndicatorStyle.VERTICAL,
+            BatteryIndicatorStyle.PIE
+        )) {
             val options = BatteryIndicatorOptions(style = style)
 
             val darkBar = BatteryIndicatorPolicy.resolveColors(
@@ -203,7 +211,12 @@ class BatteryIndicatorPolicyTest {
 
     @Test
     fun `filled container styles adjust container and fill for light inner percentage text`() {
-        for (style in listOf(BatteryIndicatorStyle.FRAMELESS, BatteryIndicatorStyle.IOS_STYLE)) {
+        for (style in listOf(
+            BatteryIndicatorStyle.FRAMELESS,
+            BatteryIndicatorStyle.IOS_STYLE,
+            BatteryIndicatorStyle.VERTICAL,
+            BatteryIndicatorStyle.PIE
+        )) {
             val darkBar = BatteryIndicatorPolicy.resolveColors(
                 BatteryIndicatorState(level = 60, isBlackTheme = false, systemShowPercent = true),
                 BatteryIndicatorOptions(externalPercent = false, style = style)
@@ -233,6 +246,36 @@ class BatteryIndicatorPolicyTest {
     }
 
     @Test
+    fun `ring style uses translucent track and keeps full arc brightness with inner percent`() {
+        val options = BatteryIndicatorOptions(externalPercent = false, style = BatteryIndicatorStyle.RING)
+
+        val darkBar = BatteryIndicatorPolicy.resolveColors(
+            BatteryIndicatorState(level = 65, isBlackTheme = false, systemShowPercent = true, isHealthFrameActive = true),
+            options
+        )
+        assertEquals(BatteryIndicatorPolicy.COLOR_WHITE, darkBar.frameColor)
+        assertEquals(BatteryIndicatorPolicy.ALPHA_FRAMELESS_CONTAINER_DARK_BAR, darkBar.frameAlpha)
+        assertEquals(BatteryIndicatorPolicy.COLOR_WHITE, darkBar.fillColor)
+        assertEquals(BatteryIndicatorPolicy.ALPHA_FILL_PURE_DARK_BAR, darkBar.fillAlpha)
+
+        val lightBar = BatteryIndicatorPolicy.resolveColors(
+            BatteryIndicatorState(level = 65, isBlackTheme = true, systemShowPercent = true),
+            options
+        )
+        assertEquals(BatteryIndicatorPolicy.COLOR_BLACK, lightBar.frameColor)
+        assertEquals(BatteryIndicatorPolicy.ALPHA_FRAMELESS_CONTAINER_LIGHT_BAR, lightBar.frameAlpha)
+        assertEquals(BatteryIndicatorPolicy.COLOR_BLACK, lightBar.fillColor)
+        assertEquals(BatteryIndicatorPolicy.ALPHA_FILL_PURE_LIGHT_BAR, lightBar.fillAlpha)
+
+        val chargingWithInnerPercent = BatteryIndicatorPolicy.resolveColors(
+            BatteryIndicatorState(level = 65, isCharging = true, chargeRate = 3, systemShowPercent = true),
+            BatteryIndicatorOptions(externalPercent = false, chargingColor = true, style = BatteryIndicatorStyle.RING)
+        )
+        assertEquals(BatteryIndicatorPolicy.COLOR_FAST_CHARGING_FILL, chargingWithInnerPercent.fillColor)
+        assertEquals(BatteryIndicatorPolicy.ALPHA_OPAQUE, chargingWithInnerPercent.fillAlpha)
+    }
+
+    @Test
     fun `inner percentage text uses light color only when enabled with internal filled container styles`() {
         assertNull(
             BatteryIndicatorPolicy.resolveInnerPercentTextColor(
@@ -256,31 +299,37 @@ class BatteryIndicatorPolicyTest {
             BatteryIndicatorPolicy.resolveInnerPercentTextColor(
                 BatteryIndicatorOptions(
                     enabled = true,
+                    externalPercent = false,
+                    style = BatteryIndicatorStyle.RING
+                )
+            )
+        )
+        assertNull(
+            BatteryIndicatorPolicy.resolveInnerPercentTextColor(
+                BatteryIndicatorOptions(
+                    enabled = true,
                     externalPercent = true,
                     style = BatteryIndicatorStyle.IOS_STYLE
                 )
             )
         )
-        assertEquals(
-            BatteryIndicatorPolicy.COLOR_WHITE,
-            BatteryIndicatorPolicy.resolveInnerPercentTextColor(
-                BatteryIndicatorOptions(
-                    enabled = true,
-                    externalPercent = false,
-                    style = BatteryIndicatorStyle.FRAMELESS
+        for (style in listOf(
+            BatteryIndicatorStyle.FRAMELESS,
+            BatteryIndicatorStyle.IOS_STYLE,
+            BatteryIndicatorStyle.VERTICAL,
+            BatteryIndicatorStyle.PIE
+        )) {
+            assertEquals(
+                BatteryIndicatorPolicy.COLOR_WHITE,
+                BatteryIndicatorPolicy.resolveInnerPercentTextColor(
+                    BatteryIndicatorOptions(
+                        enabled = true,
+                        externalPercent = false,
+                        style = style
+                    )
                 )
             )
-        )
-        assertEquals(
-            BatteryIndicatorPolicy.COLOR_WHITE,
-            BatteryIndicatorPolicy.resolveInnerPercentTextColor(
-                BatteryIndicatorOptions(
-                    enabled = true,
-                    externalPercent = false,
-                    style = BatteryIndicatorStyle.IOS_STYLE
-                )
-            )
-        )
+        }
     }
 
     @Test
@@ -309,5 +358,67 @@ class BatteryIndicatorPolicyTest {
                 isVirtualBattery = false
             )
         )
+    }
+
+    @Test
+    fun `inner percent layout keeps stock spec when disabled external or horizontal`() {
+        val stock = BatteryIndicatorPolicy.STOCK_INNER_PERCENT_LAYOUT
+        assertEquals(
+            stock,
+            BatteryIndicatorPolicy.resolveInnerPercentLayoutSpec(
+                BatteryIndicatorOptions(enabled = false, style = BatteryIndicatorStyle.RING)
+            )
+        )
+        assertEquals(
+            stock,
+            BatteryIndicatorPolicy.resolveInnerPercentLayoutSpec(
+                BatteryIndicatorOptions(
+                    enabled = true,
+                    externalPercent = true,
+                    style = BatteryIndicatorStyle.VERTICAL
+                )
+            )
+        )
+        for (style in listOf(
+            BatteryIndicatorStyle.DEFAULT_FRAMED,
+            BatteryIndicatorStyle.FRAMELESS,
+            BatteryIndicatorStyle.IOS_STYLE
+        )) {
+            assertEquals(
+                stock,
+                BatteryIndicatorPolicy.resolveInnerPercentLayoutSpec(
+                    BatteryIndicatorOptions(enabled = true, externalPercent = false, style = style)
+                )
+            )
+        }
+    }
+
+    @Test
+    fun `inner percent layout uses symmetric centering and bounded widths for vertical ring and pie`() {
+        val vertical = BatteryIndicatorPolicy.resolveInnerPercentLayoutSpec(
+            BatteryIndicatorOptions(enabled = true, style = BatteryIndicatorStyle.VERTICAL)
+        )
+        assertTrue(vertical.symmetricPadding)
+        assertFalse(vertical.includeFontPadding)
+        assertTrue(vertical.baseSizeScale < 1f)
+        assertTrue((vertical.maxWidthDp ?: 0f) in 7f..9f)
+        assertTrue(vertical.centerOffsetYDp > 0f)
+
+        val ring = BatteryIndicatorPolicy.resolveInnerPercentLayoutSpec(
+            BatteryIndicatorOptions(enabled = true, style = BatteryIndicatorStyle.RING)
+        )
+        assertTrue(ring.symmetricPadding)
+        assertFalse(ring.includeFontPadding)
+        assertTrue(ring.baseSizeScale < 1f)
+        assertTrue((ring.maxWidthDp ?: 0f) in 7f..9f)
+        assertEquals(0f, ring.centerOffsetYDp)
+
+        val pie = BatteryIndicatorPolicy.resolveInnerPercentLayoutSpec(
+            BatteryIndicatorOptions(enabled = true, style = BatteryIndicatorStyle.PIE)
+        )
+        assertTrue(pie.symmetricPadding)
+        assertFalse(pie.includeFontPadding)
+        assertTrue((pie.maxWidthDp ?: 0f) > (ring.maxWidthDp ?: 0f))
+        assertEquals(0f, pie.centerOffsetYDp)
     }
 }

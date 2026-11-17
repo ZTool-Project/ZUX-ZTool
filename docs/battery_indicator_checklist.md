@@ -62,11 +62,11 @@ The SystemUI status bar battery indicator module (`com.android.systemui`, target
 - [x] Wire style selection in `PreferenceKeys`, Repository, ViewModel, Compose UI, `SearchIndex`, and unit tests.
 
 ### 3.3 Alternative Battery Indicator Shapes (`BatteryShapeRenderer` Implementations)
-- [ ] **Vertical battery icon (`BatteryIndicatorStyle.VERTICAL`)**: implement `VerticalBatteryRenderer` with top terminal cap, vertical frame/container, and bottom-to-top continuous level fill.
-- [ ] **Circular ring indicator (`BatteryIndicatorStyle.RING`)**: implement `RingBatteryRenderer` using a circular background track and `canvas.drawArc(...)` sweep proportional to `clampedLevel`.
-- [ ] **Pie chart indicator (`BatteryIndicatorStyle.PIE`)**: implement `PieBatteryRenderer` using a circular container and filled sector `canvas.drawArc(..., useCenter = true, ...)` proportional to `clampedLevel`.
+- [x] **Vertical battery icon (`BatteryIndicatorStyle.VERTICAL`)**: implement `VerticalBatteryRenderer` with top terminal cap, vertical frame/container, and bottom-to-top continuous level fill.
+- [x] **Circular ring indicator (`BatteryIndicatorStyle.RING`)**: implement `RingBatteryRenderer` using a circular background track and `canvas.drawArc(...)` sweep proportional to `clampedLevel`.
+- [x] **Pie chart indicator (`BatteryIndicatorStyle.PIE`)**: implement `PieBatteryRenderer` using a circular container and filled sector `canvas.drawArc(..., useCenter = true, ...)` proportional to `clampedLevel`.
 - [ ] **Classic segmented battery indicator (`BatteryIndicatorStyle.SEGMENTED`)**: implement `SegmentedBatteryRenderer` with discrete rectangular level cells separated by gaps inside the battery frame.
-- [ ] Add frontend style selector (dropdown / popup menu row) in `StatusBarSettingsScreen` and register corresponding `SearchIndex` and bilingual string entries.
+- [x] Add frontend style selector (dropdown / popup menu row) in `StatusBarSettingsScreen` and register corresponding `SearchIndex` and bilingual string entries.
 
 ### 3.4 Power-Save & High-Performance Mode Colors
 - [ ] Inspect ZUI high-performance / beast mode state source in SystemUI (e.g., `Settings.System` / `Settings.Global` key or controller state) and document findings in `docs/research/systemui_battery_indicator.md`.

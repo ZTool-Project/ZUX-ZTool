@@ -6,10 +6,13 @@ package com.qimian233.ztool.hook.modules.systemui.statusbar
 enum class BatteryIndicatorStyle(val prefValue: String) {
     DEFAULT_FRAMED("default_framed"),
     FRAMELESS("frameless"),
-    IOS_STYLE("ios_style");
+    IOS_STYLE("ios_style"),
+    VERTICAL("vertical"),
+    RING("ring"),
+    PIE("pie");
 
     val isFilledContainer: Boolean
-        get() = this == FRAMELESS || this == IOS_STYLE
+        get() = this == FRAMELESS || this == IOS_STYLE || this == VERTICAL || this == PIE
 
     companion object {
         /** Parses a persisted [prefValue], falling back to [DEFAULT_FRAMED]. */
@@ -52,6 +55,15 @@ data class BatteryResolvedColors(
     val fillAlpha: Int
 )
 
+/** Inner percentage TextView sizing and alignment contract for a battery style. */
+data class InnerPercentLayoutSpec(
+    val symmetricPadding: Boolean,
+    val includeFontPadding: Boolean,
+    val baseSizeScale: Float,
+    val maxWidthDp: Float?,
+    val centerOffsetYDp: Float
+)
+
 /** Pure policy rules for status bar battery indicator colors and fallback conditions. */
 object BatteryIndicatorPolicy {
     // ZuiBatteryManager chargerRate >= 3 indicates fast/turbo charging across SystemUI.
@@ -80,6 +92,40 @@ object BatteryIndicatorPolicy {
     const val ALPHA_FILL_PURE_DARK_BAR = 230 // 0.9f pure fill on dark status bar
     const val ALPHA_FILL_CHARGING_INNER_PERCENT = 166 // 0.65f charging fill behind inner text
 
+    val STOCK_INNER_PERCENT_LAYOUT = InnerPercentLayoutSpec(
+        symmetricPadding = false,
+        includeFontPadding = true,
+        baseSizeScale = 1f,
+        maxWidthDp = null,
+        centerOffsetYDp = 0f
+    )
+
+    // Vertical body spans x=6..32 (10.4dp wide) and y=17..55 (center y=36 vs viewport 33.5 -> +1.0dp).
+    private val VERTICAL_INNER_PERCENT_LAYOUT = InnerPercentLayoutSpec(
+        symmetricPadding = true,
+        includeFontPadding = false,
+        baseSizeScale = 0.72f,
+        maxWidthDp = 8.0f,
+        centerOffsetYDp = 1.0f
+    )
+
+    // Ring hollow circle diameter is 27.69u (11.08dp); cap width inside inscribed box with margin.
+    private val RING_INNER_PERCENT_LAYOUT = InnerPercentLayoutSpec(
+        symmetricPadding = true,
+        includeFontPadding = false,
+        baseSizeScale = 0.74f,
+        maxWidthDp = 8.0f,
+        centerOffsetYDp = 0f
+    )
+
+    private val PIE_INNER_PERCENT_LAYOUT = InnerPercentLayoutSpec(
+        symmetricPadding = true,
+        includeFontPadding = false,
+        baseSizeScale = 0.90f,
+        maxWidthDp = 11.6f,
+        centerOffsetYDp = 0f
+    )
+
     /** Resolves frame and level-fill colors and alphas for [state] and [options]. */
     fun resolveColors(
         state: BatteryIndicatorState,
@@ -88,6 +134,7 @@ object BatteryIndicatorPolicy {
         val baseMonochrome = if (state.isBlackTheme) COLOR_BLACK else COLOR_WHITE
         val hasInnerPercent = state.systemShowPercent && !options.externalPercent
         val isFilledContainer = options.style.isFilledContainer
+        val isHollowRing = options.style == BatteryIndicatorStyle.RING
 
         val frameColor: Int
         val frameAlpha: Int
@@ -98,6 +145,13 @@ object BatteryIndicatorPolicy {
                 hasInnerPercent -> ALPHA_FRAMELESS_CONTAINER_INNER_PERCENT
                 state.isBlackTheme -> ALPHA_FRAMELESS_CONTAINER_LIGHT_BAR
                 else -> ALPHA_FRAMELESS_CONTAINER_DARK_BAR
+            }
+        } else if (isHollowRing) {
+            frameColor = baseMonochrome
+            frameAlpha = if (state.isBlackTheme) {
+                ALPHA_FRAMELESS_CONTAINER_LIGHT_BAR
+            } else {
+                ALPHA_FRAMELESS_CONTAINER_DARK_BAR
             }
         } else if (state.isHealthFrameActive) {
             frameColor = COLOR_HEALTH_FRAME
@@ -116,7 +170,7 @@ object BatteryIndicatorPolicy {
                 } else {
                     COLOR_NORMAL_CHARGING_FILL
                 }
-                fillAlpha = if (hasInnerPercent && !(isFilledContainer && state.isBlackTheme)) {
+                fillAlpha = if (hasInnerPercent && !isHollowRing && !(isFilledContainer && state.isBlackTheme)) {
                     ALPHA_FILL_CHARGING_INNER_PERCENT
                 } else {
                     ALPHA_OPAQUE
@@ -133,6 +187,8 @@ object BatteryIndicatorPolicy {
             else -> {
                 fillColor = baseMonochrome
                 fillAlpha = when {
+                    isHollowRing && state.isBlackTheme -> ALPHA_FILL_PURE_LIGHT_BAR
+                    isHollowRing -> ALPHA_FILL_PURE_DARK_BAR
                     hasInnerPercent && isFilledContainer && state.isBlackTheme ->
                         ALPHA_FRAMELESS_FILL_LIGHT_INNER_PERCENT
                     hasInnerPercent && isFilledContainer -> ALPHA_FRAMELESS_FILL_INNER_PERCENT
@@ -172,6 +228,19 @@ object BatteryIndicatorPolicy {
     fun resolveInnerPercentTextColor(options: BatteryIndicatorOptions): Int? {
         if (!options.enabled || options.externalPercent || !options.style.isFilledContainer) return null
         return COLOR_WHITE
+    }
+
+    /** Resolves inner percentage text sizing and centering rules for [options]. */
+    fun resolveInnerPercentLayoutSpec(options: BatteryIndicatorOptions): InnerPercentLayoutSpec {
+        if (!options.enabled || options.externalPercent) return STOCK_INNER_PERCENT_LAYOUT
+        return when (options.style) {
+            BatteryIndicatorStyle.DEFAULT_FRAMED,
+            BatteryIndicatorStyle.FRAMELESS,
+            BatteryIndicatorStyle.IOS_STYLE -> STOCK_INNER_PERCENT_LAYOUT
+            BatteryIndicatorStyle.VERTICAL -> VERTICAL_INNER_PERCENT_LAYOUT
+            BatteryIndicatorStyle.RING -> RING_INNER_PERCENT_LAYOUT
+            BatteryIndicatorStyle.PIE -> PIE_INNER_PERCENT_LAYOUT
+        }
     }
 
     /** Returns true when stock VectorDrawable should be kept instead of custom rendering. */

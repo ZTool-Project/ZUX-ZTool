@@ -54,6 +54,7 @@ import com.qimian233.ztool.hook.modules.systemui.statusbar.BatteryIndicatorOptio
 import com.qimian233.ztool.hook.modules.systemui.statusbar.BatteryIndicatorState
 import com.qimian233.ztool.hook.modules.systemui.statusbar.BatteryIndicatorStyle
 import com.qimian233.ztool.hook.modules.systemui.statusbar.ZToolBatteryDrawable
+import kotlin.math.min
 import kotlin.math.roundToInt
 import com.qimian233.ztool.ui.components.QuickHelpExample
 import com.qimian233.ztool.ui.components.QuickHelpItem
@@ -687,6 +688,12 @@ private fun batteryStyleLabel(style: BatteryIndicatorStyle): String = when (styl
         stringResource(R.string.system_ui_status_bar_battery_style_frameless_name)
     BatteryIndicatorStyle.IOS_STYLE ->
         stringResource(R.string.system_ui_status_bar_battery_style_ios_style_name)
+    BatteryIndicatorStyle.VERTICAL ->
+        stringResource(R.string.system_ui_status_bar_battery_style_vertical_name)
+    BatteryIndicatorStyle.RING ->
+        stringResource(R.string.system_ui_status_bar_battery_style_ring_name)
+    BatteryIndicatorStyle.PIE ->
+        stringResource(R.string.system_ui_status_bar_battery_style_pie_name)
 }
 
 @Composable
@@ -711,13 +718,19 @@ private fun BatteryStylePreviewIcon(style: BatteryIndicatorStyle) {
     }
     Canvas(
         modifier = Modifier
-            .size(width = 34.dp, height = 20.dp)
+            .size(width = 34.dp, height = 22.dp)
             .clipToBounds()
     ) {
-        // Center a square virtual viewport horizontally so the 66x67 battery glyph fills the row preview.
-        val virtualSize = size.width
-        val topOffset = ((size.height - virtualSize) / 2f).roundToInt()
-        drawable.setBounds(0, topOffset, virtualSize.roundToInt(), topOffset + virtualSize.roundToInt())
+        val targetGlyphHeight = size.height * PREVIEW_GLYPH_HEIGHT_FILL
+        val scaleByHeight =
+            targetGlyphHeight / (drawable.viewportHeight * drawable.previewGlyphHeightFraction)
+        val scaleByWidth = size.width / drawable.viewportWidth
+        val scale = min(scaleByHeight, scaleByWidth)
+        val virtualWidth = (drawable.viewportWidth * scale).roundToInt()
+        val virtualHeight = (drawable.viewportHeight * scale).roundToInt()
+        val left = ((size.width - virtualWidth) / 2f).roundToInt()
+        val top = ((size.height - virtualHeight) / 2f).roundToInt()
+        drawable.setBounds(left, top, left + virtualWidth, top + virtualHeight)
         drawIntoCanvas { canvas ->
             drawable.draw(canvas.nativeCanvas)
         }
@@ -725,6 +738,7 @@ private fun BatteryStylePreviewIcon(style: BatteryIndicatorStyle) {
 }
 
 private const val BATTERY_STYLE_PREVIEW_LEVEL = 72
+private const val PREVIEW_GLYPH_HEIGHT_FILL = 0.90f
 @Composable
 private fun CustomClockConfig(
     clockFormat: String,
