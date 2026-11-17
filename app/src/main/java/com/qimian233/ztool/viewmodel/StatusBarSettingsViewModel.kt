@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.qimian233.ztool.data.systemui.StatusBarSettingsRepository
 import com.qimian233.ztool.hook.modules.systemui.statusbar.BatteryIndicatorStyle
+import com.qimian233.ztool.hook.modules.systemui.statusbar.SegmentedChargingStyle
 import com.qimian233.ztool.ui.components.normalizeArgbColorTextOrNull
 import com.qimian233.ztool.ui.components.sanitizeArgbColorText
 import kotlinx.coroutines.Dispatchers
@@ -180,6 +181,16 @@ class StatusBarSettingsViewModel(
         repository.saveBatteryStyle(style)
     }
 
+    fun setBatterySegmentedClassicColor(enabled: Boolean) {
+        _uiState.value = _uiState.value.copy(batterySegmentedClassicColor = enabled)
+        repository.saveBatterySegmentedClassicColor(enabled)
+    }
+
+    fun setBatterySegmentedChargingStyle(style: SegmentedChargingStyle) {
+        _uiState.value = _uiState.value.copy(batterySegmentedChargingStyle = style)
+        repository.saveBatterySegmentedChargingStyle(style)
+    }
+
     fun showFormatHelpDialog() {
         _uiState.value = _uiState.value.copy(showFormatHelpDialog = true)
     }
@@ -256,6 +267,8 @@ data class StatusBarSettingsUiState(
     val batteryChargingColor: Boolean = false,
     val batteryPercentBold: Boolean = false,
     val batteryStyle: BatteryIndicatorStyle = BatteryIndicatorStyle.DEFAULT_FRAMED,
+    val batterySegmentedClassicColor: Boolean = true,
+    val batterySegmentedChargingStyle: SegmentedChargingStyle = SegmentedChargingStyle.FILL_FROM_EMPTY,
     val showFormatHelpDialog: Boolean = false,
     val showSaveSuccessDialog: Boolean = false,
     val isRestartProcessing: Boolean = false,

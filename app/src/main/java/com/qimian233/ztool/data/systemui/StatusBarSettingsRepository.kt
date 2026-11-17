@@ -10,6 +10,7 @@ import com.qimian233.ztool.data.keys.PreferenceKeys
 import com.qimian233.ztool.hook.modules.systemui.misc.CustomDateFormatter
 import com.qimian233.ztool.hook.modules.systemui.statusbar.BatteryIndicatorPolicy
 import com.qimian233.ztool.hook.modules.systemui.statusbar.BatteryIndicatorStyle
+import com.qimian233.ztool.hook.modules.systemui.statusbar.SegmentedChargingStyle
 import com.qimian233.ztool.viewmodel.StatusBarSettingsUiState
 import java.util.Date
 
@@ -38,6 +39,16 @@ class StatusBarSettingsRepository(
                 PreferenceKeys.SYSTEMUI_BATTERY_INDICATOR_STYLE.default
             )
         )
+        val batterySegmentedClassicColor = prefsUtils.loadBooleanSetting(
+            KEY_BATTERY_SEGMENTED_CLASSIC_COLOR,
+            PreferenceKeys.SYSTEMUI_BATTERY_SEGMENTED_CLASSIC_COLOR.default
+        )
+        val batterySegmentedChargingStyle = SegmentedChargingStyle.fromPref(
+            prefsUtils.loadStringSetting(
+                KEY_BATTERY_SEGMENTED_CHARGING_STYLE,
+                PreferenceKeys.SYSTEMUI_BATTERY_SEGMENTED_CHARGING_STYLE.default
+            )
+        )
         val batteryIndicatorEnabled = loadBatteryIndicatorEnabled(
             batteryExternal = batteryExternal,
             batteryChargingColor = batteryChargingColor,
@@ -61,6 +72,8 @@ class StatusBarSettingsRepository(
             batteryChargingColor = batteryChargingColor,
             batteryPercentBold = batteryPercentBold,
             batteryStyle = batteryStyle,
+            batterySegmentedClassicColor = batterySegmentedClassicColor,
+            batterySegmentedChargingStyle = batterySegmentedChargingStyle,
             clockFormat = loadedClockFormat,
             clockPreview = buildClockPreview(loadedClockFormat),
             textSize = prefsUtils.loadFloatSetting(KEY_CLOCK_TEXT_SIZE, 16.0f),
@@ -212,6 +225,14 @@ class StatusBarSettingsRepository(
         prefsUtils.saveStringSetting(KEY_BATTERY_STYLE, style.prefValue)
     }
 
+    fun saveBatterySegmentedClassicColor(enabled: Boolean) {
+        prefsUtils.saveBooleanSetting(KEY_BATTERY_SEGMENTED_CLASSIC_COLOR, enabled)
+    }
+
+    fun saveBatterySegmentedChargingStyle(style: SegmentedChargingStyle) {
+        prefsUtils.saveStringSetting(KEY_BATTERY_SEGMENTED_CHARGING_STYLE, style.prefValue)
+    }
+
     fun forceStopScope(): ShellActionResult {
         val scopes = ScopeUtils.getScopes(FeatureDestination.SystemUi)
         return when (val result = ScopeUtils.restartScope(scopes)) {
@@ -286,6 +307,10 @@ class StatusBarSettingsRepository(
         private val KEY_BATTERY_CHARGING_COLOR = PreferenceKeys.SYSTEMUI_BATTERY_CHARGING_COLOR.name
         private val KEY_BATTERY_PERCENT_BOLD = PreferenceKeys.SYSTEMUI_BATTERY_PERCENT_BOLD.name
         private val KEY_BATTERY_STYLE = PreferenceKeys.SYSTEMUI_BATTERY_INDICATOR_STYLE.name
+        private val KEY_BATTERY_SEGMENTED_CLASSIC_COLOR =
+            PreferenceKeys.SYSTEMUI_BATTERY_SEGMENTED_CLASSIC_COLOR.name
+        private val KEY_BATTERY_SEGMENTED_CHARGING_STYLE =
+            PreferenceKeys.SYSTEMUI_BATTERY_SEGMENTED_CHARGING_STYLE.name
         private const val DEFAULT_REFRESH_INTERVAL = 3.0f
 
         /** Matches NetworkSpeedRefresh's clamp: a sub-0.5 s refresh costs ~4 % SystemUI CPU per Hz. */

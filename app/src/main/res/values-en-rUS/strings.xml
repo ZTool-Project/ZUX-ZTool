@@ -567,8 +567,16 @@
     <string name="system_ui_status_bar_battery_style_vertical_name">Vertical battery</string>
     <string name="system_ui_status_bar_battery_style_ring_name">Circular ring</string>
     <string name="system_ui_status_bar_battery_style_pie_name">Pie chart</string>
+    <string name="system_ui_status_bar_battery_style_segmented_name">Classic segmented</string>
+    <string name="system_ui_status_bar_battery_segmented_classic_color_title">Classic bright green fill</string>
+    <string name="system_ui_status_bar_battery_segmented_classic_color_summary">Use classic bright green fill in normal state when enabled, or monochrome matching the frame when disabled (does not affect charging, low-battery, power-save, or performance colors)</string>
+    <string name="system_ui_status_bar_battery_segmented_charging_style_label">Segmented charging animation</string>
+    <string name="system_ui_status_bar_battery_segmented_charging_style_summary">Choose the charging animation behavior for the classic segmented battery</string>
+    <string name="system_ui_status_bar_battery_segmented_charging_fill_from_empty_name">Fill from empty to current segment</string>
+    <string name="system_ui_status_bar_battery_segmented_charging_blink_current_name">Blink current segment only</string>
     <string name="system_ui_status_bar_syatus_battery_external_title">Force battery percentage outside icon</string>
     <string name="system_ui_status_bar_syatus_battery_external_summary">Show remaining battery percentage to the right of the battery icon. Disable the system percentage display first.</string>
+    <string name="system_ui_status_bar_battery_external_segmented_summary">Classic segmented style does not support inside-icon percentage and only displays it outside; enable to force percentage on the right.</string>
     <string name="system_ui_status_bar_battery_percent_bold_title">Bold battery percentage</string>
     <string name="system_ui_status_bar_battery_percent_bold_summary">Toggle bold vs. regular weight for the status bar battery percentage in both inside-icon and outside-icon modes</string>
     <string name="system_ui_status_bar_battery_charging_color_title">Color battery fill by charging speed</string>

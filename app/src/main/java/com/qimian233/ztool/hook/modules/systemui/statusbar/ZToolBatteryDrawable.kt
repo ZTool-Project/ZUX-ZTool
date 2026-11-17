@@ -10,6 +10,8 @@ import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.Shader
 import android.graphics.drawable.Drawable
+import android.os.SystemClock
+import android.view.View
 import kotlin.math.min
 import kotlin.math.roundToInt
 
@@ -26,7 +28,9 @@ interface BatteryShapeRenderer {
         canvas: Canvas,
         bounds: Rect,
         state: BatteryIndicatorState,
-        colors: BatteryResolvedColors
+        colors: BatteryResolvedColors,
+        options: BatteryIndicatorOptions = BatteryIndicatorOptions(),
+        animationStep: Int = 0
     )
 }
 
@@ -41,6 +45,20 @@ class ZToolBatteryDrawable(
     private var currentOptions: BatteryIndicatorOptions = options
     private var drawableAlpha: Int = 255
     private var renderer: BatteryShapeRenderer = rendererForStyle(options.style)
+    private var animationStep: Int = 0
+    private var isAnimationScheduled: Boolean = false
+    private val animationTickRunnable = object : Runnable {
+        override fun run() {
+            isAnimationScheduled = false
+            if (!shouldAnimate()) {
+                animationStep = 0
+                return
+            }
+            animationStep = (animationStep + 1) % SEGMENTED_ANIMATION_STEP_MODULUS
+            invalidateSelf()
+            scheduleNextTick()
+        }
+    }
 
     val viewportWidth: Float
         get() = renderer.viewportWidth
@@ -55,11 +73,15 @@ class ZToolBatteryDrawable(
     fun update(state: BatteryIndicatorState, options: BatteryIndicatorOptions) {
         if (currentState == state && currentOptions == options) return
         val styleChanged = currentOptions.style != options.style
+        val chargingChanged = currentState.isCharging != state.isCharging
+        val chargingStyleChanged =
+            currentOptions.segmentedChargingStyle != options.segmentedChargingStyle
         currentState = state
         currentOptions = options
         if (styleChanged) {
             renderer = rendererForStyle(options.style)
         }
+        syncAnimationState(resetStep = styleChanged || chargingChanged || chargingStyleChanged)
         invalidateSelf()
     }
 
@@ -69,9 +91,22 @@ class ZToolBatteryDrawable(
     override fun getIntrinsicHeight(): Int =
         (renderer.viewportHeight * DP_PER_VIEWPORT_UNIT * density).roundToInt()
 
+    override fun setVisible(visible: Boolean, restart: Boolean): Boolean {
+        val changed = super.setVisible(visible, restart)
+        if (!visible) {
+            stopAnimation(resetStep = true)
+        } else if (restart || changed) {
+            syncAnimationState(resetStep = restart)
+        }
+        return changed
+    }
+
     override fun draw(canvas: Canvas) {
         val b = bounds
         if (b.isEmpty) return
+        if (shouldAnimate() && !isAnimationScheduled) {
+            scheduleNextTick()
+        }
         val baseColors = BatteryIndicatorPolicy.resolveColors(currentState, currentOptions)
         val scaledColors = if (drawableAlpha == 255) {
             baseColors
@@ -81,7 +116,48 @@ class ZToolBatteryDrawable(
                 fillAlpha = (baseColors.fillAlpha * drawableAlpha) / 255
             )
         }
-        renderer.draw(canvas, b, currentState, scaledColors)
+        renderer.draw(canvas, b, currentState, scaledColors, currentOptions, animationStep)
+    }
+
+    private fun shouldAnimate(): Boolean {
+        if (currentOptions.style != BatteryIndicatorStyle.SEGMENTED || !currentState.isCharging) {
+            return false
+        }
+        if (!isVisible) return false
+        val cb = callback ?: return false
+        return cb !is View || cb.isAttachedToWindow
+    }
+
+    private fun syncAnimationState(resetStep: Boolean) {
+        if (resetStep) {
+            animationStep = 0
+        }
+        if (shouldAnimate()) {
+            if (resetStep) {
+                unscheduleSelf(animationTickRunnable)
+                isAnimationScheduled = false
+            }
+            if (!isAnimationScheduled) {
+                scheduleNextTick()
+            }
+        } else {
+            stopAnimation(resetStep = true)
+        }
+    }
+
+    private fun scheduleNextTick() {
+        isAnimationScheduled = true
+        scheduleSelf(animationTickRunnable, SystemClock.uptimeMillis() + SEGMENTED_ANIMATION_TICK_MS)
+    }
+
+    private fun stopAnimation(resetStep: Boolean) {
+        if (isAnimationScheduled) {
+            unscheduleSelf(animationTickRunnable)
+            isAnimationScheduled = false
+        }
+        if (resetStep) {
+            animationStep = 0
+        }
     }
 
     override fun setAlpha(alpha: Int) {
@@ -108,11 +184,15 @@ class ZToolBatteryDrawable(
         BatteryIndicatorStyle.VERTICAL -> VerticalBatteryRenderer()
         BatteryIndicatorStyle.RING -> RingBatteryRenderer()
         BatteryIndicatorStyle.PIE -> PieBatteryRenderer()
+        BatteryIndicatorStyle.SEGMENTED -> SegmentedBatteryRenderer()
     }
 
     companion object {
         // 0.4dp per viewport unit matches stock stat_sys_battery_*.xml (66x67 -> 26.4dp x 26.8dp).
         private const val DP_PER_VIEWPORT_UNIT = 0.4f
+        private const val SEGMENTED_ANIMATION_TICK_MS = 500L
+        // Divisible by 2, 3, 4, and 5 so every charging cycle wraps seamlessly.
+        private const val SEGMENTED_ANIMATION_STEP_MODULUS = 60
     }
 }
 
@@ -174,7 +254,9 @@ class DefaultFramedBatteryRenderer : BatteryShapeRenderer {
         canvas: Canvas,
         bounds: Rect,
         state: BatteryIndicatorState,
-        colors: BatteryResolvedColors
+        colors: BatteryResolvedColors,
+        options: BatteryIndicatorOptions,
+        animationStep: Int
     ) {
         drawInCenteredViewport(canvas, bounds, viewportWidth, viewportHeight) {
             framePaint.color = colors.frameColor
@@ -271,7 +353,9 @@ open class FilledContainerBatteryRenderer(
         canvas: Canvas,
         bounds: Rect,
         state: BatteryIndicatorState,
-        colors: BatteryResolvedColors
+        colors: BatteryResolvedColors,
+        options: BatteryIndicatorOptions,
+        animationStep: Int
     ) {
         drawInCenteredViewport(canvas, bounds, viewportWidth, viewportHeight) {
             val level = state.clampedLevel
@@ -490,7 +574,9 @@ class RingBatteryRenderer : BatteryShapeRenderer {
         canvas: Canvas,
         bounds: Rect,
         state: BatteryIndicatorState,
-        colors: BatteryResolvedColors
+        colors: BatteryResolvedColors,
+        options: BatteryIndicatorOptions,
+        animationStep: Int
     ) {
         drawInCenteredViewport(canvas, bounds, viewportWidth, viewportHeight) {
             val level = state.clampedLevel
@@ -551,7 +637,9 @@ class PieBatteryRenderer : BatteryShapeRenderer {
         canvas: Canvas,
         bounds: Rect,
         state: BatteryIndicatorState,
-        colors: BatteryResolvedColors
+        colors: BatteryResolvedColors,
+        options: BatteryIndicatorOptions,
+        animationStep: Int
     ) {
         drawInCenteredViewport(canvas, bounds, viewportWidth, viewportHeight) {
             val level = state.clampedLevel
@@ -619,5 +707,71 @@ class PieBatteryRenderer : BatteryShapeRenderer {
             CircularBatteryGeometry.CENTER_X + CircularBatteryGeometry.OUTER_RADIUS,
             CircularBatteryGeometry.CENTER_Y + CircularBatteryGeometry.OUTER_RADIUS
         )
+    }
+}
+
+/** Renders a sharp-cornered rectangular frame, cap, and 4 discrete battery level cells. */
+class SegmentedBatteryRenderer : BatteryShapeRenderer {
+    override val viewportWidth: Float = HorizontalBatteryGeometry.VIEWPORT_WIDTH
+    override val viewportHeight: Float = HorizontalBatteryGeometry.VIEWPORT_HEIGHT
+    override val previewGlyphHeightFraction: Float = GLYPH_HEIGHT / viewportHeight
+
+    private val framePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeWidth = FRAME_STROKE_WIDTH
+        strokeJoin = Paint.Join.MITER
+        strokeCap = Paint.Cap.SQUARE
+    }
+    private val capPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.FILL
+    }
+    private val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.FILL
+    }
+
+    override fun draw(
+        canvas: Canvas,
+        bounds: Rect,
+        state: BatteryIndicatorState,
+        colors: BatteryResolvedColors,
+        options: BatteryIndicatorOptions,
+        animationStep: Int
+    ) {
+        drawInCenteredViewport(canvas, bounds, viewportWidth, viewportHeight) {
+            framePaint.color = colors.frameColor
+            framePaint.alpha = colors.frameAlpha
+            canvas.drawRect(FRAME_RECT, framePaint)
+
+            capPaint.color = colors.frameColor
+            capPaint.alpha = colors.frameAlpha
+            canvas.drawRect(CAP_RECT, capPaint)
+
+            val litCount = BatteryIndicatorPolicy.resolveSegmentedLitCount(
+                level = state.clampedLevel,
+                isCharging = state.isCharging,
+                chargingStyle = options.segmentedChargingStyle,
+                step = animationStep
+            )
+            if (litCount > 0) {
+                fillPaint.color = colors.fillColor
+                fillPaint.alpha = colors.fillAlpha
+                for (index in 0 until litCount) {
+                    val left = CELL_LEFT_START + index * (CELL_WIDTH + CELL_GAP)
+                    canvas.drawRect(left, CELL_TOP, left + CELL_WIDTH, CELL_BOTTOM, fillPaint)
+                }
+            }
+        }
+    }
+
+    companion object {
+        private const val FRAME_STROKE_WIDTH = 4f
+        private const val GLYPH_HEIGHT = 36f
+        private val FRAME_RECT = RectF(3f, 18f, 60f, 50f)
+        private val CAP_RECT = RectF(62f, 28f, 65f, 40f)
+        private const val CELL_LEFT_START = 8f
+        private const val CELL_TOP = 23f
+        private const val CELL_BOTTOM = 45f
+        private const val CELL_WIDTH = 9.5f
+        private const val CELL_GAP = 3f
     }
 }

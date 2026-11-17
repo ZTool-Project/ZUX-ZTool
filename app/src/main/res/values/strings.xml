@@ -678,8 +678,16 @@
     <string name="system_ui_status_bar_battery_style_vertical_name">立式电池</string>
     <string name="system_ui_status_bar_battery_style_ring_name">圆环</string>
     <string name="system_ui_status_bar_battery_style_pie_name">饼图</string>
+    <string name="system_ui_status_bar_battery_style_segmented_name">经典分段</string>
+    <string name="system_ui_status_bar_battery_segmented_classic_color_title">经典亮绿色填充</string>
+    <string name="system_ui_status_bar_battery_segmented_classic_color_summary">开启时在常规状态下使用经典亮绿色填充，关闭时跟随外边框单色显示（不影响充电、低电量、省电或性能模式颜色）</string>
+    <string name="system_ui_status_bar_battery_segmented_charging_style_label">分段式充电动画样式</string>
+    <string name="system_ui_status_bar_battery_segmented_charging_style_summary">选择经典分段式电池在充电时的填充动画方式</string>
+    <string name="system_ui_status_bar_battery_segmented_charging_fill_from_empty_name">清空后填充至当前电量段</string>
+    <string name="system_ui_status_bar_battery_segmented_charging_blink_current_name">仅闪烁当前电量段</string>
     <string name="system_ui_status_bar_syatus_battery_external_title">强制电池外百分比</string>
     <string name="system_ui_status_bar_syatus_battery_external_summary">在电池图标右侧显示剩余的电量，请先关闭系统设置的百分比显示</string>
+    <string name="system_ui_status_bar_battery_external_segmented_summary">经典分段样式不支持在电池内部显示百分比，仅支持在电池右侧外部显示；开启后将强制在右侧显示电量</string>
     <string name="system_ui_status_bar_battery_percent_bold_title">粗体电量百分比</string>
     <string name="system_ui_status_bar_battery_percent_bold_summary">切换状态栏电池百分比文字的粗体与常规字重，图标内外模式均生效</string>
     <string name="system_ui_status_bar_battery_charging_color_title">充电速度指示颜色</string>

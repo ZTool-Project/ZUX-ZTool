@@ -127,6 +127,8 @@ object PreferenceKeys {
     val SYSTEMUI_BATTERY_PERCENTAGE = BoolKey("systemui_battery_percentage", false)
     val SYSTEMUI_BATTERY_CHARGING_COLOR = BoolKey("systemui_battery_charging_color", false)
     val SYSTEMUI_BATTERY_PERCENT_BOLD = BoolKey("systemui_battery_percent_bold", false)
+    val SYSTEMUI_BATTERY_SEGMENTED_CLASSIC_COLOR =
+        BoolKey("systemui_battery_segmented_classic_color", true)
     val FORCE_IMMERSIVE_MODE = BoolKey("force_immersive_mode", false)
     val FORCE_LENOVO_AOD = BoolKey("ForceLenovoAOD", false)
     val QS_ROUND_CORNER = BoolKey("qs_round_corner", false)
@@ -419,6 +421,9 @@ object PreferenceKeys {
     // Enum prefValue from BatteryIndicatorStyle; unknown values fall back to default_framed.
     val SYSTEMUI_BATTERY_INDICATOR_STYLE =
         StringKey("systemui_battery_indicator_style", "default_framed")
+    // Enum prefValue from SegmentedChargingStyle; unknown values fall back to fill_from_empty.
+    val SYSTEMUI_BATTERY_SEGMENTED_CHARGING_STYLE =
+        StringKey("systemui_battery_segmented_charging_style", "fill_from_empty")
 
     // Lists grouped by type — used by ModulePreferencesUtils backup/restore
     // and by hook-side loop matching
@@ -460,6 +465,7 @@ object PreferenceKeys {
         CUSTOM_NETWORK_SPEED_REFRESH_INTERVAL, SYSTEMUI_NETWORK_SPEED_HIDE_SLOW,
         SYSTEMUI_NETWORK_SPEED_HIDE_BOTH, SYSTEMUI_BATTERY_INDICATOR, SYSTEMUI_BATTERY_PERCENTAGE,
         SYSTEMUI_BATTERY_CHARGING_COLOR, SYSTEMUI_BATTERY_PERCENT_BOLD,
+        SYSTEMUI_BATTERY_SEGMENTED_CLASSIC_COLOR,
         FORCE_IMMERSIVE_MODE, FORCE_LENOVO_AOD, QS_ROUND_CORNER,
         BRIGHTNESS_SLIDER_PERCENTAGE, VOLUME_SLIDER_PERCENTAGE,
         CONTROL_CENTER_LONG_PRESS, VOLUME_DETAIL_PANEL, HIDE_DETAIL_INDICATOR, QS_COLOR,
@@ -571,6 +577,7 @@ object PreferenceKeys {
         CHARGE_WATTS_SELECTED_OPTION,
         SYSTEMUI_REALWATTS_CUSTOM_FORMAT,
         SYSTEMUI_BATTERY_INDICATOR_STYLE,
+        SYSTEMUI_BATTERY_SEGMENTED_CHARGING_STYLE,
         DESKTOP_LIVE_WALLPAPER_SCALE_MODE
     )
 

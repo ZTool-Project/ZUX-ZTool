@@ -90,6 +90,16 @@ class SystemUIBatteryHook : AppHookModule() {
                 PreferenceKeys.SYSTEMUI_BATTERY_INDICATOR_STYLE.default
             )
         )
+        val segmentedClassicColor = prefs.getBoolean(
+            PreferenceKeys.SYSTEMUI_BATTERY_SEGMENTED_CLASSIC_COLOR.name,
+            PreferenceKeys.SYSTEMUI_BATTERY_SEGMENTED_CLASSIC_COLOR.default
+        )
+        val segmentedChargingStyle = SegmentedChargingStyle.fromPref(
+            prefs.getString(
+                PreferenceKeys.SYSTEMUI_BATTERY_SEGMENTED_CHARGING_STYLE.name,
+                PreferenceKeys.SYSTEMUI_BATTERY_SEGMENTED_CHARGING_STYLE.default
+            )
+        )
         val explicitEnabled = if (prefs.contains(PreferenceKeys.SYSTEMUI_BATTERY_INDICATOR.name)) {
             prefs.getBoolean(
                 PreferenceKeys.SYSTEMUI_BATTERY_INDICATOR.name,
@@ -109,7 +119,9 @@ class SystemUIBatteryHook : AppHookModule() {
             externalPercent = externalPercent,
             chargingColor = chargingColor,
             percentBold = percentBold,
-            style = style
+            style = style,
+            segmentedClassicColor = segmentedClassicColor,
+            segmentedChargingStyle = segmentedChargingStyle
         )
     } catch (_: Throwable) {
         logger.warn("Failed to read battery indicator preferences, using defaults")
@@ -186,7 +198,7 @@ class SystemUIBatteryHook : AppHookModule() {
                         if (options.enabled) {
                             syncPercentTypeface(host, view, options)
                             syncBatteryDrawable(host, view, options)
-                            if (!options.externalPercent) {
+                            if (!usesExternalPercentPlacement(options)) {
                                 syncInnerPercentStyle(host, view, options)
                                 syncInnerPercentTextColor(host, view, options)
                             }
@@ -228,6 +240,9 @@ class SystemUIBatteryHook : AppHookModule() {
                         syncPercentTypeface(host, view, options)
                         if (options.externalPercent) {
                             updateExternalPercentText(host, view)
+                        } else if (!options.style.supportsInnerPercent) {
+                            ensureExternalPercentLayout(host, view)
+                            syncExternalPercentTextIfVisible(host, view)
                         } else {
                             syncInnerPercentStyle(host, view, options)
                             syncInnerPercentTextColor(host, view, options)
@@ -246,8 +261,8 @@ class SystemUIBatteryHook : AppHookModule() {
                     val options = readOptions()
                     if (options.enabled) {
                         syncPercentTypeface(host, view, options)
-                        if (options.externalPercent) {
-                            applyExternalPercentStyle(host, view)
+                        if (usesExternalPercentPlacement(options)) {
+                            ensureExternalPercentLayout(host, view)
                         } else {
                             syncInnerPercentStyle(host, view, options)
                         }
@@ -282,19 +297,27 @@ class SystemUIBatteryHook : AppHookModule() {
         virtualBatteryMethod = runCatching { findMethod(viewClass, "getVirtualBatteryStatus") }.getOrNull()
     )
 
+    private fun usesExternalPercentPlacement(options: BatteryIndicatorOptions): Boolean =
+        options.externalPercent || !options.style.supportsInnerPercent
+
     private fun syncBatteryView(host: Host, view: LinearLayout) {
         val options = readOptions()
         if (!options.enabled) {
             restoreStockDrawable(host, view)
             return
         }
-        if (options.externalPercent) {
+        val externalPlacement = usesExternalPercentPlacement(options)
+        if (externalPlacement) {
             ensureExternalPercentLayout(host, view)
-            forceShowExternalPercentage(host, view)
+            if (options.externalPercent) {
+                forceShowExternalPercentage(host, view)
+            } else {
+                syncExternalPercentTextIfVisible(host, view)
+            }
         }
         syncPercentTypeface(host, view, options)
         syncBatteryDrawable(host, view, options)
-        if (!options.externalPercent) {
+        if (!externalPlacement) {
             syncInnerPercentStyle(host, view, options)
             syncInnerPercentTextColor(host, view, options)
         }
@@ -499,6 +522,17 @@ class SystemUIBatteryHook : AppHookModule() {
             updateExternalPercentText(host, view)
         } catch (t: Throwable) {
             logger.error("Failed to force-show external battery percentage", t)
+        }
+    }
+
+    private fun syncExternalPercentTextIfVisible(host: Host, view: LinearLayout) {
+        try {
+            val percentView = host.percentViewField.get(view) as? TextView ?: return
+            if (percentView.visibility == View.VISIBLE) {
+                updateExternalPercentText(host, view)
+            }
+        } catch (t: Throwable) {
+            logger.error("Failed to sync external battery percentage text", t)
         }
     }
 

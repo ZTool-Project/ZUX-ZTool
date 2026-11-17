@@ -65,7 +65,7 @@ The SystemUI status bar battery indicator module (`com.android.systemui`, target
 - [x] **Vertical battery icon (`BatteryIndicatorStyle.VERTICAL`)**: implement `VerticalBatteryRenderer` with top terminal cap, vertical frame/container, and bottom-to-top continuous level fill.
 - [x] **Circular ring indicator (`BatteryIndicatorStyle.RING`)**: implement `RingBatteryRenderer` using a circular background track and `canvas.drawArc(...)` sweep proportional to `clampedLevel`.
 - [x] **Pie chart indicator (`BatteryIndicatorStyle.PIE`)**: implement `PieBatteryRenderer` using a circular container and filled sector `canvas.drawArc(..., useCenter = true, ...)` proportional to `clampedLevel`.
-- [ ] **Classic segmented battery indicator (`BatteryIndicatorStyle.SEGMENTED`)**: implement `SegmentedBatteryRenderer` with discrete rectangular level cells separated by gaps inside the battery frame.
+- [x] **Classic segmented battery indicator (`BatteryIndicatorStyle.SEGMENTED`)**: implement `SegmentedBatteryRenderer` with discrete rectangular level cells separated by gaps inside the battery frame.
 - [x] Add frontend style selector (dropdown / popup menu row) in `StatusBarSettingsScreen` and register corresponding `SearchIndex` and bilingual string entries.
 
 ### 3.4 Power-Save & High-Performance Mode Colors

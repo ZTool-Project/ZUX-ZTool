@@ -80,8 +80,29 @@ class BatteryIndicatorPolicyTest {
         assertEquals(BatteryIndicatorStyle.VERTICAL, BatteryIndicatorStyle.fromPref("vertical"))
         assertEquals(BatteryIndicatorStyle.RING, BatteryIndicatorStyle.fromPref("ring"))
         assertEquals(BatteryIndicatorStyle.PIE, BatteryIndicatorStyle.fromPref("pie"))
+        assertEquals(BatteryIndicatorStyle.SEGMENTED, BatteryIndicatorStyle.fromPref("segmented"))
         assertEquals(BatteryIndicatorStyle.DEFAULT_FRAMED, BatteryIndicatorStyle.fromPref("unknown"))
         assertEquals(BatteryIndicatorStyle.DEFAULT_FRAMED, BatteryIndicatorStyle.fromPref(null))
+    }
+
+    @Test
+    fun `segmented charging style fromPref parses valid values and falls back to fill from empty`() {
+        assertEquals(
+            SegmentedChargingStyle.FILL_FROM_EMPTY,
+            SegmentedChargingStyle.fromPref("fill_from_empty")
+        )
+        assertEquals(
+            SegmentedChargingStyle.BLINK_CURRENT,
+            SegmentedChargingStyle.fromPref("blink_current")
+        )
+        assertEquals(
+            SegmentedChargingStyle.FILL_FROM_EMPTY,
+            SegmentedChargingStyle.fromPref("unknown")
+        )
+        assertEquals(
+            SegmentedChargingStyle.FILL_FROM_EMPTY,
+            SegmentedChargingStyle.fromPref(null)
+        )
     }
 
     @Test
@@ -420,5 +441,125 @@ class BatteryIndicatorPolicyTest {
         assertFalse(pie.includeFontPadding)
         assertTrue((pie.maxWidthDp ?: 0f) > (ring.maxWidthDp ?: 0f))
         assertEquals(0f, pie.centerOffsetYDp)
+    }
+
+    @Test
+    fun `segmented style disallows inner percent and toggles classic green vs monochrome fill`() {
+        assertFalse(BatteryIndicatorStyle.SEGMENTED.supportsInnerPercent)
+        assertTrue(BatteryIndicatorStyle.DEFAULT_FRAMED.supportsInnerPercent)
+
+        val classicDark = BatteryIndicatorPolicy.resolveColors(
+            BatteryIndicatorState(level = 65, isBlackTheme = false, systemShowPercent = true),
+            BatteryIndicatorOptions(
+                enabled = true,
+                externalPercent = false,
+                style = BatteryIndicatorStyle.SEGMENTED,
+                segmentedClassicColor = true
+            )
+        )
+        assertEquals(BatteryIndicatorPolicy.COLOR_WHITE, classicDark.frameColor)
+        assertEquals(BatteryIndicatorPolicy.ALPHA_FRAME_DARK_BAR, classicDark.frameAlpha)
+        assertEquals(BatteryIndicatorPolicy.COLOR_SEGMENTED_CLASSIC_FILL, classicDark.fillColor)
+        assertEquals(BatteryIndicatorPolicy.ALPHA_OPAQUE, classicDark.fillAlpha)
+
+        val monoLight = BatteryIndicatorPolicy.resolveColors(
+            BatteryIndicatorState(level = 65, isBlackTheme = true, systemShowPercent = true),
+            BatteryIndicatorOptions(
+                enabled = true,
+                externalPercent = false,
+                style = BatteryIndicatorStyle.SEGMENTED,
+                segmentedClassicColor = false
+            )
+        )
+        assertEquals(BatteryIndicatorPolicy.COLOR_BLACK, monoLight.frameColor)
+        assertEquals(BatteryIndicatorPolicy.COLOR_BLACK, monoLight.fillColor)
+        assertEquals(BatteryIndicatorPolicy.ALPHA_FILL_PURE_LIGHT_BAR, monoLight.fillAlpha)
+
+        val lowBattery = BatteryIndicatorPolicy.resolveColors(
+            BatteryIndicatorState(level = 10, isCharging = false),
+            BatteryIndicatorOptions(
+                style = BatteryIndicatorStyle.SEGMENTED,
+                segmentedClassicColor = true
+            )
+        )
+        assertEquals(BatteryIndicatorPolicy.COLOR_LOW_BATTERY_FILL, lowBattery.fillColor)
+
+        val powerSave = BatteryIndicatorPolicy.resolveColors(
+            BatteryIndicatorState(level = 60, isCharging = false, isPowerSave = true),
+            BatteryIndicatorOptions(
+                style = BatteryIndicatorStyle.SEGMENTED,
+                segmentedClassicColor = true
+            )
+        )
+        assertEquals(BatteryIndicatorPolicy.COLOR_POWER_SAVE_FILL, powerSave.fillColor)
+
+        val fastCharge = BatteryIndicatorPolicy.resolveColors(
+            BatteryIndicatorState(level = 60, isCharging = true, chargeRate = 3),
+            BatteryIndicatorOptions(
+                chargingColor = true,
+                style = BatteryIndicatorStyle.SEGMENTED,
+                segmentedClassicColor = true
+            )
+        )
+        assertEquals(BatteryIndicatorPolicy.COLOR_FAST_CHARGING_FILL, fastCharge.fillColor)
+
+        assertNull(
+            BatteryIndicatorPolicy.resolveInnerPercentTextColor(
+                BatteryIndicatorOptions(
+                    enabled = true,
+                    externalPercent = false,
+                    style = BatteryIndicatorStyle.SEGMENTED
+                )
+            )
+        )
+    }
+
+    @Test
+    fun `segmented level thresholds and charging animations resolve expected lit counts`() {
+        assertEquals(0, BatteryIndicatorPolicy.resolveSegmentedTargetCount(0, isCharging = false))
+        assertEquals(1, BatteryIndicatorPolicy.resolveSegmentedTargetCount(0, isCharging = true))
+        assertEquals(1, BatteryIndicatorPolicy.resolveSegmentedTargetCount(1, isCharging = false))
+        assertEquals(1, BatteryIndicatorPolicy.resolveSegmentedTargetCount(25, isCharging = false))
+        assertEquals(2, BatteryIndicatorPolicy.resolveSegmentedTargetCount(26, isCharging = false))
+        assertEquals(2, BatteryIndicatorPolicy.resolveSegmentedTargetCount(50, isCharging = false))
+        assertEquals(3, BatteryIndicatorPolicy.resolveSegmentedTargetCount(51, isCharging = false))
+        assertEquals(3, BatteryIndicatorPolicy.resolveSegmentedTargetCount(75, isCharging = false))
+        assertEquals(4, BatteryIndicatorPolicy.resolveSegmentedTargetCount(76, isCharging = false))
+        assertEquals(4, BatteryIndicatorPolicy.resolveSegmentedTargetCount(100, isCharging = false))
+
+        assertEquals(
+            listOf(0, 1, 2, 3, 0, 1),
+            (0..5).map { step ->
+                BatteryIndicatorPolicy.resolveSegmentedLitCount(
+                    level = 60,
+                    isCharging = true,
+                    chargingStyle = SegmentedChargingStyle.FILL_FROM_EMPTY,
+                    step = step
+                )
+            }
+        )
+
+        assertEquals(
+            listOf(3, 2, 3, 2),
+            (0..3).map { step ->
+                BatteryIndicatorPolicy.resolveSegmentedLitCount(
+                    level = 60,
+                    isCharging = true,
+                    chargingStyle = SegmentedChargingStyle.BLINK_CURRENT,
+                    step = step
+                )
+            }
+        )
+        assertEquals(
+            listOf(1, 0, 1, 0),
+            (0..3).map { step ->
+                BatteryIndicatorPolicy.resolveSegmentedLitCount(
+                    level = 10,
+                    isCharging = true,
+                    chargingStyle = SegmentedChargingStyle.BLINK_CURRENT,
+                    step = step
+                )
+            }
+        )
     }
 }

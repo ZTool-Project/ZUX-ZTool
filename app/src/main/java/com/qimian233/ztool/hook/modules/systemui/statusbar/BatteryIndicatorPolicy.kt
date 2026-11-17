@@ -9,15 +9,32 @@ enum class BatteryIndicatorStyle(val prefValue: String) {
     IOS_STYLE("ios_style"),
     VERTICAL("vertical"),
     RING("ring"),
-    PIE("pie");
+    PIE("pie"),
+    SEGMENTED("segmented");
 
     val isFilledContainer: Boolean
         get() = this == FRAMELESS || this == IOS_STYLE || this == VERTICAL || this == PIE
+
+    val supportsInnerPercent: Boolean
+        get() = this != SEGMENTED
 
     companion object {
         /** Parses a persisted [prefValue], falling back to [DEFAULT_FRAMED]. */
         fun fromPref(value: String?): BatteryIndicatorStyle =
             value?.let { stored -> entries.firstOrNull { it.prefValue == stored } } ?: DEFAULT_FRAMED
+    }
+}
+
+/** Charging animation style for [BatteryIndicatorStyle.SEGMENTED]. */
+enum class SegmentedChargingStyle(val prefValue: String) {
+    FILL_FROM_EMPTY("fill_from_empty"),
+    BLINK_CURRENT("blink_current");
+
+    companion object {
+        /** Parses a persisted [prefValue], falling back to [FILL_FROM_EMPTY]. */
+        fun fromPref(value: String?): SegmentedChargingStyle =
+            value?.let { stored -> entries.firstOrNull { it.prefValue == stored } }
+                ?: FILL_FROM_EMPTY
     }
 }
 
@@ -27,7 +44,9 @@ data class BatteryIndicatorOptions(
     val externalPercent: Boolean = false,
     val chargingColor: Boolean = false,
     val percentBold: Boolean = false,
-    val style: BatteryIndicatorStyle = BatteryIndicatorStyle.DEFAULT_FRAMED
+    val style: BatteryIndicatorStyle = BatteryIndicatorStyle.DEFAULT_FRAMED,
+    val segmentedClassicColor: Boolean = true,
+    val segmentedChargingStyle: SegmentedChargingStyle = SegmentedChargingStyle.FILL_FROM_EMPTY
 )
 
 /** Snapshot of host battery state used to render the battery indicator. */
@@ -77,6 +96,12 @@ object BatteryIndicatorPolicy {
     const val COLOR_LOW_BATTERY_FILL = 0xFFFF0000.toInt()
     const val COLOR_NORMAL_CHARGING_FILL = 0xFF34C759.toInt()
     const val COLOR_FAST_CHARGING_FILL = 0xFFBF5AF2.toInt()
+    const val COLOR_SEGMENTED_CLASSIC_FILL = COLOR_NORMAL_CHARGING_FILL
+
+    const val SEGMENTED_CELL_COUNT = 4
+    private const val SEGMENT_1_MAX_LEVEL = 25
+    private const val SEGMENT_2_MAX_LEVEL = 50
+    private const val SEGMENT_3_MAX_LEVEL = 75
 
     const val ALPHA_OPAQUE = 255
     const val ALPHA_FRAME_LIGHT_BAR = 179 // 0.7f on light status bar (mIsBlackTheme = true)
@@ -132,7 +157,8 @@ object BatteryIndicatorPolicy {
         options: BatteryIndicatorOptions
     ): BatteryResolvedColors {
         val baseMonochrome = if (state.isBlackTheme) COLOR_BLACK else COLOR_WHITE
-        val hasInnerPercent = state.systemShowPercent && !options.externalPercent
+        val hasInnerPercent =
+            state.systemShowPercent && !options.externalPercent && options.style.supportsInnerPercent
         val isFilledContainer = options.style.isFilledContainer
         val isHollowRing = options.style == BatteryIndicatorStyle.RING
 
@@ -184,7 +210,10 @@ object BatteryIndicatorPolicy {
                 fillColor = COLOR_LOW_BATTERY_FILL
                 fillAlpha = ALPHA_OPAQUE
             }
-            else -> {
+            else -> if (options.style == BatteryIndicatorStyle.SEGMENTED && options.segmentedClassicColor) {
+                fillColor = COLOR_SEGMENTED_CLASSIC_FILL
+                fillAlpha = ALPHA_OPAQUE
+            } else {
                 fillColor = baseMonochrome
                 fillAlpha = when {
                     isHollowRing && state.isBlackTheme -> ALPHA_FILL_PURE_LIGHT_BAR
@@ -236,10 +265,40 @@ object BatteryIndicatorPolicy {
         return when (options.style) {
             BatteryIndicatorStyle.DEFAULT_FRAMED,
             BatteryIndicatorStyle.FRAMELESS,
-            BatteryIndicatorStyle.IOS_STYLE -> STOCK_INNER_PERCENT_LAYOUT
+            BatteryIndicatorStyle.IOS_STYLE,
+            BatteryIndicatorStyle.SEGMENTED -> STOCK_INNER_PERCENT_LAYOUT
             BatteryIndicatorStyle.VERTICAL -> VERTICAL_INNER_PERCENT_LAYOUT
             BatteryIndicatorStyle.RING -> RING_INNER_PERCENT_LAYOUT
             BatteryIndicatorStyle.PIE -> PIE_INNER_PERCENT_LAYOUT
+        }
+    }
+
+    /** Returns the target lit segment count (0..4) for [level] and [isCharging]. */
+    fun resolveSegmentedTargetCount(level: Int, isCharging: Boolean): Int {
+        val clamped = level.coerceIn(0, 100)
+        if (clamped == 0 && !isCharging) return 0
+        return when {
+            clamped <= SEGMENT_1_MAX_LEVEL -> 1
+            clamped <= SEGMENT_2_MAX_LEVEL -> 2
+            clamped <= SEGMENT_3_MAX_LEVEL -> 3
+            else -> SEGMENTED_CELL_COUNT
+        }
+    }
+
+    /** Returns the number of segments currently lit (0..4) for the given animation [step]. */
+    fun resolveSegmentedLitCount(
+        level: Int,
+        isCharging: Boolean,
+        chargingStyle: SegmentedChargingStyle,
+        step: Int
+    ): Int {
+        val target = resolveSegmentedTargetCount(level, isCharging)
+        if (!isCharging || target == 0) return target
+        val normalizedStep = if (step >= 0) step else 0
+        return when (chargingStyle) {
+            SegmentedChargingStyle.FILL_FROM_EMPTY -> normalizedStep % (target + 1)
+            SegmentedChargingStyle.BLINK_CURRENT ->
+                if (normalizedStep % 2 == 0) target else (target - 1).coerceAtLeast(0)
         }
     }
 

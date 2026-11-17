@@ -53,6 +53,7 @@ import com.qimian233.ztool.data.systemui.StatusBarSettingsRepository
 import com.qimian233.ztool.hook.modules.systemui.statusbar.BatteryIndicatorOptions
 import com.qimian233.ztool.hook.modules.systemui.statusbar.BatteryIndicatorState
 import com.qimian233.ztool.hook.modules.systemui.statusbar.BatteryIndicatorStyle
+import com.qimian233.ztool.hook.modules.systemui.statusbar.SegmentedChargingStyle
 import com.qimian233.ztool.hook.modules.systemui.statusbar.ZToolBatteryDrawable
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -161,6 +162,8 @@ fun StatusBarSettingsRoute(
             onBatteryChargingColorChanged = viewModel::setBatteryChargingColor,
             onBatteryPercentBoldChanged = viewModel::setBatteryPercentBold,
             onBatteryStyleChanged = viewModel::setBatteryStyle,
+            onBatterySegmentedClassicColorChanged = viewModel::setBatterySegmentedClassicColor,
+            onBatterySegmentedChargingStyleChanged = viewModel::setBatterySegmentedChargingStyle,
             onRestartScope = viewModel::showRestartDialog,
             scrollState = scrollState,
             highlightRegistry = highlightRegistry
@@ -251,6 +254,8 @@ private fun StatusBarSettingsScreen(
     onBatteryChargingColorChanged: (Boolean) -> Unit,
     onBatteryPercentBoldChanged: (Boolean) -> Unit,
     onBatteryStyleChanged: (BatteryIndicatorStyle) -> Unit,
+    onBatterySegmentedClassicColorChanged: (Boolean) -> Unit,
+    onBatterySegmentedChargingStyleChanged: (SegmentedChargingStyle) -> Unit,
     onRestartScope: () -> Unit,
     scrollState: ScrollState,
     highlightRegistry: HighlightAnchorRegistry
@@ -320,7 +325,9 @@ private fun StatusBarSettingsScreen(
                         onBatteryExternalChanged = onBatteryExternalChanged,
                         onBatteryChargingColorChanged = onBatteryChargingColorChanged,
                         onBatteryPercentBoldChanged = onBatteryPercentBoldChanged,
-                        onBatteryStyleChanged = onBatteryStyleChanged
+                        onBatteryStyleChanged = onBatteryStyleChanged,
+                        onBatterySegmentedClassicColorChanged = onBatterySegmentedClassicColorChanged,
+                        onBatterySegmentedChargingStyleChanged = onBatterySegmentedChargingStyleChanged
                     ),
                     bottomPadding = 96.dp,
                     highlightRegistry = highlightRegistry
@@ -360,7 +367,9 @@ private fun statusBarSettingsSections(
     onBatteryExternalChanged: (Boolean) -> Unit,
     onBatteryChargingColorChanged: (Boolean) -> Unit,
     onBatteryPercentBoldChanged: (Boolean) -> Unit,
-    onBatteryStyleChanged: (BatteryIndicatorStyle) -> Unit
+    onBatteryStyleChanged: (BatteryIndicatorStyle) -> Unit,
+    onBatterySegmentedClassicColorChanged: (Boolean) -> Unit,
+    onBatterySegmentedChargingStyleChanged: (SegmentedChargingStyle) -> Unit
 ): List<SettingSection> {
     return listOf(
         SettingSection(
@@ -641,16 +650,52 @@ private fun statusBarSettingsSections(
                             options = BatteryIndicatorStyle.entries,
                             optionLabel = { styleLabels.getValue(it) },
                             optionIcon = { style ->
-                                { BatteryStylePreviewIcon(style = style) }
+                                {
+                                    BatteryStylePreviewIcon(
+                                        style = style,
+                                        segmentedClassicColor = state.batterySegmentedClassicColor
+                                    )
+                                }
                             },
                             onOptionSelected = onBatteryStyleChanged,
                             key = "status_bar_battery_style"
                         )
                     )
+                    if (state.batteryStyle == BatteryIndicatorStyle.SEGMENTED) {
+                        add(
+                            SettingItem.Switch(
+                                title = stringResource(R.string.system_ui_status_bar_battery_segmented_classic_color_title),
+                                summary = stringResource(R.string.system_ui_status_bar_battery_segmented_classic_color_summary),
+                                checked = state.batterySegmentedClassicColor,
+                                onCheckedChange = onBatterySegmentedClassicColorChanged,
+                                key = "status_bar_battery_segmented_classic_color"
+                            )
+                        )
+                        val chargingStyleLabels = SegmentedChargingStyle.entries.associateWith {
+                            segmentedChargingStyleLabel(it)
+                        }
+                        add(
+                            SettingItem.Dropdown(
+                                label = stringResource(R.string.system_ui_status_bar_battery_segmented_charging_style_label),
+                                summary = stringResource(R.string.system_ui_status_bar_battery_segmented_charging_style_summary),
+                                value = chargingStyleLabels.getValue(state.batterySegmentedChargingStyle),
+                                options = SegmentedChargingStyle.entries,
+                                optionLabel = { chargingStyleLabels.getValue(it) },
+                                onOptionSelected = onBatterySegmentedChargingStyleChanged,
+                                key = "status_bar_battery_segmented_charging_style"
+                            )
+                        )
+                    }
                     add(
                         SettingItem.Switch(
                             title = stringResource(R.string.system_ui_status_bar_syatus_battery_external_title),
-                            summary = stringResource(R.string.system_ui_status_bar_syatus_battery_external_summary),
+                            summary = stringResource(
+                                if (state.batteryStyle == BatteryIndicatorStyle.SEGMENTED) {
+                                    R.string.system_ui_status_bar_battery_external_segmented_summary
+                                } else {
+                                    R.string.system_ui_status_bar_syatus_battery_external_summary
+                                }
+                            ),
                             checked = state.batteryExternal,
                             onCheckedChange = onBatteryExternalChanged,
                             key = "status_bar_battery_external"
@@ -694,13 +739,26 @@ private fun batteryStyleLabel(style: BatteryIndicatorStyle): String = when (styl
         stringResource(R.string.system_ui_status_bar_battery_style_ring_name)
     BatteryIndicatorStyle.PIE ->
         stringResource(R.string.system_ui_status_bar_battery_style_pie_name)
+    BatteryIndicatorStyle.SEGMENTED ->
+        stringResource(R.string.system_ui_status_bar_battery_style_segmented_name)
 }
 
 @Composable
-private fun BatteryStylePreviewIcon(style: BatteryIndicatorStyle) {
+private fun segmentedChargingStyleLabel(style: SegmentedChargingStyle): String = when (style) {
+    SegmentedChargingStyle.FILL_FROM_EMPTY ->
+        stringResource(R.string.system_ui_status_bar_battery_segmented_charging_fill_from_empty_name)
+    SegmentedChargingStyle.BLINK_CURRENT ->
+        stringResource(R.string.system_ui_status_bar_battery_segmented_charging_blink_current_name)
+}
+
+@Composable
+private fun BatteryStylePreviewIcon(
+    style: BatteryIndicatorStyle,
+    segmentedClassicColor: Boolean = true
+) {
     val density = LocalDensity.current.density
     val useDarkGlyph = LocalContentColor.current.luminance() < 0.5f
-    val drawable = remember(density, style, useDarkGlyph) {
+    val drawable = remember(density, style, useDarkGlyph, segmentedClassicColor) {
         ZToolBatteryDrawable(
             density = density,
             state = BatteryIndicatorState(
@@ -712,7 +770,8 @@ private fun BatteryStylePreviewIcon(style: BatteryIndicatorStyle) {
                 enabled = true,
                 externalPercent = true,
                 chargingColor = false,
-                style = style
+                style = style,
+                segmentedClassicColor = segmentedClassicColor
             )
         )
     }

@@ -517,7 +517,21 @@ object SearchIndex {
             summaryRes = R.string.system_ui_status_bar_battery_style_summary,
             parentTitleRes = R.string.system_ui_status_bar_battery_indicator_title,
             parentKey = "status_bar_battery_indicator",
-            keywords = listOf("立式电池", "圆环", "饼图", "Vertical", "Ring", "Pie")
+            keywords = listOf("立式电池", "圆环", "饼图", "经典分段", "分段", "Vertical", "Ring", "Pie", "Segmented")
+        ),
+        systemUiStatusBar.item(
+            id = "status_bar_battery_segmented_classic_color",
+            titleRes = R.string.system_ui_status_bar_battery_segmented_classic_color_title,
+            summaryRes = R.string.system_ui_status_bar_battery_segmented_classic_color_summary,
+            parentTitleRes = R.string.system_ui_status_bar_battery_style_label,
+            parentKey = "status_bar_battery_style"
+        ),
+        systemUiStatusBar.item(
+            id = "status_bar_battery_segmented_charging_style",
+            titleRes = R.string.system_ui_status_bar_battery_segmented_charging_style_label,
+            summaryRes = R.string.system_ui_status_bar_battery_segmented_charging_style_summary,
+            parentTitleRes = R.string.system_ui_status_bar_battery_style_label,
+            parentKey = "status_bar_battery_style"
         ),
         systemUiStatusBar.item(
             id = "status_bar_battery_external",
