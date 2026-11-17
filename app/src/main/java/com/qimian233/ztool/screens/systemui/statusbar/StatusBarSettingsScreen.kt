@@ -157,6 +157,7 @@ fun StatusBarSettingsRoute(
             onNetworkSpeedHideBothChanged = viewModel::setNetworkSpeedHideBoth,
             onBatteryExternalChanged = viewModel::setBatteryExternal,
             onBatteryChargingColorChanged = viewModel::setBatteryChargingColor,
+            onBatteryPercentBoldChanged = viewModel::setBatteryPercentBold,
             onBatteryStyleChanged = viewModel::setBatteryStyle,
             onRestartScope = viewModel::showRestartDialog,
             scrollState = scrollState,
@@ -245,6 +246,7 @@ private fun StatusBarSettingsScreen(
     onNetworkSpeedHideBothChanged: (Boolean) -> Unit,
     onBatteryExternalChanged: (Boolean) -> Unit,
     onBatteryChargingColorChanged: (Boolean) -> Unit,
+    onBatteryPercentBoldChanged: (Boolean) -> Unit,
     onBatteryStyleChanged: (BatteryIndicatorStyle) -> Unit,
     onRestartScope: () -> Unit,
     scrollState: ScrollState,
@@ -313,6 +315,7 @@ private fun StatusBarSettingsScreen(
                         onNetworkSpeedHideBothChanged = onNetworkSpeedHideBothChanged,
                         onBatteryExternalChanged = onBatteryExternalChanged,
                         onBatteryChargingColorChanged = onBatteryChargingColorChanged,
+                        onBatteryPercentBoldChanged = onBatteryPercentBoldChanged,
                         onBatteryStyleChanged = onBatteryStyleChanged
                     ),
                     bottomPadding = 96.dp,
@@ -351,6 +354,7 @@ private fun statusBarSettingsSections(
     onNetworkSpeedHideBothChanged: (Boolean) -> Unit,
     onBatteryExternalChanged: (Boolean) -> Unit,
     onBatteryChargingColorChanged: (Boolean) -> Unit,
+    onBatteryPercentBoldChanged: (Boolean) -> Unit,
     onBatteryStyleChanged: (BatteryIndicatorStyle) -> Unit
 ): List<SettingSection> {
     return listOf(
@@ -635,6 +639,15 @@ private fun statusBarSettingsSections(
                         checked = state.batteryExternal,
                         onCheckedChange = onBatteryExternalChanged,
                         key = "status_bar_battery_external"
+                    )
+                )
+                add(
+                    SettingItem.Switch(
+                        title = stringResource(R.string.system_ui_status_bar_battery_percent_bold_title),
+                        summary = stringResource(R.string.system_ui_status_bar_battery_percent_bold_summary),
+                        checked = state.batteryPercentBold,
+                        onCheckedChange = onBatteryPercentBoldChanged,
+                        key = "status_bar_battery_percent_bold"
                     )
                 )
                 add(

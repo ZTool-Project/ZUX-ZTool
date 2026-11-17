@@ -33,6 +33,10 @@ class StatusBarSettingsRepository(
             networkSpeedHideBoth = prefsUtils.loadBooleanSetting(KEY_NETWORK_SPEED_HIDE_BOTH, false),
             batteryExternal = prefsUtils.loadBooleanSetting(KEY_BATTERY_EXTERNAL, false),
             batteryChargingColor = prefsUtils.loadBooleanSetting(KEY_BATTERY_CHARGING_COLOR, false),
+            batteryPercentBold = prefsUtils.loadBooleanSetting(
+                KEY_BATTERY_PERCENT_BOLD,
+                PreferenceKeys.SYSTEMUI_BATTERY_PERCENT_BOLD.default
+            ),
             batteryStyle = BatteryIndicatorStyle.fromPref(
                 prefsUtils.loadStringSetting(
                     KEY_BATTERY_STYLE,
@@ -153,6 +157,10 @@ class StatusBarSettingsRepository(
         prefsUtils.saveBooleanSetting(KEY_BATTERY_CHARGING_COLOR, enabled)
     }
 
+    fun saveBatteryPercentBold(enabled: Boolean) {
+        prefsUtils.saveBooleanSetting(KEY_BATTERY_PERCENT_BOLD, enabled)
+    }
+
     fun saveBatteryStyle(style: BatteryIndicatorStyle) {
         prefsUtils.saveStringSetting(KEY_BATTERY_STYLE, style.prefValue)
     }
@@ -228,6 +236,7 @@ class StatusBarSettingsRepository(
         private val KEY_NETWORK_SPEED_HIDE_BOTH = PreferenceKeys.SYSTEMUI_NETWORK_SPEED_HIDE_BOTH.name
         private val KEY_BATTERY_EXTERNAL = PreferenceKeys.SYSTEMUI_BATTERY_PERCENTAGE.name
         private val KEY_BATTERY_CHARGING_COLOR = PreferenceKeys.SYSTEMUI_BATTERY_CHARGING_COLOR.name
+        private val KEY_BATTERY_PERCENT_BOLD = PreferenceKeys.SYSTEMUI_BATTERY_PERCENT_BOLD.name
         private val KEY_BATTERY_STYLE = PreferenceKeys.SYSTEMUI_BATTERY_INDICATOR_STYLE.name
         private const val DEFAULT_REFRESH_INTERVAL = 3.0f
 

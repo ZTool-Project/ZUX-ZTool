@@ -22,10 +22,14 @@ enum class BatteryIndicatorStyle(val prefValue: String) {
 data class BatteryIndicatorOptions(
     val externalPercent: Boolean = false,
     val chargingColor: Boolean = false,
+    val percentBold: Boolean = false,
     val style: BatteryIndicatorStyle = BatteryIndicatorStyle.DEFAULT_FRAMED
 ) {
     val enabled: Boolean
-        get() = externalPercent || chargingColor || style != BatteryIndicatorStyle.DEFAULT_FRAMED
+        get() = externalPercent ||
+            chargingColor ||
+            percentBold ||
+            style != BatteryIndicatorStyle.DEFAULT_FRAMED
 }
 
 /** Snapshot of host battery state used to render the battery indicator. */

@@ -52,9 +52,9 @@ The SystemUI status bar battery indicator module (`com.android.systemui`, target
 ## 3. Pending Tasks (Todo Checklist)
 
 ### 3.1 Bold Battery Percentage
-- [ ] Add a `PreferenceKey` (e.g., `SYSTEMUI_BATTERY_PERCENT_BOLD`) and wire it into `BatteryIndicatorOptions`.
-- [ ] Support toggling bold vs. normal typeface on `mBatteryPercentView` independently for both internal (inside icon) and external (right of icon) percentage modes in `SystemUIBatteryHook`.
-- [ ] Add the frontend switch in `StatusBarSettingsRepository`, `StatusBarSettingsViewModel`, `StatusBarSettingsScreen`, `SearchIndex`, and bilingual `strings.xml`.
+- [x] Add a `PreferenceKey` (e.g., `SYSTEMUI_BATTERY_PERCENT_BOLD`) and wire it into `BatteryIndicatorOptions`.
+- [x] Support toggling bold vs. normal typeface on `mBatteryPercentView` independently for both internal (inside icon) and external (right of icon) percentage modes in `SystemUIBatteryHook`.
+- [x] Add the frontend switch in `StatusBarSettingsRepository`, `StatusBarSettingsViewModel`, `StatusBarSettingsScreen`, `SearchIndex`, and bilingual `strings.xml`.
 
 ### 3.2 Frameless Battery Indicator (`BatteryIndicatorStyle.FRAMELESS` & `IOS_STYLE`)
 - [x] Add `FRAMELESS` and `IOS_STYLE` to `BatteryIndicatorStyle` and define container background alpha/color rules in `BatteryIndicatorPolicy` (translucent dark/dim filled containers replacing the bright stroked border).

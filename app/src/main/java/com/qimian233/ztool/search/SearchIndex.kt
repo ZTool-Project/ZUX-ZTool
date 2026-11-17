@@ -517,6 +517,11 @@ object SearchIndex {
             summaryRes = R.string.system_ui_status_bar_syatus_battery_external_summary
         ),
         systemUiStatusBar.item(
+            id = "status_bar_battery_percent_bold",
+            titleRes = R.string.system_ui_status_bar_battery_percent_bold_title,
+            summaryRes = R.string.system_ui_status_bar_battery_percent_bold_summary
+        ),
+        systemUiStatusBar.item(
             id = "status_bar_battery_charging_color",
             titleRes = R.string.system_ui_status_bar_battery_charging_color_title,
             summaryRes = R.string.system_ui_status_bar_battery_charging_color_summary

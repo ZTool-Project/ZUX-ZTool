@@ -9,10 +9,11 @@ import org.junit.Test
 class BatteryIndicatorPolicyTest {
 
     @Test
-    fun `options enabled reflects external percent, charging color, or non-default style`() {
+    fun `options enabled reflects external percent, charging color, percent bold, or non-default style`() {
         assertFalse(BatteryIndicatorOptions().enabled)
         assertTrue(BatteryIndicatorOptions(externalPercent = true).enabled)
         assertTrue(BatteryIndicatorOptions(chargingColor = true).enabled)
+        assertTrue(BatteryIndicatorOptions(percentBold = true).enabled)
         assertTrue(BatteryIndicatorOptions(style = BatteryIndicatorStyle.FRAMELESS).enabled)
         assertTrue(BatteryIndicatorOptions(style = BatteryIndicatorStyle.IOS_STYLE).enabled)
     }

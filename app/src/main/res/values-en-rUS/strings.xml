@@ -564,6 +564,8 @@
     <string name="system_ui_status_bar_battery_style_ios_style_name">iOS style</string>
     <string name="system_ui_status_bar_syatus_battery_external_title">Force battery percentage outside icon</string>
     <string name="system_ui_status_bar_syatus_battery_external_summary">Show remaining battery percentage to the right of the battery icon. Disable the system percentage display first.</string>
+    <string name="system_ui_status_bar_battery_percent_bold_title">Bold battery percentage</string>
+    <string name="system_ui_status_bar_battery_percent_bold_summary">Toggle bold vs. regular weight for the status bar battery percentage in both inside-icon and outside-icon modes</string>
     <string name="system_ui_status_bar_battery_charging_color_title">Color battery fill by charging speed</string>
     <string name="system_ui_status_bar_battery_charging_color_summary">Color the battery level fill when charging: green for normal charging, bright purple for fast charging</string>
     <string name="system_ui_lock_screen_widgets_title">Lockscreen widgets</string>
