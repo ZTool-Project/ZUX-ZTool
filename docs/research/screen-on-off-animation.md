@@ -230,3 +230,44 @@ already `true` on an ordinary device — confirmed at runtime (`already enabled 
 never `Forced …`), which is what allowed the constructor hook to go. The module's own duration
 default (`SCREEN_ON_OFF_ANIMATION_MS` = 400) also overrides the ROM's 250 ms on-duration by
 default, which is why the preference exists at all.
+
+## 7. Android 17 (ZUXOS 2.5) changes
+
+Verified on `TB710FU_CN_OPEN_USER_Q00019.0_A17_ZUXOS_2.5.10.102_ST_261112` (`services.jar` /
+`framework-res.apk` / `/product/overlay/TopazPrcFrameworksOverlay.apk`):
+
+1. **Signature & field removal in `DisplayPowerController`**:
+   - `animateScreenStateChange` now takes 3 arguments: `(int, int, boolean)`.
+   - `mColorFadeOnAnimator` was removed from `DisplayPowerController` (only `mColorFadeOffAnimator`
+     is created in `initialize(int)`; `mColorFadeOnDurations` is still assigned in `<clinit>` /
+     `<init>` with zero readers).
+   - The `target == STATE_ON` (`2`) branch no longer animates; after `setScreenState(2, reason)`
+     returns `true`, the host unconditionally calls `mPowerState.setColorFadeLevel(1.0f)` and
+     `mPowerState.dismissColorFade()`.
+   - When `mFlags.isEnsureColorFadeWhenTurningOnEnabled()` is true and leaving `STATE_OFF`, the
+     host calls `mPowerState.prepareColorFade(mContext, mColorFadeFadesConfig ? 2 : 0)` at the
+     start of `animateScreenStateChange`, so a black `ColorFade` (mode `2`, level `0.0f`) is
+     still prepared while `ScreenOnUnblocker` holds screen-on.
+2. **Per-frame `waitUntilClean` re-entry hazard**:
+   - In `updatePowerStateInternal()`, the `ready` condition only checks
+     `!mColorFadeOffAnimator.isStarted()` before calling `mPowerState.waitUntilClean(mCleanListener)`.
+   - After `rebuildScreenOnColorFade` starts a synthetic `ObjectAnimator`, the very first drawn
+     frame sets `mScreenReady && mColorFadeReady`, invoking `mCleanListener` (`sendUpdatePowerState()`).
+   - Without guarding `if (onAnimator?.isStarted == true) return@hookWithId null` at hook entry,
+     the host re-enters `animateScreenStateChange(2, ...)`, runs `dismissColorFade()`, and triggers
+     a rebuild on every frame. Returning `null` while `onAnimator.isStarted` is true keeps the
+     synthetic fade running and preserves Android 16's in-flight transition guard when
+     `target != STATE_ON`; once finished, `mAnimatorListener.onAnimationEnd` calls
+     `sendUpdatePowerState()` so the host cleans up the fade normally.
+3. **Synthetic animator fallback (forward-compatible)**:
+   - When `mColorFadeOnAnimator` is absent (`null`), `ForceScreenOnOffAnimation` lazily creates and
+     caches an `ObjectAnimator` per `DisplayPowerController` instance in a `WeakHashMap` using
+     the preserved `DisplayPowerState.COLOR_FADE_LEVEL` `FloatProperty` and attaches
+     `DisplayPowerController.mAnimatorListener`. Older Android versions still use the host's
+     `mColorFadeOnAnimator` directly.
+4. **Stock screen-off duration RRO**:
+   - While `framework-res.apk` keeps `integer/config_colorFadeOffDurations` at `400`,
+     `/product/overlay/TopazPrcFrameworksOverlay.apk` (`com.zui.android.overlay.mojito`) overrides
+     it to `70` ms (`config_colorFadeOnDurations` remains `250`). Stock screen-off therefore looks
+     nearly instantaneous without the hook, whereas `mColorFadeOffAnimator` remains intact and is
+     successfully overridden by `applyAnimationDurations`.

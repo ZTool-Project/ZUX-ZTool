@@ -1,11 +1,15 @@
 package com.qimian233.ztool.hook.modules.systemframework
 
+import android.animation.Animator
+import android.animation.ObjectAnimator
 import android.annotation.SuppressLint
 import android.content.Context
+import android.util.Property
 import com.qimian233.ztool.data.keys.PreferenceKeys
 import com.qimian233.ztool.data.keys.ScopeKeys
 import com.qimian233.ztool.hook.base.SystemHookModule
 import io.github.libxposed.api.XposedModuleInterface.SystemServerStartingParam
+import java.util.WeakHashMap
 
 /**
  * Re-enables DisplayPowerController's color fade screen on/off animation, with a
@@ -14,6 +18,8 @@ import io.github.libxposed.api.XposedModuleInterface.SystemServerStartingParam
  */
 @SuppressLint("PrivateApi")
 class ForceScreenOnOffAnimation : SystemHookModule() {
+
+    private val syntheticOnAnimators = WeakHashMap<Any, ObjectAnimator>()
 
     override fun getModuleName(): String = PreferenceKeys.FORCE_SCREEN_ON_OFF_ANIMATION.name
 
@@ -51,12 +57,17 @@ class ForceScreenOnOffAnimation : SystemHookModule() {
             }
             hookWithId(animateMethod, "animate_screen_state") { chain ->
                 val controller = chain.thisObject
-                applyAnimationDurations(controller)
+                val powerState = fieldValue(controller, "mPowerState")
+                val onAnimator = getOrCreateOnAnimator(controller, powerState)
+                applyAnimationDurations(controller, onAnimator)
+                // Guard in-flight fades against Android 17's waitUntilClean re-entry and
+                // competing screen-off transitions (matches Android 16's top-of-method check).
+                if (onAnimator?.isStarted == true) {
+                    return@hookWithId null
+                }
                 if (chain.getArg(0) as Int != DISPLAY_STATE_ON) {
                     return@hookWithId chain.proceed()
                 }
-                val powerState = fieldValue(controller, "mPowerState")
-                val onAnimator = fieldValue(controller, "mColorFadeOnAnimator")
                 val colorFadeLevel = powerState?.let {
                     runCatching {
                         findMethod(
@@ -81,43 +92,56 @@ class ForceScreenOnOffAnimation : SystemHookModule() {
         }
     }
 
-    /**
-     * Applies the configured durations to both color fade animators.
-     *
-     * Both animators are started only from `animateScreenStateChange`, so applying the
-     * durations here makes a preference change live for screen off as well; `initialize`
-     * runs only once per DisplayPowerController and cannot do that.
-     */
-    private fun applyAnimationDurations(controller: Any) {
-        updateAnimationDurationFromPrefs()
-        setAnimatorDuration(controller, "mColorFadeOnAnimator", SCREEN_ON_ANIMATION_DURATION_MS)
-        setAnimatorDuration(controller, "mColorFadeOffAnimator", SCREEN_OFF_ANIMATION_DURATION_MS)
+    @Suppress("UNCHECKED_CAST")
+    private fun getOrCreateOnAnimator(controller: Any, powerState: Any?): ObjectAnimator? {
+        (fieldValue(controller, "mColorFadeOnAnimator") as? ObjectAnimator)?.let { return it }
+        if (powerState == null || fieldValue(controller, "mColorFadeEnabled") as? Boolean == false) {
+            return null
+        }
+        synchronized(syntheticOnAnimators) {
+            syntheticOnAnimators[controller]?.takeIf { it.target === powerState }?.let { return it }
+            val colorFadeLevelProp = runCatching {
+                findField(powerState.javaClass, "COLOR_FADE_LEVEL").get(null) as? Property<Any, Float>
+            }.getOrNull() ?: return null
+            val animator = ObjectAnimator.ofFloat(powerState, colorFadeLevelProp, 0.0f, 1.0f).apply {
+                duration = SCREEN_ON_ANIMATION_DURATION_MS
+                (fieldValue(controller, "mAnimatorListener") as? Animator.AnimatorListener)
+                    ?.let(::addListener)
+            }
+            syntheticOnAnimators[controller] = animator
+            return animator
+        }
     }
 
-    private fun setAnimatorDuration(controller: Any, name: String, durationMs: Long) {
-        val animator = fieldValue(controller, name) ?: return
+    /**
+     * Applies the configured durations to both color fade animators.
+     */
+    private fun applyAnimationDurations(controller: Any, onAnimator: ObjectAnimator?) {
+        updateAnimationDurationFromPrefs()
+        setAnimatorDuration(onAnimator, SCREEN_ON_ANIMATION_DURATION_MS)
+        setAnimatorDuration(
+            fieldValue(controller, "mColorFadeOffAnimator") as? ObjectAnimator,
+            SCREEN_OFF_ANIMATION_DURATION_MS
+        )
+    }
+
+    private fun setAnimatorDuration(animator: ObjectAnimator?, durationMs: Long) {
+        if (animator == null) return
         // A running animator derives its progress from mDuration on every frame, so re-timing
         // it mid-flight would make the fade jump.
-        val started = animator.let {
-            runCatching { findMethod(it.javaClass, "isStarted").invoke(it) }.getOrNull()
-        } as? Boolean ?: false
-        if (started) return
-        runCatching {
-            findMethod(animator.javaClass, "setDuration", Long::class.javaPrimitiveType)
-                .invoke(animator, durationMs)
-        }.onFailure { logger.error("Failed to set the duration of $name", it) }
+        if (animator.isStarted) return
+        animator.duration = durationMs
     }
 
     /**
      * Rebuilds the color fade the host dismissed during a screen-on state change.
-     * Runs in the same handler message as that change, so the panel stays black.
      *
      * @return true when the fade was rebuilt and started again.
      */
     private fun rebuildScreenOnColorFade(
         controller: Any,
         powerState: Any,
-        onAnimator: Any,
+        onAnimator: ObjectAnimator,
         colorFadeLevel: Float
     ): Boolean {
         if (powerState.let {
@@ -146,13 +170,9 @@ class ForceScreenOnOffAnimation : SystemHookModule() {
                 .invoke(powerState, colorFadeLevel)
         }
         return try {
-            // The animator may still be running here, in which case the durations applied at
-            // hook entry were skipped; start() restarts the timeline, so re-time it now.
-            findMethod(onAnimator.javaClass, "setDuration", Long::class.javaPrimitiveType)
-                .invoke(onAnimator, SCREEN_ON_ANIMATION_DURATION_MS)
-            findMethod(onAnimator.javaClass, "setFloatValues", FloatArray::class.java)
-                .invoke(onAnimator, floatArrayOf(colorFadeLevel, 1.0f))
-            findMethod(onAnimator.javaClass, "start").invoke(onAnimator)
+            onAnimator.duration = SCREEN_ON_ANIMATION_DURATION_MS
+            onAnimator.setFloatValues(colorFadeLevel, 1.0f)
+            onAnimator.start()
             logger.debug("Rebuilt the screen-on color fade at level $colorFadeLevel")
             true
         } catch (t: Throwable) {
