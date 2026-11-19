@@ -30,7 +30,7 @@ class DeviceModelDisguiseHook : AppHookModule() {
             val deviceUtilsClass = classLoader.loadClass(DEVICE_UTILS_CLASS)
             val isModelMethod = deviceUtilsClass.getDeclaredMethod("isModel", String::class.java)
             hookWithId(isModelMethod, "is_model") { chain ->
-                if (chain.args.getOrNull(0) as? String == target) true else chain.proceed() as Boolean
+                if (chain.args.getOrNull(0) as? String == target) true else false
             }
             logger.info("Disguising device model as $target")
         } catch (e: Exception) {
