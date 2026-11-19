@@ -51,24 +51,32 @@ class OwnerInfoQuoteCacheTest {
     }
 
     @Test
-    fun refreshAndNetworkFailureKeepTheLastValidQuote() {
+    fun refreshAndNetworkFailureKeepTheLastValidQuoteAcrossWakes() {
         val cache = OwnerInfoQuoteCache()
         cache.complete(cache.read(config, 0).request!!, "old", 100, config)
-        val refresh = cache.read(config, 60_100)
+        assertNull(cache.read(config, 60_100).request)
+        cache.onScreenOff()
+        cache.onScreenOn(5_100)
+        val refresh = cache.read(config, 5_101)
         assertEquals("old", refresh.content)
-        assertFalse(cache.complete(refresh.request!!, null, 60_200, config))
-        assertEquals("old", cache.read(config, 60_201).content)
-        assertNull(cache.read(config, 120_199).request)
-        assertNotNull(cache.read(config, 120_200).request)
+        assertFalse(cache.complete(refresh.request!!, null, 5_200, config))
+        assertEquals("old", cache.read(config, 65_200).content)
+        assertNull(cache.read(config, 65_200).request)
+        cache.onScreenOff()
+        cache.onScreenOn(10_200)
+        assertNotNull(cache.read(config, 10_201).request)
     }
 
     @Test
-    fun emptyFailureRetriesAfterCooldownWithoutCachingAnErrorMessage() {
+    fun emptyFailureRetriesOnlyOnNextEligibleWakeWithoutCachingAnErrorMessage() {
         val cache = OwnerInfoQuoteCache()
         assertFalse(cache.complete(cache.read(config, 0).request!!, "  ", 100, config))
         assertNull(cache.read(config, 101).content)
         assertNull(cache.read(config, 101).request)
-        assertNotNull(cache.read(config, 60_100).request)
+        assertNull(cache.read(config, 60_100).request)
+        cache.onScreenOff()
+        cache.onScreenOn(5_100)
+        assertNotNull(cache.read(config, 5_101).request)
     }
 
     @Test
@@ -112,9 +120,93 @@ class OwnerInfoQuoteCacheTest {
         assertFalse(cache.complete(request, "different", 101, config))
         assertFalse(cache.complete(request, null, 102, null))
         assertEquals("same", cache.read(config, 103).content)
-        val next = cache.read(config, 60_100).request!!
-        assertFalse(cache.complete(next, "same", 60_200, config))
-        assertEquals("same", cache.read(config, 60_201).content)
+        cache.onScreenOff()
+        cache.onScreenOn(5_100)
+        val next = cache.read(config, 5_101).request!!
+        assertFalse(cache.complete(next, "same", 5_200, config))
+        assertEquals("same", cache.read(config, 5_201).content)
+    }
+
+    @Test
+    fun singleWakeNeverLaunchesAdditionalRequestsOverLongDurations() {
+        val cache = OwnerInfoQuoteCache()
+        val request = cache.read(config, 0).request!!
+        assertNull(cache.read(config, 60_000).request)
+        assertTrue(cache.complete(request, "first", 100, config))
+        for (time in listOf(60_000L, 120_000L, 600_000L)) {
+            val read = cache.read(config, time)
+            assertEquals("first", read.content)
+            assertNull(read.request)
+        }
+    }
+
+    @Test
+    fun interactiveReadBeforeScreenOnBroadcastAdvancesOnceWithoutDuplicate() {
+        val cache = OwnerInfoQuoteCache()
+        assertTrue(cache.complete(cache.read(config, 0).request!!, "first", 100, config))
+        cache.onScreenOff()
+        val second = cache.read(config, 5_100, isInteractive = true)
+        assertEquals("first", second.content)
+        assertNotNull(second.request)
+        cache.onScreenOn(5_120)
+        assertNull(cache.read(config, 5_121).request)
+        assertTrue(cache.complete(second.request!!, "second", 5_300, config))
+        assertNull(cache.read(config, 5_301).request)
+    }
+
+    @Test
+    fun rapidScreenToggleWithinDebounceIsSuppressedAndDoesNotFireLaterInSameWake() {
+        val cacheA = OwnerInfoQuoteCache()
+        assertTrue(cacheA.complete(cacheA.read(config, 0).request!!, "first", 100, config))
+        cacheA.onScreenOff()
+        cacheA.onScreenOn(5_099)
+        assertNull(cacheA.read(config, 5_100).request)
+        assertNull(cacheA.read(config, 65_100).request)
+        cacheA.onScreenOff()
+        cacheA.onScreenOn(66_000)
+        assertNotNull(cacheA.read(config, 66_001).request)
+
+        val cacheB = OwnerInfoQuoteCache()
+        assertTrue(cacheB.complete(cacheB.read(config, 0).request!!, "first", 100, config))
+        cacheB.onScreenOff()
+        assertNull(cacheB.read(config, 5_099, isInteractive = true).request)
+        cacheB.onScreenOn(5_120)
+        assertNull(cacheB.read(config, 65_120).request)
+        cacheB.onScreenOff()
+        assertNotNull(cacheB.read(config, 66_000, isInteractive = true).request)
+    }
+
+    @Test
+    fun nonInteractiveReadsReturnCacheWithoutRequestAndArmNextWake() {
+        val cache = OwnerInfoQuoteCache()
+        assertTrue(cache.complete(cache.read(config, 0).request!!, "cached", 100, config))
+        val nonInteractive = cache.read(config, 6_000, isInteractive = false)
+        assertEquals("cached", nonInteractive.content)
+        assertNull(nonInteractive.request)
+        val nextWake = cache.read(config, 6_100, isInteractive = true)
+        assertEquals("cached", nextWake.content)
+        assertNotNull(nextWake.request)
+    }
+
+    @Test
+    fun inFlightCompletionAcrossScreenOffRespectsNextWake() {
+        val cacheDuringOff = OwnerInfoQuoteCache()
+        val reqOff = cacheDuringOff.read(config, 0).request!!
+        cacheDuringOff.onScreenOff()
+        assertTrue(cacheDuringOff.complete(reqOff, "q1", 1_000, config))
+        cacheDuringOff.onScreenOn(6_000)
+        assertNotNull(cacheDuringOff.read(config, 6_001).request)
+
+        val cacheAfterWake = OwnerInfoQuoteCache()
+        val reqWake = cacheAfterWake.read(config, 0).request!!
+        cacheAfterWake.onScreenOff()
+        cacheAfterWake.onScreenOn(6_000)
+        assertNull(cacheAfterWake.read(config, 6_001).request)
+        assertTrue(cacheAfterWake.complete(reqWake, "q1", 6_200, config))
+        val afterCompletion = cacheAfterWake.read(config, 6_201)
+        assertEquals("q1", afterCompletion.content)
+        assertNull(afterCompletion.request)
+        assertNull(cacheAfterWake.read(config, 66_200).request)
     }
 
     @Test

@@ -15,19 +15,44 @@ internal class OwnerInfoQuoteCache {
     private var config: OwnerInfoQuoteConfig? = null
     private var generation = 0L
     private var content: String? = null
+    private var screenSessionId = 1L
+    private var screenOffPending = false
+    private var lastAttemptedSession: Long? = null
     private var lastAttempt: Long? = null
     private var inFlight: OwnerInfoQuoteRequest? = null
 
     @Synchronized
-    fun read(config: OwnerInfoQuoteConfig, now: Long): OwnerInfoQuoteRead {
+    fun onScreenOff() {
+        screenOffPending = true
+    }
+
+    @Synchronized
+    fun onScreenOn(now: Long) {
+        advanceSessionIfNeeded(now)
+    }
+
+    @Synchronized
+    fun read(
+        config: OwnerInfoQuoteConfig,
+        now: Long,
+        isInteractive: Boolean = true
+    ): OwnerInfoQuoteRead {
         select(config)
-        val attempt = lastAttempt
-        val request = if (inFlight == null &&
-            (attempt == null || now - attempt >= REFRESH_INTERVAL_MS)
-        ) {
-            OwnerInfoQuoteRequest(config, generation).also {
-                inFlight = it
-                lastAttempt = now
+        if (!isInteractive) {
+            screenOffPending = true
+            return OwnerInfoQuoteRead(content, null)
+        }
+        advanceSessionIfNeeded(now)
+        val request = if (inFlight == null && lastAttemptedSession != screenSessionId) {
+            if (isDebounced(now)) {
+                lastAttemptedSession = screenSessionId
+                null
+            } else {
+                OwnerInfoQuoteRequest(config, generation).also {
+                    inFlight = it
+                    lastAttemptedSession = screenSessionId
+                    lastAttempt = now
+                }
             }
         } else null
         return OwnerInfoQuoteRead(content, request)
@@ -45,9 +70,26 @@ internal class OwnerInfoQuoteCache {
         inFlight = null
         if (request.generation != generation || request.config != config) return false
         lastAttempt = now
+        if (!screenOffPending) {
+            lastAttemptedSession = screenSessionId
+        }
         if (result.isNullOrBlank() || result == content) return false
         content = result
         return true
+    }
+
+    private fun advanceSessionIfNeeded(now: Long) {
+        if (!screenOffPending) return
+        screenOffPending = false
+        screenSessionId++
+        if (inFlight == null && isDebounced(now)) {
+            lastAttemptedSession = screenSessionId
+        }
+    }
+
+    private fun isDebounced(now: Long): Boolean {
+        val attempt = lastAttempt ?: return false
+        return now - attempt < DEBOUNCE_INTERVAL_MS
     }
 
     private fun select(next: OwnerInfoQuoteConfig?) {
@@ -55,11 +97,12 @@ internal class OwnerInfoQuoteCache {
         config = next
         generation++
         content = null
+        lastAttemptedSession = null
         lastAttempt = null
     }
 
     private companion object {
-        // Minute ticks already refresh native indications; bound HTTP traffic to that cadence.
-        const val REFRESH_INTERVAL_MS = 60_000L
+        // Debounce rapid screen off/on toggles without retrying periodically during a single wake.
+        const val DEBOUNCE_INTERVAL_MS = 5_000L
     }
 }

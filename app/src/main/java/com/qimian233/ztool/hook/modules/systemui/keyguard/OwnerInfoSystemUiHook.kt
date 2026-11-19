@@ -1,7 +1,13 @@
 package com.qimian233.ztool.hook.modules.systemui.keyguard
 
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.os.PowerManager
 import android.os.SystemClock
 import android.view.ViewGroup
 import com.qimian233.ztool.data.keys.PreferenceKeys
@@ -11,13 +17,16 @@ import io.github.libxposed.api.XposedModuleInterface.PackageLoadedParam
 import java.lang.ref.WeakReference
 import java.lang.reflect.Field
 import java.lang.reflect.Method
+import java.util.concurrent.atomic.AtomicBoolean
 
 /** Displays cached network quotes through the keyguard owner's native reader. */
 class OwnerInfoSystemUiHook : AppHookModule() {
     private val cache = OwnerInfoQuoteCache()
     private val mainHandler by lazy { Handler(Looper.getMainLooper()) }
+    private val screenReceiverRegistered = AtomicBoolean(false)
     private data class Target(val controller: WeakReference<Any>, val lockPatternUtils: WeakReference<Any>)
     @Volatile private var target: Target? = null
+    @Volatile private var powerManager: PowerManager? = null
     private lateinit var lockPatternUtilsField: Field
     private lateinit var visibleField: Field
     private lateinit var dozingField: Field
@@ -56,7 +65,7 @@ class OwnerInfoSystemUiHook : AppHookModule() {
         hookWithId(findMethod(controllerClass, "setIndicationArea", ViewGroup::class.java),
             "owner_info_capture_area") { chain ->
             val result = chain.proceed()
-            capture(chain.thisObject)
+            capture(chain.thisObject, chain.args[0] as? ViewGroup)
             result
         }
 
@@ -80,9 +89,48 @@ class OwnerInfoSystemUiHook : AppHookModule() {
         logger.info("Installed instance-scoped SystemUI owner-info readers")
     }
 
-    private fun capture(controller: Any?) {
+    private fun capture(controller: Any?, area: ViewGroup? = null) {
         if (controller == null) return
         target = Target(WeakReference(controller), WeakReference(lockPatternUtilsField.get(controller)))
+        if (powerManager != null && screenReceiverRegistered.get()) return
+        val indicationArea = area ?: (areaField.get(controller) as? ViewGroup)
+        val appContext = indicationArea?.context?.applicationContext ?: indicationArea?.context
+        if (appContext != null) {
+            ensureScreenStateReceiver(appContext)
+        }
+    }
+
+    private fun ensureScreenStateReceiver(context: Context) {
+        if (powerManager == null) {
+            powerManager = context.getSystemService(PowerManager::class.java)
+        }
+        if (!screenReceiverRegistered.compareAndSet(false, true)) return
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                when (intent?.action) {
+                    Intent.ACTION_SCREEN_OFF -> cache.onScreenOff()
+                    Intent.ACTION_SCREEN_ON -> cache.onScreenOn(SystemClock.elapsedRealtime())
+                }
+            }
+        }
+        val filter = IntentFilter().apply {
+            addAction(Intent.ACTION_SCREEN_OFF)
+            addAction(Intent.ACTION_SCREEN_ON)
+        }
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                context.registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED)
+            } else {
+                @Suppress("UnspecifiedRegisterReceiverFlag")
+                context.registerReceiver(receiver, filter)
+            }
+            if (powerManager?.isInteractive == false) {
+                cache.onScreenOff()
+            }
+        } catch (error: Exception) {
+            screenReceiverRegistered.set(false)
+            logger.warn("Failed to register owner-info screen state receiver: ${error.message}")
+        }
     }
 
     private fun readerConfig(instance: Any?, userId: Int? = null): OwnerInfoQuoteConfig? {
@@ -108,7 +156,9 @@ class OwnerInfoSystemUiHook : AppHookModule() {
     }
 
     private fun readQuote(config: OwnerInfoQuoteConfig): String? {
-        val read = cache.read(config, SystemClock.elapsedRealtime())
+        val isInteractive = powerManager?.isInteractive
+            ?: (target?.controller?.get()?.let { !dozingField.getBoolean(it) } ?: true)
+        val read = cache.read(config, SystemClock.elapsedRealtime(), isInteractive)
         read.request?.let { request ->
             Thread({
                 val content = try {
