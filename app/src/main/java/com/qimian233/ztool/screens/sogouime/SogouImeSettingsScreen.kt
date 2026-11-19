@@ -80,8 +80,6 @@ fun SogouImeSettingsRoute(
             title = title,
             state = uiState,
             onBack = onBack,
-            onHalfWidthPunctChanged = viewModel::setHalfWidthPunct,
-            onHalfWidthPunctSignsChanged = viewModel::setHalfWidthPunctSigns,
             onEnterKeyEnabledChanged = viewModel::setEnterKeyEnabled,
             onEnterKeyModeChanged = viewModel::setEnterKeyMode,
             onRestartScope = viewModel::showRestartDialog,
@@ -145,8 +143,6 @@ private fun SogouImeSettingsScreen(
     title: String,
     state: com.qimian233.ztool.viewmodel.SogouImeSettingsUiState,
     onBack: () -> Unit,
-    onHalfWidthPunctChanged: (Boolean) -> Unit,
-    onHalfWidthPunctSignsChanged: (String) -> Unit,
     onEnterKeyEnabledChanged: (Boolean) -> Unit,
     onEnterKeyModeChanged: (SogouEnterKeyMode) -> Unit,
     onRestartScope: () -> Unit,
@@ -188,8 +184,6 @@ private fun SogouImeSettingsScreen(
                 ZToolSettingsList(
                     sections = sogouImeSettingsSections(
                         state = state,
-                        onHalfWidthPunctChanged = onHalfWidthPunctChanged,
-                        onHalfWidthPunctSignsChanged = onHalfWidthPunctSignsChanged,
                         onEnterKeyEnabledChanged = onEnterKeyEnabledChanged,
                         onEnterKeyModeChanged = onEnterKeyModeChanged
                     ),
@@ -204,8 +198,6 @@ private fun SogouImeSettingsScreen(
 @Composable
 private fun sogouImeSettingsSections(
     state: com.qimian233.ztool.viewmodel.SogouImeSettingsUiState,
-    onHalfWidthPunctChanged: (Boolean) -> Unit,
-    onHalfWidthPunctSignsChanged: (String) -> Unit,
     onEnterKeyEnabledChanged: (Boolean) -> Unit,
     onEnterKeyModeChanged: (SogouEnterKeyMode) -> Unit
 ): List<SettingSection> {
@@ -214,36 +206,11 @@ private fun sogouImeSettingsSections(
         SogouEnterKeyMode.EnterNewline to stringResource(R.string.sogou_ime_enter_key_mode_newline)
     )
     return listOf(
-        com.qimian233.ztool.ui.components.SettingSection(
-            title = stringResource(R.string.sogou_ime_punct_section_title),
-            items = buildList {
-                add(
-                    SettingItem.Switch(
-                        key = "sogou_ime_half_width_punct",
-                        title = stringResource(R.string.system_framework_half_width_punct_title),
-                        summary = stringResource(R.string.system_framework_half_width_punct_summary),
-                        checked = state.halfWidthPunct,
-                        onCheckedChange = onHalfWidthPunctChanged
-                    )
-                )
-                if (state.halfWidthPunct) {
-                    add(
-                        SettingItem.TextInput(
-                            key = "sogou_ime_half_width_punct_signs",
-                            label = stringResource(R.string.system_framework_half_width_punct_hint),
-                            summary = stringResource(R.string.system_framework_half_width_punct_supporting),
-                            value = state.halfWidthPunctSigns,
-                            onValueChange = onHalfWidthPunctSignsChanged
-                        )
-                    )
-                }
-            }
-        ),
-        com.qimian233.ztool.ui.components.SettingSection(
+        SettingSection(
             title = stringResource(R.string.sogou_ime_enter_key_section_title),
             items = buildList {
                 add(
-                    com.qimian233.ztool.ui.components.SettingItem.Switch(
+                    SettingItem.Switch(
                         title = stringResource(R.string.sogou_ime_enter_key_title),
                         summary = stringResource(R.string.sogou_ime_enter_key_summary),
                         checked = state.enterKeyEnabled,
@@ -253,7 +220,7 @@ private fun sogouImeSettingsSections(
                 )
                 if (state.enterKeyEnabled) {
                     add(
-                        com.qimian233.ztool.ui.components.SettingItem.Dropdown(
+                        SettingItem.Dropdown(
                             label = stringResource(R.string.sogou_ime_enter_key_mode_title),
                             value = modeLabels.getValue(state.enterKeyMode),
                             options = SogouEnterKeyMode.entries,

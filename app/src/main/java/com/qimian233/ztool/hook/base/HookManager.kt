@@ -76,8 +76,8 @@ import com.qimian233.ztool.hook.modules.setting.PermissionControllerHook
 import com.qimian233.ztool.hook.modules.setting.SettingsAppIconUnmaskHook
 import com.qimian233.ztool.hook.modules.setting.SplitScreenMandatory as SettingSplitScreenMandatory
 import com.qimian233.ztool.hook.modules.setting.ZToolSettingsEntryHook
-import com.qimian233.ztool.hook.modules.sogouime.HalfWidthPunctHook
 import com.qimian233.ztool.hook.modules.sogouime.SogouEnterKeyHook
+import com.qimian233.ztool.hook.modules.systemframework.HalfWidthPunctHook
 import com.qimian233.ztool.hook.modules.systemframework.AiInputExpand
 import com.qimian233.ztool.hook.modules.systemframework.AllowAllRestrictedSettings
 import com.qimian233.ztool.hook.modules.systemframework.AllowGetPackages
@@ -221,6 +221,7 @@ object HookManager {
         registerHookModule(VolumeKeyNonlinearRamp())
         registerHookModule(PenHapticWaveformRedirectHook())
         registerHookModule(DisableGameAudio())
+        registerHookModule(HalfWidthPunctHook())
 
         // Package manager core patches
         registerHookModule(PackageManagerDowngradeHook())
@@ -411,7 +412,6 @@ object HookManager {
     }
 
     private fun registerSogouImeModules() {
-        registerHookModule(HalfWidthPunctHook())
         registerHookModule(SogouEnterKeyHook())
     }
 

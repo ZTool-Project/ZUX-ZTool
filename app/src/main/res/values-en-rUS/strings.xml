@@ -764,7 +764,7 @@
     <string name="system_framework_ai_input_expand_summary">Try to force-enable AI global input and customize AI trigger symbols. The official default is full-width/half-width "&amp;&amp;".</string>
     <string name="system_framework_half_width_punct_title">Force half-width symbol output</string>
     <string name="sogou_ime_app_name">Sogou IME (Lenovo OEM)</string>
-    <string name="sogou_ime_app_description">IME enhancements: forced half-width symbol output, punctuation intervention, etc.</string>
+    <string name="sogou_ime_app_description">IME enhancements: hardware Enter key remapping</string>
     <string name="sogou_ime_enter_key_section_title">Enter key behavior</string>
     <string name="sogou_ime_enter_key_title">Remap Enter and modifiers</string>
     <string name="sogou_ime_enter_key_summary">Takes over hardware Enter, Shift+Enter and Ctrl+Enter in fields the IME treats as send fields. The mode below decides whether each sends or inserts a newline.</string>
@@ -873,7 +873,6 @@
     <string name="ui_components_reload_starting_message">Starting hot reload</string>
     <string name="ui_components_reload_result_message">Hot reload finished: %1$d succeeded, %2$d failed</string>
     <string name="ui_components_reload_unsupported_message">This framework does not support hot reload</string>
-    <string name="sogou_ime_punct_section_title">Punctuation</string>
     <string name="system_framework_half_width_punct_summary">In Chinese mode, symbols in the list are always committed half-width. Defaults to #*-+=, matching PC IME conventions; pure CJK punctuation (。，《》 etc.) is unaffected.</string>
     <string name="system_framework_half_width_punct_hint">Symbols to force half-width</string>
     <string name="system_framework_half_width_punct_supporting">Full/half-width are equivalent; bracket pairs apply as a pair. Example: #*-+=</string>

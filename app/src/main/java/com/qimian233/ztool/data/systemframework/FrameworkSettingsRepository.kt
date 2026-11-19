@@ -33,6 +33,14 @@ class FrameworkSettingsRepository(
                 PreferenceKeys.BYPASS_WEAK_BIOMETRIC_TIMEOUT.default
             ),
             aiInputExpand = prefsUtils.loadBooleanSetting(KEY_AI_INPUT_EXPAND, false),
+            halfWidthPunct = prefsUtils.loadBooleanSetting(
+                KEY_HALF_WIDTH_PUNCT,
+                PreferenceKeys.HALF_WIDTH_PUNCT.default
+            ),
+            halfWidthPunctSigns = prefsUtils.loadStringSetting(
+                KEY_HALF_WIDTH_PUNCT_SIGNS,
+                DEFAULT_HALF_WIDTH_PUNCT_SIGNS
+            ),
             forceOnOffAnimation = prefsUtils.loadBooleanSetting(KEY_FORCE_ON_OFF_ANIMATION, false),
             forceOnOffAnimationDuration = normalizeScreenOnOffAnimationDuration(
                 prefsUtils.loadIntegerSetting(KEY_SCREEN_ON_OFF_ANIMATION_DURATION, 400)
@@ -94,6 +102,14 @@ class FrameworkSettingsRepository(
 
     fun saveAiInputSigns(value: String) {
         prefsUtils.saveStringSetting(KEY_AI_INPUT_EXPAND_SIGNS, value)
+    }
+
+    fun saveHalfWidthPunct(enabled: Boolean) {
+        prefsUtils.saveBooleanSetting(KEY_HALF_WIDTH_PUNCT, enabled)
+    }
+
+    fun saveHalfWidthPunctSigns(value: String) {
+        prefsUtils.saveStringSetting(KEY_HALF_WIDTH_PUNCT_SIGNS, value)
     }
 
     fun saveForceScreenOnOffAnimation (value: Boolean) {
@@ -297,6 +313,9 @@ class FrameworkSettingsRepository(
         private val KEY_DISABLE_FLAG_SECURE = PreferenceKeys.DISABLE_FLAG_SECURE.name
         private val KEY_AI_INPUT_EXPAND = PreferenceKeys.AI_INPUT_EXPAND.name
         private val KEY_AI_INPUT_EXPAND_SIGNS = PreferenceKeys.AI_INPUT_EXPAND_SIGNS.name
+        private val KEY_HALF_WIDTH_PUNCT = PreferenceKeys.HALF_WIDTH_PUNCT.name
+        private val KEY_HALF_WIDTH_PUNCT_SIGNS = PreferenceKeys.HALF_WIDTH_PUNCT_SIGNS.name
+        private val DEFAULT_HALF_WIDTH_PUNCT_SIGNS = PreferenceKeys.HALF_WIDTH_PUNCT_SIGNS.default
         private val KEY_FORCE_ON_OFF_ANIMATION = PreferenceKeys.FORCE_SCREEN_ON_OFF_ANIMATION.name
         private val KEY_SCREEN_ON_OFF_ANIMATION_DURATION = PreferenceKeys.SCREEN_ON_OFF_ANIMATION_MS.name
         private const val SCREEN_ON_OFF_ANIMATION_MIN_MS = 0

@@ -3,9 +3,11 @@ package com.qimian233.ztool.viewmodel
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.qimian233.ztool.data.keys.PreferenceKeys
 import com.qimian233.ztool.data.pen.PenHapticRedirectRule
 import com.qimian233.ztool.data.pen.PenHapticWaveformCatalog
 import com.qimian233.ztool.data.systemframework.FrameworkSettingsRepository
+import com.qimian233.ztool.hook.modules.systemframework.input.HalfWidthPunctRules
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -92,6 +94,17 @@ class FrameworkSettingsViewModel(
         if (error == null) {
             repository.saveAiInputSigns(input)
         }
+    }
+
+    fun setHalfWidthPunct(enabled: Boolean) {
+        _uiState.value = _uiState.value.copy(halfWidthPunct = enabled)
+        repository.saveHalfWidthPunct(enabled)
+    }
+
+    fun setHalfWidthPunctSigns(value: String) {
+        val compact = HalfWidthPunctRules.filterSignInput(value)
+        _uiState.value = _uiState.value.copy(halfWidthPunctSigns = compact)
+        repository.saveHalfWidthPunctSigns(compact)
     }
 
     fun setAllowUntrustedTouch(enabled: Boolean) {
@@ -267,6 +280,8 @@ data class FrameworkSettingsUiState(
     val aiInputExpand: Boolean = false,
     val aiInputSigns: String = "",
     val aiInputSignsError: String? = null,
+    val halfWidthPunct: Boolean = false,
+    val halfWidthPunctSigns: String = PreferenceKeys.HALF_WIDTH_PUNCT_SIGNS.default,
     val showAiInputInfoDialog: Boolean = false,
     val showRestartConfirmDialog: Boolean = false,
     val forceOnOffAnimation: Boolean = false,

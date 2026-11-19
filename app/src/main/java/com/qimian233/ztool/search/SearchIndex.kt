@@ -1063,6 +1063,19 @@ object SearchIndex {
             titleRes = R.string.system_framework_ai_input_expand_title,
             summaryRes = R.string.system_framework_ai_input_expand_summary
         ),
+        framework.item(
+            id = "framework_half_width_punct",
+            titleRes = R.string.system_framework_half_width_punct_title,
+            summaryRes = R.string.system_framework_half_width_punct_summary
+        ),
+        framework.item(
+            id = "framework_half_width_punct_signs",
+            titleRes = R.string.system_framework_half_width_punct_hint,
+            summaryRes = R.string.system_framework_half_width_punct_supporting,
+            parentTitleRes = R.string.system_framework_half_width_punct_title,
+            parentKey = "framework_half_width_punct",
+            parentMode = SearchParentMode.REQUIRE_ON
+        ),
 
         freeformHub.item(
             id = "settings_detail_remove_blacklist",
@@ -1766,19 +1779,6 @@ object SearchIndex {
             summaryRes = R.string.zui_pp_block_game_policy_summary
         ),
 
-        sogouIme.item(
-            id = "sogou_ime_half_width_punct",
-            titleRes = R.string.system_framework_half_width_punct_title,
-            summaryRes = R.string.system_framework_half_width_punct_summary
-        ),
-        sogouIme.item(
-            id = "sogou_ime_half_width_punct_signs",
-            titleRes = R.string.system_framework_half_width_punct_hint,
-            summaryRes = R.string.system_framework_half_width_punct_supporting,
-            parentTitleRes = R.string.system_framework_half_width_punct_title,
-            parentKey = "sogou_ime_half_width_punct",
-            parentMode = SearchParentMode.REQUIRE_ON
-        ),
         sogouIme.item(
             id = "sogou_ime_enter_key",
             titleRes = R.string.sogou_ime_enter_key_title,

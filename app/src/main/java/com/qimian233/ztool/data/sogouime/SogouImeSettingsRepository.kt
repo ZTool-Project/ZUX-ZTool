@@ -17,23 +17,11 @@ class SogouImeSettingsRepository(
 
     fun loadState(): SogouImeSettingsUiState {
         return SogouImeSettingsUiState(
-            halfWidthPunct = prefsUtils.loadBooleanSetting(KEY_HALF_WIDTH_PUNCT, false),
-            halfWidthPunctSigns = prefsUtils.loadStringSetting(
-                KEY_HALF_WIDTH_PUNCT_SIGNS, DEFAULT_HALF_WIDTH_PUNCT_SIGNS
-            ),
             enterKeyEnabled = prefsUtils.loadBooleanSetting(KEY_ENTER_KEY, false),
             enterKeyMode = SogouEnterKeyMode.fromStorage(
                 prefsUtils.loadStringSetting(KEY_ENTER_KEY_MODE, DEFAULT_ENTER_KEY_MODE)
             )
         )
-    }
-
-    fun saveHalfWidthPunct(enabled: Boolean) {
-        prefsUtils.saveBooleanSetting(KEY_HALF_WIDTH_PUNCT, enabled)
-    }
-
-    fun saveHalfWidthPunctSigns(value: String) {
-        prefsUtils.saveStringSetting(KEY_HALF_WIDTH_PUNCT_SIGNS, value)
     }
 
     fun saveEnterKeyEnabled(enabled: Boolean) {
@@ -56,9 +44,6 @@ class SogouImeSettingsRepository(
     }
 
     companion object {
-        private val KEY_HALF_WIDTH_PUNCT = PreferenceKeys.HALF_WIDTH_PUNCT.name
-        private val KEY_HALF_WIDTH_PUNCT_SIGNS = PreferenceKeys.HALF_WIDTH_PUNCT_SIGNS.name
-        private val DEFAULT_HALF_WIDTH_PUNCT_SIGNS = PreferenceKeys.HALF_WIDTH_PUNCT_SIGNS.default
         private val KEY_ENTER_KEY = PreferenceKeys.SOGOU_ENTER_KEY.name
         private val KEY_ENTER_KEY_MODE = PreferenceKeys.SOGOU_ENTER_KEY_MODE.name
         private val DEFAULT_ENTER_KEY_MODE = PreferenceKeys.SOGOU_ENTER_KEY_MODE.default

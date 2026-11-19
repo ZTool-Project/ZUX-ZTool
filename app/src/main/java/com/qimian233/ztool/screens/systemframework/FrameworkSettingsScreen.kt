@@ -120,6 +120,8 @@ fun FrameworkSettingsRoute(
             onAiInputExpandChanged = viewModel::setAiInputExpand,
             onAiInputSignsChanged = viewModel::setAiInputSigns,
             onShowAiInputInfo = viewModel::showAiInputInfoDialog,
+            onHalfWidthPunctChanged = viewModel::setHalfWidthPunct,
+            onHalfWidthPunctSignsChanged = viewModel::setHalfWidthPunctSigns,
             onAllowUntrustedTouch = viewModel::setAllowUntrustedTouch,
             onAllowAllRestrictedSettingsChanged = viewModel::setAllowAllRestrictedSettings,
             onAllowRelativeAppLaunchChanged = viewModel::setAllowRelativeAppLaunch,
@@ -238,6 +240,8 @@ private fun FrameworkSettingsScreen(
     onPkgMgrBypassArscRestrictionChanged: (Boolean) -> Unit,
     onAiInputSignsChanged: (String) -> Unit,
     onShowAiInputInfo: () -> Unit,
+    onHalfWidthPunctChanged: (Boolean) -> Unit,
+    onHalfWidthPunctSignsChanged: (String) -> Unit,
     scrollState: ScrollState,
     highlightRegistry: HighlightAnchorRegistry
 ) {
@@ -289,6 +293,8 @@ private fun FrameworkSettingsScreen(
                         onAiInputExpandChanged = onAiInputExpandChanged,
                         onAiInputSignsChanged = onAiInputSignsChanged,
                         onShowAiInputInfo = onShowAiInputInfo,
+                        onHalfWidthPunctChanged = onHalfWidthPunctChanged,
+                        onHalfWidthPunctSignsChanged = onHalfWidthPunctSignsChanged,
                         onAllowUntrustedTouch = onAllowUntrustedTouch,
                         onAllowAllRestrictedSettingsChanged = onAllowAllRestrictedSettingsChanged,
                         onAllowRelativeAppLaunchChanged = onAllowRelativeAppLaunchChanged,
@@ -355,7 +361,9 @@ private fun frameworkSettingsSections(
     onPkgMgrAllowHiddenApisSystemAppsChanged: (Boolean) -> Unit,
     onPkgMgrBypassArscRestrictionChanged: (Boolean) -> Unit,
     onAiInputSignsChanged: (String) -> Unit,
-    onShowAiInputInfo: () -> Unit
+    onShowAiInputInfo: () -> Unit,
+    onHalfWidthPunctChanged: (Boolean) -> Unit,
+    onHalfWidthPunctSignsChanged: (String) -> Unit
 ): List<SettingSection> {
     return listOf(
         SettingSection(
@@ -598,39 +606,69 @@ private fun frameworkSettingsSections(
         ),
         SettingSection(
             title = stringResource(R.string.system_framework_misc_title),
-            items = listOf(
-                SettingItem.Switch(
-                    title = stringResource(R.string.system_framework_disable_volume_warn_title),
-                    checked = state.disableSafeVolumeWarn,
-                    onCheckedChange = onDisableVolumeWarnChanged,
-                    key = "framework_disable_volume_warn"
-                ),
-                SettingItem.Switch(
-                    title = stringResource(R.string.system_framework_volume_key_nonlinear_title),
-                    summary = stringResource(R.string.system_framework_volume_key_nonlinear_summary),
-                    checked = state.volumeKeyNonlinear,
-                    onCheckedChange = onVolumeKeyNonlinearChanged,
-                    key = "framework_volume_key_nonlinear"
-                ),
-                SettingItem.Switch(
-                    title = stringResource(R.string.system_framework_fine_volume_steps_title),
-                    summary = stringResource(R.string.system_framework_fine_volume_steps_summary),
-                    checked = state.fineVolumeSteps,
-                    onCheckedChange = onFineVolumeStepsChanged,
-                    key = "framework_fine_volume_steps"
-                ),
-                SettingItem.Custom(
-                    content = {
-                        AiInputSettingsContent(
-                            state = state,
-                            onAiInputExpandChanged = onAiInputExpandChanged,
-                            onAiInputSignsChanged = onAiInputSignsChanged,
-                            onShowAiInputInfo = onShowAiInputInfo
-                        )
-                    },
-                    key = "framework_ai_input_expand"
+            items = buildList {
+                add(
+                    SettingItem.Switch(
+                        title = stringResource(R.string.system_framework_disable_volume_warn_title),
+                        checked = state.disableSafeVolumeWarn,
+                        onCheckedChange = onDisableVolumeWarnChanged,
+                        key = "framework_disable_volume_warn"
+                    )
                 )
-            )
+                add(
+                    SettingItem.Switch(
+                        title = stringResource(R.string.system_framework_volume_key_nonlinear_title),
+                        summary = stringResource(R.string.system_framework_volume_key_nonlinear_summary),
+                        checked = state.volumeKeyNonlinear,
+                        onCheckedChange = onVolumeKeyNonlinearChanged,
+                        key = "framework_volume_key_nonlinear"
+                    )
+                )
+                add(
+                    SettingItem.Switch(
+                        title = stringResource(R.string.system_framework_fine_volume_steps_title),
+                        summary = stringResource(R.string.system_framework_fine_volume_steps_summary),
+                        checked = state.fineVolumeSteps,
+                        onCheckedChange = onFineVolumeStepsChanged,
+                        key = "framework_fine_volume_steps"
+                    )
+                )
+                add(
+                    SettingItem.Custom(
+                        content = {
+                            AiInputSettingsContent(
+                                state = state,
+                                onAiInputExpandChanged = onAiInputExpandChanged,
+                                onAiInputSignsChanged = onAiInputSignsChanged,
+                                onShowAiInputInfo = onShowAiInputInfo
+                            )
+                        },
+                        key = "framework_ai_input_expand"
+                    )
+                )
+                add(
+                    SettingItem.Switch(
+                        title = stringResource(R.string.system_framework_half_width_punct_title),
+                        summary = stringResource(R.string.system_framework_half_width_punct_summary),
+                        checked = state.halfWidthPunct,
+                        onCheckedChange = onHalfWidthPunctChanged,
+                        minSdkVersion = Build.VERSION_CODES.TIRAMISU,
+                        key = "framework_half_width_punct"
+                    )
+                )
+                if (state.halfWidthPunct) {
+                    add(
+                        SettingItem.TextInput(
+                            label = stringResource(R.string.system_framework_half_width_punct_hint),
+                            summary = stringResource(R.string.system_framework_half_width_punct_supporting),
+                            value = state.halfWidthPunctSigns,
+                            onValueChange = onHalfWidthPunctSignsChanged,
+                            minSdkVersion = Build.VERSION_CODES.TIRAMISU,
+                            key = "framework_half_width_punct_signs"
+                        )
+                    )
+                }
+            }
         ),
         SettingSection(
             title = stringResource(R.string.system_framework_pen_haptic_title),
