@@ -789,7 +789,7 @@ class FreeformEdgeBubbleHook : SystemHookModule() {
                     else -> -1
                 }
             }
-            chain.proceed()
+            val result = chain.proceed()
             if (side >= 0 && !wasTracked) {
                 // First time crossing the trigger: remember the bounds the window had,
                 // then dock the task behind home (ZUI native hide) so only the bubble
@@ -811,7 +811,7 @@ class FreeformEdgeBubbleHook : SystemHookModule() {
                 restoreRects.remove(taskId)
                 notifyBubbleRemoved(taskId)
             }
-            null
+            result
         }
     }
 

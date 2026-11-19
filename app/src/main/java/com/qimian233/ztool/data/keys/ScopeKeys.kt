@@ -17,7 +17,6 @@ object ScopeKeys {
     val TB_ENGINE = Scope("com.lenovo.tbengine", HowToRestart.KillAll)
     val LENOVO_SAFE_CENTER = Scope("com.lenovo.safecenter", HowToRestart.AmStop)
     val DOCUMENTS_UI = Scope("com.android.documentsui", HowToRestart.AmStop)
-    val ANDROID_SYSTEM = Scope("android", HowToRestart.Reboot)
     val SYSTEM_SERVER = Scope("system", HowToRestart.Reboot)
     val GAME_SERVICE = Scope("com.zui.game.service", HowToRestart.AmStop)
     val PACKAGE_INSTALLER = Scope("com.android.packageinstaller", HowToRestart.AmStop)

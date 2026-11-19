@@ -1,6 +1,7 @@
 package com.qimian233.ztool.hook.modules.systemframework
 
 import android.annotation.SuppressLint
+import android.os.Build
 import android.os.SystemClock
 import com.qimian233.ztool.data.keys.PreferenceKeys
 import com.qimian233.ztool.data.keys.ScopeKeys
@@ -61,12 +62,14 @@ class ClipboardAccessToastHook : SystemHookModule() {
                 clipboardClass,
                 Int::class.javaPrimitiveType
             )
+            val suppressedReturn: Any? =
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.CINNAMON_BUN) false else null
             hookWithId(method, "clipboard_access_toast") { chain ->
                 refreshSnapshotIfStale()
                 val readingPackage = chain.args[0] as? String
                 if (suppressEnabled && readingPackage != null && whitelist.contains(readingPackage)) {
                     logger.debug("Skipped clipboard access toast for $readingPackage")
-                    null
+                    suppressedReturn
                 } else {
                     chain.proceed()
                 }

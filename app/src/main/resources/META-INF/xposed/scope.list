@@ -1,5 +1,4 @@
 system
-android
 com.android.systemui
 com.android.settings
 com.android.packageinstaller

@@ -136,22 +136,17 @@ class PackageManagerSharedUserBypassHook : SystemHookModule() {
         signingDetailsField: Field,
         originCheckCapability: XposedInterface.Invoker<*, *>,
         mergeLineageWith: Method
-    ) {
+    ): Any? {
         val sharedUser = chain.thisObject
         if (sharedUser == null) {
-            chain.proceed()
-            return
+            return chain.proceed()
         }
         try {
             if (uidFlagsField.getInt(sharedUser) and ApplicationInfo.FLAG_SYSTEM != 0) {
                 // Leave system app sharedUser signatures untouched
-                chain.proceed()
-                return
+                return chain.proceed()
             }
-            val packages = packagesField.get(sharedUser) ?: run {
-                chain.proceed()
-                return
-            }
+            val packages = packagesField.get(sharedUser) ?: return chain.proceed()
             val storage = packages.javaClass.declaredFields
                 .firstOrNull { it.name == "mStorage" }?.let { field ->
                     field.isAccessible = true
@@ -162,8 +157,7 @@ class PackageManagerSharedUserBypassHook : SystemHookModule() {
                 .invoke(storage) as Int
             val sharedUserSig = signingDetailsField.get(signaturesOnSharedUser.get(sharedUser))
             if (size == 0 || sharedUserSig == null) {
-                chain.proceed()
-                return
+                return chain.proceed()
             }
             var memberChanged = false
             var mergedSignatures: Any? = null
@@ -182,8 +176,7 @@ class PackageManagerSharedUserBypassHook : SystemHookModule() {
                 val forward = originCheckCapability.invoke(memberSig, sharedUserSig, 0) as Boolean
                 val backward = originCheckCapability.invoke(sharedUserSig, memberSig, 0) as Boolean
                 if (forward || backward) {
-                    chain.proceed()
-                    return
+                    return chain.proceed()
                 }
                 mergedSignatures = if (mergedSignatures == null) {
                     memberSig
@@ -198,7 +191,7 @@ class PackageManagerSharedUserBypassHook : SystemHookModule() {
         } catch (t: Throwable) {
             logger.error("Failed reconciling sharedUser signatures", t)
         }
-        chain.proceed()
+        return chain.proceed()
     }
 
     companion object {

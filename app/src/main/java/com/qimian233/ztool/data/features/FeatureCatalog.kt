@@ -58,6 +58,9 @@ data class FeatureCard(
 /** Single source of Features-grid card metadata. */
 object FeatureCatalog {
 
+    // framework-res package supplies the Android icon; not an Xposed hook scope
+    private const val FRAMEWORK_ICON_PACKAGE = "android"
+
     private fun appCard(
         destination: FeatureDestination,
         @StringRes nameRes: Int,
@@ -127,9 +130,9 @@ object FeatureCatalog {
             destination = FeatureDestination.Framework,
             nameRes = R.string.system_framework_app_name,
             descriptionRes = R.string.system_framework_app_description,
-            icon = FeatureIconSource.Package(ScopeKeys.ANDROID_SYSTEM.packageName),
+            icon = FeatureIconSource.Package(FRAMEWORK_ICON_PACKAGE),
             scope = FeatureScopeSource.Fixed(
-                listOf(ScopeKeys.ANDROID_SYSTEM, ScopeKeys.SYSTEM_SERVER, ScopeKeys.SYSTEM_UI)
+                listOf(ScopeKeys.SYSTEM_SERVER, ScopeKeys.SYSTEM_UI)
             ),
             availability = FeatureAvailability.AlwaysAvailable
         ),
@@ -193,7 +196,6 @@ object FeatureCatalog {
                     ScopeKeys.SETTINGS,
                     ScopeKeys.SYSTEM_UI,
                     ScopeKeys.LAUNCHER,
-                    ScopeKeys.ANDROID_SYSTEM,
                     ScopeKeys.SYSTEM_SERVER
                 )
             ),

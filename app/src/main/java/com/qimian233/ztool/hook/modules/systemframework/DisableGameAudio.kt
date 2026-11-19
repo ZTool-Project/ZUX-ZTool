@@ -15,7 +15,7 @@ import kotlin.math.min
 class DisableGameAudio : SystemHookModule() {
     override fun getModuleName(): String = PreferenceKeys.DISABLE_GAME_AUDIO.name
 
-    override fun getTargetPackages(): Array<String> = arrayOf(ScopeKeys.ANDROID_SYSTEM.packageName)
+    override fun getTargetPackages(): Array<String> = arrayOf(ScopeKeys.SYSTEM_SERVER.packageName)
 
     override fun handleSystemServerStarting(param: SystemServerStartingParam) {
         val classLoader = param.classLoader

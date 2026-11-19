@@ -116,6 +116,7 @@ abstract class BaseHookModule {
 
     fun safeHandleSystemServerStarting(
             param: XposedModuleInterface.SystemServerStartingParam) {
+        if (!supportsPackage(ScopeKeys.SYSTEM_SERVER.packageName)) return
         if (!isEnabled()) {
             if (ModuleLog.shouldLog(LogLevel.DEBUG)) Log.d(TAG, "module disabled for system server: " + getModuleName())
             return

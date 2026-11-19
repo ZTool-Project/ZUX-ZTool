@@ -171,7 +171,6 @@ object HookManager {
 
     private fun registerAllModules(xposed: XposedInterface) {
         registerSystemServerModules()
-        registerAndroidFrameworkModules()
         registerAllProcessModules()
         registerZuiWidgetModules()
         registerSystemUIModules()
@@ -218,6 +217,10 @@ object HookManager {
         registerHookModule(DisableHbmThermalLimit())
         registerHookModule(ClipboardAccessToastHook())
         registerHookModule(SystemSplitScreenMandatory())
+        registerHookModule(FineVolumeSteps())
+        registerHookModule(VolumeKeyNonlinearRamp())
+        registerHookModule(PenHapticWaveformRedirectHook())
+        registerHookModule(DisableGameAudio())
 
         // Package manager core patches
         registerHookModule(PackageManagerDowngradeHook())
@@ -228,13 +231,6 @@ object HookManager {
         registerHookModule(PackageManagerSharedUserBypassHook())
         registerHookModule(PackageManagerHiddenApiHook())
         registerHookModule(PackageManagerArscBypassHook())
-    }
-
-    private fun registerAndroidFrameworkModules() {
-        registerHookModule(FineVolumeSteps())
-        registerHookModule(VolumeKeyNonlinearRamp())
-        registerHookModule(PenHapticWaveformRedirectHook())
-        registerHookModule(DisableGameAudio())
     }
 
     private fun registerAllProcessModules() {

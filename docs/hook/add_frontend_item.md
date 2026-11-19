@@ -391,9 +391,9 @@ Features 网格上的每一张卡片都由 `FeatureCatalog`（`app/src/main/java
 | 应用卡片（`appCard`）        | `Package(primary.packageName)`                            | `RequiresInstalled(primary.packageName)` | `Fixed(scopes)`                                  |
 | 跨应用 · 固定并集            | `LocalGlyph(R.drawable.ic_feature_xxx)`                   | `AlwaysAvailable`                       | `Fixed(listOf(...))`，可门控、可请求                    |
 | 跨应用 · 用户自选             | `LocalGlyph(R.drawable.ic_feature_xxx)`                   | `AlwaysAvailable`                       | `UserManaged`，无门控、无请求弹窗                         |
-| 系统框架 / 无普通应用图标         | `Package(ScopeKeys.ANDROID_SYSTEM.packageName)`，或 `LocalGlyph(...)` | `AlwaysAvailable`                       | `Fixed(listOf(ANDROID_SYSTEM, SYSTEM_SERVER))`   |
+| 系统框架 / 无普通应用图标         | `Package("android")`（仅取图标），或 `LocalGlyph(...)` | `AlwaysAvailable`                       | `Fixed(listOf(SYSTEM_SERVER))`                   |
 
-系统框架形态可直接参考现有 `Framework` 卡片：`Package(ScopeKeys.ANDROID_SYSTEM.packageName)` + `AlwaysAvailable`。
+系统框架形态可直接参考现有 `Framework` 卡片：`Package("android")`（仅取图标）+ `Fixed(listOf(ScopeKeys.SYSTEM_SERVER, ScopeKeys.SYSTEM_UI))` + `AlwaysAvailable`。
 
 ```kotlin
 appCard(

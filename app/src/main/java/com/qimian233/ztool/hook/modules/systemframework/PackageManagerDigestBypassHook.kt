@@ -4,6 +4,7 @@ import com.qimian233.ztool.data.keys.PreferenceKeys
 import com.qimian233.ztool.data.keys.ScopeKeys
 import com.qimian233.ztool.hook.base.SystemHookModule
 import io.github.libxposed.api.XposedModuleInterface.SystemServerStartingParam
+import java.security.cert.Certificate
 
 /**
  * Bypasses signature identity (digest) comparison:
@@ -169,7 +170,15 @@ class PackageManagerDigestBypassHook : SystemHookModule() {
                     val block = pkcs7Ctor.newInstance(chain.getArg(0))
                     val signerInfos = getSignerInfos.invoke(block) as Array<*>
                     if (signerInfos.isEmpty()) return@hookWithId original
-                    getCertificateChain.invoke(signerInfos[0], block)
+                    val chainResult = getCertificateChain.invoke(signerInfos[0], block)
+                    when (chainResult) {
+                        is Array<*> -> chainResult
+                        is List<*> -> {
+                            val certs = chainResult.filterIsInstance<Certificate>()
+                            if (certs.isEmpty()) original else certs.toTypedArray()
+                        }
+                        else -> original
+                    }
                 } catch (t: Throwable) {
                     logger.error("Failed to parse PKCS7 certificate chain", t)
                     original

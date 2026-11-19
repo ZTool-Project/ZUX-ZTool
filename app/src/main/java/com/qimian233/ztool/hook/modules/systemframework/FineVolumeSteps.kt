@@ -29,7 +29,7 @@ class FineVolumeSteps : SystemHookModule() {
 
     override fun getModuleName(): String = PreferenceKeys.FINE_VOLUME_STEPS.name
 
-    override fun getTargetPackages(): Array<String> = arrayOf(ScopeKeys.ANDROID_SYSTEM.packageName)
+    override fun getTargetPackages(): Array<String> = arrayOf(ScopeKeys.SYSTEM_SERVER.packageName)
 
     override fun handleSystemServerStarting(param: SystemServerStartingParam) {
         val classLoader = param.classLoader

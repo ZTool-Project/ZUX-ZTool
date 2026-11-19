@@ -131,7 +131,6 @@ registerHookModule(ExampleHook())
 | 注册方法 | 作用域（`ScopeKeys`） |
 |---|---|
 | `registerSystemServerModules()` | `SYSTEM_SERVER`（`system`，含 PackageManager 核心补丁） |
-| `registerAndroidFrameworkModules()` | `ANDROID_SYSTEM`（`android`） |
 | `registerAllProcessModules()` | `UNRESTRICTED`（`all`，仅限 `AiInputExpand`） |
 | `registerZuiWidgetModules()` | 多应用 ZUI 控件（Settings / SystemUI / Launcher / SafeCenter / PackageInstaller） |
 | `registerSystemUIModules()` | `SYSTEM_UI`（含自由窗口与任务栏控件） |

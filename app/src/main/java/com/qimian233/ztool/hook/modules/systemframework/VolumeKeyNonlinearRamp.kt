@@ -23,7 +23,7 @@ class VolumeKeyNonlinearRamp : SystemHookModule() {
 
     override fun getModuleName(): String = PreferenceKeys.VOLUME_KEY_NONLINEAR.name
 
-    override fun getTargetPackages(): Array<String> = arrayOf(ScopeKeys.ANDROID_SYSTEM.packageName)
+    override fun getTargetPackages(): Array<String> = arrayOf(ScopeKeys.SYSTEM_SERVER.packageName)
 
     private var adjustMethod: Method? = null
     private var streamVolumeMethod: Method? = null
