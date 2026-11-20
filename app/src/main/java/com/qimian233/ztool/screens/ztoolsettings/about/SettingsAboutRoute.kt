@@ -100,7 +100,7 @@ fun SettingsAboutRoute(
             activity,
             HomeViewModelFactory(
                 repository = repository,
-                tipRepository = HomeTipRepository(context.applicationContext)
+                tipRepository = HomeTipRepository()
             )
         )[HomeViewModel::class.java]
     }

@@ -1100,7 +1100,7 @@
     <string name="page_home_tip_release_performance">Release builds of Compose apps far outperform debug builds</string>
     <string name="page_home_tip_pull_request">PRs welcome, or just watch our progress: https://github.com/ZTool-Project/ZUX-ZTool</string>
     <string name="page_home_tip_crash_log">Can\'t export crash logs from the app? Capture them with LogFox and report.</string>
-    <string name="page_home_tip_hot_reload_warning">Don\'t trust hot reload, we\'re still taming it! Restart the scope manually to apply new features.</string>
+    <string name="page_home_tip_hot_reload_warning">If some features stop working after a hot reload, try restarting the corresponding scope or rebooting the system.</string>
     <!--Home card preview (dev-build-only visual debugging screen)-->
     <string name="home_card_preview_title">Home card preview</string>
     <string name="home_card_preview_note">This screen shares the home screen\'s card code and container. Mock the environment to reproduce cards that cannot be produced on demand and check spacing and geometry.</string>

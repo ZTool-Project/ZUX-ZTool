@@ -1222,7 +1222,7 @@
     <string name="page_home_tip_pull_request">欢迎 PR 或者围观我们的开发进度：https://github.com/ZTool-Project/ZUX-ZTool</string>
     <string name="page_home_tip_crash_log">无法在应用内导出崩溃日志？请使用 LogFox 记录问题日志并汇报。</string>
     <string name="page_home_tip_not_zuxceiler" translatable="false">Not ZUXCeiler or ZaUXiliary.</string>
-    <string name="page_home_tip_hot_reload_warning">不要相信热重载，我们仍在驯服它！要让新功能生效请手动重启作用域。</string>
+    <string name="page_home_tip_hot_reload_warning">若热重载后部分功能失效，建议重启对应作用域或重启系统</string>
     <!--首页卡片预览（仅开发构建可见的观感调试页）-->
     <string name="home_card_preview_title">首页卡片预览</string>
     <string name="home_card_preview_note">本页与首页共用同一份卡片代码与容器，可用模拟状态复现真机上无法随时出现的卡片，检查间距与几何观感。</string>

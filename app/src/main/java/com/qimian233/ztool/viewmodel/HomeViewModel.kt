@@ -11,6 +11,7 @@ import com.qimian233.ztool.data.home.HomeRepository
 import com.qimian233.ztool.data.home.HomeTip
 import com.qimian233.ztool.data.home.HomeTipRepository
 import com.qimian233.ztool.data.home.UpdateCheckResult
+import com.qimian233.ztool.data.hotreload.HotReloadTrigger
 import com.qimian233.ztool.dexindex.base.DexIndexManager
 import com.qimian233.ztool.dexindex.base.DexIndexProgress
 import com.qimian233.ztool.dexindex.base.DexIndexRegistry
@@ -62,12 +63,9 @@ class HomeViewModel(
             }
         }
 
-        // A hot reload triggered from the Advanced options screen has to reach this card at once.
-        // The launch decision in start() ran long before it, and this ViewModel outlives the home
-        // destination, so there is nothing left that would look again.
         viewModelScope.launch {
             tipRepository.pendingHotReload.collect { notice ->
-                if (notice != null) {
+                if (notice?.trigger == HotReloadTrigger.MANUAL) {
                     _uiState.value = _uiState.value.copy(tip = tipRepository.takeHotReloadTip())
                 }
             }
@@ -88,18 +86,10 @@ class HomeViewModel(
         }
     }
 
-    /**
-     * The one-shot tip decision for this app launch.
-     *
-     * Off the main thread: deciding it reads the package's install time from PackageManager and
-     * touches a marker file, and the card is worth nothing if waiting for it delays the first frame.
-     */
+    /** Resolves the one-shot tip for this app launch without overwriting an existing warning. */
     private fun resolveLaunchTip() {
         viewModelScope.launch(Dispatchers.IO) {
             val tip = tipRepository.resolveLaunchTip() ?: return@launch
-            // Not an unconditional overwrite: a manual reload landing in the same window already
-            // set the warning, and losing it to a dice roll is the one outcome this exists to
-            // prevent.
             _uiState.update { state -> if (state.tip == null) state.copy(tip = tip) else state }
         }
     }
