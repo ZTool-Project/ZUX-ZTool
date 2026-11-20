@@ -101,7 +101,6 @@ registerHookModule(ClassName())
 | 注册方法 | 作用域 |
 |---|---|
 | `registerSystemServerModules()` | `ScopeKeys.SYSTEM_SERVER`（`system`，含 PackageManager 核心补丁） |
-| `registerAllProcessModules()` | `ScopeKeys.UNRESTRICTED`（`all`，仅限 `AiInputExpand`） |
 | `registerZuiWidgetModules()` | 多应用 ZUI 控件（Settings / SystemUI / Launcher / SafeCenter / PackageInstaller） |
 | `registerSystemUIModules()` | `ScopeKeys.SYSTEM_UI`（含自由窗口与任务栏控件） |
 | `registerSettingsModules()` | `ScopeKeys.SETTINGS` |
@@ -428,7 +427,6 @@ protected open fun hookWithId(
 
 // 以下部分谨慎覆写
 open fun supportsPackage(packageName: String?): Boolean // 判断是否应当注入本包，如果 Hook 面向的包不明确，例如针对未知个应用的 ZUI SDK 前端控件进行注入，则应当在模块内覆写为默认返回 true
-// 注：项目还有一种已有模式可让所有包被注入，但是仅限 AiInputExpand 使用，其余模块禁止：让 getTargetPackages() 返回 arrayOf(ScopeKeys.UNRESTRICTED.packageName)
 
 // 以下部分不需要自行实现
 open fun isEnabled(): Boolean // Hook 模块可调用。判断当前 Hook 是否被启用，结果随着用户偏好开关变化实时变化
