@@ -19,10 +19,11 @@ import java.lang.reflect.Method
 
 /**
  * Drops the forced freeform caption inset so the app fills the window top, and limits the
- * caption touch region to the handle pill. PC mode keeps its full caption touch region.
+ * caption touch region to the handle pill in tablet freeform mode. PC and Desktop modes keep
+ * their full caption touch region so header bar buttons remain interactive.
  *
- * Android 17 moved both code paths from WindowDecoration into CaptionController; the legacy
- * WindowDecoration-based path stays installed as a fallback.
+ * Android 17 moved both paths from WindowDecoration into CaptionController; the legacy path
+ * stays installed as a fallback for Android 16 and earlier.
  */
 @SuppressLint("PrivateApi", "NewApi")
 class FreeformForeheadOverlayHook : AppHookModule() {
@@ -52,6 +53,7 @@ class FreeformForeheadOverlayHook : AppHookModule() {
         val wctClass = loadClass(loader, WCT_CLASS) ?: return
 
         val taskTokenField = fieldByWalk(ActivityManager.RunningTaskInfo::class.java, "token")
+        val displayIdField = optionalFieldByWalk(ActivityManager.RunningTaskInfo::class.java, "displayId")
         val getWindowingMode = methodByWalk(
             ActivityManager.RunningTaskInfo::class.java,
             "getWindowingMode"
@@ -61,6 +63,21 @@ class FreeformForeheadOverlayHook : AppHookModule() {
         }
         val isZuiDesktopMode = staticMethod(pcModeClass, "isInZuiDesktopModeStatus") ?: return
         val isPcMode = staticMethod(pcModeClass, "isUnderPcMode") ?: return
+        val isZuiDesktopModeForDisplay = optionalStaticMethod(
+            pcModeClass,
+            "isInZuiDesktopModeStatus",
+            Int::class.javaPrimitiveType!!
+        )
+        val isFocusInConnectDisplay = optionalStaticMethod(
+            pcModeClass,
+            "isFocusInConnectDisplay",
+            Int::class.javaPrimitiveType!!
+        )
+        val isDwOrCdStatus = optionalStaticMethod(
+            pcModeClass,
+            "isInDWOrCDStatus",
+            Int::class.javaPrimitiveType!!
+        )
 
         val removeInsetsSource = wctClass.methods.firstOrNull {
             it.name == "removeInsetsSource" &&
@@ -88,9 +105,13 @@ class FreeformForeheadOverlayHook : AppHookModule() {
             removeInsetsSource = removeInsetsSource,
             setAppBounds = setAppBounds,
             taskTokenField = taskTokenField,
+            displayIdField = displayIdField,
             getWindowingMode = getWindowingMode,
             isPcMode = isPcMode,
-            isZuiDesktopMode = isZuiDesktopMode
+            isZuiDesktopMode = isZuiDesktopMode,
+            isZuiDesktopModeForDisplay = isZuiDesktopModeForDisplay,
+            isFocusInConnectDisplay = isFocusInConnectDisplay,
+            isDwOrCdStatus = isDwOrCdStatus
         )
 
         if (installCaptionController(loader, ops)) return
@@ -111,7 +132,10 @@ class FreeformForeheadOverlayHook : AppHookModule() {
         val taskInfoField = field(controllerClass, "taskInfo") ?: return false
         val ownerField = field(controllerClass, "insetsOwner") ?: return false
         val insetsField = field(controllerClass, "captionInsets") ?: return false
-        val captionVisibleField = field(controllerClass, "isCaptionVisible")
+        val addInsetsField = optionalField(controllerClass, "windowDecorationInsets")
+        val captionVisibleField = optionalField(controllerClass, "isCaptionVisible")
+        val getCaptionType = method(controllerClass, "getCaptionType")
+        val shouldSetAppBoundsField = optionalField(relayoutParamsClass, "shouldSetAppBounds")
         val updateCaptionInsets = runCatching {
             findMethod(
                 controllerClass,
@@ -160,10 +184,16 @@ class FreeformForeheadOverlayHook : AppHookModule() {
                     ?: return@hookWithId chain.proceed()
                 val owner = ownerField.get(controller) as? Binder
                     ?: return@hookWithId chain.proceed()
+                val relayoutParams = chain.args.getOrNull(0)
+                val shouldSetAppBounds = relayoutParams != null &&
+                    runCatching { shouldSetAppBoundsField?.getBoolean(relayoutParams) == true }
+                        .getOrDefault(false)
                 val existing = insetsField.get(controller)
-                val excluded = existing != null &&
-                    runCatching { appBoundsField?.get(existing) != null }.getOrDefault(false)
-                ops.dropInset(wct, task, owner, controller, insetsField, excluded)
+                val excluded = shouldSetAppBounds || (
+                    existing != null &&
+                        runCatching { appBoundsField?.get(existing) != null }.getOrDefault(false)
+                    )
+                ops.dropInset(wct, task, owner, controller, insetsField, addInsetsField, excluded)
                 null
             } catch (t: Throwable) {
                 logger.error("Freeform caption inset drop failed", t)
@@ -182,14 +212,16 @@ class FreeformForeheadOverlayHook : AppHookModule() {
                     if (wct == null || !ops.wctClass.isInstance(wct)) {
                         return@hookWithId chain.proceed()
                     }
-                    val task = ops.targetTask(taskInfoField.get(controller))
+                    // addCaptionInset runs before windowingMode switches to FREEFORM; dropping here
+                    // prevents the outgoing controller's insetsOwner from leaking a captionBar source.
+                    val task = taskInfoField.get(controller) as? ActivityManager.RunningTaskInfo
                         ?: return@hookWithId chain.proceed()
                     val owner = ownerField.get(controller) as? Binder
                         ?: return@hookWithId chain.proceed()
                     val existing = insetsField.get(controller)
                     val excluded = existing != null &&
                         runCatching { appBoundsField?.get(existing) != null }.getOrDefault(false)
-                    ops.dropInset(wct, task, owner, controller, insetsField, excluded)
+                    ops.dropInset(wct, task, owner, controller, insetsField, addInsetsField, excluded)
                     null
                 } catch (t: Throwable) {
                     logger.error("Freeform caption inset re-add block failed", t)
@@ -203,8 +235,9 @@ class FreeformForeheadOverlayHook : AppHookModule() {
                 val controller = chain.thisObject ?: return@hookWithId chain.proceed()
                 val existingRegion = chain.args.getOrNull(6) as? Region
                 val captionVisible = captionVisibleField?.getBoolean(controller) != false
-                if (existingRegion != null || !captionVisible || ops.pcModeNow() ||
-                    ops.targetTask(taskInfoField.get(controller)) == null
+                val task = ops.targetTask(taskInfoField.get(controller))
+                if (existingRegion != null || !captionVisible || task == null ||
+                    !shouldShrinkCaptionTouchRegion(controller, task, ops, getCaptionType)
                 ) {
                     return@hookWithId chain.proceed()
                 }
@@ -235,6 +268,23 @@ class FreeformForeheadOverlayHook : AppHookModule() {
         return true
     }
 
+    private fun shouldShrinkCaptionTouchRegion(
+        controller: Any,
+        task: ActivityManager.RunningTaskInfo,
+        ops: InsetOps,
+        getCaptionType: Method?
+    ): Boolean {
+        if (ops.isDesktopOrPcMode(task)) return false
+        val className = controller.javaClass.name
+        if (className != TABLET_HANDLE_CONTROLLER_CLASS &&
+            className != APP_HANDLE_CONTROLLER_CLASS
+        ) {
+            return false
+        }
+        val captionType = runCatching { getCaptionType?.invoke(controller)?.toString() }.getOrNull()
+        return captionType == null || captionType == CAPTION_TYPE_APP_HANDLE
+    }
+
     /** Legacy path: WindowDecoration owned the caption insets and touch region directly. */
     private fun installLegacyDecoration(loader: ClassLoader, ops: InsetOps) {
         val decorClass = loadClass(loader, LEGACY_DECOR_CLASS) ?: return
@@ -250,10 +300,10 @@ class FreeformForeheadOverlayHook : AppHookModule() {
         val taskInfoField = field(decorClass, "mTaskInfo") ?: return
         val insetsField = field(decorClass, "mWindowDecorationInsets") ?: return
         val ownerField = field(decorClass, "mOwner") ?: return
-        val captionVisibleField = field(decorClass, "mIsCaptionVisible")
-        val excludedField = field(insetsClass, "mExcludedFromAppBounds")
-        val captionWidthField = field(resultClass, "mCaptionWidth")
-        val captionHeightField = field(resultClass, "mCaptionHeight")
+        val captionVisibleField = optionalField(decorClass, "mIsCaptionVisible")
+        val excludedField = optionalField(insetsClass, "mExcludedFromAppBounds")
+        val captionWidthField = optionalField(resultClass, "mCaptionWidth")
+        val captionHeightField = optionalField(resultClass, "mCaptionHeight")
         val displayResources = method(decorClass, "ovGetDisplayResources")
 
         val updateCaptionInsets = runCatching {
@@ -300,7 +350,7 @@ class FreeformForeheadOverlayHook : AppHookModule() {
                 val existing = insetsField.get(decor)
                 val excluded = existing != null && excludedField != null &&
                     runCatching { excludedField.getBoolean(existing) }.getOrDefault(false)
-                ops.dropInset(wct, task, owner, decor, insetsField, excluded)
+                ops.dropInset(wct, task, owner, decor, insetsField, null, excluded)
                 null
             } catch (t: Throwable) {
                 logger.error("Freeform caption inset drop failed", t)
@@ -323,7 +373,7 @@ class FreeformForeheadOverlayHook : AppHookModule() {
                     val existing = insetsField.get(decor)
                     val excluded = existing != null && excludedField != null &&
                         runCatching { excludedField.getBoolean(existing) }.getOrDefault(false)
-                    ops.dropInset(wct, task, owner, decor, insetsField, excluded)
+                    ops.dropInset(wct, task, owner, decor, insetsField, null, excluded)
                     null
                 } catch (t: Throwable) {
                     logger.error("Freeform caption inset re-add block failed", t)
@@ -337,8 +387,9 @@ class FreeformForeheadOverlayHook : AppHookModule() {
                 val decor = chain.thisObject ?: return@hookWithId chain.proceed()
                 val existingRegion = chain.args.getOrNull(3) as? Region
                 val captionVisible = captionVisibleField?.getBoolean(decor) != false
-                if (existingRegion != null || !captionVisible || ops.pcModeNow() ||
-                    ops.targetTask(taskInfoField.get(decor)) == null
+                val task = ops.targetTask(taskInfoField.get(decor))
+                if (existingRegion != null || !captionVisible || task == null ||
+                    ops.isDesktopOrPcMode(task)
                 ) {
                     return@hookWithId chain.proceed()
                 }
@@ -397,19 +448,26 @@ class FreeformForeheadOverlayHook : AppHookModule() {
             null
         }
 
-    private fun fieldByWalk(owner: Class<*>, name: String): Field? {
+    private fun optionalField(owner: Class<*>, name: String): Field? =
+        runCatching { findField(owner, name).apply { isAccessible = true } }.getOrNull()
+
+    private fun fieldByWalk(owner: Class<*>, name: String): Field? =
+        optionalFieldByWalk(owner, name) ?: run {
+            logger.error("Field $name not found on ${owner.name}")
+            null
+        }
+
+    private fun optionalFieldByWalk(owner: Class<*>, name: String): Field? {
         var type: Class<*>? = owner
         while (type != null) {
             try {
                 return type.getDeclaredField(name).apply { isAccessible = true }
             } catch (_: NoSuchFieldException) {
                 type = type.superclass
-            } catch (t: Throwable) {
-                logger.error("Field $name lookup failed on ${owner.name}", t)
+            } catch (_: Throwable) {
                 return null
             }
         }
-        logger.error("Field $name not found on ${owner.name}")
         return null
     }
 
@@ -445,6 +503,15 @@ class FreeformForeheadOverlayHook : AppHookModule() {
             null
         }
 
+    private fun optionalStaticMethod(
+        owner: Class<*>,
+        name: String,
+        vararg types: Class<*>
+    ): Method? =
+        runCatching {
+            owner.getDeclaredMethod(name, *types).apply { isAccessible = true }
+        }.getOrNull()
+
     /** Handles shared by both install paths, resolved once per package load. */
     private inner class InsetOps(
         val wctClass: Class<*>,
@@ -453,12 +520,45 @@ class FreeformForeheadOverlayHook : AppHookModule() {
         private val removeInsetsSource: Method,
         private val setAppBounds: Method?,
         private val taskTokenField: Field?,
+        private val displayIdField: Field?,
         private val getWindowingMode: Method,
         private val isPcMode: Method,
-        private val isZuiDesktopMode: Method
+        private val isZuiDesktopMode: Method,
+        private val isZuiDesktopModeForDisplay: Method?,
+        private val isFocusInConnectDisplay: Method?,
+        private val isDwOrCdStatus: Method?
     ) {
         fun pcModeNow(): Boolean =
             runCatching { isPcMode.invoke(null) as? Boolean == true }.getOrDefault(false)
+
+        fun zuiDesktopModeNow(displayId: Int? = null): Boolean {
+            if (displayId != null) {
+                val perDisplay = isDwOrCdStatus ?: isZuiDesktopModeForDisplay
+                if (perDisplay != null) {
+                    val active = runCatching {
+                        perDisplay.invoke(null, displayId) as? Boolean == true
+                    }.getOrDefault(false)
+                    if (active) return true
+                }
+                val connectMethod = isFocusInConnectDisplay
+                if (connectMethod != null) {
+                    val connect = runCatching {
+                        connectMethod.invoke(null, displayId) as? Boolean == true
+                    }.getOrDefault(false)
+                    if (connect) return true
+                }
+            }
+            return runCatching { isZuiDesktopMode.invoke(null) as? Boolean == true }
+                .getOrDefault(false)
+        }
+
+        fun isDesktopOrPcMode(task: ActivityManager.RunningTaskInfo): Boolean {
+            if (pcModeNow()) return true
+            val displayId = displayIdField?.let { field ->
+                runCatching { field.getInt(task) }.getOrNull()
+            }
+            return zuiDesktopModeNow(displayId)
+        }
 
         fun targetTask(taskInfo: Any?): ActivityManager.RunningTaskInfo? {
             val task = taskInfo as? ActivityManager.RunningTaskInfo ?: return null
@@ -475,6 +575,7 @@ class FreeformForeheadOverlayHook : AppHookModule() {
             owner: Binder,
             insetsOwner: Any,
             insetsField: Field,
+            addInsetsField: Field?,
             excludedFromAppBounds: Boolean
         ) {
             val token = taskTokenField?.get(task) ?: return
@@ -484,14 +585,15 @@ class FreeformForeheadOverlayHook : AppHookModule() {
                 setAppBounds?.invoke(wct, token, Rect())
             }
             insetsField.set(insetsOwner, null)
+            addInsetsField?.set(insetsOwner, null)
             if (!insetRemovedLogged) {
                 insetRemovedLogged = true
-                val desktopMode = runCatching {
-                    isZuiDesktopMode.invoke(null) as? Boolean == true
-                }.getOrDefault(false)
+                val displayId = displayIdField?.let { field ->
+                    runCatching { field.getInt(task) }.getOrNull()
+                }
                 logger.info(
                     "Freeform caption inset dropped: task=${task.taskId}, " +
-                        "pcMode=${pcModeNow()}, zuiDesktopMode=$desktopMode"
+                        "pcMode=${pcModeNow()}, zuiDesktopMode=${zuiDesktopModeNow(displayId)}"
                 )
             }
         }
@@ -500,6 +602,11 @@ class FreeformForeheadOverlayHook : AppHookModule() {
     private companion object {
         const val CAPTION_CONTROLLER_CLASS =
             "com.android.wm.shell.windowdecor.caption.CaptionController"
+        const val TABLET_HANDLE_CONTROLLER_CLASS =
+            "com.android.wm.shell.windowdecor.caption.OvTabletCaptionHandleController"
+        const val APP_HANDLE_CONTROLLER_CLASS =
+            "com.android.wm.shell.windowdecor.caption.AppHandleController"
+        const val CAPTION_TYPE_APP_HANDLE = "APP_HANDLE"
         const val RELAYOUT_PARAMS_CLASS =
             $$"com.android.wm.shell.windowdecor.WindowDecoration2$RelayoutParams"
         const val VIEW_HOST_CLASS =
