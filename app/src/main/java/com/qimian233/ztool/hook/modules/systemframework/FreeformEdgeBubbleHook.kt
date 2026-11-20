@@ -2,6 +2,7 @@ package com.qimian233.ztool.hook.modules.systemframework
 
 import android.annotation.SuppressLint
 import android.content.BroadcastReceiver
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
@@ -11,40 +12,25 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.HandlerThread
+import android.os.SystemClock
 import com.qimian233.ztool.data.freeform.FreeformEdgeBubbleConfig
 import com.qimian233.ztool.data.keys.PreferenceKeys
 import com.qimian233.ztool.data.keys.ScopeKeys
 import com.qimian233.ztool.hook.base.SystemHookModule
 import io.github.libxposed.api.XposedModuleInterface
+import java.lang.reflect.Field
+import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Method
+import java.lang.reflect.Modifier
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * Freeform edge bubble: system_server side of the "shrink a freeform window into an
- * edge bubble" replication (see docs/research/oplus-float-handle-gesture-spec.md).
+ * system_server side of freeform edge-bubble minimize, restore, and edge detection.
  *
- * App↔system_server channel: **ordered broadcasts**, not a published binder service —
- * SELinux only allows servicemanager names listed in service_contexts, so a custom
- * service cannot be registered. Commands arrive as ordered broadcasts targeted at the
- * "android" package (system_server's receiver) and return values travel back through
- * the broadcast result (resultCode + resultExtras); events go the other way as a
- * package-targeted broadcast to ZTool.
- *
- * Responsibilities:
- * 1. Register the command receiver on the system context (retry loop — the context is
- *    only complete a moment after system-server start).
- * 2. Execute task minimize/restore inside the WMS global lock via ATMS reflection,
- *    keeping restore-bounds in a server-side map.
- * 3. Pass ZTool's uid through com.android.server.wm.OvFreeformService.checkPermission
- *    so the app can use IOvFreeformService helpers without privileged permissions.
- * 4. Watch freeform task bounds (com.android.server.wm.WindowContainer.setBounds) to
- *    detect a window dragged to the screen edge and broadcast bubble add/remove events.
- *
- * The feature switch is [PreferenceKeys.FREEFORM_EDGE_BUBBLE] (read by
- * [com.qimian233.ztool.hook.base.BaseHookModule.isEnabled]); the trigger threshold is
- * [PreferenceKeys.FREEFORM_EDGE_BUBBLE_TRIGGER_PERCENT]. Toggling either requires a
- * system restart (scope HowToRestart.Reboot).
+ * Bridges commands/events with the ZTool service over ordered/targeted broadcasts,
+ * bypasses OvFreeformService permission checks for ZTool, and tracks freeform bounds.
  */
+// See docs/research/freeform_edge_bubble_android17.md
 @SuppressLint("PrivateApi", "SdkLintPrivateApi", "BlockedPrivateApi")
 class FreeformEdgeBubbleHook : SystemHookModule() {
 
@@ -57,7 +43,7 @@ class FreeformEdgeBubbleHook : SystemHookModule() {
         private const val ACTION_EVENT = "com.qimian233.ztool.action.FREEFORM_BUBBLE_EVENT"
         private const val ZTOOL_PACKAGE = "com.qimian233.ztool"
 
-        // Command ids (app→server, extra "cmd"), mirrored in app-side FreeformBubbleBridge.
+        // Command ids (app->server, extra "cmd"), mirrored in app-side FreeformBubbleBridge.
         private const val CMD_MINIMIZE_TASK = 1
         private const val CMD_RESTORE_TASK = 2
         private const val CMD_LIST_MINIMIZED = 3
@@ -65,7 +51,7 @@ class FreeformEdgeBubbleHook : SystemHookModule() {
         private const val CMD_LIST_FREEFORM_TASKS = 5
         private const val CMD_TOGGLE_PROBE = 9
 
-        // Event ids (server→app, extra "event").
+        // Event ids (server->app, extra "event").
         const val EVENT_BUBBLE_ADDED = 11
         const val EVENT_BUBBLE_REMOVED = 12
 
@@ -79,23 +65,17 @@ class FreeformEdgeBubbleHook : SystemHookModule() {
         private const val BRIDGE_REGISTER_RETRY_INTERVAL_MS = 500L
         private const val ADB_SHELL_UID = 2000
 
-        /** Trigger percentage of the window width that must hang offscreen. */
         @Volatile private var edgeTriggerPercent =
             PreferenceKeys.FREEFORM_EDGE_BUBBLE_TRIGGER_PERCENT.default
 
-        /** taskId → restore bounds, server-side session state (lost on reboot is fine). */
         private val restoreRects = ConcurrentHashMap<Int, Rect>()
-        /** taskId → side (0 left / 1 right) of currently minimized tasks. */
         private val minimizedSides = ConcurrentHashMap<Int, Int>()
-        /** taskId → package name, cached for events. */
         private val taskPackages = ConcurrentHashMap<Int, String>()
-        /** Guards against re-entering the setBounds hook from our own moves. */
+        /** Guards against re-entering bounds hooks from our own moves. */
         private val internalMove = ThreadLocal.withInitial { false }
 
         @Volatile private var ztoolUid = -1
         @Volatile private var atmsHandlesCache: AtmsHandles? = null
-
-        /** Edge-probe logging is expensive and off by default; toggle with CMD_TOGGLE_PROBE. */
         @Volatile private var probeLogEnabled = false
         @Volatile private var hideShowControllerCache: Triple<Any?, Method?, Method?>? = null
         @Volatile private var bridgeRegistered = false
@@ -124,10 +104,6 @@ class FreeformEdgeBubbleHook : SystemHookModule() {
         return FreeformEdgeBubbleConfig.normalizeTriggerPercent(configured)
     }
 
-    /**
-     * Registers the command receiver on the system context. The context is not fully
-     * built at system-server-start time, hence the retry loop.
-     */
     private fun registerBroadcastBridge(classLoader: ClassLoader) {
         if (bridgeRegistered) return
         Thread({
@@ -136,7 +112,7 @@ class FreeformEdgeBubbleHook : SystemHookModule() {
                 try {
                     if (registerCommandReceiver(classLoader)) return@Thread
                 } catch (t: Throwable) {
-                    lastError = (t as? java.lang.reflect.InvocationTargetException)?.cause ?: t
+                    lastError = (t as? InvocationTargetException)?.cause ?: t
                 }
                 try {
                     Thread.sleep(BRIDGE_REGISTER_RETRY_INTERVAL_MS)
@@ -146,11 +122,11 @@ class FreeformEdgeBubbleHook : SystemHookModule() {
             }
             logger.error(
                 "register broadcast bridge failed after $BRIDGE_REGISTER_MAX_ATTEMPTS attempts",
-                lastError)
+                lastError
+            )
         }, "ztool-bubble-bridge").start()
     }
 
-    /** @return true when the receiver is registered. */
     private fun registerCommandReceiver(classLoader: ClassLoader): Boolean {
         val systemContext = resolveSystemContext(classLoader) ?: return false
         if (eventPostHandler == null) {
@@ -162,7 +138,8 @@ class FreeformEdgeBubbleHook : SystemHookModule() {
         val receiver = CommandReceiver(classLoader)
         val registerReceiver = systemContext.javaClass.getMethod(
             "registerReceiver",
-            BroadcastReceiver::class.java, IntentFilter::class.java, Int::class.javaPrimitiveType)
+            BroadcastReceiver::class.java, IntentFilter::class.java, Int::class.javaPrimitiveType
+        )
         val flags = if (Build.VERSION.SDK_INT >= 33) 0x2 /* RECEIVER_EXPORTED */ else 0
         registerReceiver.invoke(systemContext, receiver, filter, flags)
         eventPostContext = systemContext
@@ -191,7 +168,6 @@ class FreeformEdgeBubbleHook : SystemHookModule() {
 
         override fun onReceive(context: Context, intent: Intent) {
             val uid = try {
-                // Available since API 34; compileSdk 37.
                 javaClass.getMethod("getSentFromUid").invoke(this) as Int
             } catch (_: Throwable) {
                 -1
@@ -201,11 +177,8 @@ class FreeformEdgeBubbleHook : SystemHookModule() {
                 resultCode = 0
                 return
             }
-            // Execute off the system_server main thread: the WMS lock and reflection
-            // resolution here must never contend with system UI work, and goAsync keeps
-            // the ordered-broadcast result channel open until the handler finishes.
             val pending = goAsync()
-            val startedAt = android.os.SystemClock.elapsedRealtime()
+            val startedAt = SystemClock.elapsedRealtime()
             val handler = eventPostHandler
             if (handler == null) {
                 val (code, extras) = executeCommand(intent, startedAt)
@@ -276,7 +249,8 @@ class FreeformEdgeBubbleHook : SystemHookModule() {
             }
             logger.trace(
                 "cmd=${intent.getIntExtra("cmd", -1)} result=$result " +
-                    "took=${android.os.SystemClock.elapsedRealtime() - startedAt}ms")
+                    "took=${SystemClock.elapsedRealtime() - startedAt}ms"
+            )
             return Pair(result, extras)
         }
 
@@ -309,11 +283,11 @@ class FreeformEdgeBubbleHook : SystemHookModule() {
         } catch (t: Throwable) {
             logger.error(
                 "bridge operation failed",
-                (t as? java.lang.reflect.InvocationTargetException)?.cause ?: t)
+                (t as? InvocationTargetException)?.cause ?: t
+            )
             null
         }
     }
-
 
     private class AtmsHandles(
         val globalLock: Any,
@@ -330,7 +304,13 @@ class FreeformEdgeBubbleHook : SystemHookModule() {
         val anyTaskForId: Method,
         val taskClass: Class<*>,
         val getBounds: Method,
+        val getBoundsWithScale: Method?,
         val setBounds: Method,
+        val setScaleTaskSurface: Method?,
+        val scaleTaskSurface: Method?,
+        val scaleXField: Field?,
+        val scaleYField: Field?,
+        val scaleSurfaceBoundsField: Field?,
         val moveToFront: Method?,
         val setLastNonFullscreenBounds: Method?
     )
@@ -342,8 +322,7 @@ class FreeformEdgeBubbleHook : SystemHookModule() {
             getInstance.isAccessible = true
             getInstance.invoke(null)
         } catch (_: Throwable) {
-            // Fallback: LocalServices holds the ActivityTaskManagerInternal impl; scan
-            // its fields for a value that IS the ATMS instance (ZUX renames mService).
+            // Fallback: LocalServices holds ActivityTaskManagerInternal; scan fields for ATMS.
             val localServicesClass = classLoader.loadClass("com.android.server.LocalServices")
             val internalClass = classLoader.loadClass("com.android.server.wm.ActivityTaskManagerInternal")
             val getService = localServicesClass.getDeclaredMethod("getService", Class::class.java)
@@ -351,7 +330,7 @@ class FreeformEdgeBubbleHook : SystemHookModule() {
                 ?: error("ActivityTaskManagerInternal not in LocalServices")
             for (cls in generateSequence(internal.javaClass) { it.superclass }) {
                 for (field in cls.declaredFields) {
-                    if (!java.lang.reflect.Modifier.isStatic(field.modifiers)) {
+                    if (!Modifier.isStatic(field.modifiers)) {
                         try {
                             field.isAccessible = true
                             val value = field.get(internal)
@@ -383,40 +362,74 @@ class FreeformEdgeBubbleHook : SystemHookModule() {
             ?: error("ATMS.mRootWindowContainer is null")
         val rwcClass = classLoader.loadClass("com.android.server.wm.RootWindowContainer")
         val anyTaskForId = rwcClass.getMethod(
-            "anyTaskForId", Int::class.javaPrimitiveType, Int::class.javaPrimitiveType)
+            "anyTaskForId", Int::class.javaPrimitiveType, Int::class.javaPrimitiveType
+        )
 
         val taskClass = classLoader.loadClass("com.android.server.wm.Task")
         val hideShow = resolveHideShowController(classLoader, atms)
         return AtmsHandles(
-            globalLock, rwc, hideShow?.first, hideShow?.second, hideShow?.third,
-            try { taskClass.getMethod("getRootTask") } catch (_: Throwable) { null },
-            try { taskClass.getMethod("setAlwaysOnTop", Boolean::class.javaPrimitiveType) } catch (_: Throwable) { null },
-            try { taskClass.getMethod("moveTaskToBack", taskClass) } catch (_: Throwable) { null },
-            try { rwcClass.getMethod("resumeFocusedTasksTopActivities") } catch (_: Throwable) { null },
-            try { rwcClass.getMethod("getAllRootTaskInfos") } catch (_: Throwable) { null },
-            try {
+            globalLock = globalLock,
+            rootWindowContainer = rwc,
+            hideShowController = hideShow?.first,
+            bringToBack = hideShow?.second,
+            bringToFront = hideShow?.third,
+            getRootTask = try { taskClass.getMethod("getRootTask") } catch (_: Throwable) { null },
+            setAlwaysOnTop = try {
+                taskClass.getMethod("setAlwaysOnTop", Boolean::class.javaPrimitiveType)
+            } catch (_: Throwable) { null },
+            moveTaskToBack = try { taskClass.getMethod("moveTaskToBack", taskClass) } catch (_: Throwable) { null },
+            resumeFocusedTasks = try {
+                rwcClass.getMethod("resumeFocusedTasksTopActivities")
+            } catch (_: Throwable) { null },
+            getAllRootTaskInfos = try { rwcClass.getMethod("getAllRootTaskInfos") } catch (_: Throwable) { null },
+            getAllRootTaskInfosByDisplay = try {
                 rwcClass.getMethod("getAllRootTaskInfos", Int::class.javaPrimitiveType)
             } catch (_: Throwable) { null },
-            anyTaskForId, taskClass,
-            taskClass.getMethod("getBounds"),
-            taskClass.getMethod("setBounds", Rect::class.java),
-            try { taskClass.getMethod("moveToFront", String::class.java) } catch (_: Throwable) { null },
-            try { taskClass.getMethod("setLastNonFullscreenBounds", Rect::class.java) } catch (_: Throwable) { null }
+            anyTaskForId = anyTaskForId,
+            taskClass = taskClass,
+            getBounds = taskClass.getMethod("getBounds"),
+            getBoundsWithScale = try {
+                taskClass.getMethod("getBounds", Boolean::class.javaPrimitiveType)
+            } catch (_: Throwable) { null },
+            setBounds = taskClass.getMethod("setBounds", Rect::class.java),
+            setScaleTaskSurface = try {
+                findMethod(
+                    taskClass,
+                    "setScaleTaskSurface",
+                    Rect::class.java,
+                    Rect::class.java,
+                    Float::class.javaPrimitiveType,
+                    Float::class.javaPrimitiveType,
+                    Boolean::class.javaPrimitiveType
+                )
+            } catch (_: Throwable) { null },
+            scaleTaskSurface = try {
+                findMethod(
+                    taskClass,
+                    "scaleTaskSurface",
+                    Rect::class.java,
+                    Rect::class.java,
+                    Float::class.javaPrimitiveType,
+                    Float::class.javaPrimitiveType
+                )
+            } catch (_: Throwable) { null },
+            scaleXField = try { findField(taskClass, "mScaleX") } catch (_: Throwable) { null },
+            scaleYField = try { findField(taskClass, "mScaleY") } catch (_: Throwable) { null },
+            scaleSurfaceBoundsField = try {
+                findField(taskClass, "mScaleSurfaceBounds")
+            } catch (_: Throwable) { null },
+            moveToFront = try { taskClass.getMethod("moveToFront", String::class.java) } catch (_: Throwable) { null },
+            setLastNonFullscreenBounds = try {
+                taskClass.getMethod("setLastNonFullscreenBounds", Rect::class.java)
+            } catch (_: Throwable) { null }
         )
     }
 
-    /**
-     * Resolves ZUI's native freeform hide/show controller (OvfWmHideShowController):
-     * minimize = bringToBack (task docks behind home via shell transition, immune to
-     * the freeform bounds clamp), restore = bringToFront. Returns null when absent;
-     * the plain Task.setBounds path stays as fallback.
-     */
     private fun resolveHideShowController(classLoader: ClassLoader, atms: Any): Triple<Any?, Method?, Method?>? {
         if (hideShowControllerCache != null) return hideShowControllerCache
         return try {
             var manager: Any? = null
             val steps = StringBuilder()
-            // Path 1/2: named getters on ATMS.
             for (getter in arrayOf("getOvfMgr", "getOvcWmManager")) {
                 try {
                     val result = atms.javaClass.getMethod(getter).invoke(atms)
@@ -426,7 +439,6 @@ class FreeformEdgeBubbleHook : SystemHookModule() {
                             manager = result
                             break
                         }
-                        // OvcWmManager: drill into its freeform manager.
                         try {
                             val fm = result.javaClass.getMethod("getFreeformManager").invoke(result)
                             if (fm != null) {
@@ -442,11 +454,10 @@ class FreeformEdgeBubbleHook : SystemHookModule() {
                     steps.append(getter).append("=fail ").append(t.message).append(' ')
                 }
             }
-            // Path 3: field-type scan on ATMS itself.
             if (manager == null) {
                 for (cls in generateSequence(atms.javaClass) { it.superclass }) {
                     for (field in cls.declaredFields) {
-                        if (java.lang.reflect.Modifier.isStatic(field.modifiers)) continue
+                        if (Modifier.isStatic(field.modifiers)) continue
                         try {
                             field.isAccessible = true
                             val value = field.get(atms)
@@ -466,7 +477,6 @@ class FreeformEdgeBubbleHook : SystemHookModule() {
                 return null
             }
             var controller: Any? = null
-            // Preferred: named accessor on OvfWmFreeformManager.
             for (getter in arrayOf("getHideShowCtrl", "getHideShowController")) {
                 try {
                     controller = manager.javaClass.getMethod(getter).invoke(manager)
@@ -476,11 +486,10 @@ class FreeformEdgeBubbleHook : SystemHookModule() {
                     steps.append(getter).append("=fail ").append(t.message).append(' ')
                 }
             }
-            // Fallback: field-type scan on the manager.
             if (controller == null) {
                 for (cls in generateSequence(manager.javaClass) { it.superclass }) {
                     for (field in cls.declaredFields) {
-                        if (java.lang.reflect.Modifier.isStatic(field.modifiers)) continue
+                        if (Modifier.isStatic(field.modifiers)) continue
                         try {
                             field.isAccessible = true
                             val value = field.get(manager)
@@ -499,13 +508,17 @@ class FreeformEdgeBubbleHook : SystemHookModule() {
                 logger.info("hideShow resolve failed: no controller; $steps")
                 return null
             }
-            val toBack = controller.javaClass.getMethod("bringToBack",
-                classLoader.loadClass("com.android.server.wm.Task"))
-            val toFront = controller.javaClass.getMethod("bringToFront",
+            val toBack = controller.javaClass.getMethod(
+                "bringToBack",
+                classLoader.loadClass("com.android.server.wm.Task")
+            )
+            val toFront = controller.javaClass.getMethod(
+                "bringToFront",
                 classLoader.loadClass("com.android.server.wm.Task"),
                 String::class.java,
                 classLoader.loadClass("com.android.server.wm.TransitionController"),
-                classLoader.loadClass("com.android.server.wm.Transition"))
+                classLoader.loadClass("com.android.server.wm.Transition")
+            )
             hideShowControllerCache = Triple(controller, toBack, toFront)
             logger.info("hideShow resolved: $steps")
             hideShowControllerCache
@@ -518,27 +531,41 @@ class FreeformEdgeBubbleHook : SystemHookModule() {
     private fun findTask(handles: AtmsHandles, taskId: Int): Any? =
         handles.anyTaskForId.invoke(handles.rootWindowContainer, taskId, MATCH_TASK_MODE_ANY)
 
-    private fun doMinimize(handles: AtmsHandles, taskId: Int, side: Int): Boolean {
-        val task = findTask(handles, taskId) ?: run {
-            logger.warn("minimize: task $taskId not found")
-            return false
+    private fun isScaledTask(handles: AtmsHandles, task: Any): Boolean {
+        val scaleX = try {
+            handles.scaleXField?.getFloat(task) ?: 0f
+        } catch (_: Throwable) {
+            0f
         }
-        val bounds = handles.getBounds.invoke(task) as Rect
-        if (bounds.isEmpty) return false
-        restoreRects[taskId] = Rect(bounds)
-        minimizedSides[taskId] = side
-        try {
-            handles.setLastNonFullscreenBounds?.invoke(task, bounds)
-        } catch (t: Throwable) {
-            logger.debug("setLastNonFullscreenBounds failed: ${t.message}")
+        if (scaleX <= 0f) return false
+        val scaleBounds = try {
+            handles.scaleSurfaceBoundsField?.get(task) as? Rect
+        } catch (_: Throwable) {
+            null
         }
+        return scaleBounds != null && !scaleBounds.isEmpty
+    }
+
+    private fun getEffectiveBounds(handles: AtmsHandles, task: Any): Rect? {
+        val scaled = try {
+            handles.getBoundsWithScale?.invoke(task, true) as? Rect
+        } catch (_: Throwable) {
+            null
+        }
+        if (scaled != null && !scaled.isEmpty) return scaled
+        return try {
+            handles.getBounds.invoke(task) as? Rect
+        } catch (_: Throwable) {
+            null
+        }
+    }
+
+    private fun dockTaskBehindHome(handles: AtmsHandles, task: Any): Boolean {
         if (handles.getRootTask != null && handles.setAlwaysOnTop != null &&
             handles.moveTaskToBack != null
         ) {
-            // ZUI native dock WITHOUT the shell transition: bringToBack wraps the same
-            // calls in a TO_BACK transition whose BLAST sync waits for the (now paused,
-            // not drawing) task surface and times out after 5s. Skipping the transition
-            // makes the dock instant; the bubble covers the missing exit animation.
+            // Skip OvfWmHideShowController.bringToBack's TO_BACK transition; its BLAST sync
+            // waits up to 5 s on paused surfaces.
             val rootTask = handles.getRootTask.invoke(task)
             internalMove.set(true)
             try {
@@ -552,20 +579,62 @@ class FreeformEdgeBubbleHook : SystemHookModule() {
             } finally {
                 internalMove.set(false)
             }
-            logger.info("minimize task=$taskId side=$side via dockToBack, bounds=$bounds")
             return true
         }
         if (handles.hideShowController != null && handles.bringToBack != null) {
-            // Fallback: full ZUI path with shell transition (slow, 5s sync timeout).
             handles.bringToBack.invoke(handles.hideShowController, task)
-            logger.info("minimize task=$taskId side=$side via bringToBack, bounds=$bounds")
+            return true
+        }
+        return false
+    }
+
+    private fun moveTaskBounds(handles: AtmsHandles, task: Any, target: Rect) {
+        if (isScaledTask(handles, task)) {
+            // Scaled tasks (e.g. WeChat with i_f_drag_mode=0) position via mScaleSurfaceBounds;
+            // Task.setBounds(Rect) returns 0 when hasUniformScaleSurface() is true.
+            val initBounds = handles.getBounds.invoke(task) as Rect
+            val scaleX = handles.scaleXField?.getFloat(task) ?: 0f
+            val scaleY = handles.scaleYField?.getFloat(task) ?: scaleX
+            when {
+                handles.setScaleTaskSurface != null ->
+                    handles.setScaleTaskSurface.invoke(task, target, initBounds, scaleX, scaleY, true)
+                handles.scaleTaskSurface != null ->
+                    handles.scaleTaskSurface.invoke(task, target, initBounds, scaleX, scaleY)
+                else -> handles.setBounds.invoke(task, target)
+            }
+        } else {
+            handles.setBounds.invoke(task, target)
+        }
+    }
+
+    private fun doMinimize(handles: AtmsHandles, taskId: Int, side: Int): Boolean {
+        val task = findTask(handles, taskId) ?: run {
+            logger.warn("minimize: task $taskId not found")
+            return false
+        }
+        val bounds = getEffectiveBounds(handles, task) ?: return false
+        if (bounds.isEmpty) return false
+        restoreRects[taskId] = Rect(bounds)
+        minimizedSides[taskId] = side
+        if (!isScaledTask(handles, task)) {
+            try {
+                handles.setLastNonFullscreenBounds?.invoke(task, bounds)
+            } catch (t: Throwable) {
+                logger.debug("setLastNonFullscreenBounds failed: ${t.message}")
+            }
+        }
+        if (dockTaskBehindHome(handles, task)) {
+            logger.info("minimize task=$taskId side=$side via dockToBack, bounds=$bounds")
             return true
         }
         val offscreen = Rect(bounds)
-        offscreen.offset(if (side == 0) -(bounds.width() + OFFSCREEN_GAP_PX) else bounds.width() + OFFSCREEN_GAP_PX, 0)
+        offscreen.offset(
+            if (side == 0) -(bounds.width() + OFFSCREEN_GAP_PX) else bounds.width() + OFFSCREEN_GAP_PX,
+            0
+        )
         internalMove.set(true)
         try {
-            handles.setBounds.invoke(task, offscreen)
+            moveTaskBounds(handles, task, offscreen)
         } finally {
             internalMove.set(false)
         }
@@ -585,17 +654,14 @@ class FreeformEdgeBubbleHook : SystemHookModule() {
             return false
         }
         minimizedSides.remove(taskId)
-        // Nudge the stored bounds fully on-screen: the user dragged the window to the
-        // edge before docking, so restoring verbatim would leave half of it offscreen.
         val displayBounds = try {
             val dc = handles.taskClass.getMethod("getDisplayContent").invoke(task)
             dc?.javaClass?.getMethod("getBounds")?.invoke(dc) as? Rect
-        } catch (_: Throwable) { null }
+        } catch (_: Throwable) {
+            null
+        }
         val target = Rect(stored)
         if (displayBounds != null && !displayBounds.isEmpty) {
-            // Must leave the window fully onscreen, or its stored (edge-hanging)
-            // bounds would trigger the bubble again; applies vertically too, or a
-            // window docked near a corner would come back clipped offscreen.
             val clearance = RESTORE_CLEARANCE_MIN_PX
             val dx = when {
                 target.left < displayBounds.left + clearance ->
@@ -616,19 +682,20 @@ class FreeformEdgeBubbleHook : SystemHookModule() {
         if (handles.hideShowController != null && handles.bringToFront != null) {
             try {
                 handles.bringToFront.invoke(
-                    handles.hideShowController, task, "ztool_freeform_bubble", null, null)
+                    handles.hideShowController, task, "ztool_freeform_bubble", null, null
+                )
             } catch (t: Throwable) {
-                // Never abort the whole restore because one ZUI call threw.
                 logger.warn(
-                    "bringToFront failed: " + ((t as? java.lang.reflect.InvocationTargetException)?.cause ?: t))
+                    "bringToFront failed: " + ((t as? InvocationTargetException)?.cause ?: t)
+                )
             }
-            // bringToFront keeps the (edge-hanging) bounds; pull them on-screen.
             try {
                 internalMove.set(true)
-                handles.setBounds.invoke(task, target)
+                moveTaskBounds(handles, task, target)
             } catch (t: Throwable) {
                 logger.warn(
-                    "restore setBounds failed: " + ((t as? java.lang.reflect.InvocationTargetException)?.cause ?: t))
+                    "restore moveTaskBounds failed: " + ((t as? InvocationTargetException)?.cause ?: t)
+                )
             } finally {
                 internalMove.set(false)
             }
@@ -638,7 +705,7 @@ class FreeformEdgeBubbleHook : SystemHookModule() {
         }
         internalMove.set(true)
         try {
-            handles.setBounds.invoke(task, target)
+            moveTaskBounds(handles, task, target)
             try {
                 handles.moveToFront?.invoke(task, "ztool_freeform_bubble")
             } catch (t: Throwable) {
@@ -647,21 +714,13 @@ class FreeformEdgeBubbleHook : SystemHookModule() {
         } finally {
             internalMove.set(false)
         }
-        // internalMove suppressed the setBounds hook, so the removal event must be
-        // sent here explicitly.
         notifyBubbleRemoved(taskId)
         logger.info("restore task=$taskId -> $target")
         return true
     }
 
-    /**
-     * App-side edge-detection feed: all freeform tasks with bounds, package name and
-     * visibility. Visibility distinguishes "docked behind home" (hidden, bubble stays)
-     * from "visible near the edge" (bubble trigger candidate).
-     */
     private fun collectFreeformTaskInfos(handles: AtmsHandles): Bundle? {
         return try {
-            // ZUX signature takes a displayId (-1 = all displays).
             val infos = (handles.getAllRootTaskInfos?.invoke(handles.rootWindowContainer)
                 ?: handles.getAllRootTaskInfosByDisplay?.invoke(handles.rootWindowContainer, -1)
                 ) as? List<*>
@@ -675,23 +734,24 @@ class FreeformEdgeBubbleHook : SystemHookModule() {
             val hidden = ArrayList<Boolean>()
             val taskClass = handles.taskClass
             val getMode = try { taskClass.getMethod("getWindowingMode") } catch (_: Throwable) { null }
-            val getBounds = try { taskClass.getMethod("getBounds") } catch (_: Throwable) { null }
             val isVisible = try { taskClass.getMethod("isVisible") } catch (_: Throwable) { null }
             for (info in infos) {
                 val ti = info ?: continue
                 val taskId = try {
                     ti.javaClass.getField("taskId").getInt(ti)
-                } catch (_: Throwable) { continue }
-                // TaskInfo has no reliable WindowConfiguration accessor on ZUX; read the
-                // live Task instead (same methods the minimize/restore paths use).
+                } catch (_: Throwable) {
+                    continue
+                }
                 val task = findTask(handles, taskId) ?: continue
                 val mode = try { getMode?.invoke(task) as? Int } catch (_: Throwable) { null } ?: continue
                 if (mode != WINDOWING_MODE_FREEFORM) continue
-                val bounds = try { getBounds?.invoke(task) as? Rect } catch (_: Throwable) { null } ?: continue
+                val bounds = getEffectiveBounds(handles, task) ?: continue
                 if (bounds.isEmpty) continue
                 val pkg = try {
-                    (ti.javaClass.getField("topActivity").get(ti) as? android.content.ComponentName)?.packageName
-                } catch (_: Throwable) { null }
+                    (ti.javaClass.getField("topActivity").get(ti) as? ComponentName)?.packageName
+                } catch (_: Throwable) {
+                    null
+                }
                 val visible = try { isVisible?.invoke(task) as? Boolean } catch (_: Throwable) { null } ?: true
                 taskIds.add(taskId)
                 boundsList.addAll(listOf(bounds.left, bounds.top, bounds.right, bounds.bottom))
@@ -714,11 +774,6 @@ class FreeformEdgeBubbleHook : SystemHookModule() {
 
     // region hooks
 
-    /**
-     * Lets ZTool call IOvFreeformService helpers (setLastNonFullscreenBounds, bounds
-     * queries) without the signature|privileged zui.permission.OVFREEFORM_* grants.
-     * Only the calling uid of the ZTool app bypasses; everyone else proceeds unchanged.
-     */
     @Throws(Throwable::class)
     private fun installCheckPermissionPassthrough(classLoader: ClassLoader) {
         val serviceClass = try {
@@ -743,75 +798,124 @@ class FreeformEdgeBubbleHook : SystemHookModule() {
         }
     }
 
-    /**
-     * Detects freeform tasks dragged partly offscreen. Once the offscreen part reaches
-     * the configured share of the window width the task docks into a bubble; a tracked
-     * task back onscreen dismisses it.
-     */
     @Throws(Throwable::class)
     private fun installEdgeDetectionHook(classLoader: ClassLoader) {
         val windowContainerClass = classLoader.loadClass("com.android.server.wm.WindowContainer")
         val setBounds: Method = findMethod(windowContainerClass, "setBounds", Rect::class.java)
         val taskClass = classLoader.loadClass("com.android.server.wm.Task")
+        val getWindowingMode = taskClass.getMethod("getWindowingMode")
+        val getDisplayContent = taskClass.getMethod("getDisplayContent")
+
         hookWithId(setBounds, "freeform_edge_bubble_detect") { chain ->
             val task = chain.thisObject
             if (internalMove.get() == true || !taskClass.isInstance(task)) {
                 return@hookWithId chain.proceed()
             }
-            // AOSP clears a container's bounds override by passing null to
-            // ConfigurationContainer.setBounds(Rect) (e.g. a freshly built task without
-            // launch bounds). A null Rect is not a drag candidate - delegate unchanged.
             val newBounds = chain.getArg(0) as? Rect ?: return@hookWithId chain.proceed()
-            val windowingMode = try {
-                taskClass.getMethod("getWindowingMode").invoke(task) as Int
-            } catch (_: Throwable) { -1 }
-            if (windowingMode != WINDOWING_MODE_FREEFORM || newBounds.isEmpty) {
-                return@hookWithId chain.proceed()
-            }
-            val displayBounds = try {
-                val dc = taskClass.getMethod("getDisplayContent").invoke(task)
-                dc?.javaClass?.getMethod("getBounds")?.invoke(dc) as? Rect
-            } catch (_: Throwable) { null }
-            val triggerPercent = edgeTriggerPercent
-            val taskId = task.taskIdCompat()
-            val wasTracked = minimizedSides.containsKey(taskId)
-            val side = if (displayBounds == null) {
-                -1
-            } else {
-                // Only the part of the window outside the display counts; a window fully
-                // inside never docks regardless of how close it is to the edge.
-                val offLeft = (displayBounds.left - newBounds.left).coerceAtLeast(0)
-                val offRight = (newBounds.right - displayBounds.right).coerceAtLeast(0)
-                val triggerWidth = newBounds.width().coerceAtLeast(1) * triggerPercent / 100f
-                when {
-                    offLeft >= triggerWidth -> 0
-                    offRight >= triggerWidth -> 1
-                    else -> -1
-                }
-            }
+            val candidate = evaluateEdgeCandidate(task, newBounds, getWindowingMode, getDisplayContent)
             val result = chain.proceed()
-            if (side >= 0 && !wasTracked) {
-                // First time crossing the trigger: remember the bounds the window had,
-                // then dock the task behind home (ZUI native hide) so only the bubble
-                // remains visible.
-                restoreRects[taskId] = Rect(newBounds)
-                minimizedSides[taskId] = side
-                notifyBubbleAdded(task, taskClass, side)
-                try {
-                    val h = resolveAtmsHandles(classLoader)
-                    if (h.hideShowController != null && h.bringToBack != null) {
-                        h.bringToBack.invoke(h.hideShowController, task)
-                        logger.info("auto-dock task=$taskId via bringToBack")
-                    }
-                } catch (t: Throwable) {
-                    logger.warn("auto-dock failed: ${t.message}")
-                }
-            } else if (side < 0 && wasTracked) {
-                minimizedSides.remove(taskId)
-                restoreRects.remove(taskId)
-                notifyBubbleRemoved(taskId)
+            if (candidate != null) {
+                applyEdgeTransition(classLoader, taskClass, task, newBounds, candidate)
             }
             result
+        }
+
+        val setScaleTaskSurface = try {
+            findMethod(
+                taskClass,
+                "setScaleTaskSurface",
+                Rect::class.java,
+                Rect::class.java,
+                Float::class.javaPrimitiveType,
+                Float::class.javaPrimitiveType,
+                Boolean::class.javaPrimitiveType
+            )
+        } catch (_: Throwable) {
+            null
+        }
+        if (setScaleTaskSurface != null) {
+            hookWithId(setScaleTaskSurface, "freeform_edge_bubble_detect_scale") { chain ->
+                val task = chain.thisObject
+                if (internalMove.get() == true || !taskClass.isInstance(task)) {
+                    return@hookWithId chain.proceed()
+                }
+                val newScaleBounds = chain.getArg(0) as? Rect ?: return@hookWithId chain.proceed()
+                val scaleX = chain.getArg(2) as? Float ?: 0f
+                if (scaleX <= 0f) {
+                    return@hookWithId chain.proceed()
+                }
+                val candidate = evaluateEdgeCandidate(task, newScaleBounds, getWindowingMode, getDisplayContent)
+                val result = chain.proceed()
+                if (candidate != null) {
+                    applyEdgeTransition(classLoader, taskClass, task, newScaleBounds, candidate)
+                }
+                result
+            }
+        }
+    }
+
+    private data class EdgeCandidate(val taskId: Int, val wasTracked: Boolean, val side: Int)
+
+    private fun evaluateEdgeCandidate(
+        task: Any?,
+        newBounds: Rect,
+        getWindowingMode: Method,
+        getDisplayContent: Method
+    ): EdgeCandidate? {
+        if (task == null || newBounds.isEmpty) return null
+        val windowingMode = try {
+            getWindowingMode.invoke(task) as Int
+        } catch (_: Throwable) {
+            -1
+        }
+        if (windowingMode != WINDOWING_MODE_FREEFORM) return null
+        val displayBounds = try {
+            val dc = getDisplayContent.invoke(task)
+            dc?.javaClass?.getMethod("getBounds")?.invoke(dc) as? Rect
+        } catch (_: Throwable) {
+            null
+        }
+        val taskId = task.taskIdCompat()
+        val wasTracked = minimizedSides.containsKey(taskId)
+        val side = if (displayBounds == null) {
+            -1
+        } else {
+            val offLeft = (displayBounds.left - newBounds.left).coerceAtLeast(0)
+            val offRight = (newBounds.right - displayBounds.right).coerceAtLeast(0)
+            val triggerWidth = newBounds.width().coerceAtLeast(1) * edgeTriggerPercent / 100f
+            when {
+                offLeft >= triggerWidth -> 0
+                offRight >= triggerWidth -> 1
+                else -> -1
+            }
+        }
+        return EdgeCandidate(taskId, wasTracked, side)
+    }
+
+    private fun applyEdgeTransition(
+        classLoader: ClassLoader,
+        taskClass: Class<*>,
+        task: Any?,
+        newBounds: Rect,
+        candidate: EdgeCandidate
+    ) {
+        if (task == null) return
+        if (candidate.side >= 0 && !candidate.wasTracked) {
+            restoreRects[candidate.taskId] = Rect(newBounds)
+            minimizedSides[candidate.taskId] = candidate.side
+            notifyBubbleAdded(task, taskClass, candidate.side)
+            try {
+                val h = resolveAtmsHandles(classLoader)
+                if (dockTaskBehindHome(h, task)) {
+                    logger.info("auto-dock task=${candidate.taskId}")
+                }
+            } catch (t: Throwable) {
+                logger.warn("auto-dock failed: ${t.message}")
+            }
+        } else if (candidate.side < 0 && candidate.wasTracked) {
+            minimizedSides.remove(candidate.taskId)
+            restoreRects.remove(candidate.taskId)
+            notifyBubbleRemoved(candidate.taskId)
         }
     }
 
@@ -830,7 +934,9 @@ class FreeformEdgeBubbleHook : SystemHookModule() {
         val pkg = try {
             val intent = taskClass.getMethod("getBaseIntent").invoke(task) as? Intent
             intent?.component?.packageName ?: intent?.`package`
-        } catch (_: Throwable) { null }
+        } catch (_: Throwable) {
+            null
+        }
         if (pkg != null) taskPackages[taskId] = pkg
         minimizedSides[taskId] = side
         sendEvent(EVENT_BUBBLE_ADDED) { intent ->
