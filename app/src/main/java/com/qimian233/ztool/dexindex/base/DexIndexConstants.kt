@@ -5,9 +5,10 @@ import com.qimian233.ztool.data.keys.PreferenceKeys
 /** Constants for the offline DexKit index. */
 object DexIndexConstants {
 
+    // v7 adds LauncherFreeformEntryHook keys for R8-obfuscated A17 ZUI Launcher.
     // v6 rebuilds existing SystemUI indexes for ordered paths and typed callback matching.
     // See docs/research/systemui_charging_animation_android17.md for earlier versions.
-    const val SCHEMA_VERSION = 6
+    const val SCHEMA_VERSION = 7
 
     const val JSON_SCHEMA_VERSION = "schemaVersion"
     const val JSON_GENERATED_AT = "generatedAt"
@@ -28,6 +29,7 @@ object DexIndexConstants {
         val DISABLE_FORCE_STOP = PreferenceKeys.DISABLE_FORCE_STOP.name
         val ZUI_LAUNCHER_HOTSEAT = PreferenceKeys.ZUI_LAUNCHER_HOTSEAT.name
         val DISABLE_DOCK_BACKGROUND = PreferenceKeys.DISABLE_DOCK_BACKGROUND.name
+        val LAUNCHER_FORCE_FREEFORM_ENTRY = PreferenceKeys.LAUNCHER_FORCE_FREEFORM_ENTRY.name
         val NO_CHARGE_ANIMATION = PreferenceKeys.NO_CHARGE_ANIMATION.name
         val SYSTEMUI_NETWORK_SPEED_DOUBLELAYER = PreferenceKeys.SYSTEMUI_NETWORK_SPEED_DOUBLELAYER.name
         val BYPASS_SHARE_WARNING = PreferenceKeys.BYPASS_SHARE_WARNING.name
@@ -47,6 +49,19 @@ object DexIndexConstants {
         const val LOADER_CURSOR_B_METHOD = "loaderCursorBMethod"
         // See docs/research/zui_launcher_dock_background.md.
         const val DOCK_PAINT_FIELDS = "dockPaintFields"
+        // LauncherFreeformEntryHook
+        const val FREEFORM_UTILS_CLASS = "freeformUtilsClass"
+        const val FREEFORM_PKG_SUPPORT_METHOD = "freeformPkgSupportMethod"
+        const val FREEFORM_PKG_SUPPORT_PARAMS = "freeformPkgSupportParams"
+        const val FREEFORM_TASK_SUPPORT_METHOD = "freeformTaskSupportMethod"
+        const val FREEFORM_TASK_SUPPORT_PARAMS = "freeformTaskSupportParams"
+        const val FREEFORM_DENY_SET_METHOD = "freeformDenySetMethod"
+        const val FREEFORM_DENY_SET_PARAMS = "freeformDenySetParams"
+        const val FREEFORM_STATIC_DENY_FIELD = "freeformStaticDenyField"
+        const val FREEFORM_SWIPE_HANDLER_CLASS = "freeformSwipeHandlerClass"
+        const val FREEFORM_SWIPE_INIT_PARAMS = "freeformSwipeInitParams"
+        const val FREEFORM_SWIPE_SUPPORT_FIELD = "freeformSwipeSupportField"
+        const val FREEFORM_SWIPE_TASK_INFO_FIELD = "freeformSwipeTaskInfoField"
         // NoChargeAnimation
         const val HANDLER_FIELD_NAME = "handlerFieldName"
         // SystemUINetworkSpeeddoublelayerHook

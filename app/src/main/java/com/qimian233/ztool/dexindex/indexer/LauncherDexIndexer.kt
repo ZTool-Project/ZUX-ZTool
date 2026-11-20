@@ -9,6 +9,9 @@ import com.qimian233.ztool.dexindex.base.DexIndexer
 import org.luckypray.dexkit.DexKitBridge
 import org.luckypray.dexkit.query.FindMethod
 import org.luckypray.dexkit.query.matchers.MethodMatcher
+import org.luckypray.dexkit.result.ClassData
+import org.luckypray.dexkit.result.MethodData
+import java.lang.reflect.Modifier
 
 /**
  * launcher scope (com.zui.launcher) offline indexer.
@@ -30,6 +33,10 @@ class LauncherDexIndexer : DexIndexer {
         modules.add(
             DexIndexConstants.ModuleKeys.DISABLE_DOCK_BACKGROUND,
             indexDisableDockBackground(bridge)
+        )
+        modules.add(
+            DexIndexConstants.ModuleKeys.LAUNCHER_FORCE_FREEFORM_ENTRY,
+            indexLauncherFreeformEntry(bridge)
         )
         return modules
     }
@@ -158,7 +165,199 @@ class LauncherDexIndexer : DexIndexer {
         return out
     }
 
+    /**
+     * Locates freeform entry-check targets across unobfuscated and R8-obfuscated Launcher builds.
+     * Omits searchPackages because R8 relocates FreeformUtilities and AbsSwipeUpHandler helpers.
+     */
+    private fun indexLauncherFreeformEntry(bridge: DexKitBridge): JsonObject {
+        val out = JsonObject()
+        val pkgSupport = findPkgSupportMethod(bridge)
+        val utilsClassName = pkgSupport?.className
+        if (pkgSupport != null) {
+            out.addProperty(DexIndexConstants.Keys.FREEFORM_UTILS_CLASS, pkgSupport.className)
+            out.addProperty(DexIndexConstants.Keys.FREEFORM_PKG_SUPPORT_METHOD, pkgSupport.name)
+            out.addProperty(
+                DexIndexConstants.Keys.FREEFORM_PKG_SUPPORT_PARAMS,
+                pkgSupport.paramTypeNames.joinToString(",")
+            )
+            Log.i(
+                TAG,
+                "LauncherFreeformEntry: pkgSupport = ${pkgSupport.className}.${pkgSupport.name}" +
+                    "(${pkgSupport.paramTypeNames.joinToString(",")})"
+            )
+        }
+
+        if (utilsClassName != null) {
+            val taskSupport = findTaskSupportMethod(bridge, utilsClassName)
+            if (taskSupport != null) {
+                out.addProperty(DexIndexConstants.Keys.FREEFORM_TASK_SUPPORT_METHOD, taskSupport.name)
+                out.addProperty(
+                    DexIndexConstants.Keys.FREEFORM_TASK_SUPPORT_PARAMS,
+                    taskSupport.paramTypeNames.joinToString(",")
+                )
+                Log.i(TAG, "LauncherFreeformEntry: taskSupport = ${taskSupport.name}")
+            }
+        }
+
+        val denySet = findDenySetMethod(bridge, utilsClassName)
+        if (denySet != null) {
+            out.addProperty(DexIndexConstants.Keys.FREEFORM_DENY_SET_METHOD, denySet.name)
+            out.addProperty(
+                DexIndexConstants.Keys.FREEFORM_DENY_SET_PARAMS,
+                denySet.paramTypeNames.joinToString(",")
+            )
+            Log.i(TAG, "LauncherFreeformEntry: denySet = ${denySet.name}")
+        }
+
+        val swipeInit = findSwipeHandlerInit(bridge)
+        if (swipeInit != null) {
+            val owner = swipeInit.declaredClass
+            if (owner != null) {
+                out.addProperty(DexIndexConstants.Keys.FREEFORM_SWIPE_HANDLER_CLASS, owner.name)
+                out.addProperty(
+                    DexIndexConstants.Keys.FREEFORM_SWIPE_INIT_PARAMS,
+                    swipeInit.paramTypeNames.joinToString(",")
+                )
+                Log.i(TAG, "LauncherFreeformEntry: swipeHandler = ${owner.name}")
+
+                val supportField = owner.methods
+                    .filter { it.returnTypeName == "float" && it.paramCount == 0 }
+                    .flatMap { it.usingFields }
+                    .map { it.field }
+                    .distinctBy { "${it.className}#${it.name}" }
+                    .singleOrNull { it.className == owner.name && it.typeName == "boolean" }
+                if (supportField != null) {
+                    out.addProperty(DexIndexConstants.Keys.FREEFORM_SWIPE_SUPPORT_FIELD, supportField.name)
+                }
+
+                val taskInfoField = owner.fields
+                    .singleOrNull { !Modifier.isStatic(it.modifiers) && it.typeName == TASK_INFO }
+                if (taskInfoField != null) {
+                    out.addProperty(DexIndexConstants.Keys.FREEFORM_SWIPE_TASK_INFO_FIELD, taskInfoField.name)
+                }
+            }
+        }
+
+        if (utilsClassName != null) {
+            val denySetSource = denySet ?: swipeInit
+            val staticDenyField = denySetSource?.usingFields
+                ?.map { it.field }
+                ?.distinctBy { "${it.className}#${it.name}" }
+                ?.singleOrNull {
+                    it.className == utilsClassName &&
+                        Modifier.isStatic(it.modifiers) &&
+                        it.typeName == HASH_SET
+                }
+                ?: pkgSupport.declaredClass?.fields?.singleOrNull {
+                    Modifier.isStatic(it.modifiers) && it.typeName == HASH_SET
+                }
+            if (staticDenyField != null) {
+                out.addProperty(DexIndexConstants.Keys.FREEFORM_STATIC_DENY_FIELD, staticDenyField.name)
+                Log.i(TAG, "LauncherFreeformEntry: staticDenyField = ${staticDenyField.name}")
+            }
+        }
+        return out
+    }
+
+    private fun findPkgSupportMethod(bridge: DexKitBridge): MethodData? = try {
+        bridge.findMethod {
+            matcher {
+                modifiers = Modifier.STATIC
+                returnType = "boolean"
+                paramCount = 5
+                usingStrings("com.lenovo.screensplit")
+                addInvoke {
+                    declaredClass = OV_COMMON_MANAGER
+                    name = "supportsOvFreeformOnPkg"
+                }
+            }
+        }.singleOrNull { md ->
+            md.paramTypeNames.sorted() == PKG_SUPPORT_PARAM_TYPES_SORTED
+        }
+    } catch (t: Throwable) {
+        Log.w(TAG, "LauncherFreeformEntry: pkgSupport query failed", t)
+        null
+    }
+
+    private fun findTaskSupportMethod(bridge: DexKitBridge, utilsClassName: String): MethodData? = try {
+        bridge.findMethod {
+            matcher {
+                declaredClass = utilsClassName
+                modifiers = Modifier.STATIC
+                returnType = "boolean"
+                paramCount = 2
+            }
+        }.singleOrNull { md ->
+            md.paramTypeNames.sorted() == TASK_SUPPORT_PARAM_TYPES_SORTED
+        }
+    } catch (t: Throwable) {
+        Log.w(TAG, "LauncherFreeformEntry: taskSupport query failed", t)
+        null
+    }
+
+    private fun findDenySetMethod(bridge: DexKitBridge, utilsClassName: String?): MethodData? = try {
+        bridge.findMethod {
+            matcher {
+                modifiers = Modifier.STATIC
+                returnType = "boolean"
+                paramCount = 2
+                usingStrings(STATIC_DENY_RES_NAME)
+            }
+        }.singleOrNull { md ->
+            md.paramTypeNames.sorted() == DENY_SET_PARAM_TYPES_SORTED &&
+                (utilsClassName == null || md.className == utilsClassName)
+        }
+    } catch (t: Throwable) {
+        Log.w(TAG, "LauncherFreeformEntry: denySet query failed", t)
+        null
+    }
+
+    private fun findSwipeHandlerInit(bridge: DexKitBridge): MethodData? = try {
+        bridge.findMethod {
+            matcher {
+                name = "<init>"
+                usingStrings(STATIC_DENY_RES_NAME)
+            }
+        }.singleOrNull { md ->
+            val owner = md.declaredClass
+            owner != null && isSubclassOf(owner, ABS_SWIPE_UP_HANDLER)
+        }
+    } catch (t: Throwable) {
+        Log.w(TAG, "LauncherFreeformEntry: swipeHandler query failed", t)
+        null
+    }
+
+    private fun isSubclassOf(cls: ClassData, superName: String): Boolean {
+        var current: ClassData? = cls
+        while (current != null && current.name != "java.lang.Object") {
+            if (current.name == superName) return true
+            current = current.superClass
+        }
+        return false
+    }
+
     private companion object {
         const val TAG = "LauncherDexIndexer"
+        const val OV_COMMON_MANAGER = "com.android.internal.ov.OvCommonManager"
+        const val ABS_SWIPE_UP_HANDLER = "com.android.quickstep.AbsSwipeUpHandler"
+        const val STATIC_DENY_RES_NAME = "config_ovcDcv_StaticDenySet"
+        const val TASK_INFO = "android.app.TaskInfo"
+        const val HASH_SET = "java.util.HashSet"
+
+        val PKG_SUPPORT_PARAM_TYPES_SORTED = listOf(
+            "android.content.Context",
+            "int",
+            "int",
+            "java.lang.String",
+            "java.lang.String"
+        )
+        val TASK_SUPPORT_PARAM_TYPES_SORTED = listOf(
+            "android.app.TaskInfo",
+            "android.content.Context"
+        )
+        val DENY_SET_PARAM_TYPES_SORTED = listOf(
+            "android.content.ComponentName",
+            "android.content.Context"
+        )
     }
 }
