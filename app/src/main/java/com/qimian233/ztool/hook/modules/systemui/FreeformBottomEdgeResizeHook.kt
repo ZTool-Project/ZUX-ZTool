@@ -3,6 +3,7 @@ package com.qimian233.ztool.hook.modules.systemui
 import android.annotation.SuppressLint
 import android.app.ActivityManager
 import android.content.res.Resources
+import android.graphics.PointF
 import android.graphics.Rect
 import android.os.Handler
 import android.os.Looper
@@ -140,51 +141,13 @@ class FreeformBottomEdgeResizeHook : AppHookModule() {
     private fun installVelocityClose(loader: ClassLoader) {
         logger.info("Installing freeform bottom edge velocity close")
         val injectorClass = loadClass(loader, INJECTOR_CLASS) ?: return
-        val positionerClass = try {
-            loader.loadClass(POSITIONER_CLASS)
-        } catch (t: Throwable) {
-            logger.warn(
-                "$POSITIONER_CLASS absent; fast-drag close and fullscreen are skipped on this build"
-            )
-            return
-        }
-        val decorationClass = loadClass(loader, DECORATION_CLASS) ?: return
 
         val injectorCtrl = field(injectorClass, "mCtrlType") ?: return
         val injectorTaskInfo = field(injectorClass, "mTaskInfo") ?: return
         val dragStartY = field(injectorClass, "mDragStartY") ?: return
         val quickSwipeStart = field(injectorClass, "mQuickSwipeStartTimeMs") ?: return
         val touchSlop = field(injectorClass, "SCALED_TOUCH_SLOP") ?: return
-        val positionerCtrl = field(positionerClass, "mCtrlType") ?: return
-        val positionerDecoration = field(positionerClass, "mDesktopWindowDecoration") ?: return
-        val positionerTransitions = field(positionerClass, "mTransitions") ?: return
-        val positionerOrganizer = field(positionerClass, "mTaskOrganizer")
-        val positionerBounds = field(positionerClass, "mRepositionTaskBounds") ?: return
-        val decorationTaskInfo = field(decorationClass, "mTaskInfo") ?: return
-
-        val injectorMethod = try {
-            findMethod(
-                injectorClass,
-                "handleDragGestureEvent",
-                Float::class.javaPrimitiveType,
-                MotionEvent::class.java
-            )
-        } catch (t: Throwable) {
-            logger.error("OvfDriListenerInjector.handleDragGestureEvent not found", t)
-            return
-        }
-        val endMethod = try {
-            findMethod(
-                positionerClass,
-                "onDragPositioningEnd",
-                Int::class.javaPrimitiveType,
-                Float::class.javaPrimitiveType,
-                Float::class.javaPrimitiveType
-            )
-        } catch (t: Throwable) {
-            logger.error("VeiledResizeTaskPositioner.onDragPositioningEnd not found", t)
-            return
-        }
+        val injectorMethod = resolveGestureEventMethod(injectorClass) ?: return
 
         val transitionSourceClass = loadClass(loader, TRANSITION_SOURCE_CLASS)
         val taskDragSource = try {
@@ -211,9 +174,9 @@ class FreeformBottomEdgeResizeHook : AppHookModule() {
                 if ((ctrlType and CTRL_TYPE_PROPORTIONAL_FLAG) == 0) {
                     return@hookWithId chain.proceed()
                 }
-                val event = chain.args.getOrNull(1) as? MotionEvent
+                val event = chain.args.firstOrNull { it is MotionEvent } as? MotionEvent
                     ?: return@hookWithId false
-                val rawY = (chain.args.getOrNull(0) as? Number)?.toFloat()
+                val rawY = (chain.args.firstOrNull { it is Number } as? Number)?.toFloat()
                     ?: event.rawY
                 val taskInfo = injectorTaskInfo.get(injector)
                     as? ActivityManager.RunningTaskInfo
@@ -253,55 +216,428 @@ class FreeformBottomEdgeResizeHook : AppHookModule() {
             }
         }
 
+        val legacyPositioner = runCatching { loader.loadClass(POSITIONER_CLASS) }.getOrNull()
+        val legacyDecoration = runCatching { loader.loadClass(DECORATION_CLASS) }.getOrNull()
+        if (legacyPositioner != null && legacyDecoration != null) {
+            installLegacyVelocityEnd(
+                legacyPositioner,
+                legacyDecoration,
+                taskDragSource,
+                closeVelocity
+            )
+            return
+        }
+        installA17VelocityEnd(loader, taskDragSource, closeVelocity)
+    }
+
+    /**
+     * Resolves `handleDragGestureEvent`. Android 17 swapped the parameter order to
+     * `(MotionEvent, float)` from the legacy `(float, MotionEvent)`.
+     */
+    private fun resolveGestureEventMethod(injectorClass: Class<*>): Method? {
+        runCatching {
+            findMethod(
+                injectorClass,
+                "handleDragGestureEvent",
+                MotionEvent::class.java,
+                Float::class.javaPrimitiveType
+            )
+        }.getOrNull()?.let { return it }
+        return runCatching {
+            findMethod(
+                injectorClass,
+                "handleDragGestureEvent",
+                Float::class.javaPrimitiveType,
+                MotionEvent::class.java
+            )
+        }.getOrNull() ?: run {
+            logger.error("OvfDriListenerInjector.handleDragGestureEvent not found")
+            null
+        }
+    }
+
+    private fun installLegacyVelocityEnd(
+        positionerClass: Class<*>,
+        decorationClass: Class<*>,
+        taskDragSource: Any?,
+        closeVelocity: Float
+    ) {
+        val positionerCtrl = field(positionerClass, "mCtrlType") ?: return
+        val positionerDecoration = field(positionerClass, "mDesktopWindowDecoration") ?: return
+        val positionerTransitions = field(positionerClass, "mTransitions") ?: return
+        val positionerOrganizer = optionalField(positionerClass, "mTaskOrganizer")
+        val positionerBounds = field(positionerClass, "mRepositionTaskBounds") ?: return
+        val decorationTaskInfo = field(decorationClass, "mTaskInfo") ?: return
+        val endMethod = resolveDragEndMethod(positionerClass) ?: return
+
         hookWithId(endMethod, "freeform_bottom_velocity_close") { chain ->
             try {
                 val positioner = chain.thisObject ?: return@hookWithId chain.proceed()
-                val ctrlType: Int = positionerCtrl.getInt(positioner)
+                val ctrlType = positionerCtrl.getInt(positioner)
                 val decoration = positionerDecoration.get(positioner)
                 val taskInfo = decoration?.let { decorationTaskInfo.get(it) }
                     as? ActivityManager.RunningTaskInfo
-                val velocity = taskInfo?.let { velocityByTaskId.remove(it.taskId) } ?: 0f
                 val bounds = readBounds(positionerBounds, positioner)
-                logger.info(
-                    "Freeform bottom edge end: taskId=${taskInfo?.taskId}, " +
-                        "ctrlType=0x${Integer.toHexString(ctrlType)}, " +
-                        "velocity=${velocity.toInt()}px/s, bounds=$bounds"
-                )
-                if ((ctrlType and CTRL_TYPE_PROPORTIONAL_FLAG) != 0 &&
-                    taskInfo != null &&
-                    abs(velocity) >= closeVelocity
-                ) {
-                    commitBounds(positioner, taskInfo, bounds, positionerOrganizer)
-                    if (velocity > 0f) {
-                        if (fullscreenTask(positioner, taskInfo, taskDragSource)) {
-                            logger.info(
-                                "Freeform bottom edge fast drag fullscreens task: " +
-                                    "taskId=${taskInfo.taskId}, velocity=${velocity.toInt()}px/s"
-                            )
-                            hideVeilAfter(positioner, 250L)
-                            return@hookWithId bounds ?: Rect()
-                        }
-                    } else if (closeTask(
-                            positioner,
-                            taskInfo,
-                            positionerTransitions,
-                            bounds
-                        )
-                    ) {
-                        logger.info(
-                            "Freeform bottom edge fast drag closes task: " +
-                                "taskId=${taskInfo.taskId}, velocity=${velocity.toInt()}px/s"
-                        )
-                        // The task teardown releases the veil surfaces; hiding it here
-                        // after removal would touch released SurfaceControls.
-                        return@hookWithId bounds ?: Rect()
-                    }
-                }
+                val organizer = positionerOrganizer?.get(positioner)
+                val transitions = positionerTransitions.get(positioner)
+                handleFastEndAction(
+                    positioner = positioner,
+                    ctrlType = ctrlType,
+                    decoration = decoration,
+                    taskInfo = taskInfo,
+                    bounds = bounds,
+                    fullscreenScale = 0f,
+                    skipCommitBounds = false,
+                    organizer = organizer,
+                    transitions = transitions,
+                    controller = null,
+                    taskDragSource = taskDragSource,
+                    closeVelocity = closeVelocity,
+                    resetVeil = { resetResizeVeil(positioner, "resetVeilIfVisible$2", decoration) },
+                    resetDragState = {}
+                )?.let { return@hookWithId it }
             } catch (t: Throwable) {
                 logger.error("Freeform bottom edge velocity close failed", t)
             }
             chain.proceed()
         }
+    }
+
+    private fun installA17VelocityEnd(
+        loader: ClassLoader,
+        taskDragSource: Any?,
+        closeVelocity: Float
+    ) {
+        val wrapperClass = loadClass(loader, WRAPPER_CLASS) ?: return
+        val getTaskInfo = try {
+            findMethod(wrapperClass, "getTaskInfo")
+        } catch (t: Throwable) {
+            logger.error("$WRAPPER_CLASS.getTaskInfo not found", t)
+            return
+        }
+        val controllerOrganizerField = loadClass(loader, DESKTOP_TASKS_CONTROLLER_CLASS)
+            ?.let { optionalField(it, "shellTaskOrganizer") }
+
+        var hookedCount = 0
+        if (installA17PositionerEnd(
+                loader = loader,
+                className = MULTI_DISPLAY_POSITIONER_CLASS,
+                hookId = "freeform_bottom_velocity_close_multidisplay",
+                spec = PositionerFieldSpec(
+                    ctrlName = "ctrlType",
+                    decorationName = "windowDecoration",
+                    boundsName = "repositionTaskBounds",
+                    transitionsName = "transitions",
+                    organizerName = null,
+                    controllerName = "desktopTasksController",
+                    dragExecutorName = null,
+                    dragStartBoundsName = "taskBoundsAtDragStart",
+                    dragStartPointName = "repositionStartPoint",
+                    movedOffScreenName = "hasMovedTaskSurfaceOffScreen",
+                    resetVeilMethodName = "resetVeilIfVisible"
+                ),
+                getTaskInfo = getTaskInfo,
+                controllerOrganizerField = controllerOrganizerField,
+                taskDragSource = taskDragSource,
+                closeVelocity = closeVelocity
+            )
+        ) {
+            hookedCount++
+        }
+        if (installA17PositionerEnd(
+                loader = loader,
+                className = SCALE_POSITIONER_CLASS,
+                hookId = "freeform_bottom_velocity_close_scale",
+                spec = PositionerFieldSpec(
+                    ctrlName = "mCtrlType",
+                    decorationName = "mDesktopWindowDecoration",
+                    boundsName = "mRepositionTaskBounds",
+                    transitionsName = "mTransitions",
+                    organizerName = "mTaskOrganizer",
+                    controllerName = "mDesktopTasksController",
+                    dragExecutorName = "mDragExecutor",
+                    dragStartBoundsName = "mTaskBoundsAtDragStart",
+                    dragStartPointName = "mRepositionStartPoint",
+                    movedOffScreenName = null,
+                    resetVeilMethodName = "resetVeilIfVisible$1"
+                ),
+                getTaskInfo = getTaskInfo,
+                controllerOrganizerField = controllerOrganizerField,
+                taskDragSource = taskDragSource,
+                closeVelocity = closeVelocity
+            )
+        ) {
+            hookedCount++
+        }
+        if (installResizeTaskPositionerEnd(
+                loader = loader,
+                getTaskInfo = getTaskInfo,
+                controllerOrganizerField = controllerOrganizerField,
+                taskDragSource = taskDragSource,
+                closeVelocity = closeVelocity
+            )
+        ) {
+            hookedCount++
+        }
+        if (hookedCount == 0) {
+            logger.warn("No A17 task positioner available; fast-drag close and fullscreen skipped")
+        }
+    }
+
+    private fun installA17PositionerEnd(
+        loader: ClassLoader,
+        className: String,
+        hookId: String,
+        spec: PositionerFieldSpec,
+        getTaskInfo: Method,
+        controllerOrganizerField: Field?,
+        taskDragSource: Any?,
+        closeVelocity: Float
+    ): Boolean {
+        val positionerClass = runCatching { loader.loadClass(className) }.getOrNull() ?: return false
+        val ctrlField = field(positionerClass, spec.ctrlName) ?: return false
+        val decorationField = field(positionerClass, spec.decorationName) ?: return false
+        val boundsField = field(positionerClass, spec.boundsName) ?: return false
+        val transitionsField = field(positionerClass, spec.transitionsName) ?: return false
+        val organizerField = spec.organizerName?.let { optionalField(positionerClass, it) }
+        val controllerField = optionalField(positionerClass, spec.controllerName)
+        val dragExecutorField = spec.dragExecutorName?.let { optionalField(positionerClass, it) }
+        val startBoundsField = optionalField(positionerClass, spec.dragStartBoundsName)
+        val startPointField = optionalField(positionerClass, spec.dragStartPointName)
+        val movedOffScreenField = spec.movedOffScreenName?.let { optionalField(positionerClass, it) }
+        val endMethod = resolveDragEndMethod(positionerClass) ?: return false
+
+        hookWithId(endMethod, hookId) { chain ->
+            try {
+                val positioner = chain.thisObject ?: return@hookWithId chain.proceed()
+                val ctrlType = ctrlField.getInt(positioner)
+                val decoration = decorationField.get(positioner)
+                val taskInfo = decoration?.let {
+                    runCatching { getTaskInfo.invoke(it) }.getOrNull()
+                } as? ActivityManager.RunningTaskInfo
+                val rawBounds = readBounds(boundsField, positioner)
+                val scaleAdjustment = resolveUniformScaleAdjustment(
+                    dragExecutor = dragExecutorField?.get(positioner),
+                    fallbackBounds = rawBounds
+                )
+                val controller = resolveController(positioner, controllerField)
+                val organizer = organizerField?.get(positioner)
+                    ?: controller?.let { controllerOrganizerField?.get(it) }
+                val transitions = transitionsField.get(positioner)
+                handleFastEndAction(
+                    positioner = positioner,
+                    ctrlType = ctrlType,
+                    decoration = decoration,
+                    taskInfo = taskInfo,
+                    bounds = scaleAdjustment.bounds,
+                    fullscreenScale = scaleAdjustment.scale,
+                    skipCommitBounds = scaleAdjustment.isUniformScale,
+                    organizer = organizer,
+                    transitions = transitions,
+                    controller = controller,
+                    taskDragSource = taskDragSource,
+                    closeVelocity = closeVelocity,
+                    resetVeil = {
+                        resetResizeVeil(positioner, spec.resetVeilMethodName, decoration)
+                    },
+                    resetDragState = {
+                        ctrlField.setInt(positioner, 0)
+                        (startBoundsField?.get(positioner) as? Rect)?.setEmpty()
+                        (startPointField?.get(positioner) as? PointF)?.set(0f, 0f)
+                        movedOffScreenField?.setBoolean(positioner, false)
+                    }
+                )?.let { return@hookWithId it }
+            } catch (t: Throwable) {
+                logger.error("Freeform bottom edge velocity close failed ($className)", t)
+            }
+            chain.proceed()
+        }
+        return true
+    }
+
+    private fun installResizeTaskPositionerEnd(
+        loader: ClassLoader,
+        getTaskInfo: Method,
+        controllerOrganizerField: Field?,
+        taskDragSource: Any?,
+        closeVelocity: Float
+    ): Boolean {
+        val positionerClass = runCatching {
+            loader.loadClass(RESIZE_POSITIONER_CLASS)
+        }.getOrNull() ?: return false
+        val sessionClass = loadClass(loader, DRAG_SESSION_CLASS) ?: return false
+        val sessionField = field(positionerClass, "dragSession") ?: return false
+        val transitionsField = field(positionerClass, "transitions") ?: return false
+        val controllerField = optionalField(positionerClass, "desktopTasksController")
+        val taskResizerField = optionalField(positionerClass, "taskResizer")
+        val sessionCtrlField = field(sessionClass, "ctrlType") ?: return false
+        val sessionDecorationField = field(sessionClass, "windowDecoration") ?: return false
+        val sessionBoundsField = field(sessionClass, "repositionTaskBounds") ?: return false
+        val endMethod = resolveDragEndMethod(positionerClass) ?: return false
+
+        hookWithId(endMethod, "freeform_bottom_velocity_close_resize") { chain ->
+            try {
+                val positioner = chain.thisObject ?: return@hookWithId chain.proceed()
+                val session = sessionField.get(positioner) ?: return@hookWithId chain.proceed()
+                val ctrlType = sessionCtrlField.getInt(session)
+                val decoration = sessionDecorationField.get(session)
+                val taskInfo = decoration?.let {
+                    runCatching { getTaskInfo.invoke(it) }.getOrNull()
+                } as? ActivityManager.RunningTaskInfo
+                val bounds = readBounds(sessionBoundsField, session)
+                val controller = resolveController(positioner, controllerField)
+                val organizer = controller?.let { controllerOrganizerField?.get(it) }
+                val transitions = transitionsField.get(positioner)
+                val taskResizer = taskResizerField?.get(positioner)
+                handleFastEndAction(
+                    positioner = positioner,
+                    ctrlType = ctrlType,
+                    decoration = decoration,
+                    taskInfo = taskInfo,
+                    bounds = bounds,
+                    fullscreenScale = 0f,
+                    skipCommitBounds = false,
+                    organizer = organizer,
+                    transitions = transitions,
+                    controller = controller,
+                    taskDragSource = taskDragSource,
+                    closeVelocity = closeVelocity,
+                    resetVeil = {
+                        cleanupResizeSession(taskResizer, session, decoration)
+                    },
+                    resetDragState = {
+                        sessionField.set(positioner, null)
+                    }
+                )?.let { return@hookWithId it }
+            } catch (t: Throwable) {
+                logger.error("Freeform bottom edge velocity close failed ($RESIZE_POSITIONER_CLASS)", t)
+            }
+            chain.proceed()
+        }
+        return true
+    }
+
+    private fun resolveDragEndMethod(positionerClass: Class<*>): Method? =
+        try {
+            findMethod(
+                positionerClass,
+                "onDragPositioningEnd",
+                Int::class.javaPrimitiveType,
+                Float::class.javaPrimitiveType,
+                Float::class.javaPrimitiveType
+            )
+        } catch (t: Throwable) {
+            logger.error("${positionerClass.simpleName}.onDragPositioningEnd not found", t)
+            null
+        }
+
+    private fun handleFastEndAction(
+        positioner: Any,
+        ctrlType: Int,
+        decoration: Any?,
+        taskInfo: ActivityManager.RunningTaskInfo?,
+        bounds: Rect?,
+        fullscreenScale: Float,
+        skipCommitBounds: Boolean,
+        organizer: Any?,
+        transitions: Any?,
+        controller: Any?,
+        taskDragSource: Any?,
+        closeVelocity: Float,
+        resetVeil: () -> Unit,
+        resetDragState: () -> Unit
+    ): Rect? {
+        val velocity = taskInfo?.let { velocityByTaskId.remove(it.taskId) } ?: 0f
+        logger.info(
+            "Freeform bottom edge end: taskId=${taskInfo?.taskId}, " +
+                "ctrlType=0x${Integer.toHexString(ctrlType)}, " +
+                "velocity=${velocity.toInt()}px/s, bounds=$bounds"
+        )
+        if ((ctrlType and CTRL_TYPE_PROPORTIONAL_FLAG) == 0 ||
+            taskInfo == null ||
+            abs(velocity) < closeVelocity
+        ) {
+            return null
+        }
+        if (!skipCommitBounds) {
+            commitBounds(organizer, taskInfo, bounds)
+        }
+        if (velocity > 0f) {
+            if (fullscreenTask(
+                    positioner = positioner,
+                    controllerOverride = controller,
+                    taskInfo = taskInfo,
+                    taskDragSource = taskDragSource,
+                    bounds = bounds,
+                    scale = fullscreenScale
+                )
+            ) {
+                logger.info(
+                    "Freeform bottom edge fast drag fullscreens task: " +
+                        "taskId=${taskInfo.taskId}, velocity=${velocity.toInt()}px/s"
+                )
+                releaseBlackVeil(decoration)
+                Handler(Looper.getMainLooper()).postDelayed(resetVeil, 250L)
+                resetDragState()
+                return bounds ?: Rect()
+            }
+        } else {
+            releaseBlackVeil(decoration)
+            if (closeTask(taskInfo, transitions, bounds)) {
+                logger.info(
+                    "Freeform bottom edge fast drag closes task: " +
+                        "taskId=${taskInfo.taskId}, velocity=${velocity.toInt()}px/s"
+                )
+                resetDragState()
+                // The task teardown releases the veil surfaces; hiding it here
+                // after removal would touch released SurfaceControls.
+                return bounds ?: Rect()
+            }
+        }
+        return null
+    }
+
+    private fun resolveUniformScaleAdjustment(
+        dragExecutor: Any?,
+        fallbackBounds: Rect?
+    ): ScaleAdjustment {
+        if (dragExecutor == null || dragExecutor.javaClass.name != UNIFORM_SCALE_EXECUTOR_CLASS) {
+            return ScaleAdjustment(fallbackBounds, 0f, isUniformScale = false)
+        }
+        val tmpBounds = readRectField(dragExecutor, "mTmpRescaleSurfaceBounds")
+        val rescaledBounds = readRectField(dragExecutor, "mRescaleSurfaceBounds")
+        val initBounds = readRectField(dragExecutor, "mInitTaskBounds")
+        val lastScale = runCatching {
+            findField(dragExecutor.javaClass, "mLastScale").getFloat(dragExecutor)
+        }.getOrDefault(0f)
+        val visualBounds = when {
+            tmpBounds != null && !tmpBounds.isEmpty -> tmpBounds
+            rescaledBounds != null && !rescaledBounds.isEmpty -> rescaledBounds
+            else -> fallbackBounds
+        }
+        val scale = if (
+            visualBounds != null &&
+            !visualBounds.isEmpty &&
+            initBounds != null &&
+            initBounds.width() > 0
+        ) {
+            visualBounds.width().toFloat() / initBounds.width().toFloat()
+        } else {
+            lastScale
+        }
+        return ScaleAdjustment(visualBounds, scale, isUniformScale = true)
+    }
+
+    private fun readRectField(target: Any, name: String): Rect? =
+        runCatching { findField(target.javaClass, name).get(target) as? Rect }.getOrNull()
+
+    private fun resolveController(positioner: Any, controllerField: Field?): Any? {
+        runCatching {
+            positioner.javaClass.methods.firstOrNull {
+                it.name == "ovGetDesktopTasksController" && it.parameterTypes.isEmpty()
+            }?.invoke(positioner)
+        }.getOrNull()?.let { return it }
+        return runCatching { controllerField?.get(positioner) }.getOrNull()
     }
 
     private fun readBounds(field: Field, target: Any): Rect? =
@@ -313,62 +649,125 @@ class FreeformBottomEdgeResizeHook : AppHookModule() {
             null
         }
 
-    private fun hideVeilAfter(positioner: Any, delayMs: Long) {
-        Handler(Looper.getMainLooper()).postDelayed(
-            { resetResizeVeil(positioner) },
-            delayMs
-        )
-    }
-
-    private fun resetResizeVeil(positioner: Any) {
+    private fun resetResizeVeil(positioner: Any, methodName: String, decoration: Any?) {
         try {
             val reset = positioner.javaClass.methods.firstOrNull {
-                it.name == "resetVeilIfVisible$2" && it.parameterTypes.isEmpty()
+                it.name == methodName && it.parameterTypes.isEmpty()
             }
             if (reset != null) {
                 reset.isAccessible = true
                 reset.invoke(positioner)
                 logger.debug("Freeform bottom edge resize veil reset")
-            } else {
-                logger.warn("resetVeilIfVisible$2 not found")
+                return
             }
+            if (hideDecorationResizeVeil(decoration)) {
+                return
+            }
+            logger.warn("$methodName not found")
         } catch (t: Throwable) {
             logger.warn("Failed to reset resize veil: ${t.message}")
         }
     }
 
+    private fun cleanupResizeSession(taskResizer: Any?, session: Any, decoration: Any?) {
+        try {
+            val cleanup = taskResizer?.javaClass?.methods?.firstOrNull {
+                it.name == "cleanup" && it.parameterTypes.size == 1
+            }
+            if (cleanup != null) {
+                cleanup.isAccessible = true
+                cleanup.invoke(taskResizer, session)
+                return
+            }
+        } catch (t: Throwable) {
+            logger.warn("Failed to cleanup resize session: ${t.message}")
+        }
+        hideDecorationResizeVeil(decoration)
+    }
+
+    private fun hideDecorationResizeVeil(decoration: Any?): Boolean {
+        if (decoration == null) return false
+        return try {
+            val hide = decoration.javaClass.methods.firstOrNull {
+                it.name == "hideResizeVeil" && it.parameterTypes.isEmpty()
+            } ?: return false
+            hide.isAccessible = true
+            hide.invoke(decoration)
+            true
+        } catch (t: Throwable) {
+            logger.warn("Failed to hide resize veil on decoration: ${t.message}")
+            false
+        }
+    }
+
+    private fun releaseBlackVeil(decoration: Any?) {
+        if (decoration == null) return
+        try {
+            val release = decoration.javaClass.methods.firstOrNull {
+                it.name == "ovfReleaseBlackVeil" && it.parameterTypes.isEmpty()
+            } ?: return
+            release.isAccessible = true
+            release.invoke(decoration)
+        } catch (t: Throwable) {
+            logger.warn("Failed to release black veil: ${t.message}")
+        }
+    }
+
     private fun fullscreenTask(
         positioner: Any,
+        controllerOverride: Any?,
         taskInfo: ActivityManager.RunningTaskInfo,
-        taskDragSource: Any?
+        taskDragSource: Any?,
+        bounds: Rect?,
+        scale: Float
     ): Boolean {
         return try {
             logger.info("Fullscreen attempt: taskId=${taskInfo.taskId}")
-            if (taskDragSource == null) {
-                logger.warn("Fullscreen transition source is null")
-                return false
-            }
-            val controllerAccessor = positioner.javaClass.methods.firstOrNull {
-                it.name == "ovGetDesktopTasksController" && it.parameterTypes.isEmpty()
-            }
-            if (controllerAccessor == null) {
-                logger.warn("ovGetDesktopTasksController not found on ${positioner.javaClass.name}")
-                return false
-            }
-            val controller = controllerAccessor.invoke(positioner)
+            val controller = controllerOverride ?: resolveController(positioner, null)
             if (controller == null) {
                 logger.warn("DesktopTasksController is null for task ${taskInfo.taskId}")
                 return false
             }
-            val moveToFullscreen = controller.javaClass.methods.firstOrNull {
-                it.name == "moveToFullscreen" && it.parameterTypes.size == 2
+            val methods = controller.javaClass.methods.filter { it.name == "moveToFullscreen" }
+            val a17BoundsMethod = methods.firstOrNull {
+                val params = it.parameterTypes
+                params.size == 3 &&
+                    params[0] == Float::class.javaPrimitiveType &&
+                    params[1] == Int::class.javaPrimitiveType &&
+                    params[2] == Rect::class.java
             }
-            if (moveToFullscreen == null) {
+            if (a17BoundsMethod != null && bounds != null && !bounds.isEmpty) {
+                a17BoundsMethod.isAccessible = true
+                a17BoundsMethod.invoke(controller, scale, taskInfo.taskId, Rect(bounds))
+                logger.info("Fullscreen requested (bounds): taskId=${taskInfo.taskId}")
+                return true
+            }
+            if (taskDragSource == null) {
+                logger.warn("Fullscreen transition source is null")
+                return false
+            }
+            val a17SourceMethod = methods.firstOrNull {
+                val params = it.parameterTypes
+                params.size == 4 &&
+                    params[0] == Int::class.javaPrimitiveType &&
+                    params[3] == Boolean::class.javaPrimitiveType
+            }
+            if (a17SourceMethod != null) {
+                a17SourceMethod.isAccessible = true
+                a17SourceMethod.invoke(controller, taskInfo.taskId, taskDragSource, null, true)
+                logger.info("Fullscreen requested (source4): taskId=${taskInfo.taskId}")
+                return true
+            }
+            val legacyMethod = methods.firstOrNull {
+                val params = it.parameterTypes
+                params.size == 2 && params[0] == Int::class.javaPrimitiveType
+            }
+            if (legacyMethod == null) {
                 logger.warn("moveToFullscreen not found on ${controller.javaClass.name}")
                 return false
             }
-            moveToFullscreen.isAccessible = true
-            moveToFullscreen.invoke(controller, taskInfo.taskId, taskDragSource)
+            legacyMethod.isAccessible = true
+            legacyMethod.invoke(controller, taskInfo.taskId, taskDragSource)
             logger.info("Fullscreen requested: taskId=${taskInfo.taskId}")
             true
         } catch (t: Throwable) {
@@ -378,12 +777,12 @@ class FreeformBottomEdgeResizeHook : AppHookModule() {
     }
 
     private fun commitBounds(
-        positioner: Any,
+        organizer: Any?,
         taskInfo: ActivityManager.RunningTaskInfo,
-        bounds: Rect?,
-        organizerField: Field?
+        bounds: Rect?
     ): Boolean {
-        return bounds != null && try {
+        if (organizer == null || bounds == null || bounds.isEmpty) return false
+        return try {
             val transactionClass = Class.forName("android.window.WindowContainerTransaction")
             val tokenClass = Class.forName("android.window.WindowContainerToken")
             val token = taskToken(taskInfo) ?: return false
@@ -391,7 +790,6 @@ class FreeformBottomEdgeResizeHook : AppHookModule() {
             transactionClass
                 .getMethod("setBounds", tokenClass, Rect::class.java)
                 .invoke(transaction, token, Rect(bounds))
-            val organizer = organizerField?.get(positioner) ?: return false
             val apply = organizer.javaClass.methods.firstOrNull {
                 it.name == "applyTransaction" && it.parameterTypes.size == 1
             } ?: return false
@@ -406,9 +804,8 @@ class FreeformBottomEdgeResizeHook : AppHookModule() {
     }
 
     private fun closeTask(
-        positioner: Any,
         taskInfo: ActivityManager.RunningTaskInfo,
-        transitionsField: Field,
+        transitions: Any?,
         bounds: Rect?
     ): Boolean {
         try {
@@ -448,7 +845,6 @@ class FreeformBottomEdgeResizeHook : AppHookModule() {
             logger.error("Failed to build removeTask transaction", t)
             return false
         }
-        val transitions = transitionsField.get(positioner)
         if (transitions != null) {
             try {
                 val start = transitions.javaClass.methods.firstOrNull {
@@ -510,11 +906,46 @@ class FreeformBottomEdgeResizeHook : AppHookModule() {
             null
         }
 
+    private fun optionalField(owner: Class<*>, name: String): Field? =
+        runCatching { findField(owner, name) }.getOrNull()
+
+    private class PositionerFieldSpec(
+        val ctrlName: String,
+        val decorationName: String,
+        val boundsName: String,
+        val transitionsName: String,
+        val organizerName: String?,
+        val controllerName: String,
+        val dragExecutorName: String?,
+        val dragStartBoundsName: String,
+        val dragStartPointName: String,
+        val movedOffScreenName: String?,
+        val resetVeilMethodName: String
+    )
+
+    private class ScaleAdjustment(
+        val bounds: Rect?,
+        val scale: Float,
+        val isUniformScale: Boolean
+    )
+
     private companion object {
         const val GEOMETRY_CLASS = "com.android.wm.shell.windowdecor.DragResizeWindowGeometry"
         const val INJECTOR_CLASS = "com.android.wm.shell.windowdecor.OvfDriListenerInjector"
         const val POSITIONER_CLASS = "com.android.wm.shell.windowdecor.VeiledResizeTaskPositioner"
         const val DECORATION_CLASS = "com.android.wm.shell.windowdecor.DesktopModeWindowDecoration"
+        const val WRAPPER_CLASS = "com.android.wm.shell.windowdecor.WindowDecorationWrapper"
+        const val MULTI_DISPLAY_POSITIONER_CLASS =
+            "com.android.wm.shell.windowdecor.MultiDisplayVeiledResizeTaskPositioner"
+        const val SCALE_POSITIONER_CLASS =
+            "com.android.wm.shell.windowdecor.scale.OvfScaleTaskPositionerDecorator"
+        const val RESIZE_POSITIONER_CLASS =
+            "com.android.wm.shell.windowdecor.ResizeTaskPositioner"
+        const val DRAG_SESSION_CLASS = "com.android.wm.shell.windowdecor.DragSession"
+        const val UNIFORM_SCALE_EXECUTOR_CLASS =
+            "com.android.wm.shell.windowdecor.scale.OvfUniformScaleDragExecutor"
+        const val DESKTOP_TASKS_CONTROLLER_CLASS =
+            "com.android.wm.shell.desktopmode.DesktopTasksController"
         const val TRANSITION_SOURCE_CLASS =
             "com.android.wm.shell.shared.desktopmode.DesktopModeTransitionSource"
         const val CTRL_TYPE_BOTTOM = 8
