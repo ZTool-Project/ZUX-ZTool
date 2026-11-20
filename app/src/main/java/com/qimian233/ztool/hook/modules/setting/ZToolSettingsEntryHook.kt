@@ -12,6 +12,7 @@ import com.qimian233.ztool.data.keys.PreferenceKeys
 import com.qimian233.ztool.hook.base.AppHookModule
 import io.github.libxposed.api.XposedModuleInterface.PackageLoadedParam
 import java.lang.reflect.Constructor
+import java.lang.reflect.Method
 
 @SuppressLint("PrivateApi")
 class ZToolSettingsEntryHook : AppHookModule() {
@@ -23,14 +24,15 @@ class ZToolSettingsEntryHook : AppHookModule() {
         val classLoader = param.defaultClassLoader
         try {
             logger.info("Installing hook.")
-            // TopLevelSettings inherits DashboardFragment.onCreatePreferences; hooking it via
-            // findMethod injects into every DashboardFragment subpage. onCreate runs after super populates PreferenceScreen.
             val topLevelSettingsClass = classLoader.loadClass(TARGET_CLASS)
-            val m = topLevelSettingsClass.getDeclaredMethod("onCreate", Bundle::class.java)
-            hookWithId(m, "ztool_settings_entry_on_create") { chain ->
+            val (targetMethod, hookId) = resolveHookTarget(topLevelSettingsClass)
+            hookWithId(targetMethod, hookId) { chain ->
+                val target = chain.thisObject
+                if (target == null || !topLevelSettingsClass.isInstance(target)) {
+                    return@hookWithId chain.proceed()
+                }
                 val result = chain.proceed()
                 try {
-                    val target = chain.thisObject ?: return@hookWithId result
                     val getPrefScreen = findMethod(target.javaClass, "getPreferenceScreen")
                     val screen = getPrefScreen.invoke(target) ?: return@hookWithId result
 
@@ -97,14 +99,47 @@ class ZToolSettingsEntryHook : AppHookModule() {
                 }
                 result
             }
-            logger.info("Successfully installed hook.")
+            logger.info(
+                "Successfully installed hook on ${targetMethod.declaringClass.simpleName}.${targetMethod.name}."
+            )
         } catch (t: Throwable) {
-            logger.error("Failed to hook TopLevelSettings.onCreate", t)
+            logger.error("Failed to hook TopLevelSettings", t)
         }
+    }
+
+    private fun resolveHookTarget(topLevelSettingsClass: Class<*>): Pair<Method, String> {
+        // Prefer TopLevelSettings.onCreatePreferences (Android 16 and earlier); fall back to
+        // TopLevelSettings.onCreate (Android 17+), then inherited onCreatePreferences with an instance guard.
+        try {
+            return topLevelSettingsClass.getDeclaredMethod(
+                "onCreatePreferences",
+                Bundle::class.java,
+                String::class.java
+            ) to HOOK_ID_ON_CREATE_PREFERENCES
+        } catch (_: NoSuchMethodException) {
+        }
+        try {
+            return topLevelSettingsClass.getDeclaredMethod(
+                "onCreate",
+                Bundle::class.java
+            ) to HOOK_ID_ON_CREATE
+        } catch (_: NoSuchMethodException) {
+        }
+        logger.warn("TopLevelSettings declares neither onCreatePreferences nor onCreate; falling back to superclass onCreatePreferences.")
+        return findMethod(
+            topLevelSettingsClass,
+            "onCreatePreferences",
+            Bundle::class.java,
+            String::class.java
+        ) to HOOK_ID_ON_CREATE_PREFERENCES_FALLBACK
     }
 
     companion object {
         private const val TARGET_CLASS = "com.android.settings.homepage.TopLevelSettings"
+        private const val HOOK_ID_ON_CREATE_PREFERENCES = "ztool_settings_entry_on_create_preferences"
+        private const val HOOK_ID_ON_CREATE = "ztool_settings_entry_on_create"
+        private const val HOOK_ID_ON_CREATE_PREFERENCES_FALLBACK =
+            "ztool_settings_entry_on_create_preferences_fallback"
         private const val ENTRY_KEY = "ztool_settings_entry"
         private const val CATEGORY_KEY = "ztool_settings_category"
         private const val APP_PACKAGE = "com.qimian233.ztool"
