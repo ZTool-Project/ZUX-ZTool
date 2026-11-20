@@ -3,6 +3,7 @@ package com.qimian233.ztool.screens.freeform
 import android.app.AppOpsManager
 import android.app.Dialog
 import android.content.Intent
+import android.os.Build
 import android.provider.Settings
 import android.view.ViewGroup
 import android.widget.Toast
@@ -449,6 +450,7 @@ fun FreeformHubSettingsRoute(
             state = uiState,
             onBack = onBack,
             onRemoveBlacklistChanged = viewModel::setRemoveBlacklist,
+            onUnlockOvCommonAppListChanged = viewModel::setUnlockOvCommonAppList,
             onModuleEnabledChanged = ::handleModuleSwitch,
             onStartFloatingWindow = ::startFloatingWindow,
             onOpenConfigSelection = {
@@ -548,6 +550,7 @@ private fun FreeformHubSettingsScreen(
     state: FreeformHubUiState,
     onBack: () -> Unit,
     onRemoveBlacklistChanged: (Boolean) -> Unit,
+    onUnlockOvCommonAppListChanged: (Boolean) -> Unit,
     onModuleEnabledChanged: (Boolean) -> Unit,
     onStartFloatingWindow: () -> Unit,
     onOpenConfigSelection: () -> Unit,
@@ -612,6 +615,7 @@ private fun FreeformHubSettingsScreen(
                     sections = freeformHubSections(
                         state = state,
                         onRemoveBlacklistChanged = onRemoveBlacklistChanged,
+                        onUnlockOvCommonAppListChanged = onUnlockOvCommonAppListChanged,
                         onModuleEnabledChanged = onModuleEnabledChanged,
                         onStartFloatingWindow = onStartFloatingWindow,
                         onOpenConfigSelection = onOpenConfigSelection,
@@ -646,6 +650,7 @@ private fun FreeformHubSettingsScreen(
 private fun freeformHubSections(
     state: FreeformHubUiState,
     onRemoveBlacklistChanged: (Boolean) -> Unit,
+    onUnlockOvCommonAppListChanged: (Boolean) -> Unit,
     onModuleEnabledChanged: (Boolean) -> Unit,
     onStartFloatingWindow: () -> Unit,
     onOpenConfigSelection: () -> Unit,
@@ -726,43 +731,52 @@ private fun freeformHubSections(
                     }
                 ),
                 items = if (state.showZuiForceConfig) {
+                    val forceConfigEditorSupported = Build.VERSION.SDK_INT <= Build.VERSION_CODES.BAKLAVA
+                    val forceConfigNativeSummary =
+                        stringResource(R.string.settings_zui_force_config_native_summary)
                     buildList {
-                        add(
-                            SettingItem.Custom(
-                                key = "deco_freeform_hub_force_config_summary",
-                                content = {
-                                    Text(
-                                        text = stringResource(R.string.settings_zui_force_config_summary),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = LocalZToolColorScheme.current.onSurfaceVariant,
-                                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
-                                    )
-                                }
-                            )
-                        )
-                        if (state.forceFreeformEntryHookEnabled) {
+                        if (forceConfigEditorSupported) {
                             add(
                                 SettingItem.Custom(
-                                    key = "deco_freeform_hub_force_config_hook_warning",
+                                    key = "deco_freeform_hub_force_config_summary",
                                     content = {
                                         Text(
-                                            text = stringResource(R.string.settings_zui_force_config_hook_warning),
+                                            text = stringResource(R.string.settings_zui_force_config_summary),
                                             style = MaterialTheme.typography.bodySmall,
                                             color = LocalZToolColorScheme.current.onSurfaceVariant,
-                                            modifier = Modifier.padding(
-                                                horizontal = 24.dp,
-                                                vertical = 8.dp
-                                            )
+                                            modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
                                         )
                                     }
                                 )
                             )
+                            if (state.forceFreeformEntryHookEnabled) {
+                                add(
+                                    SettingItem.Custom(
+                                        key = "deco_freeform_hub_force_config_hook_warning",
+                                        content = {
+                                            Text(
+                                                text = stringResource(
+                                                    R.string.settings_zui_force_config_hook_warning
+                                                ),
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = LocalZToolColorScheme.current.onSurfaceVariant,
+                                                modifier = Modifier.padding(
+                                                    horizontal = 24.dp,
+                                                    vertical = 8.dp
+                                                )
+                                            )
+                                        }
+                                    )
+                                )
+                            }
                         }
                         add(
                             freeformHubActionItem(
                                 key = "settings_detail_zui_force_split",
                                 title = stringResource(R.string.settings_zui_force_split_title),
                                 summary = stringResource(R.string.settings_zui_force_split_summary),
+                                maxSdkVersion = Build.VERSION_CODES.BAKLAVA,
+                                unsupportedHint = forceConfigNativeSummary,
                                 onClick = onZuiForceSplit
                             )
                         )
@@ -771,6 +785,8 @@ private fun freeformHubSections(
                                 key = "settings_detail_zui_force_freeform",
                                 title = stringResource(R.string.settings_zui_force_freeform_title),
                                 summary = stringResource(R.string.settings_zui_force_freeform_summary),
+                                maxSdkVersion = Build.VERSION_CODES.BAKLAVA,
+                                unsupportedHint = forceConfigNativeSummary,
                                 onClick = onZuiForceFreeform
                             )
                         )
@@ -779,7 +795,19 @@ private fun freeformHubSections(
                                 key = "settings_detail_zui_force_fixed",
                                 title = stringResource(R.string.settings_zui_force_fixed_title),
                                 summary = stringResource(R.string.settings_zui_force_fixed_summary),
+                                maxSdkVersion = Build.VERSION_CODES.BAKLAVA,
+                                unsupportedHint = forceConfigNativeSummary,
                                 onClick = onZuiForceFixed
+                            )
+                        )
+                        add(
+                            SettingItem.Switch(
+                                key = "settings_detail_unlock_ov_common_app_list",
+                                title = stringResource(R.string.settings_unlock_ov_common_app_list_title),
+                                summary = stringResource(R.string.settings_unlock_ov_common_app_list_summary),
+                                checked = state.unlockOvCommonAppList,
+                                onCheckedChange = onUnlockOvCommonAppListChanged,
+                                minSdkVersion = Build.VERSION_CODES.BAKLAVA
                             )
                         )
                         add(
@@ -842,14 +870,16 @@ private fun freeformHubSections(
                             title = stringResource(R.string.settings_float_app_mandatory),
                             summary = stringResource(R.string.settings_float_app_mandatory_summary),
                             checked = state.floatMandatory,
-                            onCheckedChange = onFloatMandatoryChanged
+                            onCheckedChange = onFloatMandatoryChanged,
+                            maxSdkVersion = Build.VERSION_CODES.BAKLAVA
                         ),
                         SettingItem.Switch(
                             key = "settings_detail_split_screen_mandatory",
                             title = stringResource(R.string.settings_split_screen_mandatory_title),
                             summary = stringResource(R.string.settings_split_screen_mandatory_summary),
                             checked = state.splitScreenMandatory,
-                            onCheckedChange = onSplitScreenMandatoryChanged
+                            onCheckedChange = onSplitScreenMandatoryChanged,
+                            maxSdkVersion = Build.VERSION_CODES.BAKLAVA
                         )
                     )
                 }
@@ -1010,12 +1040,18 @@ private fun freeformHubActionItem(
     summary: String,
     onClick: () -> Unit,
     key: String,
+    minSdkVersion: Int? = null,
+    maxSdkVersion: Int? = null,
+    unsupportedHint: String? = null,
     icon: (@Composable () -> Unit)? = null
 ): SettingItem {
     return SettingItem.Action(
         key = key,
         title = title,
         summary = summary,
+        minSdkVersion = minSdkVersion,
+        maxSdkVersion = maxSdkVersion,
+        unsupportedHint = unsupportedHint,
         onClick = onClick,
         trailingContent = {
             if (icon != null) {

@@ -1,26 +1,28 @@
 package com.qimian233.ztool.hook.modules.systemframework
 
 import android.annotation.SuppressLint
+import android.os.Build
+import com.qimian233.ztool.data.keys.PreferenceKeys
 import com.qimian233.ztool.data.keys.ScopeKeys
 import com.qimian233.ztool.hook.base.SystemHookModule
 import io.github.libxposed.api.XposedModuleInterface
 import java.util.HashMap
 
 /**
- * Forced split screen hook module (system framework side).
- *
- * Clears the split screen blacklist through `OneModeService.initLocalBlackList` on ZUXOS 2.0
- * and older; ZUXOS 2.5 (Android 17) removed that service from system_server, so the module
- * logs one warning and skips instead of failing.
- * Shares the preference key `Split_Screen_mandatory` with the settings side.
+ * Legacy forced split-screen blacklist hook via `OneModeService.initLocalBlackList`.
+ * Retired on Android 17+ (> API 36); `OneModeService` was already removed in ZUXOS 2.0+.
  */
 @SuppressLint("PrivateApi")
 class SplitScreenMandatory : SystemHookModule() {
-    override fun getModuleName(): String = "Split_Screen_mandatory"
+    override fun getModuleName(): String = PreferenceKeys.SPLIT_SCREEN_MANDATORY.name
 
     override fun getTargetPackages(): Array<out String> = arrayOf(ScopeKeys.SYSTEM_SERVER.packageName)
 
     override fun handleSystemServerStarting(param: XposedModuleInterface.SystemServerStartingParam) {
+        if (Build.VERSION.SDK_INT > Build.VERSION_CODES.BAKLAVA) {
+            logger.info("SplitScreenMandatory skipped on API ${Build.VERSION.SDK_INT} (> 36)")
+            return
+        }
         val classLoader = param.classLoader
         val oneModeServiceClass = LEGACY_ONE_MODE_SERVICES.firstNotNullOfOrNull { className ->
             runCatching { classLoader.loadClass(className) }.getOrNull()

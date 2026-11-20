@@ -47,6 +47,10 @@ class SettingsDetailRepository(
             showZuiForceConfig = Build.VERSION.SDK_INT >= 36,
             forceFreeformEntryHookEnabled =
                 prefsUtils.loadBooleanSetting(KEY_LAUNCHER_FORCE_FREEFORM_ENTRY, false),
+            unlockOvCommonAppList = prefsUtils.loadBooleanSetting(
+                KEY_UNLOCK_OV_COMMON_APP_LIST,
+                PreferenceKeys.UNLOCK_OV_COMMON_APP_LIST.default
+            ),
             edgeBubbleEnabled =
                 prefsUtils.loadBooleanSetting(KEY_FREEFORM_EDGE_BUBBLE, false),
             edgeBubbleTriggerPercent = edgeBubbleTriggerPercent(),
@@ -101,6 +105,10 @@ class SettingsDetailRepository(
 
     fun saveRemoveBlacklist(enabled: Boolean) {
         prefsUtils.saveBooleanSetting(KEY_REMOVE_BLACKLIST, enabled)
+    }
+
+    fun saveUnlockOvCommonAppList(enabled: Boolean) {
+        prefsUtils.saveBooleanSetting(KEY_UNLOCK_OV_COMMON_APP_LIST, enabled)
     }
 
     fun saveForceResizableActivities(enabled: Boolean) {
@@ -298,6 +306,7 @@ class SettingsDetailRepository(
         private val KEY_APP_DETAILS = PreferenceKeys.APP_DETAILS.name
         private val KEY_SETTINGS_APP_ICON_UNMASK = PreferenceKeys.SETTINGS_APP_ICON_UNMASK.name
         private val KEY_LAUNCHER_FORCE_FREEFORM_ENTRY = PreferenceKeys.LAUNCHER_FORCE_FREEFORM_ENTRY.name
+        private val KEY_UNLOCK_OV_COMMON_APP_LIST = PreferenceKeys.UNLOCK_OV_COMMON_APP_LIST.name
         private val KEY_FREEFORM_EDGE_BUBBLE = PreferenceKeys.FREEFORM_EDGE_BUBBLE.name
         private val KEY_FREEFORM_EDGE_BUBBLE_TRIGGER_PERCENT =
             PreferenceKeys.FREEFORM_EDGE_BUBBLE_TRIGGER_PERCENT.name

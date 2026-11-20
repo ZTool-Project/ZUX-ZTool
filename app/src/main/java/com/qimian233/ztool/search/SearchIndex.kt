@@ -1128,6 +1128,11 @@ object SearchIndex {
             summaryRes = R.string.settings_zui_force_fixed_summary
         ),
         freeformHub.item(
+            id = "settings_detail_unlock_ov_common_app_list",
+            titleRes = R.string.settings_unlock_ov_common_app_list_title,
+            summaryRes = R.string.settings_unlock_ov_common_app_list_summary
+        ),
+        freeformHub.item(
             id = "settings_detail_float_app_mandatory",
             titleRes = R.string.settings_float_app_mandatory,
             summaryRes = R.string.settings_float_app_mandatory_summary

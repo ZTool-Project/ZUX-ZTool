@@ -37,6 +37,11 @@ class FreeformHubViewModel(
         repository.saveRemoveBlacklist(enabled)
     }
 
+    fun setUnlockOvCommonAppList(enabled: Boolean) {
+        _uiState.value = _uiState.value.copy(unlockOvCommonAppList = enabled)
+        repository.saveUnlockOvCommonAppList(enabled)
+    }
+
     fun setModuleEnabled(
         enabled: Boolean,
         onResult: (SettingsDetailModuleResult) -> Unit
@@ -239,6 +244,7 @@ data class FreeformHubUiState(
     val moduleEnabled: Boolean = false,
     val showZuiForceConfig: Boolean = Build.VERSION.SDK_INT >= 36,
     val forceFreeformEntryHookEnabled: Boolean = false,
+    val unlockOvCommonAppList: Boolean = false,
     val edgeBubbleEnabled: Boolean = false,
     val edgeBubbleTriggerPercent: Int = FreeformEdgeBubbleConfig.TRIGGER_PERCENT_DEFAULT,
     val floatMandatory: Boolean = false,

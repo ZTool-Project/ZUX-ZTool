@@ -1,5 +1,6 @@
 package com.qimian233.ztool.screens.freeformbar
 
+import android.os.Build
 import android.widget.Toast
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.Column
@@ -229,10 +230,14 @@ private fun freeformBarSettingsSections(
                         summary = stringResource(R.string.freeform_sidebar_drawer_enhance_summary),
                         checked = state.enhanceEnabled,
                         onCheckedChange = onEnhanceChanged,
+                        maxSdkVersion = Build.VERSION_CODES.BAKLAVA,
+                        unsupportedHint = stringResource(
+                            R.string.freeform_sidebar_drawer_enhance_native_summary
+                        ),
                         key = "sidebar_drawer_enhance"
                     )
                 )
-                if (state.enhanceEnabled) {
+                if (state.enhanceEnabled && Build.VERSION.SDK_INT <= Build.VERSION_CODES.BAKLAVA) {
                     add(
                         SettingItem.Switch(
                             title = stringResource(R.string.freeform_sidebar_allapps_sections_title),
@@ -289,12 +294,14 @@ private fun freeformBarSettingsSections(
                         )
                     )
                 }
-                add(
-                    SettingItem.Custom(
-                        key = "deco_freeform_sidebar_drawer_usage",
-                        content = { FreeformBarUsageNote() }
+                if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.BAKLAVA) {
+                    add(
+                        SettingItem.Custom(
+                            key = "deco_freeform_sidebar_drawer_usage",
+                            content = { FreeformBarUsageNote() }
+                        )
                     )
-                )
+                }
             }
         )
     )

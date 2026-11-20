@@ -46,6 +46,8 @@ object PreferenceKeys {
     val ALLOW_RELATIVE_APP_LAUNCH = BoolKey("allow_relative_app_launch", false)
     val FORCE_RELATIVE_APP_FREEFORM = BoolKey("force_relative_app_freeform", false)
     val LAUNCHER_FORCE_FREEFORM_ENTRY = BoolKey("launcher_force_freeform_entry", false)
+    // Unlocks hidden and system apps in ZUI's native floating-window and split-screen lists
+    val UNLOCK_OV_COMMON_APP_LIST = BoolKey("unlock_ov_common_app_list", false)
     val FREEFORM_EDGE_BUBBLE = BoolKey("freeform_edge_bubble", false)
     // Shared switch of the freeform keep-alive pair (system OomAdjuster pin + launcher
     // recents-cleaner bypass); module name of both hook classes
@@ -434,7 +436,7 @@ object PreferenceKeys {
         ALLOW_UNTRUSTED_TOUCH, ALLOW_ALL_RESTRICTED_SETTINGS,
         FORCE_SCREEN_ON_OFF_ANIMATION, AI_INPUT_EXPAND,
         KEEP_ROTATION, WORK_MODE_PORTRAIT, ALLOW_RELATIVE_APP_LAUNCH, FORCE_RELATIVE_APP_FREEFORM,
-        LAUNCHER_FORCE_FREEFORM_ENTRY, FREEFORM_EDGE_BUBBLE,
+        LAUNCHER_FORCE_FREEFORM_ENTRY, UNLOCK_OV_COMMON_APP_LIST, FREEFORM_EDGE_BUBBLE,
         FREEFORM_KEEP_ALIVE_ENABLED,
         LAUNCHER_FREEFORM_FULLSCREEN_THRESHOLD,
         SYSTEM_UI_FREEFORM_BOTTOM_EDGE_RESIZE,

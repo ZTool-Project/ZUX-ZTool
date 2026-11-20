@@ -39,6 +39,7 @@ class FreeformHubRepository(
             moduleEnabled = detail.moduleEnabled,
             showZuiForceConfig = detail.showZuiForceConfig,
             forceFreeformEntryHookEnabled = detail.forceFreeformEntryHookEnabled,
+            unlockOvCommonAppList = detail.unlockOvCommonAppList,
             edgeBubbleEnabled = detail.edgeBubbleEnabled,
             edgeBubbleTriggerPercent = detail.edgeBubbleTriggerPercent,
             floatMandatory = detail.floatMandatory,
@@ -58,6 +59,9 @@ class FreeformHubRepository(
 
     fun saveRemoveBlacklist(enabled: Boolean) =
         settingsDetailRepository.saveRemoveBlacklist(enabled)
+
+    fun saveUnlockOvCommonAppList(enabled: Boolean) =
+        settingsDetailRepository.saveUnlockOvCommonAppList(enabled)
 
     fun isModuleEnabled(): Boolean = settingsDetailRepository.isModuleEnabled()
 

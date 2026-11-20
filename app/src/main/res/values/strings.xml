@@ -494,6 +494,9 @@
     <string name="edge_bubble_notification_title">小窗贴边气泡已启用</string>
     <string name="edge_bubble_notification_text">保持此服务运行以显示贴边气泡</string>
     <string name="settings_zui_force_fixed_summary">与自由小窗冲突，强制指定应用使用固定比例小窗</string>
+    <string name="settings_zui_force_config_native_summary">ZUXOS 2.5 已原生支持浮窗缩放模式与分屏应用管理；可开启下方解锁开关后在系统设置 -> 一视界中配置</string>
+    <string name="settings_unlock_ov_common_app_list_title">解锁原生浮窗与分屏应用列表</string>
+    <string name="settings_unlock_ov_common_app_list_summary">解除系统设置「一视界」中应用浮窗与分屏管理页的名单过滤，显示并允许配置系统应用与预装应用</string>
     <string name="settings_saving_config">正在保存系统配置…</string>
     <string name="settings_save_success_message">保存成功</string>
     <string name="settings_module_config_tips">Tips:当前已使用模块配置文件，已适配应用策略数量：%d</string>
@@ -913,6 +916,7 @@
     <string name="freeform_sidebar_drawer_section_title">侧边栏抽屉</string>
     <string name="freeform_sidebar_drawer_enhance_title">增强侧边栏抽屉</string>
     <string name="freeform_sidebar_drawer_enhance_summary">解除系统固定的 5 个应用上限，抽屉可容纳更多应用，并允许调整应用顺序</string>
+    <string name="freeform_sidebar_drawer_enhance_native_summary">ZUXOS 2.5 侧边栏已原生扩容至 16 个应用并支持编辑排序，此项不再生效</string>
     <string name="freeform_sidebar_drawer_editable_title">允许在抽屉内调整顺序</string>
     <string name="freeform_sidebar_drawer_editable_summary">在抽屉底部显示「编辑」，进入后可拖动应用调整顺序，点图标右上角的 − 移出抽屉；在左侧全部应用面板点 + 加入应用</string>
     <string name="freeform_sidebar_drawer_slots_title">抽屉容量</string>

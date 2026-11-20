@@ -103,6 +103,7 @@ import com.qimian233.ztool.hook.modules.systemframework.PackageManagerSharedUser
 import com.qimian233.ztool.hook.modules.systemframework.PackageManagerSignatureBypassHook
 import com.qimian233.ztool.hook.modules.systemframework.PackageManagerVerificationAgentHook
 import com.qimian233.ztool.hook.modules.systemframework.PenHapticWaveformRedirectHook
+import com.qimian233.ztool.hook.modules.systemframework.UnlockOvCommonAppListHook
 import com.qimian233.ztool.hook.modules.systemframework.VolumeKeyNonlinearRamp
 import com.qimian233.ztool.hook.modules.systemframework.WorkModePortrait
 import com.qimian233.ztool.hook.modules.systemframework.SplitScreenMandatory as SystemSplitScreenMandatory
@@ -216,6 +217,7 @@ object HookManager {
         registerHookModule(DisableHbmThermalLimit())
         registerHookModule(ClipboardAccessToastHook())
         registerHookModule(SystemSplitScreenMandatory())
+        registerHookModule(UnlockOvCommonAppListHook())
         registerHookModule(FineVolumeSteps())
         registerHookModule(VolumeKeyNonlinearRamp())
         registerHookModule(PenHapticWaveformRedirectHook())

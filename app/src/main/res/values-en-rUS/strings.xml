@@ -414,6 +414,9 @@
     <string name="edge_bubble_notification_title">Floating window edge bubble active</string>
     <string name="edge_bubble_notification_text">Keep this service running to show edge bubbles</string>
     <string name="settings_zui_force_fixed_summary">Conflicts with freeform floating windows. Forces selected apps to use fixed-ratio floating windows.</string>
+    <string name="settings_zui_force_config_native_summary">ZUXOS 2.5 natively manages floating-window scaling and split-screen apps; enable the unlock switch below and configure apps in Settings -> One Vision</string>
+    <string name="settings_unlock_ov_common_app_list_title">Unlock native floating-window and split-screen app lists</string>
+    <string name="settings_unlock_ov_common_app_list_summary">Removes the package filter in Settings -> One Vision floating-window and split-screen app managers so system and preloaded apps can be configured</string>
     <string name="settings_saving_config">Saving system configuration…</string>
     <string name="settings_save_success_message">Saved</string>
     <string name="settings_module_config_tips">Tips: using module configuration file. Adapted app policy count: %d</string>
@@ -790,6 +793,7 @@
     <string name="freeform_sidebar_drawer_section_title">Sidebar drawer</string>
     <string name="freeform_sidebar_drawer_enhance_title">Enhance sidebar drawer</string>
     <string name="freeform_sidebar_drawer_enhance_summary">Lifts the host\'s fixed 5-app cap so the drawer holds more apps, and makes the app order editable</string>
+    <string name="freeform_sidebar_drawer_enhance_native_summary">ZUXOS 2.5 natively expands the sidebar to 16 apps with reordering, so this switch no longer applies</string>
     <string name="freeform_sidebar_drawer_editable_title">Allow reordering inside the drawer</string>
     <string name="freeform_sidebar_drawer_editable_summary">Shows 编辑 at the bottom of the drawer to reorder apps by dragging and to drop an app with the − on its icon; apps are added with + in the panel on the left</string>
     <string name="freeform_sidebar_drawer_slots_title">Drawer capacity</string>

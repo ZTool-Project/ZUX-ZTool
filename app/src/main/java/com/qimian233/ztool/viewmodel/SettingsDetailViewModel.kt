@@ -371,6 +371,7 @@ data class SettingsDetailUiState(
     val allowNativePermissionController: Boolean = false,
     val showZuiForceConfig: Boolean = Build.VERSION.SDK_INT >= 36,
     val forceFreeformEntryHookEnabled: Boolean = false,
+    val unlockOvCommonAppList: Boolean = false,
     val edgeBubbleEnabled: Boolean = false,
     val edgeBubbleTriggerPercent: Int = FreeformEdgeBubbleConfig.TRIGGER_PERCENT_DEFAULT,
     val showRestartDialog: Boolean = false,

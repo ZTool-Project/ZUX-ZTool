@@ -1,6 +1,7 @@
 package com.qimian233.ztool.hook.modules.freeformbar
 
 import android.content.Context
+import android.os.Build
 import android.provider.Settings
 import android.widget.ListView
 import com.qimian233.ztool.data.keys.PreferenceKeys
@@ -11,14 +12,8 @@ import java.lang.reflect.Field
 import java.lang.reflect.Method
 
 /**
- * Sidebar drawer upgrade for `com.zui.freeform.sidebar`: lifts the host's hard-coded
- * 5-slot drawer cap and gives the drawer a user-editable order, driven by a trailing
- * 编辑 / 完成 row and per-row ▲ / ▼ / ✕ affordances.
- *
- * Drawer content is `recent freeform apps (N slots) + the user's order`, truncated to the
- * configured capacity. Verified against host 1.18.02.26.20.2; the obfuscated 1.18.5.x build
- * has none of these class names, so every lookup is guarded and a miss disables the module
- * instead of throwing.
+ * Expands the `com.zui.freeform.sidebar` 1.18.02 drawer past 5 slots and adds reordering/search.
+ * Retired on Android 17+ (> API 36) and skipped on obfuscated `1.18.5.x` sidebar builds.
  */
 class SidebarDrawerHook : AppHookModule() {
 
@@ -57,6 +52,10 @@ class SidebarDrawerHook : AppHookModule() {
 
     @Throws(Throwable::class)
     override fun handleLoadPackage(param: XposedModuleInterface.PackageLoadedParam) {
+        if (Build.VERSION.SDK_INT > Build.VERSION_CODES.BAKLAVA) {
+            logger.info("SidebarDrawerHook skipped on API ${Build.VERSION.SDK_INT} (> 36)")
+            return
+        }
         val classLoader = param.defaultClassLoader
         hostPackage = param.packageName
 
