@@ -15,10 +15,10 @@ import java.util.concurrent.atomic.AtomicInteger
 /**
  * Lets ZUI's PC/work desktop follow the device orientation.
  *
- * System server pins it to landscape through the PC-mode rotation lock, the
- * WindowContainer/ActivityRecord orientation overrides (including the desktop
- * AppCompat policy), the launch-bounds force orientation, and the DisplayContent
- * shortcut. Each is bypassed while enabled; apps with a fixed orientation keep it.
+ * System server pins it to landscape via OVDesktopController.fixZuiDesktopModeOrientation
+ * on ZuiDesktopMode (Android 17+) and legacy PC-mode rotation locks, container/activity
+ * orientation overrides, and DisplayContent orientation shortcuts. Each is bypassed while
+ * enabled; apps with a fixed orientation keep it.
  */
 @SuppressLint("PrivateApi")
 class WorkModePortrait : SystemHookModule() {
@@ -44,6 +44,9 @@ class WorkModePortrait : SystemHookModule() {
 
     @Volatile
     private var lastFeatureState: Boolean? = null
+
+    @Volatile
+    private var suppressedDesktopOrientationFix = false
 
     private var infoField: Field? = null
 
@@ -74,7 +77,88 @@ class WorkModePortrait : SystemHookModule() {
         hookWindowOrientation(classLoader)
         hookDisplayOrientation(classLoader)
         hookPcModeForceOrientation(classLoader)
+        hookZuiDesktopModeOrientation(classLoader)
         logger.info("WorkModePortrait installed, launcher=$pcLauncherPackages")
+    }
+
+    private fun hookZuiDesktopModeOrientation(classLoader: ClassLoader) {
+        try {
+            val controllerClass = classLoader.loadClass(
+                "com.android.server.wm.OVDesktopController"
+            )
+            val fixOrientation = findMethod(
+                controllerClass,
+                "fixZuiDesktopModeOrientation",
+                Boolean::class.javaPrimitiveType
+            )
+            val windowManagerField = runCatching {
+                findField(controllerClass, "mWindowManager")
+            }.getOrNull()
+            val setFixedToUserRotation = runCatching {
+                findMethod(
+                    classLoader.loadClass("com.android.server.wm.WindowManagerService"),
+                    "setFixedToUserRotation",
+                    Int::class.javaPrimitiveType,
+                    Int::class.javaPrimitiveType
+                )
+            }.getOrNull()
+
+            hookWithId(
+                fixOrientation,
+                "work_mode_portrait_zui_desktop_orientation"
+            ) { chain ->
+                val enter = chain.args[0] as? Boolean ?: return@hookWithId chain.proceed()
+                if (enter) {
+                    if (isFeatureEnabled()) {
+                        suppressedDesktopOrientationFix = true
+                        clearFixedToUserRotation(
+                            chain.thisObject,
+                            windowManagerField,
+                            setFixedToUserRotation
+                        )
+                        logger.debug("Suppressed ZuiDesktopMode orientation lock")
+                        return@hookWithId null
+                    }
+                    suppressedDesktopOrientationFix = false
+                    return@hookWithId chain.proceed()
+                }
+                if (suppressedDesktopOrientationFix) {
+                    suppressedDesktopOrientationFix = false
+                    clearFixedToUserRotation(
+                        chain.thisObject,
+                        windowManagerField,
+                        setFixedToUserRotation
+                    )
+                    logger.debug("Skipped ZuiDesktopMode orientation restore")
+                    return@hookWithId null
+                }
+                chain.proceed()
+            }
+        } catch (e: NoSuchMethodException) {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.CINNAMON_BUN) {
+                logger.debug(
+                    "WorkModePortrait: fixZuiDesktopModeOrientation absent on API ${Build.VERSION.SDK_INT}"
+                )
+            } else {
+                logger.error("WorkModePortrait: ZuiDesktopMode orientation hook not installed", e)
+            }
+        } catch (t: Throwable) {
+            logger.error("WorkModePortrait: ZuiDesktopMode orientation hook not installed", t)
+        }
+    }
+
+    private fun clearFixedToUserRotation(
+        controller: Any?,
+        windowManagerField: Field?,
+        setFixedToUserRotation: Method?
+    ) {
+        if (controller == null || windowManagerField == null || setFixedToUserRotation == null) {
+            return
+        }
+        runCatching {
+            val wm = windowManagerField.get(controller) ?: return@runCatching
+            setFixedToUserRotation.invoke(wm, DEFAULT_DISPLAY, FIXED_TO_USER_ROTATION_DEFAULT)
+        }.onFailure { logger.error("WorkModePortrait: clear fixed user rotation failed", it) }
     }
 
     private fun hookPcModeForceOrientation(classLoader: ClassLoader) {
@@ -132,6 +216,12 @@ class WorkModePortrait : SystemHookModule() {
                 val mode = chain.args[0] as Int
                 val rotation = chain.args[1] as Int
                 val reason = chain.args[2] as? String
+                if (isFeatureEnabled() && mode == USER_ROTATION_LOCKED &&
+                    rotation == ROTATION_90 && reason?.contains("ZuiDesktopMode") == true
+                ) {
+                    logger.debug("Blocked ZuiDesktopMode rotation lock (reason=$reason)")
+                    return@hookWithId null
+                }
                 val pcEntry = reason?.contains("PcMode") == true
                 if (isFeatureEnabled() && mode == USER_ROTATION_LOCKED &&
                     rotation == ROTATION_90 && (pcEntry || isPcMode())
@@ -358,6 +448,8 @@ class WorkModePortrait : SystemHookModule() {
         const val ROTATION_90 = 1
         const val USER_ROTATION_LOCKED = 1
         const val USER_ROTATION_FREE = 0
+        const val DEFAULT_DISPLAY = 0
+        const val FIXED_TO_USER_ROTATION_DEFAULT = 0
         const val MAX_PROBE_LOGS = 40
         const val CACHE_TTL_MS = 2000L
     }
