@@ -1,9 +1,9 @@
 package com.qimian233.ztool.hook.modules.systemui
 
 import android.app.ActivityManager
+import android.os.Build
 import android.os.Handler
 import android.os.SystemClock
-import android.view.SurfaceControlViewHost
 import android.view.View
 import android.view.WindowManager
 import com.qimian233.ztool.data.keys.PreferenceKeys
@@ -11,6 +11,7 @@ import com.qimian233.ztool.data.keys.ScopeKeys
 import com.qimian233.ztool.hook.base.AppHookModule
 import io.github.libxposed.api.XposedModuleInterface.PackageLoadedParam
 import java.lang.reflect.Field
+import java.lang.reflect.Method
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -40,9 +41,6 @@ class FreeformCornerHandleIndicatorHook : AppHookModule() {
         logger.info("Corner handle indicator install start")
         val loader = param.defaultClassLoader
         val hostClass = loadClass(loader, HOST_CLASS) ?: return
-        val positionerClass = loadClass(loader, POSITIONER_CLASS) ?: return
-        val decorationClass = loadClass(loader, DECORATION_CLASS) ?: return
-
         val setViewMethod = try {
             findMethod(
                 hostClass,
@@ -54,39 +52,13 @@ class FreeformCornerHandleIndicatorHook : AppHookModule() {
             logger.error("SurfaceControlViewHost.setView not found", t)
             return
         }
-        val positionerCtrl = field(positionerClass, "mCtrlType") ?: return
-        val positionerDecoration = field(positionerClass, "mDesktopWindowDecoration") ?: return
-        val decorationTaskInfo = field(decorationClass, "mTaskInfo")
-            ?: fieldByType(decorationClass, ActivityManager.RunningTaskInfo::class.java)
-            ?: run {
-                logger.error("RunningTaskInfo field not found")
-                return
-            }
-        val startMethod = try {
-            findMethod(
-                positionerClass,
-                "onDragPositioningStart",
-                Float::class.javaPrimitiveType,
-                Float::class.javaPrimitiveType,
-                Int::class.javaPrimitiveType,
-                Int::class.javaPrimitiveType
-            )
-        } catch (t: Throwable) {
-            logger.error("onDragPositioningStart not found", t)
-            return
+
+        val positionerReady = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.CINNAMON_BUN) {
+            installA17Positioners(loader)
+        } else {
+            installLegacyPositioner(loader)
         }
-        val endMethod = try {
-            findMethod(
-                positionerClass,
-                "onDragPositioningEnd",
-                Int::class.javaPrimitiveType,
-                Float::class.javaPrimitiveType,
-                Float::class.javaPrimitiveType
-            )
-        } catch (t: Throwable) {
-            logger.error("onDragPositioningEnd not found", t)
-            return
-        }
+        if (!positionerReady) return
 
         hookWithId(setViewMethod, "corner_handle_capture") { chain ->
             val view = chain.args.getOrNull(0) as? View
@@ -110,6 +82,46 @@ class FreeformCornerHandleIndicatorHook : AppHookModule() {
             result
         }
 
+        logger.info("Corner handle indicator hook installed")
+    }
+
+    private fun installLegacyPositioner(loader: ClassLoader): Boolean {
+        val positionerClass = loadClass(loader, POSITIONER_CLASS) ?: return false
+        val decorationClass = loadClass(loader, DECORATION_CLASS) ?: return false
+        val positionerCtrl = field(positionerClass, "mCtrlType") ?: return false
+        val positionerDecoration = field(positionerClass, "mDesktopWindowDecoration") ?: return false
+        val decorationTaskInfo = field(decorationClass, "mTaskInfo")
+            ?: fieldByType(decorationClass, ActivityManager.RunningTaskInfo::class.java)
+            ?: run {
+                logger.error("RunningTaskInfo field not found")
+                return false
+            }
+        val startMethod = try {
+            findMethod(
+                positionerClass,
+                "onDragPositioningStart",
+                Float::class.javaPrimitiveType,
+                Float::class.javaPrimitiveType,
+                Int::class.javaPrimitiveType,
+                Int::class.javaPrimitiveType
+            )
+        } catch (t: Throwable) {
+            logger.error("onDragPositioningStart not found", t)
+            return false
+        }
+        val endMethod = try {
+            findMethod(
+                positionerClass,
+                "onDragPositioningEnd",
+                Int::class.javaPrimitiveType,
+                Float::class.javaPrimitiveType,
+                Float::class.javaPrimitiveType
+            )
+        } catch (t: Throwable) {
+            logger.error("onDragPositioningEnd not found", t)
+            return false
+        }
+
         hookWithId(startMethod, "corner_handle_resize_show") { chain ->
             val result = chain.proceed()
             val positioner = chain.thisObject
@@ -118,9 +130,7 @@ class FreeformCornerHandleIndicatorHook : AppHookModule() {
                 if (isBottomCorner(ctrlType)) {
                     val taskInfo = taskInfoOf(positioner, positionerDecoration, decorationTaskInfo)
                     if (taskInfo != null) {
-                        resizing[taskInfo.taskId] = true
-                        hideTokens.remove(taskInfo.taskId)
-                        show(taskInfo.taskId)
+                        onCornerResizeStart(taskInfo.taskId)
                     }
                 }
             }
@@ -132,15 +142,118 @@ class FreeformCornerHandleIndicatorHook : AppHookModule() {
             val positioner = chain.thisObject
             if (positioner != null) {
                 val taskInfo = taskInfoOf(positioner, positionerDecoration, decorationTaskInfo)
-                if (taskInfo != null && resizing.remove(taskInfo.taskId) == true) {
-                    show(taskInfo.taskId)
-                    scheduleHide(taskInfo.taskId)
+                if (taskInfo != null) {
+                    onCornerResizeEnd(taskInfo.taskId)
+                }
+            }
+            result
+        }
+        return true
+    }
+
+    private fun installA17Positioners(loader: ClassLoader): Boolean {
+        val wrapperClass = loadClass(loader, A17_WRAPPER_CLASS) ?: return false
+        val getTaskInfoMethod = try {
+            findMethod(wrapperClass, "getTaskInfo")
+        } catch (t: Throwable) {
+            logger.error("WindowDecorationWrapper.getTaskInfo not found", t)
+            return false
+        }
+
+        val targets = listOf(
+            A17_VEILED_POSITIONER_CLASS to "corner_handle_a17_veiled",
+            A17_SCALE_POSITIONER_CLASS to "corner_handle_a17_scale",
+            A17_RESIZE_POSITIONER_CLASS to "corner_handle_a17_resize"
+        )
+        var installedAny = false
+        for ((className, idPrefix) in targets) {
+            if (hookA17Positioner(loader, className, idPrefix, wrapperClass, getTaskInfoMethod)) {
+                installedAny = true
+            }
+        }
+        return installedAny
+    }
+
+    private fun hookA17Positioner(
+        loader: ClassLoader,
+        className: String,
+        idPrefix: String,
+        wrapperClass: Class<*>,
+        getTaskInfoMethod: Method
+    ): Boolean {
+        val positionerClass = loadClass(loader, className) ?: return false
+        val decorationField = field(positionerClass, "mDesktopWindowDecoration")
+            ?: field(positionerClass, "windowDecoration")
+            ?: fieldByType(positionerClass, wrapperClass)
+            ?: run {
+                logger.error("$className WindowDecorationWrapper field not found")
+                return false
+            }
+        val startMethod = try {
+            findMethod(
+                positionerClass,
+                "onDragPositioningStart",
+                Float::class.javaPrimitiveType,
+                Float::class.javaPrimitiveType,
+                Int::class.javaPrimitiveType,
+                Int::class.javaPrimitiveType,
+                Int::class.javaPrimitiveType
+            )
+        } catch (t: Throwable) {
+            logger.error("$className.onDragPositioningStart not found", t)
+            return false
+        }
+        val endMethod = try {
+            findMethod(
+                positionerClass,
+                "onDragPositioningEnd",
+                Int::class.javaPrimitiveType,
+                Float::class.javaPrimitiveType,
+                Float::class.javaPrimitiveType
+            )
+        } catch (t: Throwable) {
+            logger.error("$className.onDragPositioningEnd not found", t)
+            return false
+        }
+
+        hookWithId(startMethod, "${idPrefix}_show") { chain ->
+            val ctrlType = chain.args.getOrNull(2) as? Int ?: 0
+            val result = chain.proceed()
+            val positioner = chain.thisObject
+            if (positioner != null && isBottomCorner(ctrlType)) {
+                val taskInfo = wrapperTaskInfoOf(positioner, decorationField, getTaskInfoMethod)
+                if (taskInfo != null) {
+                    onCornerResizeStart(taskInfo.taskId)
                 }
             }
             result
         }
 
-        logger.info("Corner handle indicator hook installed")
+        hookWithId(endMethod, "${idPrefix}_hide") { chain ->
+            val result = chain.proceed()
+            val positioner = chain.thisObject
+            if (positioner != null) {
+                val taskInfo = wrapperTaskInfoOf(positioner, decorationField, getTaskInfoMethod)
+                if (taskInfo != null) {
+                    onCornerResizeEnd(taskInfo.taskId)
+                }
+            }
+            result
+        }
+        return true
+    }
+
+    private fun onCornerResizeStart(taskId: Int) {
+        resizing[taskId] = true
+        hideTokens.remove(taskId)
+        show(taskId)
+    }
+
+    private fun onCornerResizeEnd(taskId: Int) {
+        if (resizing.remove(taskId) == true) {
+            show(taskId)
+            scheduleHide(taskId)
+        }
     }
 
     private fun isBottomCorner(ctrlType: Int): Boolean =
@@ -153,6 +266,15 @@ class FreeformCornerHandleIndicatorHook : AppHookModule() {
     ): ActivityManager.RunningTaskInfo? {
         val decoration = decorationField.get(positioner) ?: return null
         return taskInfoField.get(decoration) as? ActivityManager.RunningTaskInfo
+    }
+
+    private fun wrapperTaskInfoOf(
+        positioner: Any,
+        decorationField: Field,
+        getTaskInfoMethod: Method
+    ): ActivityManager.RunningTaskInfo? {
+        val wrapper = decorationField.get(positioner) ?: return null
+        return getTaskInfoMethod.invoke(wrapper) as? ActivityManager.RunningTaskInfo
     }
 
     private fun show(taskId: Int) {
@@ -255,6 +377,13 @@ class FreeformCornerHandleIndicatorHook : AppHookModule() {
         const val HOST_CLASS = "android.view.SurfaceControlViewHost"
         const val POSITIONER_CLASS = "com.android.wm.shell.windowdecor.VeiledResizeTaskPositioner"
         const val DECORATION_CLASS = "com.android.wm.shell.windowdecor.DesktopModeWindowDecoration"
+        const val A17_WRAPPER_CLASS = "com.android.wm.shell.windowdecor.WindowDecorationWrapper"
+        const val A17_VEILED_POSITIONER_CLASS =
+            "com.android.wm.shell.windowdecor.MultiDisplayVeiledResizeTaskPositioner"
+        const val A17_SCALE_POSITIONER_CLASS =
+            "com.android.wm.shell.windowdecor.scale.OvfScaleTaskPositionerDecorator"
+        const val A17_RESIZE_POSITIONER_CLASS =
+            "com.android.wm.shell.windowdecor.ResizeTaskPositioner"
         const val HIDE_DELAY_MS = 5_000L
         val TASK_PATTERN = Regex("Task=(\\d+)")
     }
