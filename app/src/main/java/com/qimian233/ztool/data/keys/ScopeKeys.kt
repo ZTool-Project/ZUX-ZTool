@@ -9,7 +9,6 @@ enum class HowToRestart {
 }
 /** Package names and restart policies for hook targets. */
 object ScopeKeys {
-    val UNRESTRICTED = Scope ("all", HowToRestart.Reboot) // For AiInputExpand.kt only
     val SETTINGS = Scope("com.android.settings", HowToRestart.AmStop)
     val PERMISSION_CONTROLLER = Scope("com.android.permissioncontroller", HowToRestart.AmStop)
     val ZUI_SAFE_CENTER = Scope("com.zui.safecenter", HowToRestart.AmStop)

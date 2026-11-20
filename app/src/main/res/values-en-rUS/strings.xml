@@ -740,7 +740,7 @@
     <string name="system_framework_ai_input_quick_help_title">Trigger symbol help</string>
     <string name="system_framework_ai_input_quick_help_summary">Custom trigger symbols replace the official default full-width/half-width "&amp;&amp;". Separate multiple triggers with English commas.</string>
     <string name="system_framework_ai_input_quick_help_scope">Scope</string>
-    <string name="system_framework_ai_input_quick_help_scope_desc">Enable the LSPosed scope for apps that use global input.</string>
+    <string name="system_framework_ai_input_quick_help_scope_desc">Only the System Framework scope is needed in LSPosed; works across apps and IMEs.</string>
     <string name="system_framework_ai_input_quick_help_separator">Separator</string>
     <string name="system_framework_ai_input_quick_help_separator_desc">Use English commas between multiple detection symbols.</string>
     <string name="system_framework_ai_input_quick_help_conflict">Suggestion</string>
@@ -749,7 +749,7 @@
     <string name="system_framework_ai_input_quick_help_example_custom_value">#ai,@ai,#ask</string>
     <string name="system_framework_ai_input_quick_help_example_default">Official default trigger</string>
     <string name="system_framework_ai_input_quick_help_example_custom">Multiple custom triggers</string>
-    <string name="system_framework_ai_input_quick_help_note">If only this module is configured and the target app scope is not enabled, the target app may still only support the official default trigger.</string>
+    <string name="system_framework_ai_input_quick_help_note">Interception runs uniformly inside the System Framework across IMEs, so no target app or IME scopes need to be enabled.</string>
     <string name="system_framework_custom_detector_err">Format error: separate multiple detection symbols with English commas.</string>
     <string name="system_framework_custom_detector_hint">Enter custom detection symbols. Separate multiple entries with English commas.</string>
     <string name="system_framework_misc_title">Misc</string>
@@ -761,7 +761,7 @@
     <string name="system_framework_fix_night_mode_summary">If dark theme is set to "Sunset to sunrise" but never switches automatically, tap to clear the stale manual override and re-apply the schedule immediately. No reboot needed.</string>
     <string name="system_framework_fix_night_mode_done">Stale override cleared and dark theme schedule re-applied</string>
     <string name="system_framework_ai_input_expand_title">Custom trigger symbols</string>
-    <string name="system_framework_ai_input_expand_summary">Try to force-enable AI global input and customize AI trigger symbols. The official default is full-width/half-width "&amp;&amp;".</string>
+    <string name="system_framework_ai_input_expand_summary">Enable AI global input in the System Framework and customize trigger symbols across IMEs (official default: full/half-width "&amp;&amp;").</string>
     <string name="system_framework_half_width_punct_title">Force half-width symbol output</string>
     <string name="sogou_ime_app_name">Sogou IME (Lenovo OEM)</string>
     <string name="sogou_ime_app_description">IME enhancements: hardware Enter key remapping</string>

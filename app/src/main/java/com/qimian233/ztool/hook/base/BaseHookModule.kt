@@ -71,7 +71,7 @@ abstract class BaseHookModule {
     open fun supportsPackage(packageName: String?): Boolean {
         val targets = getTargetPackages()
         for (target in targets) {
-            if (target == packageName || target == ScopeKeys.UNRESTRICTED.packageName) {
+            if (target == packageName) {
                 return true
             }
         }

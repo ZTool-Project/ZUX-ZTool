@@ -171,7 +171,6 @@ object HookManager {
 
     private fun registerAllModules(xposed: XposedInterface) {
         registerSystemServerModules()
-        registerAllProcessModules()
         registerZuiWidgetModules()
         registerSystemUIModules()
         registerSettingsModules()
@@ -222,6 +221,7 @@ object HookManager {
         registerHookModule(PenHapticWaveformRedirectHook())
         registerHookModule(DisableGameAudio())
         registerHookModule(HalfWidthPunctHook())
+        registerHookModule(AiInputExpand())
 
         // Package manager core patches
         registerHookModule(PackageManagerDowngradeHook())
@@ -232,10 +232,6 @@ object HookManager {
         registerHookModule(PackageManagerSharedUserBypassHook())
         registerHookModule(PackageManagerHiddenApiHook())
         registerHookModule(PackageManagerArscBypassHook())
-    }
-
-    private fun registerAllProcessModules() {
-        registerHookModule(AiInputExpand())
     }
 
     private fun registerZuiWidgetModules() {
