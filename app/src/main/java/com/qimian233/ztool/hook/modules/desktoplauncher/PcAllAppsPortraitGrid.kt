@@ -1,6 +1,7 @@
 package com.qimian233.ztool.hook.modules.desktoplauncher
 
 import android.content.Context
+import android.os.Build
 import android.util.AttributeSet
 import com.qimian233.ztool.data.keys.PreferenceKeys
 import com.qimian233.ztool.data.keys.ScopeKeys
@@ -10,14 +11,11 @@ import java.lang.reflect.Field
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
- * Turns the PC all-apps grid portrait-side-up.
+ * Re-splits the PC all-apps drawer grid into portrait columns and rows.
  *
- * The host computes columns from the long edge and rows from the short edge, so portrait keeps the
- * landscape counts and the columns overflow. This module re-splits `itemsPerPage` into a portrait
- * `columns x rows` and rewrites the out-array of `calculateGridSize`, leaving paging consistent.
- *
- * Gated by [PreferenceKeys.WORK_MODE_PORTRAIT]; see docs/research/zui_work_mode_desktop_hook_survey.md
+ * Gated by [PreferenceKeys.WORK_MODE_PORTRAIT].
  */
+// See docs/research/zui_work_mode_desktop_hook_survey.md
 class PcAllAppsPortraitGrid : AppHookModule() {
 
     override fun getModuleName(): String = PreferenceKeys.WORK_MODE_PORTRAIT.name
@@ -38,6 +36,7 @@ class PcAllAppsPortraitGrid : AppHookModule() {
 
     @Throws(Throwable::class)
     override fun handleLoadPackage(param: PackageLoadedParam) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.CINNAMON_BUN) return
         val classLoader = param.defaultClassLoader
         val pagedViewClass = runCatching {
             classLoader.loadClass(PC_ALL_APPS_VIEW_CLASS)

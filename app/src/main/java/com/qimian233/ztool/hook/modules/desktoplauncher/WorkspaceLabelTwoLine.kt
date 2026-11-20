@@ -1,6 +1,7 @@
 package com.qimian233.ztool.hook.modules.desktoplauncher
 
 import android.content.Context
+import android.os.Build
 import android.os.SystemClock
 import android.provider.Settings
 import android.text.TextPaint
@@ -16,14 +17,11 @@ import java.util.WeakHashMap
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
- * Wraps desktop icon labels at the cell width instead of letting the host ellipsize them.
+ * Wraps workspace icon labels at the cell width instead of ellipsizing them.
  *
- * The host's own two-line path only runs for all-apps and device search, and its breakpoint table
- * splits mixed names badly (`MT管理器` broke after `M`). This module keeps the original title and
- * re-splits it greedily at the measured width, preferring a break outside a Latin word.
- *
- * Gated by [PreferenceKeys.WORK_MODE_PORTRAIT]; see docs/research/zui_work_mode_desktop_hook_survey.md
+ * Gated by [PreferenceKeys.WORK_MODE_PORTRAIT].
  */
+// See docs/research/zui_work_mode_desktop_hook_survey.md
 class WorkspaceLabelTwoLine : AppHookModule() {
 
     override fun getModuleName(): String = PreferenceKeys.WORK_MODE_PORTRAIT.name
@@ -45,6 +43,7 @@ class WorkspaceLabelTwoLine : AppHookModule() {
 
     @Throws(Throwable::class)
     override fun handleLoadPackage(param: PackageLoadedParam) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.CINNAMON_BUN) return
         val classLoader = param.defaultClassLoader
         runCatching {
             val bubbleClass = classLoader.loadClass(BUBBLE_TEXT_VIEW_CLASS)

@@ -3,6 +3,7 @@ package com.qimian233.ztool.hook.modules.desktoplauncher
 import android.content.Context
 import android.graphics.Point
 import android.graphics.Rect
+import android.os.Build
 import android.provider.Settings
 import com.qimian233.ztool.data.keys.PreferenceKeys
 import com.qimian233.ztool.data.keys.ScopeKeys
@@ -13,15 +14,11 @@ import java.lang.reflect.Field
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
- * Appends the portrait window bound the work desktop refuses to offer.
+ * Appends the portrait window bound to `DisplayController.Info.supportedBounds`.
  *
- * ZUI's `WindowBounds(Rect, Rect)` constructor rewrites any portrait rect into a landscape one
- * and pins `rotationHint` to 1, so `DisplayController.Info.supportedBounds` only ever holds a
- * landscape entry and every `DeviceProfile` is built landscape. This module adds the real
- * portrait bound to that set; the launcher's own per-orientation slots then do the rest.
- *
- * Gated by [PreferenceKeys.WORK_MODE_PORTRAIT]; see docs/research/zui_work_mode_desktop_hook_survey.md
+ * Gated by [PreferenceKeys.WORK_MODE_PORTRAIT].
  */
+// See docs/research/zui_work_mode_desktop_hook_survey.md
 class WorkDesktopPortrait : AppHookModule() {
 
     override fun getModuleName(): String = PreferenceKeys.WORK_MODE_PORTRAIT.name
@@ -33,6 +30,7 @@ class WorkDesktopPortrait : AppHookModule() {
 
     @Throws(Throwable::class)
     override fun handleLoadPackage(param: PackageLoadedParam) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.CINNAMON_BUN) return
         val classLoader = param.defaultClassLoader
         runCatching {
             val windowBoundsClass = classLoader.loadClass(WINDOW_BOUNDS_CLASS)
