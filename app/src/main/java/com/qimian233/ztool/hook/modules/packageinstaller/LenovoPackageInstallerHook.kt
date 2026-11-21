@@ -32,6 +32,7 @@ class LenovoPackageInstallerHook : AppHookModule() {
         val isBindField: Field?,
         val isConnectField: Field?,
         val isScanBeginField: Field?,
+        val scanIsUnsafeField: Field?,
         val isNextField: Field?,
         val isClickedField: Field?,
         val forbidInstallField: Field?,
@@ -120,6 +121,7 @@ class LenovoPackageInstallerHook : AppHookModule() {
             isBindField = runCatching { findField(cls, "isBind") }.getOrNull(),
             isConnectField = runCatching { findField(cls, "isConnect") }.getOrNull(),
             isScanBeginField = runCatching { findField(cls, "isScanBegin") }.getOrNull(),
+            scanIsUnsafeField = runCatching { findField(cls, "scanIsUnsafe") }.getOrNull(),
             isNextField = runCatching { findField(cls, "isNext") }.getOrNull(),
             isClickedField = runCatching { findField(cls, "isClicked") }.getOrNull(),
             forbidInstallField = runCatching { findField(cls, "forbidInstall") }.getOrNull(),
@@ -143,21 +145,25 @@ class LenovoPackageInstallerHook : AppHookModule() {
         handles += hookWithId(findMethod(cls, "bindSafeService"), "pi_oem_bind_safe_service") { chain ->
             if (!options().disableScanApk) return@hookWithId chain.proceed()
             val activity = chain.thisObject ?: return@hookWithId chain.proceed()
-            host.isBindField?.setBoolean(activity, true)
-            host.isConnectField?.setBoolean(activity, true)
-            host.isScanBeginField?.setBoolean(activity, true)
-            host.scanAppResultField.setInt(activity, PackageInstallerConstants.SCAN_APP_OK)
+            markLocalScanSafe(host, activity, markBound = true)
             enqueueCompletion(host, activity, PackageInstallerConstants.SCAN_APP_OK)
-            logger.debug("Skipped bindSafeService and marked scan safe")
+            logger.debug("Skipped bindSafeService and marked local scan safe")
             null
         }
         handles += hookWithId(findMethod(cls, "startScanApps"), "pi_oem_start_scan_apps") { chain ->
             if (!options().disableScanApk) return@hookWithId chain.proceed()
             val activity = chain.thisObject ?: return@hookWithId chain.proceed()
-            host.isScanBeginField?.setBoolean(activity, true)
-            host.scanAppResultField.setInt(activity, PackageInstallerConstants.SCAN_APP_OK)
+            markLocalScanSafe(host, activity, markBound = false)
             enqueueCompletion(host, activity, PackageInstallerConstants.SCAN_APP_OK)
-            logger.debug("Skipped startScanApps and marked scan safe")
+            logger.debug("Skipped startScanApps and marked local scan safe")
+            null
+        }
+        handles += hookWithId(findMethod(cls, "findSafeResource"), "pi_oem_find_safe_resource") { chain ->
+            if (!options().disableScanApk) return@hookWithId chain.proceed()
+            val activity = chain.thisObject ?: return@hookWithId chain.proceed()
+            clearCloudWarningState(host, activity)
+            enqueueCompletion(host, activity, PackageInstallerConstants.CHECK_SAFEINSTALL_FINISH)
+            logger.debug("Skipped findSafeResource cloud scan and cleared warning state")
             null
         }
         runCatching { findMethod(cls, "startTime") }.getOrNull()?.let { startTime ->
@@ -169,14 +175,6 @@ class LenovoPackageInstallerHook : AppHookModule() {
 
     private fun installWarnSkip(host: ScanHost, handles: MutableList<XposedInterface.HookHandle>) {
         val cls = host.activityExtraClass
-        handles += hookWithId(findMethod(cls, "findSafeResource"), "pi_oem_find_safe_resource") { chain ->
-            if (!options().skipWarnPage) return@hookWithId chain.proceed()
-            val activity = chain.thisObject ?: return@hookWithId chain.proceed()
-            clearCloudWarningState(host, activity)
-            enqueueCompletion(host, activity, PackageInstallerConstants.CHECK_SAFEINSTALL_FINISH)
-            logger.debug("Skipped findSafeResource cloud warning check")
-            null
-        }
         handles += hookWithId(findMethod(cls, "showScanApp"), "pi_oem_show_scan_app") { chain ->
             val result = chain.proceed()
             val activity = chain.thisObject as? Activity ?: return@hookWithId result
@@ -408,6 +406,17 @@ class LenovoPackageInstallerHook : AppHookModule() {
             }
             result
         }
+    }
+
+    private fun markLocalScanSafe(host: ScanHost, activity: Any, markBound: Boolean) {
+        if (markBound) {
+            host.isBindField?.setBoolean(activity, true)
+            host.isConnectField?.setBoolean(activity, true)
+        }
+        host.isScanBeginField?.setBoolean(activity, true)
+        host.scanAppResultField.setInt(activity, PackageInstallerConstants.SCAN_APP_OK)
+        host.scanIsUnsafeField?.setBoolean(activity, false)
+        host.forbidInstallField?.setBoolean(activity, false)
     }
 
     private fun clearCloudWarningState(host: ScanHost, activity: Any) {
