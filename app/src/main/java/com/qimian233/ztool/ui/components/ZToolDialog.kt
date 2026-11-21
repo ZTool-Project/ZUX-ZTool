@@ -12,7 +12,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.LocalContentColor
-import androidx.compose.material3.MaterialTheme
 import com.qimian233.ztool.ui.theme.LocalZToolColorScheme
 import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.Surface
@@ -20,11 +19,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.qimian233.ztool.ui.theme.FrontendStyle
 import com.qimian233.ztool.ui.theme.LocalIsPlatformDialog
 import com.qimian233.ztool.ui.theme.LocalZToolThemeSpec
 import top.yukonga.miuix.kmp.basic.Surface as MiuixSurface
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 val DIALOG_BUTTON_HORIZONTAL_ARRANGEMENT = 0
 val DIALOG_BUTTON_VERTICAL_ARRANGEMENT = 1
@@ -48,14 +49,14 @@ fun ZToolDialog(
                 modifier = Modifier.padding(if (isPlatformDialog) 24.dp else 0.dp)
             ) {
                 if (title != null) {
-                    ProvideTextStyle(MaterialTheme.typography.headlineSmall) {
+                    ProvideTextStyle(MiuixTheme.textStyles.title4.copy(fontWeight = FontWeight.Medium)) {
                         CompositionLocalProvider(LocalContentColor provides LocalZToolColorScheme.current.onSurface) {
                             title()
                         }
                     }
                 }
                 if (text != null) {
-                    ProvideTextStyle(MaterialTheme.typography.bodyMedium) {
+                    ProvideTextStyle(MiuixTheme.textStyles.body1) {
                         CompositionLocalProvider(LocalContentColor provides LocalZToolColorScheme.current.onSurfaceVariant) {
                             Column(modifier = Modifier.padding(top = if (title == null) 0.dp else 16.dp)) {
                                 text()

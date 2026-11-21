@@ -37,7 +37,6 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -84,6 +83,7 @@ import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 class MainActivity : ComponentActivity(),
     EnvironmentStateListener,
@@ -562,7 +562,7 @@ private fun MainNavigationBar(
                         )
                         MiuixText(
                             text = stringResource(destination.labelRes),
-                            fontSize = 13.sp,
+                            style = MiuixTheme.textStyles.footnote1,
                             color = LocalZToolColorScheme.current.onSurface,
                             maxLines = 1,
                             softWrap = false

@@ -3,7 +3,6 @@ package com.qimian233.ztool.ui.theme
 import android.content.res.Configuration
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ColorScheme
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MaterialExpressiveTheme
 import androidx.compose.material3.MotionScheme
 import androidx.compose.material3.darkColorScheme
@@ -143,16 +142,24 @@ fun ZToolTheme(
     }
     // The Miuix Scaffold stretches platform dialog windows; apply only its theme there.
     val useMiuixScaffold = isMiuixStyle && !isPlatformDialog
+    val miuixTextStyles = remember { buildZToolMiuixTextStyles() }
+    val materialTypography = remember(effectiveSettings.frontendStyle, miuixTextStyles) {
+        buildZToolTypography(
+            style = effectiveSettings.frontendStyle,
+            miuixTextStyles = miuixTextStyles
+        )
+    }
 
     val themedContent: @Composable () -> Unit = {
         MaterialExpressiveTheme(
             motionScheme = if (themeSpec.useExpressiveMotion) MotionScheme.expressive() else MotionScheme.standard(),
             colorScheme = colorScheme,
-            typography = MaterialTheme.typography,
+            typography = materialTypography,
         ) {
             CompositionLocalProvider(LocalZToolColorScheme provides colorScheme) {
                 MiuixTheme(
                     colors = miuixColors,
+                    textStyles = miuixTextStyles,
                     content = {
                         if (useMiuixScaffold) {
                             top.yukonga.miuix.kmp.basic.Scaffold { _ ->

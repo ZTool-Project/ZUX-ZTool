@@ -172,6 +172,7 @@ General UI rules:
 - Prefer shared components in `app/src/main/java/com/qimian233/ztool/ui/components`.
 - Keep business screens style-agnostic; route Material/Miuix differences through theme and shared component adapters.
 - Use `ZToolTheme` and `MaterialTheme.colorScheme` for normal app colors.
+- `ZToolTheme` bridges `ZToolDefaultFontFamily` and `MaterialTheme.typography` <-> `MiuixTheme.textStyles` for both styles; business screens should continue using `MaterialTheme.typography.*` / `material3.Text`, and avoid hardcoding `FontFamily.SansSerif` or mixing `MiuixText` outside Miuix-only glue components.
 - Keep frontend style, theme mode, dynamic color, manual seed color, and AMOLED behavior in the theme settings layer, not in feature pages.
 - Do not reintroduce XML navigation, View-based screen scaffolding, old adapters, or Fragment navigation for new work.
 - Do not put shell/root operations, raw threads, preference I/O, or imperative dialogs directly in Composables. Use Repository/ViewModel/state.

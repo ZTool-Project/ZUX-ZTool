@@ -8,6 +8,7 @@ import androidx.compose.material3.SmallExtendedFloatingActionButton
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MediumFloatingActionButton
+import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -15,9 +16,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.qimian233.ztool.ui.theme.FrontendStyle
 import com.qimian233.ztool.ui.theme.LocalZToolThemeSpec
-
 import top.yukonga.miuix.kmp.basic.Button as MiuixButton
 import top.yukonga.miuix.kmp.basic.ButtonDefaults as MiuixButtonDefaults
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
 fun ZToolButton(
@@ -41,7 +42,9 @@ fun ZToolButton(
             androidx.compose.runtime.CompositionLocalProvider(
                 androidx.compose.material3.LocalContentColor provides if (enabled) colors.contentColor else colors.disabledContentColor
             ) {
-                content()
+                ProvideTextStyle(MiuixTheme.textStyles.button) {
+                    content()
+                }
             }
         }
         return
@@ -87,6 +90,7 @@ fun ZToolTextButton(
         ) {
             Text(
                 text = text,
+                style = MiuixTheme.textStyles.button,
                 color = if (enabled) colors.contentColor else colors.disabledContentColor
             )
         }
@@ -122,9 +126,11 @@ fun ZToolExtendedFloatingActionButton(
             androidx.compose.runtime.CompositionLocalProvider(
                 androidx.compose.material3.LocalContentColor provides colors.contentColor
             ) {
-                icon()
-                Spacer(modifier = Modifier.width(8.dp))
-                text()
+                ProvideTextStyle(MiuixTheme.textStyles.button) {
+                    icon()
+                    Spacer(modifier = Modifier.width(8.dp))
+                    text()
+                }
             }
         }
         return

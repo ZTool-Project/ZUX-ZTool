@@ -45,7 +45,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.navigationevent.compose.LocalNavigationEventDispatcherOwner
 import androidx.navigationevent.compose.rememberNavigationEventDispatcherOwner
 import com.qimian233.ztool.R
@@ -53,6 +52,7 @@ import com.qimian233.ztool.ui.theme.FrontendStyle
 import com.qimian233.ztool.ui.theme.LocalZToolThemeSpec
 import top.yukonga.miuix.kmp.basic.Slider as MiuixSlider
 import top.yukonga.miuix.kmp.basic.TextField as MiuixTextField
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 data class SettingSection(
     val title: String? = null,
@@ -272,7 +272,7 @@ fun ZToolSettingsSection(
         if (section.title != null) {
             Text(
                 text = section.title,
-                fontSize = 14.sp,
+                style = MiuixTheme.textStyles.subtitle,
                 color = LocalZToolColorScheme.current.onSurfaceVariant,
                 modifier = Modifier.padding(start = 24.dp, bottom = 8.dp)
             )
