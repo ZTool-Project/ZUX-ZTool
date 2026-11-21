@@ -1324,9 +1324,6 @@
     <string name="launcher_disable_recent_app_display">Hide recent apps in dock bar</string>
     <string name="launcher_force_freeform_entry_title">Show small-window entry for all apps</string>
     <string name="launcher_force_freeform_entry_summary">Bypass the system freeform whitelist and client-side gates to show the small-window entry for every app in recents</string>
-    <string name="launcher_freeform_keep_alive_title">Keep freeform apps alive</string>
-    <string name="launcher_freeform_keep_alive_summary">After a small window is minimized or Recents is opened, whitelisted app processes are no longer demoted, cleaned up or frozen, and keep running; takes effect after restarting the system and launcher</string>
-    <string name="launcher_freeform_keep_alive_apps_summary">%d apps kept alive</string>
     <string name="system_ui_misc_freeform_fullscreen_threshold_title">Custom small-window fullscreen threshold</string>
     <string name="system_ui_misc_freeform_fullscreen_threshold_summary">Switch a small window to fullscreen when its width or height reaches the configured percentage, whichever comes first; 100% disables that direction; tablets only, applies after restarting SystemUI</string>
     <string name="system_ui_misc_freeform_bottom_edge_resize_title">Proportional bottom-edge resize</string>

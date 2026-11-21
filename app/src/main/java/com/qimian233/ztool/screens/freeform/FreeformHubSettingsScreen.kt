@@ -9,16 +9,11 @@ import android.view.ViewGroup
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -482,26 +477,6 @@ fun FreeformHubSettingsRoute(
             onCornerHandleAutoHideChanged = viewModel::setCornerHandleAutoHide,
             onFreeformNoForeheadChanged = viewModel::setFreeformNoForehead,
             onForceFreeformEntryChanged = viewModel::setForceFreeformEntry,
-            onFreeformKeepAliveEnabledChanged = viewModel::setFreeformKeepAliveEnabled,
-            onSelectKeepAlivePackages = {
-                val host = context as? android.app.Activity
-                if (host != null) {
-                    AppChooserDialog.show(
-                        host,
-                        viewModel.loadUserInstalledPackageNames(),
-                        uiState.freeformKeepAlivePackages,
-                        resources.getString(R.string.launcher_freeform_keep_alive_title),
-                        object : AppChooserDialog.AppSelectionCallback {
-                            override fun onSelected(selectedApps: List<AppChooserDialog.AppInfo>) {
-                                viewModel.setFreeformKeepAlivePackages(
-                                    selectedApps.map { it.packageName })
-                            }
-
-                            override fun onCancel() = Unit
-                        }
-                    )
-                }
-            },
             onForceRelativeAppFreeformChanged = viewModel::setForceRelativeAppFreeform,
             onRestartSystem = viewModel::showRestartDialog,
             scrollState = scrollState,
@@ -565,8 +540,6 @@ private fun FreeformHubSettingsScreen(
     onCornerHandleAutoHideChanged: (Boolean) -> Unit,
     onFreeformNoForeheadChanged: (Boolean) -> Unit,
     onForceFreeformEntryChanged: (Boolean) -> Unit,
-    onFreeformKeepAliveEnabledChanged: (Boolean) -> Unit,
-    onSelectKeepAlivePackages: () -> Unit,
     onForceRelativeAppFreeformChanged: (Boolean) -> Unit,
     onRestartSystem: () -> Unit,
     scrollState: ScrollState,
@@ -630,8 +603,6 @@ private fun FreeformHubSettingsScreen(
                         onCornerHandleAutoHideChanged = onCornerHandleAutoHideChanged,
                         onFreeformNoForeheadChanged = onFreeformNoForeheadChanged,
                         onForceFreeformEntryChanged = onForceFreeformEntryChanged,
-                        onFreeformKeepAliveEnabledChanged = onFreeformKeepAliveEnabledChanged,
-                        onSelectKeepAlivePackages = onSelectKeepAlivePackages,
                         onForceRelativeAppFreeformChanged = onForceRelativeAppFreeformChanged,
                     ),
                     bottomPadding = 96.dp,
@@ -665,8 +636,6 @@ private fun freeformHubSections(
     onCornerHandleAutoHideChanged: (Boolean) -> Unit,
     onFreeformNoForeheadChanged: (Boolean) -> Unit,
     onForceFreeformEntryChanged: (Boolean) -> Unit,
-    onFreeformKeepAliveEnabledChanged: (Boolean) -> Unit,
-    onSelectKeepAlivePackages: () -> Unit,
     onForceRelativeAppFreeformChanged: (Boolean) -> Unit,
 ): List<SettingSection> {
     return buildList {
@@ -978,39 +947,15 @@ private fun freeformHubSections(
         add(
             SettingSection(
                 title = stringResource(R.string.freeform_hub_launcher_title),
-                items = buildList {
-                    add(
-                        SettingItem.Switch(
-                            key = "launcher_force_freeform_entry",
-                            title = stringResource(R.string.launcher_force_freeform_entry_title),
-                            summary = stringResource(R.string.launcher_force_freeform_entry_summary),
-                            checked = state.forceFreeformEntry,
-                            onCheckedChange = onForceFreeformEntryChanged
-                        )
+                items = listOf(
+                    SettingItem.Switch(
+                        key = "launcher_force_freeform_entry",
+                        title = stringResource(R.string.launcher_force_freeform_entry_title),
+                        summary = stringResource(R.string.launcher_force_freeform_entry_summary),
+                        checked = state.forceFreeformEntry,
+                        onCheckedChange = onForceFreeformEntryChanged
                     )
-                    add(
-                        SettingItem.Switch(
-                            key = "freeform_keep_alive_enabled",
-                            title = stringResource(R.string.launcher_freeform_keep_alive_title),
-                            summary = stringResource(R.string.launcher_freeform_keep_alive_summary),
-                            checked = state.freeformKeepAliveEnabled,
-                            onCheckedChange = onFreeformKeepAliveEnabledChanged
-                        )
-                    )
-                    if (state.freeformKeepAliveEnabled) {
-                        add(
-                            SettingItem.Custom(
-                                key = "freeform_keep_alive_packages",
-                                content = {
-                                    KeepAlivePackagesRow(
-                                        packageCount = state.freeformKeepAlivePackagesCount,
-                                        onClick = onSelectKeepAlivePackages
-                                    )
-                                }
-                            )
-                        )
-                    }
-                }
+                )
             )
         )
 
@@ -1061,33 +1006,6 @@ private fun freeformHubActionItem(
             }
         }
     )
-}
-
-@Composable
-private fun KeepAlivePackagesRow(
-    packageCount: Int,
-    onClick: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 24.dp, vertical = 16.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = stringResource(R.string.launcher_freeform_keep_alive_apps_summary, packageCount),
-            style = MaterialTheme.typography.bodyMedium,
-            color = LocalZToolColorScheme.current.onSurfaceVariant,
-            modifier = Modifier.weight(1f)
-        )
-        Spacer(modifier = Modifier.width(16.dp))
-        Icon(
-            imageVector = ZToolIcons.ArrowForward,
-            contentDescription = null,
-            tint = LocalZToolColorScheme.current.onSurfaceVariant
-        )
-    }
 }
 
 private enum class ThresholdWinner { Width, Height, Both, None }

@@ -49,9 +49,6 @@ object PreferenceKeys {
     // Unlocks hidden and system apps in ZUI's native floating-window and split-screen lists
     val UNLOCK_OV_COMMON_APP_LIST = BoolKey("unlock_ov_common_app_list", false)
     val FREEFORM_EDGE_BUBBLE = BoolKey("freeform_edge_bubble", false)
-    // Shared switch of the freeform keep-alive pair (system OomAdjuster pin + launcher
-    // recents-cleaner bypass); module name of both hook classes
-    val FREEFORM_KEEP_ALIVE_ENABLED = BoolKey("freeform_keep_alive_enabled", false)
     // Launcher-side fullscreen trigger for the freeform corner resize; replaces the
     // host's screen-area/width/height rules with the user's percentages
     val LAUNCHER_FREEFORM_FULLSCREEN_THRESHOLD =
@@ -385,9 +382,6 @@ object PreferenceKeys {
 
     val MISTAKE_TOUCH_WHITE_LIST_GAME = StringKey("MistakeTouchWhiteListGame", "")
     val FORCE_STOP_WHITE_LIST = StringKey("ForceStopWhiteList", "")
-    // Package names of apps whose processes must never be cached/killed while
-    // (or after) running in a freeform window; comma-separated
-    val FREEFORM_KEEP_ALIVE_PACKAGES = StringKey("freeform_keep_alive_packages", "")
     // Reading apps exempted from the clipboard access toast; comma-separated
     val CLIPBOARD_ACCESS_TOAST_PACKAGES = StringKey("clipboard_access_toast_packages", "")
     val CUSTOM_OTA_TARGET_VERSION_NAME = StringKey("Custom_ota_target_versionName", "")
@@ -437,7 +431,6 @@ object PreferenceKeys {
         FORCE_SCREEN_ON_OFF_ANIMATION, AI_INPUT_EXPAND,
         KEEP_ROTATION, WORK_MODE_PORTRAIT, ALLOW_RELATIVE_APP_LAUNCH, FORCE_RELATIVE_APP_FREEFORM,
         LAUNCHER_FORCE_FREEFORM_ENTRY, UNLOCK_OV_COMMON_APP_LIST, FREEFORM_EDGE_BUBBLE,
-        FREEFORM_KEEP_ALIVE_ENABLED,
         LAUNCHER_FREEFORM_FULLSCREEN_THRESHOLD,
         SYSTEM_UI_FREEFORM_BOTTOM_EDGE_RESIZE,
         SYSTEM_UI_CORNER_HANDLE_AUTO_HIDE,
@@ -562,7 +555,6 @@ object PreferenceKeys {
     val stringKeys: List<StringKey> = listOf(
         DEVICE_DISGUISE_MODEL,
         MISTAKE_TOUCH_WHITE_LIST_GAME, FORCE_STOP_WHITE_LIST,
-        FREEFORM_KEEP_ALIVE_PACKAGES,
         CLIPBOARD_ACCESS_TOAST_PACKAGES,
         CUSTOM_OTA_TARGET_VERSION_NAME, CUSTOM_OTA_TARGET_DEVICE_ID,
         TB_ENGINE_OTA_PRIVATE_KEY, TB_ENGINE_OTA_PUBLIC_KEY, TB_ENGINE_OTA_CERT,

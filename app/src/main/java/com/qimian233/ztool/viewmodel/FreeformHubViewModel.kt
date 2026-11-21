@@ -125,23 +125,10 @@ class FreeformHubViewModel(
         repository.saveForceFreeformEntry(enabled)
     }
 
-    fun setFreeformKeepAliveEnabled(enabled: Boolean) {
-        _uiState.value = _uiState.value.copy(freeformKeepAliveEnabled = enabled)
-        repository.saveFreeformKeepAliveEnabled(enabled)
-    }
-
-    fun setFreeformKeepAlivePackages(packageNames: List<String>) {
-        _uiState.value = _uiState.value.copy(freeformKeepAlivePackages = packageNames)
-        repository.saveFreeformKeepAlivePackages(packageNames)
-    }
-
     fun setForceRelativeAppFreeform(enabled: Boolean) {
         _uiState.value = _uiState.value.copy(forceRelativeAppFreeform = enabled)
         repository.saveForceRelativeAppFreeform(enabled)
     }
-
-    fun loadUserInstalledPackageNames(): List<String> =
-        repository.loadUserInstalledPackageNames()
 
     fun loadFlashedConfigs(): HashSet<String> = repository.loadFlashedConfigs()
 
@@ -256,11 +243,6 @@ data class FreeformHubUiState(
     val cornerHandleAutoHide: Boolean = true,
     val freeformNoForehead: Boolean = false,
     val forceFreeformEntry: Boolean = false,
-    val freeformKeepAliveEnabled: Boolean = false,
-    val freeformKeepAlivePackages: List<String> = emptyList(),
     val forceRelativeAppFreeform: Boolean = false,
     val showRestartDialog: Boolean = false
-) {
-    val freeformKeepAlivePackagesCount: Int
-        get() = freeformKeepAlivePackages.size
-}
+)

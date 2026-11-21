@@ -51,8 +51,6 @@ class FreeformHubRepository(
             cornerHandleAutoHide = misc.cornerHandleAutoHide,
             freeformNoForehead = misc.freeformNoForehead,
             forceFreeformEntry = launcher.forceFreeformEntry,
-            freeformKeepAliveEnabled = launcher.freeformKeepAliveEnabled,
-            freeformKeepAlivePackages = launcher.freeformKeepAlivePackages,
             forceRelativeAppFreeform = framework.forceRelativeAppFreeform
         )
     }
@@ -124,15 +122,6 @@ class FreeformHubRepository(
 
     fun saveForceFreeformEntry(enabled: Boolean) =
         launcherSettingsRepository.saveForceFreeformEntry(enabled)
-
-    fun saveFreeformKeepAliveEnabled(enabled: Boolean) =
-        launcherSettingsRepository.saveFreeformKeepAliveEnabled(enabled)
-
-    fun saveFreeformKeepAlivePackages(packageNames: List<String>) =
-        launcherSettingsRepository.saveFreeformKeepAlivePackages(packageNames)
-
-    fun loadUserInstalledPackageNames(): List<String> =
-        launcherSettingsRepository.loadUserInstalledPackageNames()
 
     fun saveForceRelativeAppFreeform(enabled: Boolean) =
         frameworkSettingsRepository.saveForceRelativeAppFreeform(enabled)

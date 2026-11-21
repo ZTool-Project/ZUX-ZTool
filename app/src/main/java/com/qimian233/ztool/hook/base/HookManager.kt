@@ -15,7 +15,6 @@ import com.qimian233.ztool.hook.modules.systemui.FreeformBottomEdgeResizeHook
 import com.qimian233.ztool.hook.modules.systemui.FreeformCornerHandleIndicatorHook
 import com.qimian233.ztool.hook.modules.systemui.FreeformEdgeBubbleDragLimitHook
 import com.qimian233.ztool.hook.modules.systemui.FreeformForeheadOverlayHook
-import com.qimian233.ztool.hook.modules.launcher.FreeformKeepAliveLauncherHook
 import com.qimian233.ztool.hook.modules.launcher.dockbar.DisableDockBar
 import com.qimian233.ztool.hook.modules.launcher.dockbar.DisableDockBackground
 import com.qimian233.ztool.hook.modules.launcher.dockbar.DisableRecentAppsDisplay
@@ -90,7 +89,6 @@ import com.qimian233.ztool.hook.modules.systemframework.DisableHbmThermalLimit
 import com.qimian233.ztool.hook.modules.systemframework.DisableVolumeWarnDialog
 import com.qimian233.ztool.hook.modules.systemframework.FineVolumeSteps
 import com.qimian233.ztool.hook.modules.systemframework.FreeformEdgeBubbleHook
-import com.qimian233.ztool.hook.modules.systemframework.FreeformKeepAliveSystemHook
 import com.qimian233.ztool.hook.modules.systemframework.ForceRelativeAppFreeform
 import com.qimian233.ztool.hook.modules.systemframework.ForceScreenOnOffAnimation
 import com.qimian233.ztool.hook.modules.systemframework.KeepRotation
@@ -213,7 +211,6 @@ object HookManager {
         registerHookModule(AllowRelativeAppLaunch())
         registerHookModule(ForceRelativeAppFreeform())
         registerHookModule(FreeformEdgeBubbleHook())
-        registerHookModule(FreeformKeepAliveSystemHook())
         registerHookModule(DisableHbmThermalLimit())
         registerHookModule(ClipboardAccessToastHook())
         registerHookModule(SystemSplitScreenMandatory())
@@ -320,7 +317,6 @@ object HookManager {
         registerHookModule(DisableForceStop())
         registerHookModule(ZuiLauncherHotseatHook())
         registerHookModule(LauncherFreeformEntryHook())
-        registerHookModule(FreeformKeepAliveLauncherHook())
         registerHookModule(LauncherAppIconUnmaskHook())
         registerHookModule(LauncherIconPackHook())
         registerHookModule(CustomGridSize())
