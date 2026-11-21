@@ -19,8 +19,16 @@ class DisableAllVirusScans : AppHookModule() {
         ScopeKeys.ZUI_SAFE_CENTER.packageName
     )
 
+    override val allowSecondaryPackage: Boolean = true
+
     override fun handleLoadPackage(param: PackageLoadedParam) {
         val classLoader = param.defaultClassLoader
+        if (!param.isFirstPackage) {
+            // Host processes (e.g. Launcher) load SafeCenter solely to inflate ActiveView.
+            hookSystemGetInt()
+            forceActiveViewNormalIcon(classLoader)
+            return
+        }
         hookGetManager(classLoader)
         hookDbManager(classLoader)
         disableVirusPopup(classLoader)

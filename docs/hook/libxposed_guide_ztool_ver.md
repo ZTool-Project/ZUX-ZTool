@@ -426,11 +426,12 @@ protected open fun hookWithId(
 ): XposedInterface.HookHandle
 
 // 以下部分谨慎覆写
+protected open val allowSecondaryPackage: Boolean = false // 是否允许在目标包作为次级包（param.isFirstPackage == false，例如被其他宿主进程通过 createPackageContext 加载）时仍派发 handleLoadPackage。默认 false，防止跨包误注入；仅在确需拦截宿主进程加载的次级包时（如 DisableAllVirusScans 在桌面中拦截 ActiveView）才覆写为 true，并在 handleLoadPackage 内按 param.isFirstPackage 分流
 open fun supportsPackage(packageName: String?): Boolean // 判断是否应当注入本包，如果 Hook 面向的包不明确，例如针对未知个应用的 ZUI SDK 前端控件进行注入，则应当在模块内覆写为默认返回 true
 
 // 以下部分不需要自行实现
 open fun isEnabled(): Boolean // Hook 模块可调用。判断当前 Hook 是否被启用，结果随着用户偏好开关变化实时变化
 open fun setXposedInterface(xposed: XposedInterface) // 只能由 HookManager 调用，用于注入 XposedInterface 实例
-fun safeHandleLoadPackage(param: XposedModuleInterface.PackageLoadedParam) // 只能由 HookManager 调用，派发执行 handleLoadPackage(param), 自带异常处理
+fun safeHandleLoadPackage(param: XposedModuleInterface.PackageLoadedParam) // 只能由 HookManager 调用，依次校验 param.isFirstPackage（除非 allowSecondaryPackage 为 true）、supportsPackage 与 isEnabled 后派发执行 handleLoadPackage(param), 自带异常处理
 fun safeHandleSystemServerStarting(param: XposedModuleInterface.SystemServerStartingParam) // 只能由 HookManager 调用，派发执行 handleSystemServerStarting(param)，自带异常处理
 ```

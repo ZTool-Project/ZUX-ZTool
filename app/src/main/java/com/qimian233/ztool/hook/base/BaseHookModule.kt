@@ -68,6 +68,9 @@ abstract class BaseHookModule {
         this.logger = ModuleLog(getModuleName(), xposed)
     }
 
+    /** Whether to run when a target package loads as a secondary package in another process. */
+    protected open val allowSecondaryPackage: Boolean = false
+
     open fun supportsPackage(packageName: String?): Boolean {
         val targets = getTargetPackages()
         for (target in targets) {
@@ -98,6 +101,7 @@ abstract class BaseHookModule {
     }
 
     fun safeHandleLoadPackage(param: XposedModuleInterface.PackageLoadedParam) {
+        if (!param.isFirstPackage && !allowSecondaryPackage) return
         val packageName = param.packageName
         if (!supportsPackage(packageName)) return
         if (!isEnabled()) {
