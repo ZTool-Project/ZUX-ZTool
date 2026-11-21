@@ -33,7 +33,23 @@ class GameToolSettingsRepository(
                 PreferenceKeys.DEVICE_DISGUISE_MODEL.default
             ),
             fixCpuFrequency = prefsUtils.loadBooleanSetting(KEY_FIX_CPU_FREQUENCY, false),
+            cpuFreqCore = prefsUtils.loadIntegerSetting(
+                KEY_FIX_CPU_CLOCK_CORE,
+                PreferenceKeys.FIX_CPU_CLOCK_CORE.default
+            ),
+            cpuFreqNode = prefsUtils.loadStringSetting(
+                KEY_FIX_CPU_CLOCK_NODE,
+                PreferenceKeys.FIX_CPU_CLOCK_NODE.default
+            ),
             fixSocTemperature = prefsUtils.loadBooleanSetting(KEY_FIX_SOC_TEMPERATURE, false),
+            socTempZoneType = prefsUtils.loadStringSetting(
+                KEY_FIX_SOC_TEMP_ZONE_TYPE,
+                PreferenceKeys.FIX_SOC_TEMP_ZONE_TYPE.default
+            ),
+            socTempZoneIndexHint = prefsUtils.loadIntegerSetting(
+                KEY_FIX_SOC_TEMP_ZONE_INDEX_HINT,
+                PreferenceKeys.FIX_SOC_TEMP_ZONE_INDEX_HINT.default
+            ),
             mistakeTouchMode = mistakeTouchMode,
             targetGamePackages = loadWhitelistPackages()
         )
@@ -41,6 +57,10 @@ class GameToolSettingsRepository(
 
     /** Model table of the installed game service; loads host classes, call off the main thread. */
     fun loadAvailableModels(): List<DeviceModel> = DeviceModelCatalog.load(appContext)
+
+    fun loadAvailableCpuCores(): List<CpuCoreInfo> = CpuCoreCatalog.load()
+
+    fun loadAvailableThermalZones(): List<ThermalZoneInfo> = ThermalZoneCatalog.load()
 
     fun saveDisableGameAudio(enabled: Boolean) {
         prefsUtils.saveBooleanSetting(KEY_DISABLE_GAME_AUDIO, enabled)
@@ -59,8 +79,21 @@ class GameToolSettingsRepository(
         prefsUtils.saveBooleanSetting(KEY_FIX_CPU_FREQUENCY, enabled)
     }
 
+    fun saveCpuFreqCore(coreIndex: Int) {
+        prefsUtils.saveIntegerSetting(KEY_FIX_CPU_CLOCK_CORE, coreIndex)
+    }
+
+    fun saveCpuFreqNode(node: String) {
+        prefsUtils.saveStringSetting(KEY_FIX_CPU_CLOCK_NODE, node)
+    }
+
     fun saveFixSocTemperature(enabled: Boolean) {
         prefsUtils.saveBooleanSetting(KEY_FIX_SOC_TEMPERATURE, enabled)
+    }
+
+    fun saveSocTempZone(type: String, indexHint: Int) {
+        prefsUtils.saveStringSetting(KEY_FIX_SOC_TEMP_ZONE_TYPE, type)
+        prefsUtils.saveIntegerSetting(KEY_FIX_SOC_TEMP_ZONE_INDEX_HINT, indexHint)
     }
 
     fun saveMistakeTouchMode(mode: MistakeTouchMode) {
@@ -123,7 +156,11 @@ class GameToolSettingsRepository(
         private val KEY_DISGUISE_DEVICE = PreferenceKeys.DISGUISE_TB322FC.name
         private val KEY_DISGUISE_MODEL = PreferenceKeys.DEVICE_DISGUISE_MODEL.name
         private val KEY_FIX_CPU_FREQUENCY = PreferenceKeys.FIX_CPU_CLOCK.name
+        private val KEY_FIX_CPU_CLOCK_CORE = PreferenceKeys.FIX_CPU_CLOCK_CORE.name
+        private val KEY_FIX_CPU_CLOCK_NODE = PreferenceKeys.FIX_CPU_CLOCK_NODE.name
         private val KEY_FIX_SOC_TEMPERATURE = PreferenceKeys.FIX_SOC_TEMP.name
+        private val KEY_FIX_SOC_TEMP_ZONE_TYPE = PreferenceKeys.FIX_SOC_TEMP_ZONE_TYPE.name
+        private val KEY_FIX_SOC_TEMP_ZONE_INDEX_HINT = PreferenceKeys.FIX_SOC_TEMP_ZONE_INDEX_HINT.name
         private val KEY_AUTO_MISTAKE_TOUCH = PreferenceKeys.AUTO_MISTAKE_TOUCH.name
         private val KEY_MISTAKE_TOUCH_WHITE_LIST = PreferenceKeys.MISTAKE_TOUCH_WHITE_LIST.name
         private val KEY_MISTAKE_TOUCH_WHITE_LIST_GAME = PreferenceKeys.MISTAKE_TOUCH_WHITE_LIST_GAME.name

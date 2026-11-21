@@ -6,9 +6,7 @@ import com.qimian233.ztool.hook.base.AppHookModule
 import io.github.libxposed.api.XposedModuleInterface.PackageLoadedParam
 
 /**
- * SoC temperature hook module.
- * Replaces the game service thermal readings with a sysfs value, so the floating
- * window and island show a real temperature where the vendor HAL returns 0.
+ * Hooks HWDataInterface.getTemp to return sysfs readings from the selected thermal zone.
  * See docs/research/gametool_hardware_telemetry.md
  */
 class SocTemperatureFix : AppHookModule() {
@@ -18,33 +16,28 @@ class SocTemperatureFix : AppHookModule() {
     override fun getTargetPackages(): Array<String> = arrayOf(ScopeKeys.GAME_SERVICE.packageName)
 
     override fun handleLoadPackage(param: PackageLoadedParam) {
-        logger.debug("SocTemperatureFix: start processing package ${param.packageName}")
-        hookZuiGameService(param.defaultClassLoader)
-    }
+        val prefs = remotePreferences
+        val preferredType = prefs.getString(
+            PreferenceKeys.FIX_SOC_TEMP_ZONE_TYPE.name,
+            PreferenceKeys.FIX_SOC_TEMP_ZONE_TYPE.default
+        ).orEmpty()
+        val preferredIndexHint = prefs.getInt(
+            PreferenceKeys.FIX_SOC_TEMP_ZONE_INDEX_HINT.name,
+            PreferenceKeys.FIX_SOC_TEMP_ZONE_INDEX_HINT.default
+        )
 
-    private fun hookZuiGameService(classLoader: ClassLoader) {
         try {
-            val hwDataInterfaceClass = classLoader.loadClass(HW_DATA_INTERFACE_CLASS)
-            val thermalSource = ThermalZoneSource(logger)
+            val hwDataInterfaceClass = param.defaultClassLoader.loadClass(HW_DATA_INTERFACE_CLASS)
+            val thermalSource = ThermalZoneSource(logger, preferredType, preferredIndexHint)
 
             val getTempMethod = hwDataInterfaceClass.getDeclaredMethod("getTemp")
             hookWithId(getTempMethod, "get_temp") { chain ->
-                val originalResult = chain.proceed() as Int
-                thermalSource.read() ?: originalResult
+                thermalSource.read() ?: (chain.proceed() as Int)
             }
 
-            val getThermalTempMethod = hwDataInterfaceClass.getDeclaredMethod(
-                "getThermalTemp",
-                Int::class.javaPrimitiveType
-            )
-            hookWithId(getThermalTempMethod, "get_thermal_temp") { chain ->
-                val originalResult = chain.proceed() as Int
-                thermalSource.read() ?: originalResult
-            }
-
-            logger.info("Hook executed successfully.")
+            logger.info("Hooked HWDataInterface.getTemp (preferredType='$preferredType')")
         } catch (t: Throwable) {
-            logger.error("Failed to hook ZUI game service!", t)
+            logger.error("Failed to hook HWDataInterface.getTemp", t)
         }
     }
 

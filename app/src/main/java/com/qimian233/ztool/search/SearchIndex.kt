@@ -1243,9 +1243,29 @@ object SearchIndex {
             summaryRes = R.string.game_tool_f_ix_cpu_frequency_summary
         ),
         gameTool.item(
+            id = "game_tool_fix_cpu_frequency_core",
+            titleRes = R.string.game_tool_cpu_freq_core_title,
+            summaryRes = R.string.game_tool_cpu_freq_core_summary,
+            parentTitleRes = R.string.game_tool_f_ix_cpu_frequency,
+            parentKey = "game_tool_fix_cpu_frequency"
+        ),
+        gameTool.item(
+            id = "game_tool_fix_cpu_frequency_node",
+            titleRes = R.string.game_tool_cpu_freq_node_title,
+            summaryRes = R.string.game_tool_cpu_freq_node_summary,
+            parentTitleRes = R.string.game_tool_f_ix_cpu_frequency,
+            parentKey = "game_tool_fix_cpu_frequency"
+        ),
+        gameTool.item(
             id = "game_tool_fix_soc_temp",
             titleRes = R.string.game_tool_fix_soc_temp,
             summaryRes = R.string.game_tool_fix_soc_temp_summary
+        ),
+        gameTool.item(
+            id = "game_tool_fix_soc_temp_zone",
+            titleRes = R.string.game_tool_soc_temp_zone_title,
+            parentTitleRes = R.string.game_tool_fix_soc_temp,
+            parentKey = "game_tool_fix_soc_temp"
         ),
         gameTool.item(
             id = "game_tool_auto_open_prevent_touch",

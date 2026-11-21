@@ -218,26 +218,20 @@ private fun AppChooserContent(
     onConfirm: (Set<String>) -> Unit,
     onCancel: () -> Unit
 ) {
-    val queryState = rememberTextFieldState()
-    val query = queryState.text.toString()
     val selectedPackages = remember {
         mutableStateListOf<String>().apply {
             addAll(apps.filter { it.isSelected }.map { it.packageName })
         }
     }
-    val filteredApps = remember(query, apps, selectedPackages.size) {
-        val normalizedQuery = query.trim().lowercase()
-        if (normalizedQuery.isEmpty()) {
-            apps
-        } else {
-            apps.filter { app ->
-                app.appName.lowercase().contains(normalizedQuery) ||
-                    app.packageName.lowercase().contains(normalizedQuery)
-            }
-        }
-    }
 
-    ZToolDialog(
+    com.qimian233.ztool.ui.components.ZToolSearchableListDialog(
+        title = title,
+        items = apps,
+        itemKey = { it.packageName },
+        matchesQuery = { app, normalizedQuery ->
+            app.appName.lowercase().contains(normalizedQuery) ||
+                app.packageName.lowercase().contains(normalizedQuery)
+        },
         onDismissRequest = onCancel,
         confirmButton = {
             ZToolTextButton(
@@ -254,54 +248,30 @@ private fun AppChooserContent(
                 modifier = Modifier
             )
         },
-        title = if (!title.isNullOrBlank()) {
-            { Text(text = title, fontWeight = FontWeight.SemiBold) }
-        } else null,
-        text = {
-            Column(
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                ZToolSearchField(
-                    state = queryState,
-                    placeholder = stringResource(R.string.common_search_hint),
-                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp)
-                )
-
-                Text(
-                    text = stringResource(R.string.common_app_search_page_selected_string, selectedPackages.size),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = LocalZToolColorScheme.current.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 8.dp, bottom = 4.dp, start = 24.dp)
-                )
-
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = 360.dp)
-                ) {
-                    items(
-                        items = filteredApps,
-                        key = { it.packageName }
-                    ) { app ->
-                        val selected = app.packageName in selectedPackages
-                        AppChooserRow(
-                            app = app,
-                            selected = selected,
-                            onSelectedChange = { checked ->
-                                if (checked) {
-                                    if (app.packageName !in selectedPackages) {
-                                        selectedPackages.add(app.packageName)
-                                    }
-                                } else {
-                                    selectedPackages.remove(app.packageName)
-                                }
-                            }
-                        )
+        headerContent = {
+            Text(
+                text = stringResource(R.string.common_app_search_page_selected_string, selectedPackages.size),
+                style = MaterialTheme.typography.labelMedium,
+                color = LocalZToolColorScheme.current.onSurfaceVariant,
+                modifier = Modifier.padding(top = 8.dp, bottom = 4.dp, start = 24.dp)
+            )
+        }
+    ) { app ->
+        val selected = app.packageName in selectedPackages
+        AppChooserRow(
+            app = app,
+            selected = selected,
+            onSelectedChange = { checked ->
+                if (checked) {
+                    if (app.packageName !in selectedPackages) {
+                        selectedPackages.add(app.packageName)
                     }
+                } else {
+                    selectedPackages.remove(app.packageName)
                 }
             }
-        }
-    )
+        )
+    }
 }
 
 @Composable

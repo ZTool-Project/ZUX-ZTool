@@ -360,6 +360,12 @@ object PreferenceKeys {
     val FREEFORM_EDGE_BUBBLE_TRIGGER_PERCENT =
         IntKey("freeform_edge_bubble_trigger_percent", 50)
 
+    // Selected CPU core index for CpuFrequencyFix (-1 = Auto / highest core)
+    val FIX_CPU_CLOCK_CORE = IntKey("fix_cpu_clock_core", -1)
+
+    // Cached thermal_zoneN index matching FIX_SOC_TEMP_ZONE_TYPE for O(1) lookup (-1 = unset)
+    val FIX_SOC_TEMP_ZONE_INDEX_HINT = IntKey("fix_soc_temp_zone_index_hint", -1)
+
     // ═══════════════════════════════════════════════════════════
     // Float keys
     // ═══════════════════════════════════════════════════════════
@@ -423,6 +429,12 @@ object PreferenceKeys {
     // Enum prefValue from SegmentedChargingStyle; unknown values fall back to fill_from_empty.
     val SYSTEMUI_BATTERY_SEGMENTED_CHARGING_STYLE =
         StringKey("systemui_battery_segmented_charging_style", "fill_from_empty")
+
+    // Sysfs frequency filename read by CpuFrequencyFix
+    val FIX_CPU_CLOCK_NODE = StringKey("fix_cpu_clock_node", "scaling_cur_freq")
+
+    // Thermal zone type name selected for SocTemperatureFix (empty = Auto)
+    val FIX_SOC_TEMP_ZONE_TYPE = StringKey("fix_soc_temp_zone_type", "")
 
     // Lists grouped by type — used by ModulePreferencesUtils backup/restore
     // and by hook-side loop matching
@@ -545,7 +557,9 @@ object PreferenceKeys {
         LAUNCHER_BIG_FOLDER_TUNE_BG_X, LAUNCHER_BIG_FOLDER_TUNE_BG_Y,
         LAUNCHER_BIG_FOLDER_TUNE_SHIFT_X, LAUNCHER_BIG_FOLDER_TUNE_SHIFT_Y,
         LAUNCHER_FREEFORM_FULLSCREEN_WIDTH_PERCENT, LAUNCHER_FREEFORM_FULLSCREEN_HEIGHT_PERCENT,
-        FREEFORM_EDGE_BUBBLE_TRIGGER_PERCENT
+        FREEFORM_EDGE_BUBBLE_TRIGGER_PERCENT,
+        FIX_CPU_CLOCK_CORE,
+        FIX_SOC_TEMP_ZONE_INDEX_HINT
     )
 
     val floatKeys: List<FloatKey> = listOf(
@@ -576,7 +590,9 @@ object PreferenceKeys {
         SYSTEMUI_REALWATTS_CUSTOM_FORMAT,
         SYSTEMUI_BATTERY_INDICATOR_STYLE,
         SYSTEMUI_BATTERY_SEGMENTED_CHARGING_STYLE,
-        DESKTOP_LIVE_WALLPAPER_SCALE_MODE
+        DESKTOP_LIVE_WALLPAPER_SCALE_MODE,
+        FIX_CPU_CLOCK_NODE,
+        FIX_SOC_TEMP_ZONE_TYPE
     )
 
     // Lookup helpers

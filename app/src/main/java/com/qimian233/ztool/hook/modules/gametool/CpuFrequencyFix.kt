@@ -5,13 +5,10 @@ import com.qimian233.ztool.data.keys.ScopeKeys
 import com.qimian233.ztool.hook.base.AppHookModule
 import io.github.libxposed.api.XposedModuleInterface.PackageLoadedParam
 import java.io.File
-import java.lang.reflect.Method
 
 /**
- * CPU frequency hook module - fixes CPU clock reading in the game service.
- * Function: hooks the CPU frequency retrieval methods of
- * com.zui.game.service.util.HWDataInterface so they always read the
- * frequency data of the last CPU core.
+ * Hooks HWDataInterface CPU frequency getters to read user-selected sysfs nodes.
+ * See docs/research/gametool_hardware_telemetry.md
  */
 class CpuFrequencyFix : AppHookModule() {
 
@@ -20,205 +17,78 @@ class CpuFrequencyFix : AppHookModule() {
     override fun getTargetPackages(): Array<String> = arrayOf(ScopeKeys.GAME_SERVICE.packageName)
 
     override fun handleLoadPackage(param: PackageLoadedParam) {
-        val classLoader = param.defaultClassLoader
-        val packageName = param.packageName
-        logger.debug("CpuFrequencyFix: Targeting $packageName")
+        val prefs = remotePreferences
+        val configuredCore = prefs.getInt(
+            PreferenceKeys.FIX_CPU_CLOCK_CORE.name,
+            PreferenceKeys.FIX_CPU_CLOCK_CORE.default
+        )
+        val configuredNode = prefs.getString(
+            PreferenceKeys.FIX_CPU_CLOCK_NODE.name,
+            PreferenceKeys.FIX_CPU_CLOCK_NODE.default
+        )?.takeIf { it in ALLOWED_NODES } ?: PreferenceKeys.FIX_CPU_CLOCK_NODE.default
+
+        val coreIndex = resolveTargetCoreIndex(configuredCore)
+        if (coreIndex < 0) {
+            logger.warn("No readable CPU cpufreq directory found (configured=$configuredCore)")
+            return
+        }
+
+        val curFreqFile = File("$CPU_ROOT/cpu$coreIndex/cpufreq/$configuredNode")
+        val hwMaxFile = File("$CPU_ROOT/cpu$coreIndex/cpufreq/$NODE_CPUINFO_MAX")
+        val policyMaxFile = File("$CPU_ROOT/cpu$coreIndex/cpufreq/$NODE_SCALING_MAX")
 
         try {
-            val hwDataClass = classLoader.loadClass("com.zui.game.service.util.HWDataInterface")
+            val hwDataClass = param.defaultClassLoader.loadClass(HW_DATA_INTERFACE_CLASS)
 
-            // Hook the no-arg getCpuCurFreq() method of HWDataInterface
-            val getCpuCurFreqMethod: Method = hwDataClass.getDeclaredMethod("getCpuCurFreq")
-            hookWithId(getCpuCurFreqMethod, "get_cpu_cur_freq") { getLastCpuCoreCurrentFreq() }
+            val getCpuCurFreqMethod = hwDataClass.getDeclaredMethod("getCpuCurFreq")
+            hookWithId(getCpuCurFreqMethod, "get_cpu_cur_freq") { chain ->
+                readSysfsInt(curFreqFile) ?: (chain.proceed() as Int)
+            }
 
-            // Hook the getCpuCurFreq(int coreIndex) method of HWDataInterface
-            val getCpuCurFreqIndexMethod: Method = hwDataClass.getDeclaredMethod(
-                "getCpuCurFreq", Int::class.javaPrimitiveType
-            )
-            hookWithId(getCpuCurFreqIndexMethod, "get_cpu_cur_freq_index") { getLastCpuCoreCurrentFreq() }
+            val getCpuMaxFreqMethod = hwDataClass.getDeclaredMethod("getCpuMaxFreq")
+            hookWithId(getCpuMaxFreqMethod, "get_cpu_max_freq") { chain ->
+                (readSysfsInt(hwMaxFile) ?: readSysfsInt(policyMaxFile)) ?: (chain.proceed() as Int)
+            }
 
-            // Hook the getCpuMaxFreq() method of HWDataInterface
-            val getCpuMaxFreqMethod: Method = hwDataClass.getDeclaredMethod("getCpuMaxFreq")
-            hookWithId(getCpuMaxFreqMethod, "get_cpu_max_freq") { getLastCpuCoreMaxFreq() }
-
-            logger.info("CpuFrequencyFix: Successfully hooked CPU frequency methods")
+            logger.info("Hooked CPU frequency for cpu$coreIndex/$configuredNode")
         } catch (t: Throwable) {
-            logger.error("CpuFrequencyFix: Error hooking methods", t)
+            logger.error("Failed to hook HWDataInterface CPU frequency methods", t)
         }
     }
 
-    /**
-     * Get the current frequency of the last CPU core.
-     */
-    private fun getLastCpuCoreCurrentFreq(): Int {
-        try {
-            // Get the last CPU core index
-            val lastCoreIndex = getLastCpuCoreIndex()
-            if (lastCoreIndex < 0) {
-                logger.warn("CpuFrequencyFix: No CPU cores found, using fallback")
-                return readFallbackCpuFreq()
-            }
-
-            // Read the current frequency
-            val curFreqPath = "/sys/devices/system/cpu/cpu$lastCoreIndex/cpufreq/scaling_cur_freq"
-            val freqStr = readSystemFile(curFreqPath)
-
-            if (!freqStr.isNullOrEmpty()) {
-                val freq = freqStr.trim().toInt()
-                logger.debug("CpuFrequencyFix: Current freq from core $lastCoreIndex: $freq")
-                return freq
-            }
-
-            // If reading fails, try the fallback method
-            logger.warn("CpuFrequencyFix: Failed to read current freq from core $lastCoreIndex")
-            return readFallbackCpuFreq()
-        } catch (e: Exception) {
-            logger.error("CpuFrequencyFix: Error reading CPU current freq", e)
-            return DEFAULT_CURRENT_FREQ // Default 2.0GHz
-        }
+    private fun resolveTargetCoreIndex(configuredCore: Int): Int {
+        if (configuredCore >= 0) return configuredCore
+        val dirs = File(CPU_ROOT).listFiles() ?: return -1
+        return dirs.mapNotNull { dir ->
+            if (!dir.isDirectory) return@mapNotNull null
+            val idx = CPU_DIR_REGEX.matchEntire(dir.name)?.groupValues?.get(1)?.toIntOrNull()
+                ?: return@mapNotNull null
+            if (File(dir, "cpufreq").isDirectory) idx else null
+        }.maxOrNull() ?: -1
     }
 
-    /**
-     * Get the max frequency of the last CPU core.
-     */
-    private fun getLastCpuCoreMaxFreq(): Int {
-        try {
-            // Get the last CPU core index
-            val lastCoreIndex = getLastCpuCoreIndex()
-            if (lastCoreIndex < 0) {
-                logger.warn("CpuFrequencyFix: No CPU cores found for max freq, using fallback")
-                return readFallbackCpuMaxFreq()
-            }
-
-            // Read the max frequency
-            val maxFreqPath = "/sys/devices/system/cpu/cpu$lastCoreIndex/cpufreq/scaling_max_freq"
-            val freqStr = readSystemFile(maxFreqPath)
-
-            if (!freqStr.isNullOrEmpty()) {
-                val freq = freqStr.trim().toInt()
-                logger.debug("CpuFrequencyFix: Max freq from core $lastCoreIndex: $freq")
-                return freq
-            }
-
-            // If reading fails, try the fallback method
-            logger.warn("CpuFrequencyFix: Failed to read max freq from core $lastCoreIndex")
-            return readFallbackCpuMaxFreq()
-        } catch (e: Exception) {
-            logger.error("CpuFrequencyFix: Error reading CPU max freq", e)
-            return DEFAULT_MAX_FREQ // Default 3.0GHz
-        }
-    }
-
-    /**
-     * Get the index of the last CPU core.
-     */
-    private fun getLastCpuCoreIndex(): Int {
-        try {
-            val cpuDir = File("/sys/devices/system/cpu/")
-            val cpuFiles = cpuDir.listFiles { _, name -> name.matches(Regex("cpu[0-9]+")) }
-
-            if (cpuFiles == null || cpuFiles.isEmpty()) {
-                logger.error("CpuFrequencyFix: No CPU cores found in /sys/devices/system/cpu/")
-                return -1
-            }
-
-            // Sort by core number in descending order and take the largest (last core)
-            cpuFiles.sortWith { f1, f2 ->
-                try {
-                    val num1 = f1.name.substring(3).toInt()
-                    val num2 = f2.name.substring(3).toInt()
-                    num2.compareTo(num1) // Descending
-                } catch (_: NumberFormatException) {
-                    0
-                }
-            }
-
-            // Get the last core index
-            val lastName = cpuFiles[0].name
-            val lastIndex = lastName.substring(3).toInt()
-            logger.error("CpuFrequencyFix: Last CPU core index: $lastIndex")
-            return lastIndex
-        } catch (e: Exception) {
-            logger.error("CpuFrequencyFix: Error getting last CPU core index", e)
-            return -1
-        }
-    }
-
-    /**
-     * Fallback: read the current CPU frequency.
-     */
-    private fun readFallbackCpuFreq(): Int {
-        try {
-            // Try reading cpu0's current frequency
-            val curFreqStr = readSystemFile("/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq")
-            if (!curFreqStr.isNullOrEmpty()) {
-                val freq = curFreqStr.trim().toInt()
-                logger.info("CpuFrequencyFix: Fallback current freq: $freq")
-                return freq
-            }
-
-            // Try reading cpuinfo_cur_freq
-            val infoCurFreqStr = readSystemFile("/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_cur_freq")
-            if (!infoCurFreqStr.isNullOrEmpty()) {
-                val freq = infoCurFreqStr.trim().toInt()
-                logger.info("CpuFrequencyFix: Fallback cpuinfo current freq: $freq")
-                return freq
-            }
-        } catch (e: Exception) {
-            logger.error("CpuFrequencyFix: Error in fallback current freq reading", e)
-        }
-
-        logger.warn("CpuFrequencyFix: Using default current freq: 2000000")
-        return 0 // Default 0GHz
-    }
-
-    /**
-     * Fallback: read the CPU max frequency.
-     */
-    private fun readFallbackCpuMaxFreq(): Int {
-        try {
-            // Try reading cpu0's max frequency
-            val maxFreqStr = readSystemFile("/sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq")
-            if (!maxFreqStr.isNullOrEmpty()) {
-                val freq = maxFreqStr.trim().toInt()
-                logger.debug("CpuFrequencyFix: Fallback max freq: $freq")
-                return freq
-            }
-
-            // Try reading cpuinfo_max_freq
-            val infoMaxFreqStr = readSystemFile("/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq")
-            if (!infoMaxFreqStr.isNullOrEmpty()) {
-                val freq = infoMaxFreqStr.trim().toInt()
-                logger.debug("CpuFrequencyFix: Fallback cpuinfo max freq: $freq")
-                return freq
-            }
-        } catch (e: Exception) {
-            logger.error("CpuFrequencyFix: Error in fallback max freq reading", e)
-        }
-
-        logger.warn("CpuFrequencyFix: Using default max freq: 3000000")
-        return 0 // Default 0GHz
-    }
-
-    /**
-     * Read the content of a system file.
-     */
-    private fun readSystemFile(filePath: String): String? {
-        val file = File(filePath)
-        if (!file.exists()) {
-            logger.error("CpuFrequencyFix: File does not exist: $filePath")
-            return null
-        }
-        return try {
-            file.bufferedReader().use { it.readLine() }
-        } catch (e: Exception) {
-            logger.error("CpuFrequencyFix: Error reading file $filePath", e)
+    private fun readSysfsInt(file: File): Int? = try {
+        if (!file.canRead()) {
             null
+        } else {
+            file.bufferedReader().use { it.readLine() }?.trim()?.toIntOrNull()?.takeIf { it > 0 }
         }
+    } catch (_: Exception) {
+        null
     }
 
-    companion object {
-        private const val DEFAULT_CURRENT_FREQ = 2000000 // Default 2.0GHz
-        private const val DEFAULT_MAX_FREQ = 3000000 // Default 3.0GHz
+    private companion object {
+        const val HW_DATA_INTERFACE_CLASS = "com.zui.game.service.util.HWDataInterface"
+        const val CPU_ROOT = "/sys/devices/system/cpu"
+        const val NODE_CPUINFO_MAX = "cpuinfo_max_freq"
+        const val NODE_SCALING_MAX = "scaling_max_freq"
+
+        val CPU_DIR_REGEX = Regex("^cpu(\\d+)$")
+        val ALLOWED_NODES = setOf(
+            "scaling_cur_freq",
+            "cpuinfo_cur_freq",
+            NODE_SCALING_MAX,
+            NODE_CPUINFO_MAX
+        )
     }
 }
