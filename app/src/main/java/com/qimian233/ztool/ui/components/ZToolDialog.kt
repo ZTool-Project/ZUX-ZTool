@@ -7,9 +7,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.LocalContentColor
 import com.qimian233.ztool.ui.theme.LocalZToolColorScheme
@@ -46,7 +44,7 @@ fun ZToolDialog(
     if (LocalZToolThemeSpec.current.style == FrontendStyle.Miuix) {
         val miuixContent = @Composable {
             Column(
-                modifier = Modifier.padding(if (isPlatformDialog) 24.dp else 0.dp)
+                modifier = Modifier.padding(24.dp)
             ) {
                 if (title != null) {
                     ProvideTextStyle(MiuixTheme.textStyles.title4.copy(fontWeight = FontWeight.Medium)) {
@@ -56,9 +54,13 @@ fun ZToolDialog(
                     }
                 }
                 if (text != null) {
-                    ProvideTextStyle(MiuixTheme.textStyles.body1) {
-                        CompositionLocalProvider(LocalContentColor provides LocalZToolColorScheme.current.onSurfaceVariant) {
-                            Column(modifier = Modifier.padding(top = if (title == null) 0.dp else 16.dp)) {
+                    Column(
+                        modifier = Modifier
+                            .weight(1f, fill = false)
+                            .padding(top = if (title == null) 0.dp else 16.dp)
+                    ) {
+                        ProvideTextStyle(MiuixTheme.textStyles.body1) {
+                            CompositionLocalProvider(LocalContentColor provides LocalZToolColorScheme.current.onSurfaceVariant) {
                                 text()
                             }
                         }
@@ -127,7 +129,8 @@ fun ZToolDialog(
             // Miuix's OverlayDialog caps content width at DialogDefaults.MaxWidth (420.dp)
             // and measures its Column children against the remaining height, so tall content
             // compresses the trailing buttons. Render the same surface in a platform window
-            // with our own width cap and a scrollable body instead.
+            // capped at 560.dp, using a weighted text slot so tall or scrollable bodies
+            // receive finite height bounds without compressing trailing buttons.
             androidx.compose.ui.window.Dialog(
                 onDismissRequest = onDismissRequest,
                 properties = androidx.compose.ui.window.DialogProperties(
@@ -141,13 +144,7 @@ fun ZToolDialog(
                     color = LocalZToolColorScheme.current.surfaceContainerHigh,
                     shape = RoundedCornerShape(24.dp)
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .verticalScroll(rememberScrollState())
-                            .padding(24.dp)
-                    ) {
-                        miuixContent()
-                    }
+                    miuixContent()
                 }
             }
         }
