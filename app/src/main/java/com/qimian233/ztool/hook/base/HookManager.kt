@@ -49,14 +49,10 @@ import com.qimian233.ztool.hook.modules.ota.DisableOtaCheck
 import com.qimian233.ztool.hook.modules.ota.HideOtaNotifications
 import com.qimian233.ztool.hook.modules.tbengine.LenovoOTAHook
 import com.qimian233.ztool.hook.modules.ota.NoAutoOtaInstall
-import com.qimian233.ztool.hook.modules.packageinstaller.DisableInstallerAdvertisement
+import com.qimian233.ztool.hook.modules.packageinstaller.LenovoPackageInstallerHook
+import com.qimian233.ztool.hook.modules.packageinstaller.PackageInstallerStyleHook
 import com.qimian233.ztool.hook.modules.pp.BlockGamePolicyUpdate
 import com.qimian233.ztool.hook.modules.pp.BlockPowerPolicySync
-import com.qimian233.ztool.hook.modules.packageinstaller.PackageInstallerHookScan
-import com.qimian233.ztool.hook.modules.packageinstaller.PackageInstallerNoDeleteModule
-import com.qimian233.ztool.hook.modules.packageinstaller.PackageInstallerPermissionHook
-import com.qimian233.ztool.hook.modules.packageinstaller.PackageInstallerStyleHook
-import com.qimian233.ztool.hook.modules.packageinstaller.SkipInstallWarnPage
 import com.qimian233.ztool.hook.modules.safecenter.DisableAllVirusScans
 import com.qimian233.ztool.hook.modules.safecenter.EnableAutorunByDefault
 import com.qimian233.ztool.hook.modules.setting.AllowDisplayDolbyHook
@@ -305,12 +301,8 @@ object HookManager {
     }
 
     private fun registerPackageInstallerModules() {
-        registerHookModule(PackageInstallerHookScan())
-        registerHookModule(PackageInstallerPermissionHook())
-        registerHookModule(SkipInstallWarnPage())
-        registerHookModule(DisableInstallerAdvertisement())
         registerHookModule(PackageInstallerStyleHook())
-        registerHookModule(PackageInstallerNoDeleteModule())
+        registerHookModule(LenovoPackageInstallerHook())
     }
 
     private fun registerLauncherModules() {
