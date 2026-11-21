@@ -57,4 +57,5 @@ build/
 
 # Python
 __pycache__/
+/tools/perf_audit/runs/
 /.zcode/config.json
