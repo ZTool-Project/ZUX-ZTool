@@ -237,7 +237,8 @@ private fun ResultsCard(
             Text(
                 text = stringResource(R.string.settings_rules_result),
                 style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                color = LocalZToolColorScheme.current.onSurface
             )
             Spacer(modifier = Modifier.height(12.dp))
             LazyColumn(
@@ -270,6 +271,7 @@ private fun PackageResultRow(
             text = packageInfo.name,
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
+            color = LocalZToolColorScheme.current.onSurface,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )

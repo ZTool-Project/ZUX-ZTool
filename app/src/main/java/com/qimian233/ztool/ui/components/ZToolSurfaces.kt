@@ -7,15 +7,20 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.LinearWavyProgressIndicator
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.contentColorFor
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.takeOrElse
 import androidx.compose.ui.unit.dp
 import com.qimian233.ztool.ui.theme.FrontendStyle
 import com.qimian233.ztool.ui.theme.LocalZToolColorScheme
@@ -73,16 +78,25 @@ fun ZToolCard(
     content: @Composable () -> Unit
 ) {
     if (LocalZToolThemeSpec.current.style == FrontendStyle.Miuix) {
+        val colorScheme = LocalZToolColorScheme.current
         val actualColor = when (containerColor) {
-            Color.Unspecified -> LocalZToolColorScheme.current.surfaceContainer
+            Color.Unspecified -> colorScheme.surfaceContainer
             else -> containerColor
         }
+        val contentColor = resolveMiuixCardContentColor(
+            colorScheme = colorScheme,
+            containerColor = containerColor,
+            fallbackContentColor = LocalContentColor.current
+        )
         top.yukonga.miuix.kmp.basic.Surface(
             modifier = modifier,
             shape = RoundedCornerShape(16.dp),
-            color = actualColor
+            color = actualColor,
+            contentColor = contentColor
         ) {
-            content()
+            CompositionLocalProvider(LocalContentColor provides contentColor) {
+                content()
+            }
         }
         return
     }
@@ -97,6 +111,19 @@ fun ZToolCard(
     ) {
         content()
     }
+}
+
+internal fun resolveMiuixCardContentColor(
+    colorScheme: ColorScheme,
+    containerColor: Color,
+    fallbackContentColor: Color
+): Color {
+    val actualColor = if (containerColor == Color.Unspecified) {
+        colorScheme.surfaceContainer
+    } else {
+        containerColor
+    }
+    return colorScheme.contentColorFor(actualColor).takeOrElse { fallbackContentColor }
 }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)

@@ -2,6 +2,7 @@ package com.qimian233.ztool.ui.theme
 
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Typography
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -35,6 +36,7 @@ class ZToolTypographyTest {
         assertEquals(14, slots.size)
         slots.forEach { style ->
             assertEquals(FontFamily.Serif, style.fontFamily)
+            assertEquals(Color.Unspecified, style.color)
         }
     }
 
@@ -66,6 +68,7 @@ class ZToolTypographyTest {
         typography.allSlots().forEach { style ->
             assertEquals(FontFamily.Serif, style.fontFamily)
             assertEquals(TextUnit.Unspecified, style.letterSpacing)
+            assertEquals(Color.Unspecified, style.color)
         }
         assertEquals(17.sp, typography.titleMedium.fontSize)
         assertEquals(FontWeight.Medium, typography.titleMedium.fontWeight)

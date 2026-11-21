@@ -172,11 +172,15 @@ fun ZToolDialogSurface(
     content: @Composable () -> Unit
 ) {
     if (LocalZToolThemeSpec.current.style == FrontendStyle.Miuix) {
+        val contentColor = LocalZToolColorScheme.current.onSurface
         MiuixSurface(
             color = LocalZToolColorScheme.current.surface,
-            contentColor = LocalZToolColorScheme.current.onSurface,
-            content = content
-        )
+            contentColor = contentColor
+        ) {
+            CompositionLocalProvider(LocalContentColor provides contentColor) {
+                content()
+            }
+        }
         return
     }
 

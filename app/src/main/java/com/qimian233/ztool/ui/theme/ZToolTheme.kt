@@ -3,6 +3,7 @@ package com.qimian233.ztool.ui.theme
 import android.content.res.Configuration
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ColorScheme
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialExpressiveTheme
 import androidx.compose.material3.MotionScheme
 import androidx.compose.material3.darkColorScheme
@@ -156,7 +157,10 @@ fun ZToolTheme(
             colorScheme = colorScheme,
             typography = materialTypography,
         ) {
-            CompositionLocalProvider(LocalZToolColorScheme provides colorScheme) {
+            CompositionLocalProvider(
+                LocalZToolColorScheme provides colorScheme,
+                LocalContentColor provides colorScheme.onBackground
+            ) {
                 MiuixTheme(
                     colors = miuixColors,
                     textStyles = miuixTextStyles,
