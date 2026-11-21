@@ -34,7 +34,10 @@ class LauncherFreeformEntryHook : AppHookModule() {
         val classLoader = param.defaultClassLoader
         val isLegacyApi = Build.VERSION.SDK_INT <= Build.VERSION_CODES.BAKLAVA
         val module = DexIndexStore.lookup(xposed, ScopeKeys.LAUNCHER.packageName)
+            ?.getAsJsonObject(DexIndexConstants.JSON_MODULES)
             ?.getAsJsonObject(DexIndexConstants.ModuleKeys.LAUNCHER_FORCE_FREEFORM_ENTRY)
+
+        val swipeHandlerClassName = readString(module, DexIndexConstants.Keys.FREEFORM_SWIPE_HANDLER_CLASS)
 
         val indexedUtilsClass = readString(module, DexIndexConstants.Keys.FREEFORM_UTILS_CLASS)
         val utilsClassName = indexedUtilsClass
@@ -79,6 +82,10 @@ class LauncherFreeformEntryHook : AppHookModule() {
                 logger.debug("isTaskSupportSmallWindow original=$original -> true")
                 true
             }
+        } else if (swipeHandlerClassName != null) {
+            logger.info("isTaskSupportSmallWindow absent (inlined into swipe handler ctor)")
+        } else {
+            logger.warn("Missing task freeform support method index for $utilsClassName")
         }
 
         val denySetName = readString(module, DexIndexConstants.Keys.FREEFORM_DENY_SET_METHOD)
@@ -94,9 +101,12 @@ class LauncherFreeformEntryHook : AppHookModule() {
                 )
                 false
             }
+        } else if (swipeHandlerClassName != null) {
+            logger.info("inStaticDenyOvcDcvSet absent (inlined into swipe handler ctor)")
+        } else {
+            logger.warn("Missing deny-set method index for $utilsClassName")
         }
 
-        val swipeHandlerClassName = readString(module, DexIndexConstants.Keys.FREEFORM_SWIPE_HANDLER_CLASS)
         if (swipeHandlerClassName != null) {
             installSwipeHandlerHook(classLoader, utilsClass, module, swipeHandlerClassName)
         }
@@ -160,6 +170,20 @@ class LauncherFreeformEntryHook : AppHookModule() {
         }
         val isLandscapeField = devicePropsField?.type?.let {
             runCatching { findField(it, "isLandscape") }.getOrNull()
+        }
+        if (!warnedMissingSwipeFields) {
+            val missing = buildList {
+                if (isSwipeForSplitField == null) add("mIsSwipeForSplit")
+                if (continuingLastField == null) add("mContinuingLastGesture")
+                if (dpField == null) add("mDp")
+                if (devicePropsField == null) add("mDeviceProperties")
+                if (isLargeScreenField == null) add("isLargeScreen")
+                if (isLandscapeField == null) add("isLandscape")
+            }
+            if (missing.isNotEmpty()) {
+                warnedMissingSwipeFields = true
+                logger.warn("SwipeHandler keep-ruled field(s) missing: ${missing.joinToString()}")
+            }
         }
 
         hookWithId(swipeCtor, "launcher_freeform_swipe_init") { chain ->
@@ -250,6 +274,9 @@ class LauncherFreeformEntryHook : AppHookModule() {
             classLoader.loadClass(name)
         }
     }
+
+    @Volatile
+    private var warnedMissingSwipeFields = false
 
     private companion object {
         const val LEGACY_UTILS_CLASS = "com.zui.launcher.utils.FreeformUtilities"

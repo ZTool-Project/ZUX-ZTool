@@ -22,11 +22,16 @@ import android.view.ViewGroup
 import android.widget.RelativeLayout
 import android.widget.TextView
 import android.widget.Toast
+import com.google.gson.JsonObject
 import com.qimian233.ztool.data.keys.PreferenceKeys
 import com.qimian233.ztool.data.keys.ScopeKeys
+import com.qimian233.ztool.dexindex.base.DexIndexConstants
 import com.qimian233.ztool.hook.base.AppHookModule
+import com.qimian233.ztool.hook.base.DexIndexStore
 import io.github.libxposed.api.XposedModuleInterface.PackageLoadedParam
 import java.lang.reflect.Array as JvmArray
+import java.lang.reflect.Field
+import java.lang.reflect.Method
 import java.util.Locale
 
 /**
@@ -46,8 +51,25 @@ class BatchUninstall : AppHookModule() {
 
     override fun handleLoadPackage(param: PackageLoadedParam) {
         val classLoader = param.defaultClassLoader
+        val module = DexIndexStore.lookup(xposed, ScopeKeys.LAUNCHER.packageName)
+            ?.getAsJsonObject(DexIndexConstants.JSON_MODULES)
+            ?.getAsJsonObject(DexIndexConstants.ModuleKeys.LAUNCHER_BATCH_UNINSTALL)
+
+        val updateUiName = readString(module, DexIndexConstants.Keys.BATCH_UNINSTALL_UPDATE_UI_METHOD)
+        val clearName = readString(module, DexIndexConstants.Keys.BATCH_UNINSTALL_CLEAR_METHOD)
+        val selectedFieldName = readString(module, DexIndexConstants.Keys.BATCH_UNINSTALL_SELECTED_FIELD)
+        val launcherFieldName = readString(module, DexIndexConstants.Keys.BATCH_UNINSTALL_LAUNCHER_FIELD)
+
         try {
             val panelClass = classLoader.loadClass(EDIT_MODE_PANEL_CLASS)
+            val handles = PanelHandles(
+                clearMethod = clearName?.let { tryDeclaredMethod(panelClass, it) }
+                    ?: tryDeclaredMethod(panelClass, "clearSelectedItems"),
+                selectedField = selectedFieldName?.let { runCatching { findField(panelClass, it) }.getOrNull() },
+                launcherField = launcherFieldName?.let { runCatching { findField(panelClass, it) }.getOrNull() },
+                getSelectedCountMethod = runCatching { panelClass.getMethod("getSelectedCount") }.getOrNull(),
+                getSelectedViewsMethod = runCatching { panelClass.getMethod("getSelectedViews") }.getOrNull()
+            )
 
             val onFinishInflate = panelClass.getDeclaredMethod("onFinishInflate")
             hookWithId(onFinishInflate, "batch_uninstall_on_finish_inflate") { chain ->
@@ -55,7 +77,7 @@ class BatchUninstall : AppHookModule() {
                     chain.proceed()
                     val panel = chain.thisObject as? ViewGroup
                     if (panel != null) {
-                        installButton(panel)
+                        installButton(panel, handles)
                     }
                 } catch (t: Throwable) {
                     logger.error("BatchUninstall: failed to inject edit mode button", t)
@@ -85,46 +107,19 @@ class BatchUninstall : AppHookModule() {
                 }
             }
 
-        // The bottom bar is a two-state layout: unselected shows the wallpaper/widgets/settings
-        // row, selected switches to the combine-folder/remove-icons row. Batch uninstall shows
-        // only when there are selected items; visibility syncs with these three public
-        // selected-set change methods.
-        // Note: switchSelectedState returns a primitive boolean; the hooker must pass through
-        // the proceed() result — returning null NPEs on unboxing in the bridge layer.
-            val switchSelectedState = panelClass.getDeclaredMethod("switchSelectedState", View::class.java)
-            hookWithId(switchSelectedState, "batch_uninstall_switch_selected") { chain ->
-                val result = chain.proceed()
-                try {
-                    syncButtonVisibility(chain.thisObject as? View)
-                } catch (t: Throwable) {
-                    logger.error("BatchUninstall: failed to sync after switchSelectedState", t)
+            val updateUiMethod = updateUiName?.let { tryDeclaredMethod(panelClass, it) }
+            if (updateUiMethod != null) {
+                hookWithId(updateUiMethod, "batch_uninstall_update_ui") { chain ->
+                    val result = chain.proceed()
+                    try {
+                        syncButtonVisibility(chain.thisObject as? View, handles)
+                    } catch (t: Throwable) {
+                        logger.error("BatchUninstall: failed to sync after updateUi", t)
+                    }
+                    result
                 }
-                result
-            }
-
-            val clearSelectedItems = panelClass.getDeclaredMethod("clearSelectedItems")
-            hookWithId(clearSelectedItems, "batch_uninstall_clear_selected") { chain ->
-                val result = chain.proceed()
-                try {
-                    syncButtonVisibility(chain.thisObject as? View)
-                } catch (t: Throwable) {
-                    logger.error("BatchUninstall: failed to sync after clearSelectedItems", t)
-                }
-                result
-            }
-
-            val initSelectedItemByIds = panelClass.getDeclaredMethod(
-                "initSelectedItemByIds",
-                ArrayList::class.java
-            )
-            hookWithId(initSelectedItemByIds, "batch_uninstall_init_selected") { chain ->
-                val result = chain.proceed()
-                try {
-                    syncButtonVisibility(chain.thisObject as? View)
-                } catch (t: Throwable) {
-                    logger.error("BatchUninstall: failed to sync after initSelectedItemByIds", t)
-                }
-                result
+            } else {
+                installLegacySelectionSyncHooks(panelClass, handles)
             }
 
             logger.info("BatchUninstall hooks installed")
@@ -133,7 +128,34 @@ class BatchUninstall : AppHookModule() {
         }
     }
 
-    private fun installButton(panel: ViewGroup) {
+    private fun installLegacySelectionSyncHooks(panelClass: Class<*>, handles: PanelHandles) {
+        tryDeclaredMethod(panelClass, "switchSelectedState", View::class.java)?.let { m ->
+            hookWithId(m, "batch_uninstall_switch_selected") { chain ->
+                val result = chain.proceed()
+                runCatching { syncButtonVisibility(chain.thisObject as? View, handles) }
+                    .onFailure { logger.error("BatchUninstall: failed to sync after switchSelectedState", it) }
+                result
+            }
+        }
+        tryDeclaredMethod(panelClass, "clearSelectedItems")?.let { m ->
+            hookWithId(m, "batch_uninstall_clear_selected") { chain ->
+                val result = chain.proceed()
+                runCatching { syncButtonVisibility(chain.thisObject as? View, handles) }
+                    .onFailure { logger.error("BatchUninstall: failed to sync after clearSelectedItems", it) }
+                result
+            }
+        }
+        tryDeclaredMethod(panelClass, "initSelectedItemByIds", ArrayList::class.java)?.let { m ->
+            hookWithId(m, "batch_uninstall_init_selected") { chain ->
+                val result = chain.proceed()
+                runCatching { syncButtonVisibility(chain.thisObject as? View, handles) }
+                    .onFailure { logger.error("BatchUninstall: failed to sync after initSelectedItemByIds", it) }
+                result
+            }
+        }
+    }
+
+    private fun installButton(panel: ViewGroup, handles: PanelHandles) {
         if (panel.findViewWithTag<View>(BUTTON_TAG) != null) return
         val context = panel.context
         val resources = context.resources
@@ -175,10 +197,10 @@ class BatchUninstall : AppHookModule() {
         // in-row views never call setVisibility, so visibility only toggles between
         // VISIBLE/GONE (following the selected count)
         button.visibility = View.GONE
-        syncButtonVisibility(panel)
+        syncButtonVisibility(panel, handles)
 
         (anchor.parent as? ViewGroup ?: panel).addView(button, layoutParams)
-        button.setOnClickListener { handleClicked(panel) }
+        button.setOnClickListener { handleClicked(panel, handles) }
         logger.info(
             "BatchUninstall: edit mode button injected into " +
                 anchor.parent.javaClass.name
@@ -203,16 +225,7 @@ class BatchUninstall : AppHookModule() {
         }.onFailure { logger.warn("BatchUninstall: failed to copy button style: " + it.message) }
     }
 
-    /**
-     * Place the icon following the style template's drawable orientation. Asset
-     * priority:
-     * 1. drop_remove_icon's compound icon - the delete icon of the edit mode design
-     *    system (circular scrim + glyph, same spec as combine-folder); the view is
-     *    GONE at rest but the XML-assigned drawable still exists;
-     * 2. self-drawn composite icon: translucent circular scrim + centered scaled
-     *    ic_delete_zui, sized after drop_combine_folder's measured intrinsic;
-     * 3. final fallback: ic_delete_zui intrinsic (old small-icon behavior).
-     */
+    /** Places the button icon using drop_remove_icon, composite scrim, or ic_delete_zui fallback. */
     private fun applyIcon(
         button: TextView,
         styleSource: TextView,
@@ -302,23 +315,14 @@ class BatchUninstall : AppHookModule() {
     }
 
     /**
-     * Show the button only when there are selected items (toggles between
-     * VISIBLE/GONE only, not part of panel show/hide animation), and arrange the
-     * "combine folder" container and the button into a two-slot layout symmetric
-     * about the screen centerline.
-     *
-     * bottom_panel is a custom ViewGroup (child LayoutParams is a private type,
-     * cannot be positioned by rules/anchors), so a type-agnostic translation
-     * approach is used: read both views' current layout centers and offset each
-     * translationX by a fixed fraction of the panel width, matching the half-slot
-     * distance of the three-slot layout. translationX
-     * does not interfere with the translationY driven by enter/exit animations;
-     * the unselected state resets container offsets.
+     * Shows the button only when items are selected and aligns it symmetrically with combine-folder.
      */
-    private fun syncButtonVisibility(panel: View?) {
+    private fun syncButtonVisibility(panel: View?, handles: PanelHandles) {
         val button = panel?.findViewWithTag<View>(BUTTON_TAG) ?: return
         try {
-            val count = panel.javaClass.getMethod("getSelectedCount").invoke(panel) as? Int ?: 0
+            val count = (handles.getSelectedCountMethod
+                ?: panel.javaClass.getMethod("getSelectedCount"))
+                .invoke(panel) as? Int ?: 0
             val visible = count > 0
             if (button.visibility != (if (visible) View.VISIBLE else View.GONE)) {
                 button.visibility = if (visible) View.VISIBLE else View.GONE
@@ -352,13 +356,27 @@ class BatchUninstall : AppHookModule() {
 
     private fun cloneLayoutParams(source: ViewGroup.LayoutParams?): ViewGroup.LayoutParams? {
         if (source == null) return null
-        return try {
-            val constructor = source.javaClass.getConstructor(source.javaClass)
-            constructor.newInstance(source) as ViewGroup.LayoutParams
-        } catch (t: Throwable) {
-            logger.warn("BatchUninstall: no copy constructor for ${source.javaClass.name}: " + t.message)
-            null
+        val lpClass = source.javaClass
+        val cloned = runCatching {
+            lpClass.getConstructor(lpClass).newInstance(source) as ViewGroup.LayoutParams
+        }.getOrNull()
+            ?: runCatching {
+                lpClass.getConstructor(ViewGroup.LayoutParams::class.java).newInstance(source) as ViewGroup.LayoutParams
+            }.getOrNull()
+            ?: runCatching {
+                lpClass.getConstructor(Int::class.javaPrimitiveType, Int::class.javaPrimitiveType)
+                    .newInstance(source.width, source.height) as ViewGroup.LayoutParams
+            }.getOrNull()
+        if (cloned == null) {
+            logger.warn("BatchUninstall: no supported constructor for ${lpClass.name}")
+            return null
         }
+        if (source is ViewGroup.MarginLayoutParams && cloned is ViewGroup.MarginLayoutParams) {
+            cloned.setMargins(source.leftMargin, source.topMargin, source.rightMargin, source.bottomMargin)
+            cloned.marginStart = source.marginStart
+            cloned.marginEnd = source.marginEnd
+        }
+        return cloned
     }
 
     /**
@@ -400,7 +418,7 @@ class BatchUninstall : AppHookModule() {
     ) {
         try {
             val lpClass = layoutParams.javaClass
-            val unset = lpClass.getField("UNSET").getInt(null)
+            val unset = runCatching { lpClass.getField("UNSET").getInt(null) }.getOrDefault(-1)
             val source = anchor.layoutParams
             val sourceClass = source.javaClass
 
@@ -451,10 +469,10 @@ class BatchUninstall : AppHookModule() {
             get() = uninstallTargets.isEmpty() && removableIcons.isEmpty()
     }
 
-    private fun handleClicked(panel: ViewGroup) {
+    private fun handleClicked(panel: ViewGroup, handles: PanelHandles) {
         try {
             val context = panel.context
-            val plan = collectSelection(panel, context)
+            val plan = collectSelection(panel, context, handles)
             if (plan.isEmpty) {
                 Toast.makeText(
                     context,
@@ -463,7 +481,7 @@ class BatchUninstall : AppHookModule() {
                 ).show()
                 return
             }
-            if (!showConfirmDialog(panel, context, plan)) {
+            if (!showConfirmDialog(panel, context, plan, handles)) {
                 logger.warn("BatchUninstall: no confirm dialog available, aborted")
             }
         } catch (t: Throwable) {
@@ -475,7 +493,8 @@ class BatchUninstall : AppHookModule() {
     private fun showConfirmDialog(
         panel: ViewGroup,
         context: Context,
-        plan: SelectionPlan
+        plan: SelectionPlan,
+        handles: PanelHandles
     ): Boolean {
         val message = buildConfirmMessage(context, plan)
         val title = moduleString(context, STRING_DIALOG_TITLE, FALLBACK_DIALOG_TITLE)
@@ -485,7 +504,7 @@ class BatchUninstall : AppHookModule() {
             // dispatch never strips shortcuts the user did not ask to remove
             val dispatched = packages.isEmpty() || dispatchBatchUninstall(panel, context, packages)
             if (dispatched) {
-                removeSelectedIcons(panel, plan.keptItems)
+                removeSelectedIcons(panel, plan.keptItems, handles)
             }
         }
         if (showZuiConfirmDialog(context, title, message, onConfirm)) {
@@ -695,24 +714,86 @@ class BatchUninstall : AppHookModule() {
     }
 
     /**
-     * Remove the remaining selected icons through the launcher's own batch remove.
-     *
-     * Kept items are dropped from the selection first: the launcher's remove API has no
-     * "remove these" overload, only "remove everything selected".
+     * Removes non-kept selected icons via legacy batch API or A17+ Launcher#removeItem sequence.
      */
-    private fun removeSelectedIcons(panel: ViewGroup, keptItems: List<Any>) {
-        try {
-            if (keptItems.isNotEmpty()) {
-                panel.javaClass.getMethod("removeSelectedIcon", List::class.java)
-                    .invoke(panel, ArrayList(keptItems))
+    private fun removeSelectedIcons(panel: ViewGroup, keptItems: List<Any>, handles: PanelHandles) {
+        val legacyRemoveAll = runCatching { panel.javaClass.getMethod("removeAllSelectedIcon") }.getOrNull()
+        if (legacyRemoveAll != null) {
+            try {
+                if (keptItems.isNotEmpty()) {
+                    panel.javaClass.getMethod("removeSelectedIcon", List::class.java)
+                        .invoke(panel, ArrayList(keptItems))
+                }
+                legacyRemoveAll.invoke(panel)
+            } catch (t: Throwable) {
+                logger.error("BatchUninstall: failed to remove selected icons", t)
+            } finally {
+                runCatching {
+                    handles.clearMethod?.invoke(panel)
+                        ?: panel.javaClass.getMethod("clearSelectedItems").invoke(panel)
+                }.onFailure { logger.warn("BatchUninstall: clearSelectedItems failed: " + it.message) }
             }
-            panel.javaClass.getMethod("removeAllSelectedIcon").invoke(panel)
+            return
+        }
+
+        try {
+            val selected = handles.selectedField?.get(panel) as? ArrayList<*>
+            val launcher = handles.launcherField?.get(panel)
+            if (selected == null || launcher == null) {
+                logger.warn("BatchUninstall: missing selectedField/launcherField for A17 remove")
+                return
+            }
+            val toRemove = selected.filter { item -> item != null && keptItems.none { it === item } }
+            if (toRemove.isEmpty()) return
+
+            val launcherClass = launcher.javaClass
+            val model = runCatching { findField(launcherClass, "mModel").get(launcher) }.getOrNull()
+            model?.let { m ->
+                val saveMethod = m.javaClass.methods.firstOrNull {
+                    it.name == "saveItemsPosition" &&
+                        it.parameterCount == 2 &&
+                        it.parameterTypes[1] == Boolean::class.javaPrimitiveType
+                }
+                runCatching { saveMethod?.invoke(m, null, true) }
+            }
+
+            val workspace = runCatching { findField(launcherClass, "mWorkspace").get(launcher) }.getOrNull()
+            val findViewByInfoMethod = workspace?.javaClass?.methods?.firstOrNull {
+                it.name == "findViewByInfo" && it.parameterCount == 1
+            }
+            val removeItemMethod = launcherClass.methods.firstOrNull {
+                it.name == "removeItem" && it.parameterCount == 4
+            }
+
+            for (item in toRemove) {
+                val view = workspace?.let { ws ->
+                    runCatching { findViewByInfoMethod?.invoke(ws, item) }.getOrNull()
+                }
+                runCatching {
+                    removeItemMethod?.invoke(launcher, view, item, true, "drop in edit panel drop button.")
+                }.onFailure { logger.warn("BatchUninstall: removeItem failed: ${it.message}") }
+            }
+
+            handles.clearMethod?.invoke(panel)
+
+            if (workspace != null) {
+                runCatching { workspace.javaClass.getMethod("stripEmptyScreens").invoke(workspace) }
+                runCatching { workspace.javaClass.getMethod("addExtraEmptyScreens").invoke(workspace) }
+                val currentPage = runCatching {
+                    workspace.javaClass.getMethod("getCurrentPage").invoke(workspace) as? Int
+                }.getOrNull()
+                if (currentPage != null) {
+                    runCatching {
+                        workspace.javaClass.getMethod("setCurrentPage", Int::class.javaPrimitiveType)
+                            .invoke(workspace, currentPage)
+                    }
+                }
+            }
+            runCatching { launcherClass.getMethod("autoReorderAfterMultiRemove").invoke(launcher) }
         } catch (t: Throwable) {
-            logger.error("BatchUninstall: failed to remove selected icons", t)
+            logger.error("BatchUninstall: A17 removeSelectedIcons failed", t)
         } finally {
-            runCatching {
-                panel.javaClass.getMethod("clearSelectedItems").invoke(panel)
-            }.onFailure { logger.warn("BatchUninstall: clearSelectedItems failed: " + it.message) }
+            runCatching { handles.clearMethod?.invoke(panel) }
         }
     }
 
@@ -721,9 +802,13 @@ class BatchUninstall : AppHookModule() {
      * app icons left alone. A selected item becomes removable when it is not an app
      * icon, or when its package no longer resolves for the item's user.
      */
-    private fun collectSelection(panel: View, context: Context): SelectionPlan {
+    private fun collectSelection(
+        panel: View,
+        context: Context,
+        handles: PanelHandles
+    ): SelectionPlan {
         val selectedViews = try {
-            val method = panel.javaClass.getMethod("getSelectedViews")
+            val method = handles.getSelectedViewsMethod ?: panel.javaClass.getMethod("getSelectedViews")
             @Suppress("UNCHECKED_CAST")
             method.invoke(panel) as? List<View>
         } catch (t: Throwable) {
@@ -827,6 +912,20 @@ class BatchUninstall : AppHookModule() {
             fallback
         }
     }
+
+    private fun tryDeclaredMethod(owner: Class<*>, name: String, vararg params: Class<*>): Method? =
+        runCatching { owner.getDeclaredMethod(name, *params).apply { isAccessible = true } }.getOrNull()
+
+    private fun readString(module: JsonObject?, key: String): String? =
+        module?.get(key)?.takeIf { !it.isJsonNull }?.asString?.takeIf { it.isNotEmpty() }
+
+    private class PanelHandles(
+        val clearMethod: Method?,
+        val selectedField: Field?,
+        val launcherField: Field?,
+        val getSelectedCountMethod: Method?,
+        val getSelectedViewsMethod: Method?
+    )
 
     companion object {
         private const val MODULE_PACKAGE = "com.qimian233.ztool"

@@ -17,6 +17,7 @@ import com.qimian233.ztool.data.keys.PreferenceKeys
 import com.qimian233.ztool.data.keys.ScopeKeys
 import com.qimian233.ztool.hook.base.AppHookModule
 import io.github.libxposed.api.XposedModuleInterface.PackageLoadedParam
+import java.lang.reflect.Field
 import java.lang.reflect.Method
 import java.util.Locale
 import java.util.WeakHashMap
@@ -33,6 +34,10 @@ class RecentTaskMemoryViewHook : AppHookModule() {
     private var cachedRamUnavailable: String? = null
     @Volatile
     private var systemPropertiesGetWithDefaultMethod: Method? = null
+    @Volatile
+    private var cachedContainerField: Field? = null
+    @Volatile
+    private var cachedGetDragLayerMethod: Method? = null
 
     override fun getModuleName(): String = PreferenceKeys.LAUNCHER_RECENT_TASK_MEMORY_VIEW.name
 
@@ -40,12 +45,30 @@ class RecentTaskMemoryViewHook : AppHookModule() {
 
     override fun handleLoadPackage(param: PackageLoadedParam) {
         val classLoader = param.defaultClassLoader
-        try {
-            val recentsViewClass = classLoader.loadClass(RECENTS_VIEW_CLASS)
+        val recentsViewClass = try {
+            classLoader.loadClass(RECENTS_VIEW_CLASS)
+        } catch (t: Throwable) {
+            logger.error("Failed to load RecentsView", t)
+            return
+        }
 
-            val onAttachedMethod: Method =
-                recentsViewClass.getDeclaredMethod("onAttachedToWindow")
-            hookWithId(onAttachedMethod, "on_attached") { chain ->
+        cachedContainerField = runCatching { findField(recentsViewClass, "mContainer") }.getOrNull()
+        cachedGetDragLayerMethod = cachedContainerField?.type?.let { containerType ->
+            runCatching { findMethod(containerType, "getDragLayer") }.getOrNull()
+        }
+
+        hookOnAttached(recentsViewClass)
+        hookOnDetached(recentsViewClass)
+        hookSetOverview(recentsViewClass)
+        hookSetVisibility(recentsViewClass)
+        hookOnLayout(recentsViewClass)
+        logger.info("Recent task memory view hooks installed")
+    }
+
+    private fun hookOnAttached(recentsViewClass: Class<*>) {
+        try {
+            val method = findMethod(recentsViewClass, "onAttachedToWindow")
+            hookWithId(method, "on_attached") { chain ->
                 try {
                     chain.proceed()
                     attachMemoryView(chain.thisObject as View)
@@ -55,10 +78,15 @@ class RecentTaskMemoryViewHook : AppHookModule() {
                 }
                 null
             }
+        } catch (t: Throwable) {
+            logger.warn("RecentTaskMemoryViewHook: onAttachedToWindow hook failed: ${t.message}")
+        }
+    }
 
-            val onDetachedMethod: Method =
-                recentsViewClass.getDeclaredMethod("onDetachedFromWindow")
-            hookWithId(onDetachedMethod, "on_detached") { chain ->
+    private fun hookOnDetached(recentsViewClass: Class<*>) {
+        try {
+            val method = findMethod(recentsViewClass, "onDetachedFromWindow")
+            hookWithId(method, "on_detached") { chain ->
                 try {
                     detachMemoryView(chain.thisObject as View)
                     logger.info("onDetachedFromWindow hook executed successfully")
@@ -67,10 +95,19 @@ class RecentTaskMemoryViewHook : AppHookModule() {
                 }
                 chain.proceed()
             }
+        } catch (t: Throwable) {
+            logger.warn("RecentTaskMemoryViewHook: onDetachedFromWindow hook failed: ${t.message}")
+        }
+    }
 
-            val setOverviewMethod: Method =
-                recentsViewClass.getDeclaredMethod("setOverviewStateEnabled", Boolean::class.javaPrimitiveType)
-            hookWithId(setOverviewMethod, "set_overview") { chain ->
+    private fun hookSetOverview(recentsViewClass: Class<*>) {
+        try {
+            val method = findMethod(
+                recentsViewClass,
+                "setOverviewStateEnabled",
+                Boolean::class.javaPrimitiveType
+            )
+            hookWithId(method, "set_overview") { chain ->
                 chain.proceed()
                 val recentsView = chain.thisObject as View
                 val enabled = chain.args[0] as Boolean
@@ -79,17 +116,29 @@ class RecentTaskMemoryViewHook : AppHookModule() {
                 logger.debug("setOverviewStateEnabled hook executed successfully")
                 null
             }
+        } catch (t: Throwable) {
+            logger.warn("RecentTaskMemoryViewHook: setOverviewStateEnabled hook failed: ${t.message}")
+        }
+    }
 
-            val setVisibilityMethod: Method =
-                recentsViewClass.getDeclaredMethod("setVisibility", Int::class.javaPrimitiveType)
-            hookWithId(setVisibilityMethod, "set_visibility") { chain ->
+    private fun hookSetVisibility(recentsViewClass: Class<*>) {
+        try {
+            val method = findMethod(recentsViewClass, "setVisibility", Int::class.javaPrimitiveType)
+            hookWithId(method, "set_visibility") { chain ->
                 chain.proceed()
                 updateMemoryViewVisibility(chain.thisObject as View)
                 logger.debug("setVisibility hook executed successfully")
                 null
             }
+        } catch (t: Throwable) {
+            logger.warn("RecentTaskMemoryViewHook: setVisibility hook failed: ${t.message}")
+        }
+    }
 
-            val onLayoutMethod: Method = recentsViewClass.getDeclaredMethod(
+    private fun hookOnLayout(recentsViewClass: Class<*>) {
+        try {
+            val method = findMethod(
+                recentsViewClass,
                 "onLayout",
                 Boolean::class.javaPrimitiveType,
                 Int::class.javaPrimitiveType,
@@ -97,16 +146,14 @@ class RecentTaskMemoryViewHook : AppHookModule() {
                 Int::class.javaPrimitiveType,
                 Int::class.javaPrimitiveType
             )
-            hookWithId(onLayoutMethod, "on_layout") { chain ->
+            hookWithId(method, "on_layout") { chain ->
                 chain.proceed()
                 attachMemoryView(chain.thisObject as View)
                 logger.trace("onLayout hook executed successfully")
                 null
             }
-
-            logger.info("Recent task memory view hooks installed")
         } catch (t: Throwable) {
-            logger.error("Failed to install recent task memory view hooks", t)
+            logger.warn("RecentTaskMemoryViewHook: onLayout hook failed: ${t.message}")
         }
     }
 
@@ -183,8 +230,8 @@ class RecentTaskMemoryViewHook : AppHookModule() {
             ViewGroup.LayoutParams.WRAP_CONTENT
         )
         params.gravity = Gravity.TOP or Gravity.START
-        params.topMargin = dp(context, 26)
-        params.leftMargin = dp(context, 16)
+        params.topMargin = dp(context, TOP_MARGIN_DP)
+        params.leftMargin = dp(context, LEFT_MARGIN_DP)
         return params
     }
 
@@ -195,8 +242,8 @@ class RecentTaskMemoryViewHook : AppHookModule() {
             return
         }
 
-        val topMargin = dp(context, 52)
-        val leftMargin = dp(context, 16)
+        val topMargin = dp(context, TOP_MARGIN_DP)
+        val leftMargin = dp(context, LEFT_MARGIN_DP)
         if (currentParams.gravity != (Gravity.TOP or Gravity.START)
             || currentParams.topMargin != topMargin
             || currentParams.leftMargin != leftMargin
@@ -211,9 +258,12 @@ class RecentTaskMemoryViewHook : AppHookModule() {
 
     private fun getDragLayer(recentsView: View): ViewGroup? {
         try {
-            val containerField = findField(recentsView.javaClass, "mContainer")
+            val containerField = cachedContainerField ?: findField(recentsView.javaClass, "mContainer")
+                .also { cachedContainerField = it }
             val container = containerField.get(recentsView) ?: return null
-            val getDragLayerMethod = findMethod(container.javaClass, "getDragLayer")
+            val getDragLayerMethod = cachedGetDragLayerMethod
+                ?: findMethod(container.javaClass, "getDragLayer")
+                    .also { cachedGetDragLayerMethod = it }
             val dragLayer = getDragLayerMethod.invoke(container)
             return dragLayer as? ViewGroup
         } catch (t: Throwable) {
@@ -476,6 +526,8 @@ class RecentTaskMemoryViewHook : AppHookModule() {
         private val LAUNCHER_PACKAGE = ScopeKeys.LAUNCHER.packageName
         private const val RECENTS_VIEW_CLASS = "com.android.quickstep.views.RecentsView"
         private const val MEMORY_VIEW_TAG = "ztool_recent_task_memory_view"
+        private const val TOP_MARGIN_DP = 52
+        private const val LEFT_MARGIN_DP = 16
         private const val REFRESH_INTERVAL_MS = 1000L
         private const val STRING_RAM_FORMATTER = "ztool_ram_formatter"
         private const val STRING_RAM_UNAVAILABLE = "ztool_ram_unavailable"

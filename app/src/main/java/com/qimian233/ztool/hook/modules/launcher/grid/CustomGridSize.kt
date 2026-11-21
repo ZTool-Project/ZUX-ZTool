@@ -2,17 +2,19 @@ package com.qimian233.ztool.hook.modules.launcher.grid
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.os.Build
-import com.qimian233.ztool.data.keys.ScopeKeys
+import android.util.AttributeSet
 import com.qimian233.ztool.data.keys.PreferenceKeys
+import com.qimian233.ztool.data.keys.ScopeKeys
 import com.qimian233.ztool.hook.base.AppHookModule
 import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.api.XposedModuleInterface.PackageLoadedParam
 import java.lang.reflect.Constructor
 
+/** Overrides launcher GridOption row and column counts with user-configured values. */
 @SuppressLint("PrivateApi")
 class CustomGridSize : AppHookModule() {
-    override fun getModuleName(): String = "CustomGridSize"
+
+    override fun getModuleName(): String = PreferenceKeys.CUSTOM_GRID_SIZE.name
 
     override fun getTargetPackages(): Array<String> = arrayOf(ScopeKeys.LAUNCHER.packageName)
 
@@ -20,32 +22,23 @@ class CustomGridSize : AppHookModule() {
     override fun handleLoadPackage(param: PackageLoadedParam) {
         val classLoader = param.defaultClassLoader
         logger.info("Load CustomGridSize!")
-        // We directly hook the constructor of GridOption class
-        // But before hook, let us load custom grid size from shared prefs first
         val prefs = remotePreferences
-        CUSTOM_ROWS =
-            prefs.getInt(PreferenceKeys.CUSTOM_LAUNCHER_ROW.name, 4)
-        CUSTOM_COLUMNS =
-            prefs.getInt(PreferenceKeys.CUSTOM_LAUNCHER_COLUMN.name, 6)
+        val customRows = prefs.getInt(
+            PreferenceKeys.CUSTOM_LAUNCHER_ROW.name,
+            PreferenceKeys.CUSTOM_LAUNCHER_ROW.default
+        )
+        val customColumns = prefs.getInt(
+            PreferenceKeys.CUSTOM_LAUNCHER_COLUMN.name,
+            PreferenceKeys.CUSTOM_LAUNCHER_COLUMN.default
+        )
         try {
-            val gridOptionClass: Class<*> = classLoader.loadClass($$"com.android.launcher3.InvariantDeviceProfile$GridOption")
+            val gridOptionClass = classLoader.loadClass(
+                $$"com.android.launcher3.InvariantDeviceProfile$GridOption"
+            )
+            val ctor = resolveGridOptionConstructor(gridOptionClass, classLoader)
+            val numColsField = findField(gridOptionClass, "numColumns")
+            val numRowsField = findField(gridOptionClass, "numRows")
 
-            val ctor: Constructor<*> = when (Build.VERSION.SDK_INT) {
-                Build.VERSION_CODES.CINNAMON_BUN -> gridOptionClass.getDeclaredConstructor(
-                    Context::class.java,
-                    classLoader.loadClass("com.android.launcher3.util.XmlElement"),
-                    classLoader.loadClass("com.android.launcher3.display.LauncherDisplayInfo")
-                    )
-                Build.VERSION_CODES.BAKLAVA -> gridOptionClass.getDeclaredConstructor(
-                    Context::class.java,
-                    classLoader.loadClass("android.util.AttributeSet"),
-                    classLoader.loadClass($$"com.android.launcher3.util.DisplayController$Info")
-                )
-                else -> gridOptionClass.getDeclaredConstructor(
-                    Context::class.java,
-                    classLoader.loadClass("android.util.AttributeSet")
-                )
-            }
             // High priority: grid dimensions must be applied before other GridOption-
             // or DeviceProfile-dependent hooks (e.g. LauncherWideGridHook) recompute
             // layout values from them on the next setInsets pass.
@@ -53,14 +46,11 @@ class CustomGridSize : AppHookModule() {
                 chain.proceed()
                 try {
                     val thisObject = chain.thisObject
-                    // Directly set int fields
-                    val numColsField = findField(gridOptionClass, "numColumns")
-                    numColsField.set(thisObject, CUSTOM_COLUMNS)
-                    val numRowsField = findField(gridOptionClass, "numRows")
-                    numRowsField.set(thisObject, CUSTOM_ROWS)
-                    logger.debug("GridOption config modded to " + CUSTOM_COLUMNS + "x" + CUSTOM_ROWS)
+                    numColsField.setInt(thisObject, customColumns)
+                    numRowsField.setInt(thisObject, customRows)
+                    logger.debug("GridOption config modded to ${customColumns}x$customRows")
                 } catch (e: Throwable) {
-                    logger.error("No such method! Probably you are using a newer ZUXOS version!", e)
+                    logger.error("Failed to update GridOption fields", e)
                 }
                 null
             }
@@ -69,8 +59,41 @@ class CustomGridSize : AppHookModule() {
         }
     }
 
-    companion object {
-        private var CUSTOM_COLUMNS = 8
-        private var CUSTOM_ROWS = 6
+    private fun resolveGridOptionConstructor(
+        gridOptionClass: Class<*>,
+        classLoader: ClassLoader
+    ): Constructor<*> {
+        val candidates = listOf(
+            arrayOf(
+                Context::class.java,
+                "com.android.launcher3.util.XmlElement",
+                "com.android.launcher3.display.LauncherDisplayInfo"
+            ),
+            arrayOf(
+                Context::class.java,
+                AttributeSet::class.java,
+                $$"com.android.launcher3.util.DisplayController$Info"
+            ),
+            arrayOf(
+                Context::class.java,
+                AttributeSet::class.java
+            )
+        )
+        for (spec in candidates) {
+            try {
+                val paramTypes = spec.map { entry ->
+                    when (entry) {
+                        is Class<*> -> entry
+                        is String -> classLoader.loadClass(entry)
+                        else -> throw IllegalArgumentException("Unexpected param spec: $entry")
+                    }
+                }.toTypedArray()
+                return gridOptionClass.getDeclaredConstructor(*paramTypes)
+            } catch (_: Throwable) {
+            }
+        }
+        return gridOptionClass.declaredConstructors.firstOrNull {
+            it.parameterCount >= 2 && it.parameterTypes[0] == Context::class.java
+        } ?: throw NoSuchMethodException("No compatible GridOption constructor in $gridOptionClass")
     }
 }

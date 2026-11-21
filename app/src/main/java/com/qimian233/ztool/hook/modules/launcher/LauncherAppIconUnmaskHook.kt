@@ -3,200 +3,390 @@ package com.qimian233.ztool.hook.modules.launcher
 import android.annotation.SuppressLint
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.graphics.Rect
 import android.graphics.drawable.AdaptiveIconDrawable
 import android.graphics.drawable.Drawable
+import androidx.core.graphics.createBitmap
+import com.google.gson.JsonObject
 import com.qimian233.ztool.data.keys.PreferenceKeys
 import com.qimian233.ztool.data.keys.ScopeKeys
+import com.qimian233.ztool.dexindex.base.DexIndexConstants
 import com.qimian233.ztool.hook.base.AppHookModule
+import com.qimian233.ztool.hook.base.DexIndexStore
 import io.github.libxposed.api.XposedModuleInterface.PackageLoadedParam
+import java.lang.reflect.Field
 import java.lang.reflect.Method
 import java.util.concurrent.atomic.AtomicInteger
-import androidx.core.graphics.createBitmap
 
 /**
- * Home screen icon unmask: after the Launcher3 icon factory flattens an icon,
- * rebuilds a bitmap from the original AdaptiveIconDrawable without shape masking
- * or IconNormalizer scaling.
+ * Unmasks launcher app icons by redrawing [AdaptiveIconDrawable] foreground/background at full bleed.
  *
- * Entry point: BaseIconFactory#createBadgedIconBitmap(Drawable, IconOptions) after-hook.
- * Rebuilds only when the input is an AdaptiveIconDrawable; legacy icons keep the
- * system legacy fallback logic untouched. Dynamic icons (BitmapInfo.Extender
- * subclasses, e.g. clock ClockDrawableWrapper) are exempted by default because
- * rebuilding to a static bitmap would freeze the animation; when the sub-switch
- * LAUNCHER_APP_ICON_UNMASK_DYNAMIC is on they are rebuilt too, at the cost of a
- * frozen clock. The monochrome (themed) bitmap is rebuilt from the original
- * AdaptiveIcon via IconThemeController.createThemedBitmap; the rebuilt icon has
- * no shadow layer.
- *
- * Requires a launcher restart (AmStop) to take effect; the persistent icon cache
- * may require clearing Launcher data once.
+ * Hooks BaseIconFactory#createBadgedIconBitmap and createBadgedIconBitmapZui, skipping dynamic
+ * BitmapInfo.Extender icons unless LAUNCHER_APP_ICON_UNMASK_DYNAMIC is enabled.
  */
 @SuppressLint("PrivateApi")
 class LauncherAppIconUnmaskHook : AppHookModule() {
 
     override fun getModuleName(): String = PreferenceKeys.LAUNCHER_APP_ICON_UNMASK.name
 
-    /** Sub-switch: do not exempt dynamic icons. Read in handleLoadPackage per project rules, never inside a lambda. */
     @Volatile
     private var includeDynamicIcons = false
 
     override fun getTargetPackages(): Array<String> = arrayOf(TARGET_PACKAGE)
 
     override fun handleLoadPackage(param: PackageLoadedParam) {
-        if (TARGET_PACKAGE != param.packageName) {
-            return
-        }
+        if (TARGET_PACKAGE != param.packageName) return
         val cl = param.defaultClassLoader
         includeDynamicIcons = remotePreferences.getBoolean(
             PreferenceKeys.LAUNCHER_APP_ICON_UNMASK_DYNAMIC.name,
             PreferenceKeys.LAUNCHER_APP_ICON_UNMASK_DYNAMIC.default
         )
-        try {
-            val factoryClass = cl.loadClass("com.android.launcher3.icons.BaseIconFactory")
-            val optionsClass =
-                cl.loadClass($$"com.android.launcher3.icons.BaseIconFactory$IconOptions")
-            val m: Method = factoryClass.getDeclaredMethod(
-                "createBadgedIconBitmap", Drawable::class.java, optionsClass
-            )
-            hookWithId(m, "launcher_icon_unmask_badged") { chain ->
-                val result = chain.proceed()
-                try {
-                    val input = chain.args[0] as? AdaptiveIconDrawable
-                    if (input != null) {
-                        val replaced = rebuildUnmasked(chain.thisObject, input, result, cl)
-                        if (replaced != null) {
-                            if (logCounter.getAndIncrement() < LIMIT) {
-                                logger.info(
-                                    "[unmask] rebuilt unmasked icon: in="
-                                        + input.javaClass.simpleName
-                                        + " bitmapSize=" + replaced.second
-                                )
-                            }
-                            return@hookWithId replaced.first
-                        }
-                    }
-                } catch (t: Throwable) {
-                    logger.warn("[unmask] rebuild failed, keep original: " + t.message)
-                }
-                result
-            }
-            logger.info("Hooked BaseIconFactory#createBadgedIconBitmap for icon unmask.")
+
+        val module = DexIndexStore.lookup(xposed, ScopeKeys.LAUNCHER.packageName)
+            ?.getAsJsonObject(DexIndexConstants.JSON_MODULES)
+            ?.getAsJsonObject(DexIndexConstants.ModuleKeys.LAUNCHER_APP_ICON_UNMASK)
+
+        val factoryClassName = readString(module, DexIndexConstants.Keys.UNMASK_FACTORY_CLASS)
+            ?: DEFAULT_FACTORY_CLASS
+        val optionsClassName = readString(module, DexIndexConstants.Keys.UNMASK_OPTIONS_CLASS)
+            ?: DEFAULT_OPTIONS_CLASS
+        val factoryClass = try {
+            cl.loadClass(factoryClassName)
         } catch (t: Throwable) {
-            logger.warn("Failed to hook createBadgedIconBitmap: " + t.message)
+            logger.warn("Failed to load BaseIconFactory: ${t.message}")
+            return
+        }
+        val optionsClass = try {
+            cl.loadClass(optionsClassName)
+        } catch (t: Throwable) {
+            logger.warn("Failed to load IconOptions: ${t.message}")
+            return
+        }
+
+        val handles = resolveHandles(cl, factoryClass, module)
+        if (handles == null) {
+            logger.warn("Failed to resolve BitmapInfo handles for icon unmask")
+            return
+        }
+
+        val badgedParams = readParams(cl, module, DexIndexConstants.Keys.UNMASK_BADGED_PARAMS)
+            ?: arrayOf(Drawable::class.java, optionsClass)
+        val badgedName = readString(module, DexIndexConstants.Keys.UNMASK_BADGED_METHOD)
+            ?: "createBadgedIconBitmap"
+        try {
+            val method = findMethod(factoryClass, badgedName, *badgedParams)
+            installBadgedHook(method, "launcher_icon_unmask_badged", handles)
+            logger.info("Hooked $factoryClassName#$badgedName for icon unmask.")
+        } catch (t: Throwable) {
+            logger.warn("Failed to hook $badgedName: ${t.message}")
+        }
+
+        val badgedZuiName = readString(module, DexIndexConstants.Keys.UNMASK_BADGED_ZUI_METHOD)
+            ?: "createBadgedIconBitmapZui"
+        runCatching { findMethod(factoryClass, badgedZuiName, *badgedParams) }
+            .onSuccess { method ->
+                installBadgedHook(method, "launcher_icon_unmask_badged_zui", handles)
+                logger.info("Hooked $factoryClassName#$badgedZuiName for icon unmask.")
+            }
+            .onFailure {
+                logger.debug("createBadgedIconBitmapZui absent, skipped: ${it.message}")
+            }
+    }
+
+    private fun installBadgedHook(method: Method, hookId: String, handles: IconUnmaskHandles) {
+        hookWithId(method, hookId) { chain ->
+            val result = chain.proceed()
+            try {
+                val input = chain.args[0] as? AdaptiveIconDrawable
+                if (input != null) {
+                    val replaced = rebuildUnmasked(chain.thisObject, input, result, handles)
+                    if (replaced != null) {
+                        if (logCounter.getAndIncrement() < LIMIT) {
+                            logger.info(
+                                "[unmask] rebuilt unmasked icon: in=${input.javaClass.simpleName} " +
+                                    "bitmapSize=${replaced.second}"
+                            )
+                        }
+                        return@hookWithId replaced.first
+                    }
+                }
+            } catch (t: Throwable) {
+                logger.warn("[unmask] rebuild failed, keep original: ${t.message}")
+            }
+            result
         }
     }
 
-    /**
-     * Redraws an unmasked bitmap from the original AdaptiveIcon's fg/bg at full
-     * bleed, and rebuilds the BitmapInfo with the original result's
-     * color/flags/creationFlags.
-     *
-     * Returns (new BitmapInfo, bitmap edge length); returns null to keep the
-     * original when any condition is unmet or on failure.
-     */
+    private fun resolveHandles(
+        cl: ClassLoader,
+        factoryClass: Class<*>,
+        module: JsonObject?
+    ): IconUnmaskHandles? {
+        val bitmapInfoClassName = readString(module, DexIndexConstants.Keys.UNMASK_BITMAP_INFO_CLASS)
+            ?: DEFAULT_BITMAP_INFO_CLASS
+        val bitmapInfoClass = runCatching { cl.loadClass(bitmapInfoClassName) }.getOrNull()
+            ?: return null
+
+        val extenderClassName = readString(module, DexIndexConstants.Keys.UNMASK_EXTENDER_CLASS)
+            ?: DEFAULT_EXTENDER_CLASS
+        val extenderClass = runCatching { cl.loadClass(extenderClassName) }.getOrNull()
+
+        val sizeField = tryField(factoryClass, readString(module, DexIndexConstants.Keys.UNMASK_SIZE_FIELD) ?: "iconBitmapSize")
+        val sizeMethod = tryMethod(factoryClass, readString(module, DexIndexConstants.Keys.UNMASK_SIZE_METHOD) ?: "getIconBitmapSize")
+
+        val bitmapIconField = tryField(bitmapInfoClass, readString(module, DexIndexConstants.Keys.UNMASK_BITMAP_ICON_FIELD) ?: "icon")
+        val colorField = tryField(bitmapInfoClass, readString(module, DexIndexConstants.Keys.UNMASK_COLOR_FIELD) ?: "color")
+        val flagsField = tryField(bitmapInfoClass, readString(module, DexIndexConstants.Keys.UNMASK_FLAGS_FIELD) ?: "flags")
+        val creationFlagsField = tryField(
+            bitmapInfoClass,
+            readString(module, DexIndexConstants.Keys.UNMASK_CREATION_FLAGS_FIELD) ?: "creationFlags"
+        )
+        val legacyOfMethod = tryDeclaredMethod(
+            bitmapInfoClass,
+            "of",
+            Bitmap::class.java,
+            Int::class.javaPrimitiveType
+        )
+
+        val atLeastT = runCatching {
+            cl.loadClass(DEFAULT_ICON_PROVIDER_CLASS).getField("ATLEAST_T").getBoolean(null)
+        }.getOrDefault(false)
+
+        val themeControllerField = tryField(
+            factoryClass,
+            readString(module, DexIndexConstants.Keys.UNMASK_THEME_CONTROLLER_FIELD) ?: "themeController"
+        )
+        val themeControllerMethod = tryMethod(
+            factoryClass,
+            readString(module, DexIndexConstants.Keys.UNMASK_THEME_CONTROLLER_METHOD) ?: "getThemeController"
+        )
+        val controllerClass = readString(module, DexIndexConstants.Keys.UNMASK_THEME_CONTROLLER_CLASS)
+            ?.let { runCatching { cl.loadClass(it) }.getOrNull() }
+            ?: themeControllerField?.type
+            ?: themeControllerMethod?.returnType
+            ?: runCatching { cl.loadClass(DEFAULT_THEME_CONTROLLER_CLASS) }.getOrNull()
+
+        val createThemedName = readString(module, DexIndexConstants.Keys.UNMASK_CREATE_THEMED_METHOD)
+            ?: "createThemedBitmap"
+        val indexedThemedParams = readParams(cl, module, DexIndexConstants.Keys.UNMASK_CREATE_THEMED_PARAMS)
+        val createThemedMethod = if (controllerClass != null) {
+            resolveCreateThemedMethod(cl, controllerClass, createThemedName, indexedThemedParams, bitmapInfoClass, factoryClass)
+        } else {
+            null
+        }
+
+        val themedBitmapClassName = readString(module, DexIndexConstants.Keys.UNMASK_THEMED_BITMAP_CLASS)
+            ?: DEFAULT_THEMED_BITMAP_CLASS
+        val themedBitmapClass = runCatching { cl.loadClass(themedBitmapClassName) }.getOrNull()
+        val themedBitmapField = tryField(
+            bitmapInfoClass,
+            readString(module, DexIndexConstants.Keys.UNMASK_THEMED_BITMAP_FIELD) ?: "themedBitmap"
+        )
+        val themedBitmapSetter = themedBitmapClass?.let {
+            tryMethod(
+                bitmapInfoClass,
+                readString(module, DexIndexConstants.Keys.UNMASK_THEMED_BITMAP_SETTER) ?: "setThemedBitmap",
+                it
+            )
+        }
+
+        return IconUnmaskHandles(
+            bitmapInfoClass = bitmapInfoClass,
+            extenderClass = extenderClass,
+            sizeField = sizeField,
+            sizeMethod = sizeMethod,
+            bitmapIconField = bitmapIconField,
+            colorField = colorField,
+            flagsField = flagsField,
+            creationFlagsField = creationFlagsField,
+            legacyOfMethod = legacyOfMethod,
+            atLeastT = atLeastT,
+            themeControllerField = themeControllerField,
+            themeControllerMethod = themeControllerMethod,
+            createThemedMethod = createThemedMethod,
+            themedBitmapField = themedBitmapField,
+            themedBitmapSetter = themedBitmapSetter
+        )
+    }
+
+    private fun resolveCreateThemedMethod(
+        cl: ClassLoader,
+        controllerClass: Class<*>,
+        methodName: String,
+        indexedParams: Array<Class<*>>?,
+        bitmapInfoClass: Class<*>,
+        factoryClass: Class<*>
+    ): Method? {
+        if (indexedParams != null) {
+            tryMethod(controllerClass, methodName, *indexedParams)?.let { return it }
+        }
+        tryMethod(
+            controllerClass,
+            methodName,
+            AdaptiveIconDrawable::class.java,
+            bitmapInfoClass,
+            factoryClass
+        )?.let { return it }
+        val sourceHintClass = runCatching { cl.loadClass(DEFAULT_SOURCE_HINT_CLASS) }.getOrNull()
+            ?: return null
+        return tryMethod(
+            controllerClass,
+            methodName,
+            AdaptiveIconDrawable::class.java,
+            bitmapInfoClass,
+            factoryClass,
+            sourceHintClass
+        )
+    }
+
     private fun rebuildUnmasked(
         factory: Any?,
         input: AdaptiveIconDrawable,
         result: Any?,
-        cl: ClassLoader
+        handles: IconUnmaskHandles
     ): Pair<Any, Int>? {
-        if (factory == null || result == null) {
+        if (factory == null || result == null) return null
+        if (!includeDynamicIcons &&
+            (handles.extenderClass?.isInstance(input) == true || result.javaClass != handles.bitmapInfoClass)
+        ) {
             return null
         }
-        // Dynamic icons such as clocks (BitmapInfo.Extender subclasses carrying extra
-        // semantics) are exempted by default; when the sub-switch is on they are
-        // rebuilt too (the animation will be frozen to a static bitmap)
-        val bitmapInfoClass = cl.loadClass("com.android.launcher3.icons.BitmapInfo")
-        if (!includeDynamicIcons && result.javaClass != bitmapInfoClass) {
-            return null
-        }
-        val size = factory.javaClass
-            .getMethod("getIconBitmapSize")
-            .invoke(factory) as Int
-        if (size <= 0) {
-            return null
-        }
+
+        val size = handles.sizeField?.getInt(factory)
+            ?: (handles.sizeMethod?.invoke(factory) as? Int)
+            ?: return null
+        if (size <= 0) return null
+
         val bitmap = createBitmap(size, size)
         val canvas = Canvas(bitmap)
         val bg = input.background
         val fg = input.foreground
-        // Background fills the whole canvas at full bleed; the foreground is scaled up
-        // by the official AdaptiveIcon 108/72 grid ratio to offset the extra downscale
-        // caused by the system 66/72 visual safe area
-        val bounds = android.graphics.Rect(0, 0, size, size)
+        val bounds = Rect(0, 0, size, size)
         if (bg != null) {
             bg.bounds = bounds
             bg.draw(canvas)
         }
         if (fg != null) {
             val pad = (size * (1f - ADAPTIVE_VISIBLE_RATIO) / 2f).toInt()
-            val fgBounds = android.graphics.Rect(-pad, -pad, size + pad, size + pad)
+            val fgBounds = Rect(-pad, -pad, size + pad, size + pad)
             fg.bounds = fgBounds
             fg.draw(canvas)
         }
-        val of: Method = bitmapInfoClass.getDeclaredMethod("of", Bitmap::class.java, Int::class.javaPrimitiveType)
-        val color = bitmapInfoClass.getField("color").getInt(result)
-        val newInfo: Any = of.invoke(null, bitmap, color) ?: return null
-        // Preserve the original flags/creationFlags (work profile/clone badge semantics)
-        bitmapInfoClass.getField("flags").setInt(newInfo, bitmapInfoClass.getField("flags").getInt(result))
-        bitmapInfoClass.getField("creationFlags").setInt(
-            newInfo, bitmapInfoClass.getField("creationFlags").getInt(result)
-        )
-        restoreThemedBitmap(cl, factory, input, newInfo, bitmapInfoClass)
-        return Pair(newInfo, size)
+
+        val targetInfo = if (handles.legacyOfMethod != null) {
+            val color = handles.colorField?.getInt(result) ?: return null
+            val newInfo = handles.legacyOfMethod.invoke(null, bitmap, color) ?: return null
+            handles.flagsField?.let { it.setInt(newInfo, it.getInt(result)) }
+            handles.creationFlagsField?.let { it.setInt(newInfo, it.getInt(result)) }
+            newInfo
+        } else {
+            val iconField = handles.bitmapIconField ?: return null
+            iconField.set(result, bitmap)
+            result
+        }
+
+        restoreThemedBitmap(factory, input, targetInfo, handles)
+        return Pair(targetInfo, size)
     }
 
-    /**
-     * Rebuilds the monochrome (themed) bitmap from the original AdaptiveIcon via
-     * IconThemeController, matching the same call inside the system
-     * createBadgedIconBitmapZui. Silently skips when any step is unavailable.
-     */
     private fun restoreThemedBitmap(
-        cl: ClassLoader,
         factory: Any,
         input: AdaptiveIconDrawable,
-        newInfo: Any,
-        bitmapInfoClass: Class<*>
+        targetInfo: Any,
+        handles: IconUnmaskHandles
     ) {
+        if (!handles.atLeastT) return
+        val createMethod = handles.createThemedMethod ?: return
         try {
-            val providerClass = cl.loadClass("com.android.launcher3.icons.IconProvider")
-            val atLeastT = providerClass.getField("ATLEAST_T").getBoolean(null)
-            if (!atLeastT) {
-                return
+            val controller = handles.themeControllerField?.get(factory)
+                ?: handles.themeControllerMethod?.invoke(factory)
+                ?: return
+            val themed = when (createMethod.parameterCount) {
+                3 -> createMethod.invoke(controller, input, targetInfo, factory)
+                4 -> createMethod.invoke(controller, input, targetInfo, factory, null)
+                else -> null
+            } ?: return
+            if (handles.themedBitmapField != null) {
+                handles.themedBitmapField.set(targetInfo, themed)
+            } else {
+                handles.themedBitmapSetter?.invoke(targetInfo, themed)
             }
-            val controller = factory.javaClass
-                .getMethod("getThemeController").invoke(factory) ?: return
-            val sourceHintClass = try {
-                cl.loadClass("com.android.launcher3.icons.SourceHint")
-            } catch (_: ClassNotFoundException) {
-                return
-            }
-            // Note: createThemedBitmap declares the parameter type as BaseIconFactory,
-            // while the runtime instance is the subclass LauncherIcons; getMethod exact
-            // matching must use the declared type
-            val baseFactoryClass = cl.loadClass("com.android.launcher3.icons.BaseIconFactory")
-            val create: Method = controller.javaClass.getMethod(
-                "createThemedBitmap",
-                AdaptiveIconDrawable::class.java, bitmapInfoClass,
-                baseFactoryClass, sourceHintClass
-            )
-            val themed = create.invoke(controller, input, newInfo, factory, null) ?: return
-            // setThemedBitmap declares the parameter as the parent ThemedBitmap while the
-            // runtime instance is its subclass (e.g. MonoThemedBitmap); getMethod exact
-            // matching must use the declared type
-            val themedBitmapClass = cl.loadClass("com.android.launcher3.icons.ThemedBitmap")
-            bitmapInfoClass
-                .getMethod("setThemedBitmap", themedBitmapClass)
-                .invoke(newInfo, themed)
         } catch (t: Throwable) {
-            logger.debug("[unmask] themed bitmap restore skipped: " + t.message)
+            logger.debug("[unmask] themed bitmap restore skipped: ${t.message}")
         }
     }
 
+    private fun tryField(owner: Class<*>, name: String): Field? =
+        runCatching { findField(owner, name) }.getOrNull()
+
+    private fun tryMethod(owner: Class<*>, name: String, vararg params: Class<*>?): Method? =
+        runCatching { findMethod(owner, name, *params) }.getOrNull()
+
+    private fun tryDeclaredMethod(owner: Class<*>, name: String, vararg params: Class<*>?): Method? =
+        runCatching { owner.getDeclaredMethod(name, *params).apply { isAccessible = true } }.getOrNull()
+
+    private fun readString(module: JsonObject?, key: String): String? =
+        module?.get(key)?.takeIf { !it.isJsonNull }?.asString?.takeIf { it.isNotEmpty() }
+
+    private fun readParams(
+        classLoader: ClassLoader,
+        module: JsonObject?,
+        key: String
+    ): Array<Class<*>>? {
+        val raw = readString(module, key) ?: return null
+        return runCatching {
+            raw.split(",").map { resolveType(classLoader, it.trim()) }.toTypedArray()
+        }.getOrNull()
+    }
+
+    private fun resolveType(classLoader: ClassLoader, name: String): Class<*> = when (name) {
+        "boolean" -> Boolean::class.javaPrimitiveType!!
+        "byte" -> Byte::class.javaPrimitiveType!!
+        "short" -> Short::class.javaPrimitiveType!!
+        "int" -> Int::class.javaPrimitiveType!!
+        "long" -> Long::class.javaPrimitiveType!!
+        "float" -> Float::class.javaPrimitiveType!!
+        "double" -> Double::class.javaPrimitiveType!!
+        "char" -> Char::class.javaPrimitiveType!!
+        "void" -> Void.TYPE
+        else -> if (name.endsWith("[]")) {
+            val element = resolveType(classLoader, name.removeSuffix("[]"))
+            java.lang.reflect.Array.newInstance(element, 0).javaClass
+        } else {
+            classLoader.loadClass(name)
+        }
+    }
+
+    private class IconUnmaskHandles(
+        val bitmapInfoClass: Class<*>,
+        val extenderClass: Class<*>?,
+        val sizeField: Field?,
+        val sizeMethod: Method?,
+        val bitmapIconField: Field?,
+        val colorField: Field?,
+        val flagsField: Field?,
+        val creationFlagsField: Field?,
+        val legacyOfMethod: Method?,
+        val atLeastT: Boolean,
+        val themeControllerField: Field?,
+        val themeControllerMethod: Method?,
+        val createThemedMethod: Method?,
+        val themedBitmapField: Field?,
+        val themedBitmapSetter: Method?
+    )
+
     companion object {
         private val TARGET_PACKAGE = ScopeKeys.LAUNCHER.packageName
+        private const val DEFAULT_FACTORY_CLASS = "com.android.launcher3.icons.BaseIconFactory"
+        private const val DEFAULT_OPTIONS_CLASS = $$"com.android.launcher3.icons.BaseIconFactory$IconOptions"
+        private const val DEFAULT_BITMAP_INFO_CLASS = "com.android.launcher3.icons.BitmapInfo"
+        private const val DEFAULT_EXTENDER_CLASS = $$"com.android.launcher3.icons.BitmapInfo$Extender"
+        private const val DEFAULT_ICON_PROVIDER_CLASS = "com.android.launcher3.icons.IconProvider"
+        private const val DEFAULT_THEME_CONTROLLER_CLASS = "com.android.launcher3.icons.mono.MonoIconThemeController"
+        private const val DEFAULT_THEMED_BITMAP_CLASS = "com.android.launcher3.icons.ThemedBitmap"
+        private const val DEFAULT_SOURCE_HINT_CLASS = "com.android.launcher3.icons.SourceHint"
 
-        /** AdaptiveIcon visible-area ratio: in the 72dp grid, 66dp is the system visible area; full bleed scales the foreground by its inverse. */
+        /** AdaptiveIcon visible-area ratio: 66dp visible in 72dp grid; full bleed scales foreground by its inverse. */
         private const val ADAPTIVE_VISIBLE_RATIO = 66f / 72f
 
         private const val LIMIT = 40

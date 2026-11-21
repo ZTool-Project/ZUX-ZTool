@@ -2,24 +2,25 @@ package com.qimian233.ztool.hook.modules.launcher.grid
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.graphics.Point
-import android.graphics.Rect
 import android.view.View
 import android.view.ViewGroup
+import com.google.gson.JsonObject
 import com.qimian233.ztool.data.keys.PreferenceKeys
 import com.qimian233.ztool.data.keys.ScopeKeys
+import com.qimian233.ztool.dexindex.base.DexIndexConstants
 import com.qimian233.ztool.hook.base.AppHookModule
+import com.qimian233.ztool.hook.base.DexIndexStore
 import io.github.libxposed.api.XposedModuleInterface.PackageLoadedParam
 import java.lang.reflect.Field
 import java.lang.reflect.Method
+import java.lang.reflect.Modifier
 import kotlin.math.roundToInt
 
 /**
  * Big folder icon and background geometric alignment (com.zui.launcher).
  *
  * Fixes the background/grid mismatch, the edge-hugging child grid and the label offset.
- * See docs/research/zui_vs_oplus_launcher_grid_and_big_folder.md (section 4) and
- * PLAN_launcher_grid_convergence.md for the host behaviour and the hook strategy.
+ * See docs/research/zui_vs_oplus_launcher_grid_and_big_folder.md (section 4).
  */
 @SuppressLint("PrivateApi")
 class BigFolderAlignHook : AppHookModule() {
@@ -28,7 +29,7 @@ class BigFolderAlignHook : AppHookModule() {
 
     override fun getTargetPackages(): Array<String> = arrayOf(ScopeKeys.LAUNCHER.packageName)
 
-    /** Horizontal background alignment target; see [backgroundInsetX]. */
+    /** Horizontal background alignment target; see backgroundInsetX. */
     private val backgroundAlign = BackgroundAlign.HOST
 
     /** Big-folder background alignment choices. */
@@ -39,7 +40,7 @@ class BigFolderAlignHook : AppHookModule() {
     private var bfcReady = false
     private var folderIconReady = false
 
-    // PreviewBackground: o=bg width p=offsetX q=offsetY
+    // PreviewBackground
     private lateinit var pbWidth: Field
     private lateinit var pbOffsetX: Field
     private lateinit var pbOffsetY: Field
@@ -47,70 +48,62 @@ class BigFolderAlignHook : AppHookModule() {
     private lateinit var pbSpanX: Field
     private lateinit var pbSpanY: Field
     private lateinit var pbSetup: Method
-    private lateinit var pbComputeWh: Method
-    private lateinit var pbIsUpdate: Method
+    private var pbComputeWh: Method? = null
+    private var pbIsUpdate: Method? = null
 
     // ActivityContext / DeviceProfile / InvariantDeviceProfile
     private lateinit var activityContextGetDeviceProfile: Method
     private lateinit var dpInv: Field
     private lateinit var invNumColumns: Field
-    private lateinit var dpPadding: Field
-    private lateinit var dpBorderSpace: Field
-    private lateinit var dpWidgetPadding: Field
-    private lateinit var dpIconSize: Field
-    private lateinit var dpFolderIconSize: Field
-    private lateinit var dpIconDrawablePadding: Field
-    private lateinit var dpFolderIconOffsetY: Field
     private lateinit var dpGetCellLayoutWidth: Method
-    private lateinit var dpUpdateIconSize: Method
+    private var dpUpdateIconSize: Method? = null
 
     // BigFolderConfig
     private lateinit var bfcChildIconScale: Field
     private lateinit var bfcGetChildCount: Method
-    private lateinit var bfcGetHGap: Method
-    private lateinit var bfcGetVGap: Method
+    private var bfcGetHGap: Method? = null
+    private var bfcGetVGap: Method? = null
 
-    // ClippedFolderIconLayoutRule: b=bg width i=bg height d=icon size j=columns g=rows
+    // ClippedFolderIconLayoutRule
     private lateinit var ruleCols: Field
     private lateinit var ruleRows: Field
     private lateinit var ruleIconSize: Field
     private lateinit var ruleBgWidth: Field
     private lateinit var ruleBgHeight: Field
-    private lateinit var ruleC: Method
+    private lateinit var ruleCompute: Method
+    private var ruleComputeIs9Args = false
+    private var ruleParamsTransX: Field? = null
+    private var ruleParamsTransY: Field? = null
     private lateinit var ruleGetOffsetX: Method
     private lateinit var ruleGetOffsetY: Method
+    private var ruleOffsetFloatFirst = false
     private lateinit var ruleScaleForItem: Method
+    private var ruleScaleParamCount = 2
 
-    // FolderIcon: b=ActivityContext; label field name drifts, resolved by candidate name + type scan
+    // FolderIcon
     private var folderLabel: Field? = null
     private lateinit var fiActivityContext: Field
     private lateinit var fiInfo: Field
     private lateinit var fiSpanX: Field
     private lateinit var fiSpanY: Field
-    private lateinit var fiZ: Method
+    private lateinit var fiLabelMethod: Method
 
     // ── Hand tuning: six independent knobs in launcher-local px, see docs/research/big_folder_tuning.md ──
-    /** Child horizontal gap delta; background untouched. */
     @Volatile
     private var tuneGapH = PreferenceKeys.LAUNCHER_BIG_FOLDER_TUNE_GAP_H.default
 
-    /** Child vertical gap delta; background untouched. */
     @Volatile
     private var tuneGapV = PreferenceKeys.LAUNCHER_BIG_FOLDER_TUNE_GAP_V.default
 
-    /** Background horizontal inset; child grid untouched. */
     @Volatile
     private var tuneBgX = PreferenceKeys.LAUNCHER_BIG_FOLDER_TUNE_BG_X.default
 
-    /** Background vertical inset; positive shortens, negative grows. */
     @Volatile
     private var tuneBgY = PreferenceKeys.LAUNCHER_BIG_FOLDER_TUNE_BG_Y.default
 
-    /** Child grid horizontal shift; background untouched. */
     @Volatile
     private var tuneShiftX = PreferenceKeys.LAUNCHER_BIG_FOLDER_TUNE_SHIFT_X.default
 
-    /** Child grid vertical shift; background untouched. */
     @Volatile
     private var tuneShiftY = PreferenceKeys.LAUNCHER_BIG_FOLDER_TUNE_SHIFT_Y.default
 
@@ -119,23 +112,32 @@ class BigFolderAlignHook : AppHookModule() {
         val classLoader = param.defaultClassLoader
         logger.debug("BigFolderAlign installing")
         refreshTuning()
-        if (!resolveCoreRefs(classLoader)) return
-        if (!LauncherGridMetrics.install(classLoader, logger)) {
+
+        val module = DexIndexStore.lookup(xposed, ScopeKeys.LAUNCHER.packageName)
+            ?.getAsJsonObject(DexIndexConstants.JSON_MODULES)
+            ?.getAsJsonObject(DexIndexConstants.ModuleKeys.LAUNCHER_BIG_FOLDER_ALIGN)
+
+        if (!LauncherGridMetrics.install(classLoader, logger, xposed)) {
             logger.error("BigFolderAlign: shared grid metrics unavailable, disabled")
             return
         }
-        ruleReady = resolveRuleRefs(classLoader)
-        bfcReady = resolveBfcRefs(classLoader)
-        folderIconReady = resolveFolderIconRefs(classLoader)
+        if (!resolveCoreRefs(classLoader, module)) return
+        ruleReady = resolveRuleRefs(classLoader, module)
+        bfcReady = resolveBfcRefs(classLoader, module)
+        folderIconReady = resolveFolderIconRefs(classLoader, module)
 
         hookSetupGeometry()
-        hookChildCountRewrite()
+        if (bfcReady) hookChildCountRewrite()
         if (ruleReady) hookChildGridRule()
-        if (bfcReady) hookFolderGaps()
+        if (bfcReady && bfcGetHGap != null && bfcGetVGap != null) {
+            hookFolderGaps()
+        } else if (bfcReady && ruleReady) {
+            hookOffsetGaps()
+        }
         if (folderIconReady) hookFolderLabel()
-        hookAvailableWh()
-        hookIsUpdatePreviewSize()
-        hookDeviceProfileTelemetry()
+        if (pbComputeWh != null) hookAvailableWh()
+        if (pbIsUpdate != null) hookIsUpdatePreviewSize()
+        if (dpUpdateIconSize != null) hookDeviceProfileTelemetry()
     }
 
     /** Re-reads the six hand tuning values; a scope restart is the reliable refresh. */
@@ -190,42 +192,76 @@ class BigFolderAlignHook : AppHookModule() {
         tuneBgX != 0 || tuneBgY != 0 || tuneShiftX != 0 || tuneShiftY != 0
 
     /** Core group: PreviewBackground / ActivityContext / DeviceProfile / InvariantDeviceProfile. */
-    private fun resolveCoreRefs(classLoader: ClassLoader): Boolean {
+    private fun resolveCoreRefs(classLoader: ClassLoader, module: JsonObject?): Boolean {
         return try {
             val pb = classLoader.loadClass("com.android.launcher3.folder.PreviewBackground")
             val activityContextClass = classLoader.loadClass("com.android.launcher3.views.ActivityContext")
             pbSpanX = findField(pb, "spanX")
             pbSpanY = findField(pb, "spanY")
-            pbWidth = findField(pb, "o")     // obfuscated short name: bg width
-            pbOffsetX = findField(pb, "p")   // obfuscated short name: offsetX
-            pbOffsetY = findField(pb, "q")   // obfuscated short name: offsetY
-            pbPreviewSizeY = findField(pb, "previewSizeY")
+            pbWidth = resolveFirstField(
+                pb,
+                readString(module, DexIndexConstants.Keys.BIG_FOLDER_ALIGN_PB_PREVIEW_SIZE_FIELD),
+                "previewSize",
+                "o"
+            )
+            pbOffsetX = resolveFirstField(
+                pb,
+                readString(module, DexIndexConstants.Keys.BIG_FOLDER_ALIGN_PB_OFFSET_X_FIELD),
+                "basePreviewOffsetX",
+                "p"
+            )
+            pbOffsetY = resolveFirstField(
+                pb,
+                readString(module, DexIndexConstants.Keys.BIG_FOLDER_ALIGN_PB_OFFSET_Y_FIELD),
+                "basePreviewOffsetY",
+                "q"
+            )
+            pbPreviewSizeY = findField(
+                pb,
+                readString(module, DexIndexConstants.Keys.BIG_FOLDER_ALIGN_PB_PREVIEW_SIZE_Y_FIELD)
+                    ?: "previewSizeY"
+            )
             pbSetup = findMethod(
                 pb, "setup",
                 Context::class.java, activityContextClass, View::class.java,
                 Int::class.javaPrimitiveType, Int::class.javaPrimitiveType,
                 Int::class.javaPrimitiveType, Int::class.javaPrimitiveType
             )
-            pbComputeWh = findMethod(
-                pb, "computeBigFolderAvaliableWh",
-                activityContextClass, Int::class.javaPrimitiveType, Int::class.javaPrimitiveType, IntArray::class.java
-            )
-            pbIsUpdate = findMethod(pb, "isUpdatePreviewSize", activityContextClass)
+            val computeWhName = readString(module, DexIndexConstants.Keys.BIG_FOLDER_ALIGN_PB_COMPUTE_WH_METHOD)
+            pbComputeWh = if (computeWhName != null || module == null) {
+                runCatching {
+                    findMethod(
+                        pb, computeWhName ?: "computeBigFolderAvaliableWh",
+                        activityContextClass, Int::class.javaPrimitiveType,
+                        Int::class.javaPrimitiveType, IntArray::class.java
+                    )
+                }.getOrNull()
+            } else {
+                null
+            }
+            val isUpdateName = readString(module, DexIndexConstants.Keys.BIG_FOLDER_ALIGN_PB_IS_UPDATE_METHOD)
+            pbIsUpdate = if (isUpdateName != null || module == null) {
+                runCatching {
+                    findMethod(pb, isUpdateName ?: "isUpdatePreviewSize", activityContextClass)
+                }.getOrNull()
+            } else {
+                null
+            }
 
             activityContextGetDeviceProfile = findMethod(activityContextClass, "getDeviceProfile")
 
             val dp = classLoader.loadClass("com.android.launcher3.DeviceProfile")
             dpInv = findField(dp, "inv")
             invNumColumns = findField(dpInv.type, "numColumns")
-            dpPadding = findField(dp, "cellLayoutPaddingPx")
-            dpBorderSpace = findField(dp, "cellLayoutBorderSpacePx")
-            dpWidgetPadding = findField(dp, "widgetPadding")
-            dpIconSize = findField(dp, "iconSizePx")
-            dpFolderIconSize = findField(dp, "folderIconSizePx")
-            dpIconDrawablePadding = findField(dp, "iconDrawablePaddingPx")
-            dpFolderIconOffsetY = findField(dp, "folderIconOffsetYPx")
             dpGetCellLayoutWidth = findMethod(dp, "getCellLayoutWidth")
-            dpUpdateIconSize = findMethod(dp, "updateIconSize", Float::class.javaPrimitiveType, Context::class.java)
+            val updateIconSizeName = readString(module, DexIndexConstants.Keys.BIG_FOLDER_ALIGN_DP_UPDATE_ICON_SIZE_METHOD)
+            dpUpdateIconSize = if (updateIconSizeName != null || module == null) {
+                runCatching {
+                    findMethod(dp, updateIconSizeName ?: "updateIconSize", Float::class.javaPrimitiveType, Context::class.java)
+                }.getOrNull()
+            } else {
+                null
+            }
             coreReady = true
             true
         } catch (t: Throwable) {
@@ -235,23 +271,98 @@ class BigFolderAlignHook : AppHookModule() {
     }
 
     /** Rule group: ClippedFolderIconLayoutRule (child icon grid positioning). */
-    private fun resolveRuleRefs(classLoader: ClassLoader): Boolean {
+    private fun resolveRuleRefs(classLoader: ClassLoader, module: JsonObject?): Boolean {
         return try {
             val rule = classLoader.loadClass("com.android.launcher3.folder.ClippedFolderIconLayoutRule")
-            ruleCols = findField(rule, "j")          // obfuscated short name: columns
-            ruleRows = findField(rule, "g")          // obfuscated short name: rows
-            ruleIconSize = findField(rule, "d")      // obfuscated short name: icon size
-            ruleBgWidth = findField(rule, "b")       // obfuscated short name: bg width
-            ruleBgHeight = findField(rule, "i")      // obfuscated short name: bg height
+            ruleCols = resolveFirstField(
+                rule,
+                readString(module, DexIndexConstants.Keys.BIG_FOLDER_ALIGN_RULE_COLS_FIELD),
+                "iconColCount",
+                "j"
+            )
+            ruleRows = resolveFirstField(
+                rule,
+                readString(module, DexIndexConstants.Keys.BIG_FOLDER_ALIGN_RULE_ROWS_FIELD),
+                "iconRowCount",
+                "g"
+            )
+            ruleIconSize = resolveFirstField(
+                rule,
+                readString(module, DexIndexConstants.Keys.BIG_FOLDER_ALIGN_RULE_ICON_SIZE_FIELD),
+                "mIconSize",
+                "d"
+            )
+            ruleBgWidth = resolveFirstField(
+                rule,
+                readString(module, DexIndexConstants.Keys.BIG_FOLDER_ALIGN_RULE_BG_WIDTH_FIELD),
+                "mAvailableSpace",
+                "b"
+            )
+            ruleBgHeight = resolveFirstField(
+                rule,
+                readString(module, DexIndexConstants.Keys.BIG_FOLDER_ALIGN_RULE_BG_HEIGHT_FIELD),
+                "mAvailableSpaceY",
+                "i"
+            )
+
             val i = Int::class.javaPrimitiveType
             val f = Float::class.javaPrimitiveType
-            ruleC = findMethod(
-                rule, "c",
-                i, i, FloatArray::class.java, i, i, i, i, i
-            )
-            ruleGetOffsetX = findMethod(rule, "getOffsetX", i, i, i, f, f, i, i)
-            ruleGetOffsetY = findMethod(rule, "getOffsetY", i, i, i, f, f, i, i)
-            ruleScaleForItem = findMethod(rule, "scaleForItem", i, Boolean::class.java)
+            val b = Boolean::class.javaPrimitiveType
+
+            val computeName = readString(module, DexIndexConstants.Keys.BIG_FOLDER_ALIGN_RULE_COMPUTE_METHOD)
+            val computeParams = readParams(classLoader, module, DexIndexConstants.Keys.BIG_FOLDER_ALIGN_RULE_COMPUTE_PARAMS)
+            if (computeName != null && computeParams != null) {
+                ruleCompute = findMethod(rule, computeName, *computeParams)
+            } else {
+                val paramsClass = runCatching {
+                    classLoader.loadClass("com.android.launcher3.folder.PreviewItemDrawingParams")
+                }.getOrNull()
+                ruleCompute = paramsClass?.let {
+                    runCatching {
+                        findMethod(rule, computeName ?: "computePreviewItemDrawingParams", i, i, it, b, i, i, i, i, i)
+                    }.getOrNull()
+                } ?: findMethod(rule, computeName ?: "c", i, i, FloatArray::class.java, i, i, i, i, i)
+            }
+            ruleComputeIs9Args = ruleCompute.parameterCount == 9
+            if (ruleComputeIs9Args) {
+                val paramsClass = ruleCompute.parameterTypes[2]
+                ruleParamsTransX = findField(paramsClass, "transX")
+                ruleParamsTransY = findField(paramsClass, "transY")
+            }
+
+            val offsetXName = readString(module, DexIndexConstants.Keys.BIG_FOLDER_ALIGN_RULE_OFFSET_X_METHOD) ?: "getOffsetX"
+            val offsetYName = readString(module, DexIndexConstants.Keys.BIG_FOLDER_ALIGN_RULE_OFFSET_Y_METHOD) ?: "getOffsetY"
+            val offsetParams = readParams(classLoader, module, DexIndexConstants.Keys.BIG_FOLDER_ALIGN_RULE_OFFSET_PARAMS)
+            if (offsetParams != null) {
+                ruleGetOffsetX = findMethod(rule, offsetXName, *offsetParams)
+                ruleGetOffsetY = findMethod(rule, offsetYName, *offsetParams)
+                ruleOffsetFloatFirst = offsetParams.firstOrNull() == f
+            } else {
+                val pairFloatFirst = runCatching {
+                    findMethod(rule, offsetXName, f, f, i, i, i, i, i) to
+                        findMethod(rule, offsetYName, f, f, i, i, i, i, i)
+                }.getOrNull()
+                if (pairFloatFirst != null) {
+                    ruleGetOffsetX = pairFloatFirst.first
+                    ruleGetOffsetY = pairFloatFirst.second
+                    ruleOffsetFloatFirst = true
+                } else {
+                    ruleGetOffsetX = findMethod(rule, offsetXName, i, i, i, f, f, i, i)
+                    ruleGetOffsetY = findMethod(rule, offsetYName, i, i, i, f, f, i, i)
+                    ruleOffsetFloatFirst = false
+                }
+            }
+
+            val scaleName = readString(module, DexIndexConstants.Keys.BIG_FOLDER_ALIGN_RULE_SCALE_METHOD)
+            val scaleParams = readParams(classLoader, module, DexIndexConstants.Keys.BIG_FOLDER_ALIGN_RULE_SCALE_PARAMS)
+            ruleScaleForItem = if (scaleName != null && scaleParams != null) {
+                findMethod(rule, scaleName, *scaleParams)
+            } else {
+                runCatching { findMethod(rule, scaleName ?: "zuiScaleForItem", b) }.getOrNull()
+                    ?: runCatching { findMethod(rule, scaleName ?: "scaleForItem", i, b) }.getOrNull()
+                    ?: findMethod(rule, scaleName ?: "scaleForItem", i, Boolean::class.java)
+            }
+            ruleScaleParamCount = ruleScaleForItem.parameterCount
             true
         } catch (t: Throwable) {
             logger.error("resolve rule refs failed, child grid hook skipped", t)
@@ -260,16 +371,38 @@ class BigFolderAlignHook : AppHookModule() {
     }
 
     /** Style sheet group: BigFolderConfig (child grid/gap convergence point). */
-    private fun resolveBfcRefs(classLoader: ClassLoader): Boolean {
+    private fun resolveBfcRefs(classLoader: ClassLoader, module: JsonObject?): Boolean {
         return try {
-            val bfc = classLoader.loadClass("com.zui.launcher.folder.bigfolder.BigFolderConfig")
-            bfcChildIconScale = findField(bfc, "CHILD_ICON_SCALE")
+            val bfcClassName = readString(module, DexIndexConstants.Keys.BIG_FOLDER_ALIGN_BFC_CLASS)
+                ?: "com.zui.launcher.folder.bigfolder.BigFolderConfig"
+            val bfc = classLoader.loadClass(bfcClassName)
+            bfcChildIconScale = resolveFirstField(
+                bfc,
+                readString(module, DexIndexConstants.Keys.BIG_FOLDER_ALIGN_BFC_CHILD_SCALE_FIELD),
+                "CHILD_ICON_SCALE"
+            )
+            val childCountName = readString(module, DexIndexConstants.Keys.BIG_FOLDER_ALIGN_BFC_CHILD_COUNT_METHOD)
+                ?: "getBigFolderIconChildCount"
             bfcGetChildCount = findMethod(
-                bfc, "getBigFolderIconChildCount",
+                bfc, childCountName,
                 Int::class.javaPrimitiveType, Int::class.javaPrimitiveType, IntArray::class.java
             )
-            bfcGetHGap = findMethod(bfc, "getBigFolderIconHGap", Int::class.javaPrimitiveType, Int::class.javaPrimitiveType)
-            bfcGetVGap = findMethod(bfc, "getBigFolderIconVGap", Int::class.javaPrimitiveType, Int::class.javaPrimitiveType)
+            val hGapName = readString(module, DexIndexConstants.Keys.BIG_FOLDER_ALIGN_BFC_HGAP_METHOD)
+            val vGapName = readString(module, DexIndexConstants.Keys.BIG_FOLDER_ALIGN_BFC_VGAP_METHOD)
+            bfcGetHGap = if (hGapName != null || module == null) {
+                runCatching {
+                    findMethod(bfc, hGapName ?: "getBigFolderIconHGap", Int::class.javaPrimitiveType, Int::class.javaPrimitiveType)
+                }.getOrNull()
+            } else {
+                null
+            }
+            bfcGetVGap = if (vGapName != null || module == null) {
+                runCatching {
+                    findMethod(bfc, vGapName ?: "getBigFolderIconVGap", Int::class.javaPrimitiveType, Int::class.javaPrimitiveType)
+                }.getOrNull()
+            } else {
+                null
+            }
             true
         } catch (t: Throwable) {
             logger.error("resolve BigFolderConfig refs failed, child grid/gap hooks skipped", t)
@@ -277,20 +410,31 @@ class BigFolderAlignHook : AppHookModule() {
         }
     }
 
-    /** FolderIcon group: label field resolved by candidate names, falling back to a BubbleTextView type scan. */
-    private fun resolveFolderIconRefs(classLoader: ClassLoader): Boolean {
+    /** FolderIcon group: label field resolved by DexIndex, candidate names, or BubbleTextView scan. */
+    private fun resolveFolderIconRefs(classLoader: ClassLoader, module: JsonObject?): Boolean {
         return try {
             val fi = classLoader.loadClass("com.android.launcher3.folder.FolderIcon")
-            fiActivityContext = findField(fi, "b")   // obfuscated short name: ActivityContext
-            fiInfo = findField(fi, "mInfo")
+            fiActivityContext = resolveFirstField(
+                fi,
+                readString(module, DexIndexConstants.Keys.BIG_FOLDER_ALIGN_FI_ACTIVITY_FIELD),
+                "mActivity",
+                "b"
+            )
+            fiInfo = findField(
+                fi,
+                readString(module, DexIndexConstants.Keys.BIG_FOLDER_ALIGN_FI_INFO_FIELD) ?: "mInfo"
+            )
             fiSpanX = findField(fiInfo.type, "spanX")
             fiSpanY = findField(fiInfo.type, "spanY")
-            folderLabel = listOf("folderBubbleTextView", "e").firstNotNullOfOrNull { name ->
-                try {
-                    findField(fi, name)
-                } catch (_: Throwable) {
-                    null
-                }
+
+            val labelCandidates = buildList {
+                readString(module, DexIndexConstants.Keys.BIG_FOLDER_ALIGN_FI_LABEL_FIELD)?.let { add(it) }
+                add("mFolderName")
+                add("folderBubbleTextView")
+                add("e")
+            }
+            folderLabel = labelCandidates.firstNotNullOfOrNull { name ->
+                runCatching { findField(fi, name) }.getOrNull()
             }
             if (folderLabel == null) {
                 val bubbleClass = classLoader.loadClass("com.android.launcher3.BubbleTextView")
@@ -302,7 +446,14 @@ class BigFolderAlignHook : AppHookModule() {
                 logger.error("FolderIcon label field unresolved, label hook skipped")
                 return false
             }
-            fiZ = findMethod(fi, "z")
+            val labelMethodName = readString(module, DexIndexConstants.Keys.BIG_FOLDER_ALIGN_FI_LABEL_METHOD)
+            fiLabelMethod = if (labelMethodName != null) {
+                findMethod(fi, labelMethodName)
+            } else {
+                listOf("setFolderNameMargin", "z").firstNotNullOfOrNull { candidate ->
+                    runCatching { findMethod(fi, candidate) }.getOrNull()
+                } ?: throw NoSuchMethodException("FolderIcon setFolderNameMargin/z not found")
+            }
             true
         } catch (t: Throwable) {
             logger.error("resolve FolderIcon refs failed, label hook skipped", t)
@@ -365,7 +516,7 @@ class BigFolderAlignHook : AppHookModule() {
             val f = folderLabel
             if (folderIconView != null && f != null) {
                 labelTopMargin = ((f.get(folderIconView) as View).layoutParams
-                        as ViewGroup.MarginLayoutParams).topMargin
+                    as ViewGroup.MarginLayoutParams).topMargin
             }
             iconPaddingTop = (folderIconView as? View)?.paddingTop ?: -1
         } catch (_: Throwable) {
@@ -393,8 +544,7 @@ class BigFolderAlignHook : AppHookModule() {
     /**
      * Transparent margin around the icon artwork inside the icon box.
      *
-     * DeviceProfile.widgetPadding is the host's own inset for the big-folder background;
-     * [ART_INSET_RATIO] only covers platforms that report no widget padding.
+     * ART_INSET_RATIO covers platforms whose profile reports no widget padding.
      */
     private fun artInsetPx(metrics: LauncherGridMetrics.Metrics): Int =
         if (metrics.widgetPaddingTop > 0) metrics.widgetPaddingTop
@@ -402,10 +552,6 @@ class BigFolderAlignHook : AppHookModule() {
 
     /**
      * Horizontal inset of the background inside its cell box.
-     *
-     * [BackgroundAlign.HOST] keeps DeviceProfile.widgetPadding, the value the host itself
-     * uses for a big-folder background; the measured insets remain the fallback and the
-     * alternative alignments.
      */
     private fun backgroundInsetX(metrics: LauncherGridMetrics.Metrics): Int =
         (when (backgroundAlign) {
@@ -432,7 +578,7 @@ class BigFolderAlignHook : AppHookModule() {
     private fun backgroundHeight(metrics: LauncherGridMetrics.Metrics, spanY: Int): Int =
         backgroundBaseHeight(metrics, spanY) - 2 * tuneBgY
 
-    /** Style sheet convergence rewrite: one rewrite makes layout/preview count/click hit-testing/drop capacity all take effect. */
+    /** Style sheet convergence rewrite: one rewrite drives layout, preview count, hit-testing and drop capacity. */
     private fun hookChildCountRewrite() {
         hookWithId(bfcGetChildCount, "big_folder_align_child_count") { chain ->
             val result = chain.proceed()
@@ -444,9 +590,6 @@ class BigFolderAlignHook : AppHookModule() {
                 if (out != null) {
                     stockGrids[key] = intArrayOf(out[0], out[1])
                 }
-                // Geometry-derived child grid for every big-folder layout: 3 subdivisions per
-                // multi-cell axis, and the single axis of a capsule folder (span 1) kept at 1.
-                // The host table is per-workspace-grid and falls back to 6x4 for custom grids.
                 val rewrite = intArrayOf(
                     if (spanX <= 1) 1 else CHILD_COLS,
                     if (spanY <= 1) 1 else CHILD_ROWS
@@ -469,50 +612,103 @@ class BigFolderAlignHook : AppHookModule() {
         logger.debug("hooked getBigFolderIconChildCount")
     }
 
-    /** The c() phone branch is hardcoded 2-column positioning; uniformly rewritten to the rule's own getOffsetX/getOffsetY generic grid. */
+    /** Rewrites child grid positioning to use the generic centered getOffsetX/getOffsetY formula. */
     private fun hookChildGridRule() {
-        hookWithId(ruleC, "big_folder_align_child_grid") { chain ->
-            chain.proceed()
+        hookWithId(ruleCompute, "big_folder_align_child_grid") { chain ->
+            val result = chain.proceed()
             try {
                 val args = chain.args
                 val index = args[0] as Int
-                val spanX = args[3] as Int
-                val spanY = args[4] as Int
+                val curNumItems = args[1] as Int
+                val spanX: Int
+                val spanY: Int
+                val availW: Int
+                val availH: Int
+                val padTop: Int
+                if (ruleComputeIs9Args) {
+                    spanX = args[4] as Int
+                    spanY = args[5] as Int
+                    availW = args[6] as Int
+                    availH = args[7] as Int
+                    padTop = args[8] as Int
+                } else {
+                    spanX = args[3] as Int
+                    spanY = args[4] as Int
+                    availW = args[5] as Int
+                    availH = args[6] as Int
+                    padTop = args[7] as Int
+                }
                 // ENTER/EXIT(-2/-3) go through the animation-specific path; leave non-big-folders untouched
-                if (index < 0 || (spanX <= 1 && spanY <= 1)) return@hookWithId null
+                if (index < 0 || (spanX <= 1 && spanY <= 1)) {
+                    return@hookWithId if (ruleComputeIs9Args) result else null
+                }
                 val rule = chain.thisObject
                 val cols = ruleCols.getInt(rule)
                 val rows = ruleRows.getInt(rule)
                 val iconSize = ruleIconSize.getFloat(rule)
-                val halfIcon =
-                    iconSize * (ruleScaleForItem.invoke(rule, maxOf(args[1] as Int, 3), true) as Float) / 2f
-                // The host centers the child grid in the background; the hand tuning shifts the
-                // icons only, so background insets and icon position are independent knobs.
+                val scale = if (ruleScaleParamCount == 1) {
+                    ruleScaleForItem.invoke(rule, true) as Float
+                } else {
+                    ruleScaleForItem.invoke(rule, maxOf(curNumItems, 3), true) as Float
+                }
+                val halfIcon = iconSize * scale / 2f
+                // The host centers the child grid in the background; hand tuning shifts icons only.
                 val centerX =
-                    (if ((args[5] as Int) == -1) ruleBgWidth.getFloat(rule) / 2f
-                    else (args[5] as Int) / 2f) + tuneShiftX
+                    (if (availW == -1) ruleBgWidth.getFloat(rule) / 2f else availW / 2f) + tuneShiftX
                 val centerY =
-                    (if ((args[6] as Int) == -1) ruleBgHeight.getFloat(rule) / 2f
-                    else (args[6] as Int) / 2f) + (args[7] as Int) + tuneShiftY
-                val out = args[2] as FloatArray
-                out[0] = ruleGetOffsetX.invoke(rule, index, cols, rows, centerX, halfIcon, spanX, spanY) as Float
-                out[1] = ruleGetOffsetY.invoke(rule, index, cols, rows, centerY, halfIcon, spanX, spanY) as Float
-                logger.debug("childGrid idx=$index -> (${out[0]}, ${out[1]})")
+                    (if (availH == -1) ruleBgHeight.getFloat(rule) / 2f else availH / 2f) + padTop + tuneShiftY
+
+                val newX = invokeOffset(ruleGetOffsetX, rule, index, cols, rows, centerX, halfIcon, spanX, spanY)
+                val newY = invokeOffset(ruleGetOffsetY, rule, index, cols, rows, centerY, halfIcon, spanX, spanY)
+
+                if (ruleComputeIs9Args) {
+                    val drawingParams = result ?: args[2]
+                    if (drawingParams != null) {
+                        ruleParamsTransX?.setFloat(drawingParams, newX)
+                        ruleParamsTransY?.setFloat(drawingParams, newY)
+                    }
+                    logger.debug("childGrid idx=$index -> ($newX, $newY)")
+                    return@hookWithId result
+                } else {
+                    val out = args[2] as FloatArray
+                    out[0] = newX
+                    out[1] = newY
+                    logger.debug("childGrid idx=$index -> ($newX, $newY)")
+                }
             } catch (t: Throwable) {
                 logger.error("child grid rewrite failed", t)
             }
-            null
+            if (ruleComputeIs9Args) result else null
         }
-        logger.debug("hooked ClippedFolderIconLayoutRule.c")
+        logger.debug("hooked ClippedFolderIconLayoutRule computePreviewItemDrawingParams")
+    }
+
+    private fun invokeOffset(
+        method: Method,
+        rule: Any?,
+        index: Int,
+        cols: Int,
+        rows: Int,
+        center: Float,
+        halfIcon: Float,
+        spanX: Int,
+        spanY: Int
+    ): Float {
+        val target = if (Modifier.isStatic(method.modifiers)) null else rule
+        return if (ruleOffsetFloatFirst) {
+            method.invoke(target, center, halfIcon, index, cols, rows, spanX, spanY) as Float
+        } else {
+            method.invoke(target, index, cols, rows, center, halfIcon, spanX, spanY) as Float
+        }
     }
 
     /**
-     * Stock gaps are tuned for the stock grid; for every big-folder span they are solved
-     * from the untuned background box instead, so the background insets never move the
-     * spacing. The centered layout turns the leftover into outer margins.
+     * Pre-18.6 gap rewrite via BigFolderConfig.getBigFolderIconHGap/VGap.
      */
     private fun hookFolderGaps() {
-        for ((method, isH) in listOf(bfcGetHGap to true, bfcGetVGap to false)) {
+        val hGap = bfcGetHGap ?: return
+        val vGap = bfcGetVGap ?: return
+        for ((method, isH) in listOf(hGap to true, vGap to false)) {
             val id = "big_folder_align_${if (isH) "h" else "v"}gap"
             hookWithId(method, id) { chain ->
                 val result = chain.proceed()
@@ -527,14 +723,9 @@ class BigFolderAlignHook : AppHookModule() {
                     if (metrics.cellWidth <= 0) return@hookWithId result
                     val n = if (isH) grid[0] else grid[1]
                     if (n <= 1) return@hookWithId 0f
-                    // Deliberately the untuned box: narrowing the background must not change
-                    // the spacing, which is what the gap deltas are for.
                     val bgAxis = if (isH) backgroundBaseWidth(metrics, spanX)
                     else backgroundBaseHeight(metrics, spanY)
                     val childSize = metrics.folderIconSizePx * bfcChildIconScale.getFloat(null)
-                    // (n + 1) splits the free space over the n-1 inner gaps and the two outer
-                    // margins equally, so the grid never touches the background edge; the px
-                    // delta then tightens or widens the spacing on both axes independently.
                     val delta = if (isH) tuneGapH else tuneGapV
                     val newGap = maxOf(0f, (bgAxis - n * childSize) / (n + 1) + delta)
                     val logKey = "${if (isH) "h" else "v"}Gap$spanKey"
@@ -554,9 +745,78 @@ class BigFolderAlignHook : AppHookModule() {
         logger.debug("hooked getBigFolderIconHGap/VGap")
     }
 
+    /**
+     * 18.6.0.1116+ gap rewrite when BigFolderConfig HGap/VGap methods are removed:
+     * hooks ClippedFolderIconLayoutRule.getOffsetX/Y directly using pixel-space gaps.
+     */
+    private fun hookOffsetGaps() {
+        for ((method, isH) in listOf(ruleGetOffsetX to true, ruleGetOffsetY to false)) {
+            val id = "big_folder_align_offset_${if (isH) "x" else "y"}"
+            hookWithId(method, id) { chain ->
+                val result = chain.proceed()
+                try {
+                    val args = chain.args
+                    val center: Float
+                    val halfIcon: Float
+                    val index: Int
+                    val cols: Int
+                    val rows: Int
+                    val spanX: Int
+                    val spanY: Int
+                    if (ruleOffsetFloatFirst) {
+                        center = args[0] as Float
+                        halfIcon = args[1] as Float
+                        index = args[2] as Int
+                        cols = args[3] as Int
+                        rows = args[4] as Int
+                        spanX = args[5] as Int
+                        spanY = args[6] as Int
+                    } else {
+                        index = args[0] as Int
+                        cols = args[1] as Int
+                        rows = args[2] as Int
+                        center = args[3] as Float
+                        halfIcon = args[4] as Float
+                        spanX = args[5] as Int
+                        spanY = args[6] as Int
+                    }
+                    if (index < 0 || cols <= 0 || rows <= 0 || (spanX <= 1 && spanY <= 1)) {
+                        return@hookWithId result
+                    }
+                    val metrics = LauncherGridMetrics.cached ?: return@hookWithId result
+                    if (metrics.cellWidth <= 0) return@hookWithId result
+                    val n = if (isH) cols else rows
+                    val gap = if (n <= 1) {
+                        0f
+                    } else {
+                        val bgAxis = if (isH) backgroundBaseWidth(metrics, spanX)
+                        else backgroundBaseHeight(metrics, spanY)
+                        val childSize = metrics.folderIconSizePx * bfcChildIconScale.getFloat(null)
+                        val delta = if (isH) tuneGapH else tuneGapV
+                        maxOf(0f, (bgAxis - n * childSize) / (n + 1) + delta)
+                    }
+                    val cellIdx = if (isH) (index % cols) else (index / cols)
+                    val offset = center - halfIcon + (cellIdx - (n - 1) / 2f) * (2f * halfIcon + gap)
+                    val logKey = "${if (isH) "h" else "v"}OffsetGap${spanX}x$spanY"
+                    if (loggedSpans.add(logKey)) {
+                        logger.debug(
+                            "${if (isH) "hOffsetGap" else "vOffsetGap"}($spanX,$spanY) n=$n gap=$gap " +
+                                "result=$result -> $offset"
+                        )
+                    }
+                    return@hookWithId offset
+                } catch (t: Throwable) {
+                    logger.error("offset gap rewrite failed", t)
+                    result
+                }
+            }
+        }
+        logger.debug("hooked ClippedFolderIconLayoutRule.getOffsetX/Y")
+    }
+
     private fun hookFolderLabel() {
         val labelField = folderLabel ?: return
-        hookWithId(fiZ, "big_folder_align_label") { chain ->
+        hookWithId(fiLabelMethod, "big_folder_align_label") { chain ->
             try {
                 val icon = chain.thisObject
                 val info = fiInfo.get(icon)
@@ -567,11 +827,13 @@ class BigFolderAlignHook : AppHookModule() {
                     ?: return@hookWithId chain.proceed()
                 val dp = activityContextGetDeviceProfile.invoke(activityContext)
                     ?: return@hookWithId chain.proceed()
-                val iconSizePx = dpIconSize.getInt(dp)
-                val drawablePadding = dpIconDrawablePadding.getInt(dp)
+                val iconSizePx = LauncherGridMetrics.iconSizePx(dp)
+                    ?: return@hookWithId chain.proceed()
+                val drawablePadding = LauncherGridMetrics.iconDrawablePaddingPx(dp)
+                    ?: return@hookWithId chain.proceed()
                 val topMargin: Int
                 if (spanX <= 1 && spanY <= 1) {
-                    // Small folder branch: replicate the stock z() formula
+                    // Small folder branch: replicate the stock formula
                     topMargin = iconSizePx + drawablePadding
                 } else {
                     val metrics = LauncherGridMetrics.fromPage(
@@ -587,25 +849,24 @@ class BigFolderAlignHook : AppHookModule() {
                     label.requestLayout()
                     logger.debug("label topMargin -> $topMargin (span=${spanX}x${spanY})")
                 }
-                null // Fully replaces the host z(); on reflection failure the catch falls back to stock
+                null
             } catch (t: Throwable) {
-                logger.error("label align failed, fallback to stock z()", t)
+                logger.error("label align failed, fallback to stock method", t)
                 chain.proceed()
             }
         }
-        logger.debug("hooked FolderIcon.z (label alignment)")
+        logger.debug("hooked FolderIcon label alignment")
     }
 
     private fun hookAvailableWh() {
-        hookWithId(pbComputeWh, "big_folder_align_available_wh") { chain ->
+        val method = pbComputeWh ?: return
+        hookWithId(method, "big_folder_align_available_wh") { chain ->
             chain.proceed()
             try {
                 val args = chain.args
                 val wh = args[3] as IntArray
                 val holder = args[0] ?: return@hookWithId null
                 val dp = activityContextGetDeviceProfile.invoke(holder) ?: return@hookWithId null
-                // This call is reached from resize flows; the last setup already published
-                // the measured page geometry for the same folder.
                 val metrics = LauncherGridMetrics.cached
                     ?: LauncherGridMetrics.fromPage(null, dp)
                     ?: return@hookWithId null
@@ -624,7 +885,8 @@ class BigFolderAlignHook : AppHookModule() {
     }
 
     private fun hookIsUpdatePreviewSize() {
-        hookWithId(pbIsUpdate, "big_folder_align_is_update") { chain ->
+        val method = pbIsUpdate ?: return
+        hookWithId(method, "big_folder_align_is_update") { chain ->
             val result = chain.proceed()
             try {
                 val pb = chain.thisObject
@@ -640,26 +902,25 @@ class BigFolderAlignHook : AppHookModule() {
     }
 
     private fun hookDeviceProfileTelemetry() {
-        hookWithId(dpUpdateIconSize, "big_folder_align_dp_log") { chain ->
+        val method = dpUpdateIconSize ?: return
+        hookWithId(method, "big_folder_align_dp_log") { chain ->
             chain.proceed()
             try {
                 val dp = chain.thisObject
                 val inv = dpInv.get(dp)
-                val padding = dpPadding.get(dp) as Rect
-                val borderSpace = dpBorderSpace.get(dp) as Point
-                val widgetPadding = dpWidgetPadding.get(dp) as Rect
-                // Snapshot the same numbers the geometry hooks consume, so a grid change is
-                // verifiable from the log alone.
+                val padding = LauncherGridMetrics.cellLayoutPaddingPx(dp)
+                val borderSpace = LauncherGridMetrics.cellLayoutBorderSpacePx(dp)
+                val widgetPadding = LauncherGridMetrics.widgetPadding(dp)
                 val metrics = LauncherGridMetrics.fromPage(null, dp)
                 logger.debug(
                     "DeviceProfile cols=${invNumColumns.getInt(inv)}" +
                         " cellLayoutW=${dpGetCellLayoutWidth.invoke(dp)}" +
-                        " pad=${padding.left}x${padding.top}" +
-                        " gap=${borderSpace.x}x${borderSpace.y}" +
-                        " iconSize=${dpIconSize.getInt(dp)}" +
-                        " folderIcon=${dpFolderIconSize.getInt(dp)}" +
-                        " folderOffsetY=${dpFolderIconOffsetY.getInt(dp)}" +
-                        " widgetPad=${widgetPadding.left},${widgetPadding.top}" +
+                        " pad=${padding?.left}x${padding?.top}" +
+                        " gap=${borderSpace?.x}x${borderSpace?.y}" +
+                        " iconSize=${LauncherGridMetrics.iconSizePx(dp)}" +
+                        " folderIcon=${LauncherGridMetrics.folderIconSizePx(dp)}" +
+                        " folderOffsetY=${LauncherGridMetrics.folderIconOffsetYPx(dp)}" +
+                        " widgetPad=${widgetPadding?.left},${widgetPadding?.top}" +
                         " cellW=${metrics?.cellWidth} cellH=${metrics?.cellHeight}" +
                         " nominalW=${metrics?.nominalCellWidth}" +
                         " content=${metrics?.contentHeightPx}" +
@@ -671,6 +932,44 @@ class BigFolderAlignHook : AppHookModule() {
             null
         }
         logger.debug("hooked DeviceProfile.updateIconSize (telemetry)")
+    }
+
+    private fun resolveFirstField(owner: Class<*>, indexed: String?, vararg fallbacks: String): Field {
+        if (indexed != null) return findField(owner, indexed)
+        for (name in fallbacks) {
+            runCatching { return findField(owner, name) }
+        }
+        throw NoSuchFieldException("${fallbacks.joinToString()} in $owner")
+    }
+
+    private fun readString(module: JsonObject?, key: String): String? =
+        module?.get(key)?.takeIf { !it.isJsonNull }?.asString?.takeIf { it.isNotEmpty() }
+
+    private fun readParams(
+        classLoader: ClassLoader,
+        module: JsonObject?,
+        key: String
+    ): Array<Class<*>?>? {
+        val raw = readString(module, key) ?: return null
+        return raw.split(",").map { resolveType(classLoader, it.trim()) }.toTypedArray()
+    }
+
+    private fun resolveType(classLoader: ClassLoader, name: String): Class<*> = when (name) {
+        "boolean" -> Boolean::class.javaPrimitiveType!!
+        "byte" -> Byte::class.javaPrimitiveType!!
+        "short" -> Short::class.javaPrimitiveType!!
+        "int" -> Int::class.javaPrimitiveType!!
+        "long" -> Long::class.javaPrimitiveType!!
+        "float" -> Float::class.javaPrimitiveType!!
+        "double" -> Double::class.javaPrimitiveType!!
+        "char" -> Char::class.javaPrimitiveType!!
+        "void" -> Void.TYPE
+        else -> if (name.endsWith("[]")) {
+            val element = resolveType(classLoader, name.removeSuffix("[]"))
+            java.lang.reflect.Array.newInstance(element, 0).javaClass
+        } else {
+            classLoader.loadClass(name)
+        }
     }
 
     companion object {

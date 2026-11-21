@@ -7,10 +7,14 @@ import android.graphics.Point
 import android.graphics.Rect
 import android.view.View
 import android.view.ViewGroup
+import com.google.gson.JsonObject
 import com.qimian233.ztool.data.keys.PreferenceKeys
 import com.qimian233.ztool.data.keys.ScopeKeys
+import com.qimian233.ztool.dexindex.base.DexIndexConstants
 import com.qimian233.ztool.hook.base.AppHookModule
+import com.qimian233.ztool.hook.base.DexIndexStore
 import io.github.libxposed.api.XposedModuleInterface.PackageLoadedParam
+import java.lang.reflect.Field
 import java.lang.reflect.Method
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.roundToInt
@@ -19,16 +23,15 @@ import kotlin.math.roundToInt
  * Rewrites the workspace side padding to the configured inset, or — in square mode — makes
  * every icon's cell box square by solving the cell size in the page's own measure pass.
  * Square mode reads the cell the page handed to its container and only applies it to a
- * clearly wide rectangle; a mild one keeps the host's per-axis (ColorOS-like) cells.
- * See docs/research/zui_launcher_wide_grid_geometry.md. Needs a launcher restart.
+ * clearly wide rectangle; a mild one keeps the host's per-axis cells.
+ * See docs/research/zui_launcher_wide_grid_geometry.md.
  */
 @SuppressLint("PrivateApi")
 class LauncherWideGridHook : AppHookModule() {
 
     /**
      * Cell width/height ratio above which square mode overrides the host cell. Measured
-     * 10 columns x 6 rows gives ~1.16 (kept per-axis, as ColorOS does) and 6 x 4 gives ~1.29
-     * (squared).
+     * 10 columns x 6 rows gives ~1.16 (kept per-axis) and 6 x 4 gives ~1.29 (squared).
      */
     private val squareAspectThreshold = 1.2f
 
@@ -45,6 +48,10 @@ class LauncherWideGridHook : AppHookModule() {
 
     override fun handleLoadPackage(param: PackageLoadedParam) {
         val classLoader = param.defaultClassLoader
+        val module = DexIndexStore.lookup(xposed, ScopeKeys.LAUNCHER.packageName)
+            ?.getAsJsonObject(DexIndexConstants.JSON_MODULES)
+            ?.getAsJsonObject(DexIndexConstants.ModuleKeys.LAUNCHER_WIDE_GRID)
+
         val workspaceClass = try {
             classLoader.loadClass("com.android.launcher3.Workspace")
         } catch (th: Throwable) {
@@ -73,12 +80,12 @@ class LauncherWideGridHook : AppHookModule() {
         }
         // Shared geometry object; the big-folder hook reads the same measured cell. It owns
         // the DeviceProfile/WorkspaceProfile access used below, so it must resolve first.
-        if (!LauncherGridMetrics.install(classLoader, logger)) {
+        if (!LauncherGridMetrics.install(classLoader, logger, xposed)) {
             logger.error("WideGrid: launcher grid geometry unavailable, aborting")
             return
         }
         // Square-mode members: optional; missing any of them degrades to slider mode.
-        val squareFields = resolveSquareFields(classLoader)
+        val squareFields = resolveSquareFields(classLoader, module)
 
         val resolver = ProfileResolver(getDeviceProfile, activityContextClass)
 
@@ -150,7 +157,7 @@ class LauncherWideGridHook : AppHookModule() {
         logger.info(
             "WideGrid: install squareFields=${square != null} squareMode=$squareMode " +
                 "insetDp=$insetDp setCellDimensions=${square?.setCellDimensions != null} " +
-                "pageMeasure=${pageMeasure != null}"
+                "directFields=${square?.directFields != null} pageMeasure=${pageMeasure != null}"
         )
         if (square != null && pageMeasure != null) {
             val counts = ConcurrentHashMap<String, Int>()
@@ -222,7 +229,7 @@ class LauncherWideGridHook : AppHookModule() {
                             "page measure box=${boxWidth}x$boxHeight pad=${page.paddingLeft}->$padding " +
                                 "cell=${cellWidth}x$cellHeight side=$side cols=$cols rows=$rows " +
                                 "border=${border.x},${border.y} " +
-                                (if (container != null) containerChildren(container) else "children=none")
+                                (if (container != null) containerChildren(container, square) else "children=none")
                         )
                         var relayout = false
                         // The profile padding survives page relayouts but not a profile
@@ -260,9 +267,13 @@ class LauncherWideGridHook : AppHookModule() {
                                 page.setPadding(padding, page.paddingTop, padding, page.paddingBottom)
                             }
                             if (container != null) {
-                                square.setCellDimensions.invoke(
-                                    container, side, side, cols, rows, border
-                                )
+                                if (square.setCellDimensions != null) {
+                                    square.setCellDimensions.invoke(
+                                        container, side, side, cols, rows, border
+                                    )
+                                } else {
+                                    square.directFields?.apply(container, side, cols, rows, border)
+                                }
                             }
                             relayout = true
                         }
@@ -287,7 +298,10 @@ class LauncherWideGridHook : AppHookModule() {
      * Resolves every member square mode needs, once at install time. Returns null if any
      * required one is missing — square mode is then disabled and the slider path is used.
      */
-    private fun resolveSquareFields(classLoader: ClassLoader): SquareFields? {
+    private fun resolveSquareFields(classLoader: ClassLoader, module: JsonObject?): SquareFields? {
+        fun readKey(key: String): String? =
+            module?.get(key)?.takeIf { !it.isJsonNull }?.asString?.takeIf { it.isNotEmpty() }
+
         val pageClass = try {
             classLoader.loadClass("com.android.launcher3.CellLayout")
         } catch (th: Throwable) {
@@ -306,21 +320,79 @@ class LauncherWideGridHook : AppHookModule() {
         val getCellWidth = tryMethod(pageClass, "getCellWidth") ?: return null
         val getCellHeight = tryMethod(pageClass, "getCellHeight") ?: return null
         val getContainer = tryMethod(pageClass, "getShortcutsAndWidgets") ?: return null
-        val setCellDimensions = try {
-            findMethod(
-                containerClass, "setCellDimensions",
-                Int::class.javaPrimitiveType, Int::class.javaPrimitiveType,
-                Int::class.javaPrimitiveType, Int::class.javaPrimitiveType,
-                Point::class.java
-            )
-        } catch (th: Throwable) {
-            logger.error("WideGrid: container setCellDimensions missing, square mode disabled", th)
-            return null
+
+        val setCellDimsName = readKey(DexIndexConstants.Keys.WIDE_GRID_SET_CELL_DIMS_METHOD)
+        val setCellDimensions = if (setCellDimsName != null || module == null) {
+            runCatching {
+                findMethod(
+                    containerClass, setCellDimsName ?: "setCellDimensions",
+                    Int::class.javaPrimitiveType, Int::class.javaPrimitiveType,
+                    Int::class.javaPrimitiveType, Int::class.javaPrimitiveType,
+                    Point::class.java
+                )
+            }.getOrNull()
+        } else {
+            null
         }
+
+        val directFields = if (setCellDimensions == null) {
+            resolveDirectContainerFields(containerClass, module) ?: return null
+        } else {
+            null
+        }
+
+        val cellLpClassName = readKey(DexIndexConstants.Keys.WIDE_GRID_CELL_LP_CLASS)
+        val cellLpClass = if (cellLpClassName != null) {
+            runCatching { classLoader.loadClass(cellLpClassName) }.getOrNull()
+        } else {
+            runCatching { classLoader.loadClass("com.android.launcher3.celllayout.CellLayoutLayoutParams") }
+                .getOrNull()
+                ?: runCatching { classLoader.loadClass($$"com.android.launcher3.CellLayout$LayoutParams") }
+                    .getOrNull()
+        }
+        val lockedFieldName = readKey(DexIndexConstants.Keys.WIDE_GRID_CELL_LP_LOCKED_FIELD) ?: "isLockedToGrid"
+        val cellLpLockedField = cellLpClass?.let {
+            runCatching { findField(it, lockedFieldName) }.getOrNull()
+        }
+
         return SquareFields(
             pageClass, getCountX, getCountY, getCellWidth, getCellHeight,
-            getContainer, setCellDimensions
+            getContainer, setCellDimensions, directFields, cellLpClass, cellLpLockedField
         )
+    }
+
+    private fun resolveDirectContainerFields(
+        containerClass: Class<*>,
+        module: JsonObject?
+    ): DirectContainerFields? {
+        fun readKey(key: String): String? =
+            module?.get(key)?.takeIf { !it.isJsonNull }?.asString?.takeIf { it.isNotEmpty() }
+
+        return try {
+            val sizeFieldNames = readKey(DexIndexConstants.Keys.WIDE_GRID_CONTAINER_CELL_SIZE_FIELDS)
+                ?.split(",")
+                ?.map { it.trim() }
+                ?.filter { it.isNotEmpty() }
+                ?.takeIf { it.isNotEmpty() }
+                ?: listOf("mCellWidth", "mCellHeight")
+            val cellSizeFields = sizeFieldNames.map { findField(containerClass, it) }
+            val countXField = findField(
+                containerClass,
+                readKey(DexIndexConstants.Keys.WIDE_GRID_CONTAINER_COUNT_X_FIELD) ?: "mCountX"
+            )
+            val countYField = findField(
+                containerClass,
+                readKey(DexIndexConstants.Keys.WIDE_GRID_CONTAINER_COUNT_Y_FIELD) ?: "mCountY"
+            )
+            val borderSpaceField = findField(
+                containerClass,
+                readKey(DexIndexConstants.Keys.WIDE_GRID_CONTAINER_BORDER_SPACE_FIELD) ?: "mBorderSpace"
+            )
+            DirectContainerFields(cellSizeFields, countXField, countYField, borderSpaceField)
+        } catch (th: Throwable) {
+            logger.error("WideGrid: container setCellDimensions & fields missing, square mode disabled", th)
+            null
+        }
     }
 
     private fun tryMethod(owner: Class<*>, name: String): Method? = try {
@@ -334,7 +406,7 @@ class LauncherWideGridHook : AppHookModule() {
         if (method == null) return -1
         return try {
             method.invoke(target) as? Int ?: -1
-        } catch (th: Throwable) {
+        } catch (_: Throwable) {
             -1
         }
     }
@@ -352,15 +424,19 @@ class LauncherWideGridHook : AppHookModule() {
     }
 
     /** Diagnostic description of the first icon views inside a cell container. */
-    private fun containerChildren(container: ViewGroup): String {
+    private fun containerChildren(container: ViewGroup, square: SquareFields): String {
         if (container.childCount == 0) return "children=none"
         val sb = StringBuilder("children=")
+        val lpClass = square.cellLpClass
+        val lockedField = square.cellLpLockedField
         for (i in 0 until minOf(2, container.childCount)) {
             val child = container.getChildAt(i)
             val lp = child.layoutParams
-            val locked = try {
-                lp?.javaClass?.getField("isLockedToGrid")?.getBoolean(lp)
-            } catch (th: Throwable) {
+            val locked = if (lp != null && lockedField != null &&
+                (lpClass == null || lpClass.isInstance(lp))
+            ) {
+                runCatching { lockedField.getBoolean(lp) }.getOrNull()
+            } else {
                 null
             }
             val margins = if (lp is ViewGroup.MarginLayoutParams) {
@@ -403,6 +479,21 @@ class LauncherWideGridHook : AppHookModule() {
         )
     }
 
+    /** Direct field fallback for 18.6.0.1116+ where ShortcutAndWidgetContainer#setCellDimensions is inlined. */
+    private class DirectContainerFields(
+        val cellSizeFields: List<Field>,
+        val countXField: Field,
+        val countYField: Field,
+        val borderSpaceField: Field
+    ) {
+        fun apply(container: ViewGroup, side: Int, cols: Int, rows: Int, border: Point) {
+            cellSizeFields.forEach { it.setInt(container, side) }
+            countXField.setInt(container, cols)
+            countYField.setInt(container, rows)
+            borderSpaceField.set(container, border)
+        }
+    }
+
     /** Reflection members resolved at install time for square mode. */
     private class SquareFields(
         val pageClass: Class<*>,
@@ -411,7 +502,10 @@ class LauncherWideGridHook : AppHookModule() {
         val getCellWidth: Method,
         val getCellHeight: Method,
         val getContainer: Method,
-        val setCellDimensions: Method
+        val setCellDimensions: Method?,
+        val directFields: DirectContainerFields?,
+        val cellLpClass: Class<*>?,
+        val cellLpLockedField: Field?
     )
 
     /** Reflection entry points resolved once at install time. */

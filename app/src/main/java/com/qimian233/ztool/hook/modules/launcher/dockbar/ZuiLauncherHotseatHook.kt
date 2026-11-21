@@ -4,8 +4,9 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import android.view.View
-import com.qimian233.ztool.data.keys.ScopeKeys
+import com.google.gson.JsonObject
 import com.qimian233.ztool.data.keys.PreferenceKeys
+import com.qimian233.ztool.data.keys.ScopeKeys
 import com.qimian233.ztool.dexindex.base.DexIndexConstants
 import com.qimian233.ztool.hook.base.AppHookModule
 import com.qimian233.ztool.hook.base.DexIndexStore
@@ -16,9 +17,7 @@ import java.lang.reflect.Modifier
 import java.util.Collections
 
 /**
- * ZUI Launcher hotseat extension hook module.
- * Removes the ZUI Launcher hotseat maximum count limit, allowing more apps
- * in the bottom quick bar.
+ * Raises ZUI Launcher's hotseat maximum item limit to 20 across UI, layout profiles, and loader.
  */
 @SuppressLint("PrivateApi")
 class ZuiLauncherHotseatHook : AppHookModule() {
@@ -26,15 +25,13 @@ class ZuiLauncherHotseatHook : AppHookModule() {
 
     override fun getTargetPackages(): Array<String> = arrayOf(ScopeKeys.LAUNCHER.packageName)
 
-    /** Targets already reported as absent, so a hot-reload replay does not repeat the warn. */
-    private val warnedTargets: MutableSet<String> = Collections.synchronizedSet(mutableSetOf<String>())
+    private val warnedTargets: MutableSet<String> = Collections.synchronizedSet(mutableSetOf())
 
     @Throws(Throwable::class)
     override fun handleLoadPackage(param: PackageLoadedParam) {
         val classLoader = param.defaultClassLoader
 
-        // Keep avoidance logic at the hook layer so the repository stays clean
-        val disableDockBar: Boolean = try {
+        val disableDockBar = try {
             remotePreferences.getBoolean(PreferenceKeys.DISABLE_DOCK_BAR.name, false)
         } catch (_: Throwable) {
             false
@@ -44,46 +41,118 @@ class ZuiLauncherHotseatHook : AppHookModule() {
             return
         }
 
+        val module = DexIndexStore.lookup(xposed, ScopeKeys.LAUNCHER.packageName)
+            ?.getAsJsonObject(DexIndexConstants.JSON_MODULES)
+            ?.getAsJsonObject(DexIndexConstants.ModuleKeys.ZUI_LAUNCHER_HOTSEAT)
+
+        val loaderCursorBMethod = readString(module, DexIndexConstants.Keys.LOADER_CURSOR_B_METHOD)
+        val hotseatCalcClass = readString(module, DexIndexConstants.Keys.HOTSEAT_CALC_CLASS)
+        val createProfileMethod = readString(module, DexIndexConstants.Keys.HOTSEAT_CREATE_PROFILE_METHOD)
+        val createProfileParams = readString(module, DexIndexConstants.Keys.HOTSEAT_CREATE_PROFILE_PARAMS)
+        val recalcMethod = readString(module, DexIndexConstants.Keys.HOTSEAT_RECALC_METHOD)
+        val recalcParams = readString(module, DexIndexConstants.Keys.HOTSEAT_RECALC_PARAMS)
+
         logger.info("Hooking ZUI Launcher hotseat limit")
 
         try {
-            // Hook 1: bypass the hotseat max count check
-            hookHotseatMaxCount(classLoader)
-
-            // Hook 2: bypass space checks
+            val hasCalcHelper = hookHotseatCalcHelper(
+                classLoader,
+                hotseatCalcClass,
+                createProfileMethod,
+                createProfileParams,
+                recalcMethod,
+                recalcParams
+            )
+            hookHotseatMaxCount(classLoader, hasCalcHelper)
             hookSpaceChecks(classLoader)
-
-            // Hook 3: modify DeviceProfile configuration
-            hookDeviceProfile(classLoader)
-
-            // Hook 4: fixed add item methods
+            hookDeviceProfile(classLoader, hasCalcHelper)
             hookAddItemMethods(classLoader)
-
-            // Hook 5: modify the hotseat limit at the database level
             hookDatabaseHotseatLimit(classLoader)
-
-            // Hook 6: modify LoaderCursor placement check logic
-            hookLoaderCursorMethods(classLoader)
-
-            // Hook 7: database operation hooks
+            hookLoaderCursorMethods(classLoader, loaderCursorBMethod)
             hookDatabaseOperations(classLoader)
-
-            // Hook 9: CellLayout related methods
             hookCellLayoutMethods(classLoader)
-
             logger.info("ZUI Launcher hotseat hooks completed")
         } catch (t: Throwable) {
             logger.error("Error while hooking ZUI Launcher", t)
         }
     }
 
-    /**
-     * Hook 1: raise the hotseat item limit.
-     *
-     * The count moved to HotseatProfile#getNumShownIcons in the 18.6 profile split;
-     * older builds still expose Hotseat#getMaxCount.
-     */
-    private fun hookHotseatMaxCount(classLoader: ClassLoader) {
+    /** Hooks the R8-relocated hotseat profile calculation helper (`og.l` on 18.6+). */
+    private fun hookHotseatCalcHelper(
+        classLoader: ClassLoader,
+        calcClassName: String?,
+        createMethodName: String?,
+        createParamsRaw: String?,
+        recalcMethodName: String?,
+        recalcParamsRaw: String?
+    ): Boolean {
+        if (calcClassName == null) return false
+        val calcClass = loadClassOrNull(classLoader, calcClassName) ?: return false
+        val invClass = loadClassOrNull(classLoader, INVARIANT_DP_CLASS)
+        val invDbField = invClass?.let { tryFieldOrNull(it, "numDatabaseHotseatIcons") }
+        val invShownField = invClass?.let { tryFieldOrNull(it, "numShownHotseatIcons") }
+        var installed = false
+
+        if (createMethodName != null && createParamsRaw != null) {
+            val params = parseParamTypes(classLoader, createParamsRaw)
+            val createMethod = params?.let { tryGetDeclared(calcClass, createMethodName, *it) }
+            if (createMethod != null) {
+                val invIdx = params.indexOfFirst { it.name == INVARIANT_DP_CLASS }
+                val profileShownField = tryFieldOrNull(createMethod.returnType, "numShownIcons")
+                hookWithId(createMethod, "hotseat_create_profile") { chain ->
+                    if (invIdx >= 0) {
+                        raiseInvHotseatFields(chain.args.getOrNull(invIdx), invDbField, invShownField)
+                    }
+                    val profile = chain.proceed()
+                    if (profile != null && profileShownField != null) {
+                        runCatching {
+                            if (profileShownField.getInt(profile) != HOTSEAT_ITEM_LIMIT) {
+                                profileShownField.setInt(profile, HOTSEAT_ITEM_LIMIT)
+                            }
+                        }
+                    }
+                    profile
+                }
+                installed = true
+                logger.info("Hooked $calcClassName#$createMethodName")
+            }
+        }
+
+        if (recalcMethodName != null && recalcParamsRaw != null) {
+            val params = parseParamTypes(classLoader, recalcParamsRaw)
+            val recalcMethod = params?.let { tryGetDeclared(calcClass, recalcMethodName, *it) }
+            if (recalcMethod != null) {
+                val invIdx = params.indexOfFirst { it.name == INVARIANT_DP_CLASS }
+                val shownCountArgIdx = params.indices
+                    .filter { params[it] == Int::class.javaPrimitiveType }
+                    .lastOrNull()
+                val withBorderShownField = tryFieldOrNull(recalcMethod.returnType, "numShownIcons")
+                hookWithId(recalcMethod, "hotseat_recalc") { chain ->
+                    if (invIdx >= 0) {
+                        raiseInvHotseatFields(chain.args.getOrNull(invIdx), invDbField, invShownField)
+                    }
+                    val args = chain.args.toTypedArray()
+                    if (shownCountArgIdx != null) {
+                        args[shownCountArgIdx] = HOTSEAT_ITEM_LIMIT
+                    }
+                    val result = chain.proceed(args)
+                    if (result != null && withBorderShownField != null) {
+                        runCatching {
+                            if (withBorderShownField.getInt(result) != HOTSEAT_ITEM_LIMIT) {
+                                withBorderShownField.setInt(result, HOTSEAT_ITEM_LIMIT)
+                            }
+                        }
+                    }
+                    result
+                }
+                installed = true
+                logger.info("Hooked $calcClassName#$recalcMethodName")
+            }
+        }
+        return installed
+    }
+
+    private fun hookHotseatMaxCount(classLoader: ClassLoader, hasCalcHelper: Boolean) {
         val profileClass = loadClassOrNull(classLoader, "com.android.launcher3.deviceprofile.HotseatProfile")
         val getNumShownIcons = profileClass?.let { tryGetDeclared(it, "getNumShownIcons") }
         if (getNumShownIcons != null) {
@@ -106,71 +175,84 @@ class ZuiLauncherHotseatHook : AppHookModule() {
             return
         }
 
-        warnMissing("Hotseat.getMaxCount / HotseatProfile.getNumShownIcons", "hotseat count limit")
+        if (!hasCalcHelper) {
+            warnMissing("Hotseat.getMaxCount / HotseatProfile.getNumShownIcons", "hotseat count limit")
+        }
     }
 
-    /**
-     * Hook 2: bypass various space check methods.
-     */
     private fun hookSpaceChecks(classLoader: ClassLoader) {
         try {
             val launcherClass = classLoader.loadClass("com.android.launcher3.Launcher")
 
-            // Hook Launcher.showOutOfSpaceMessage to suppress the out-of-space message
-            val showOutOfSpaceMethod = findMethod(launcherClass, "showOutOfSpaceMessage",
-                Boolean::class.javaPrimitiveType
-            )
-            hookWithId(showOutOfSpaceMethod, "show_out_of_space") {
-                logger.debug("Suppressed out-of-space message")
-                null
+            var toastHooked = false
+            tryGetDeclared(launcherClass, "showOutOfSpaceToast", Int::class.javaPrimitiveType)?.let { m ->
+                hookWithId(m, "show_out_of_space_toast_int") { null }
+                toastHooked = true
+            }
+            tryGetDeclared(launcherClass, "showOutOfSpaceToast", String::class.java)?.let { m ->
+                hookWithId(m, "show_out_of_space_toast_str") { null }
+                toastHooked = true
+            }
+            tryGetDeclared(launcherClass, "showOutOfSpaceMessage", Boolean::class.javaPrimitiveType)?.let { m ->
+                hookWithId(m, "show_out_of_space") { null }
+                toastHooked = true
+            }
+            if (!toastHooked) {
+                warnMissing("Launcher.showOutOfSpaceToast / showOutOfSpaceMessage", "out-of-space suppression")
             }
 
-            // Hook checkOccupiedShortcut so it always returns true (placement allowed)
             val workspaceItemInfoClass =
                 classLoader.loadClass("com.android.launcher3.model.data.WorkspaceItemInfo")
             val workspaceClass = classLoader.loadClass("com.android.launcher3.Workspace")
-            val checkOccupiedMethod = findMethod(launcherClass, "checkOccupiedShortcut",
-                View::class.java,
-                workspaceItemInfoClass,
-                workspaceClass,
-                Boolean::class.javaPrimitiveType
-            )
-            hookWithId(checkOccupiedMethod, "check_occupied") { chain ->
-                chain.proceed()
-                logger.debug("Forced space check pass")
-                true
+            val checkOccupiedMethod =
+                tryGetDeclared(
+                    launcherClass,
+                    "checkOccupiedShortcut",
+                    View::class.java,
+                    workspaceItemInfoClass,
+                    workspaceClass
+                ) ?: tryGetDeclared(
+                    launcherClass,
+                    "checkOccupiedShortcut",
+                    View::class.java,
+                    workspaceItemInfoClass,
+                    workspaceClass,
+                    Boolean::class.javaPrimitiveType
+                )
+            if (checkOccupiedMethod != null) {
+                hookWithId(checkOccupiedMethod, "check_occupied") { chain ->
+                    chain.proceed()
+                    logger.debug("Forced space check pass")
+                    true
+                }
+            } else {
+                warnMissing("Launcher.checkOccupiedShortcut", "hotseat shortcut check")
             }
         } catch (t: Throwable) {
             logger.error("Failed to hook space checks", t)
         }
     }
 
-    /**
-     * Hook 3: modify DeviceProfile configuration.
-     *
-     * 18.6 added the icon count parameter to the recalculation entry point and dropped the
-     * DeviceProfile field that used to carry it.
-     */
-    private fun hookDeviceProfile(classLoader: ClassLoader) {
+    private fun hookDeviceProfile(classLoader: ClassLoader, hasCalcHelper: Boolean) {
         val deviceProfileClass = loadClassOrNull(classLoader, "com.android.launcher3.DeviceProfile")
         if (deviceProfileClass == null) {
             logger.error("Failed to hook DeviceProfile: class missing")
             return
         }
 
-        // Hook DeviceProfile.getHotseatColumnSpan
         val getHotseatColumnSpanMethod = tryGetDeclared(deviceProfileClass, "getHotseatColumnSpan")
         if (getHotseatColumnSpanMethod != null) {
             hookWithId(getHotseatColumnSpanMethod, "get_hotseat_column_span") { chain ->
                 chain.proceed()
                 HOTSEAT_ITEM_LIMIT
             }
-        } else {
+        } else if (!hasCalcHelper) {
             warnMissing("DeviceProfile.getHotseatColumnSpan", "hotseat column span")
         }
 
         val recalculateWithCount = tryGetDeclared(
-            deviceProfileClass, "recalculateHotseatWidthAndBorderSpace",
+            deviceProfileClass,
+            "recalculateHotseatWidthAndBorderSpace",
             Int::class.javaPrimitiveType
         )
         if (recalculateWithCount != null) {
@@ -182,10 +264,13 @@ class ZuiLauncherHotseatHook : AppHookModule() {
         }
 
         val recalculateMethod = tryGetDeclared(
-            deviceProfileClass, "recalculateHotseatWidthAndBorderSpace"
+            deviceProfileClass,
+            "recalculateHotseatWidthAndBorderSpace"
         )
         if (recalculateMethod == null) {
-            warnMissing("DeviceProfile.recalculateHotseatWidthAndBorderSpace", "hotseat recalculation")
+            if (!hasCalcHelper) {
+                warnMissing("DeviceProfile.recalculateHotseatWidthAndBorderSpace", "hotseat recalculation")
+            }
             return
         }
         val numShownField = tryFieldOrNull(deviceProfileClass, "numShownHotseatIcons")
@@ -204,12 +289,6 @@ class ZuiLauncherHotseatHook : AppHookModule() {
         }
     }
 
-    /**
-     * Hook 4: fixed add item methods.
-     *
-     * 18.6 removed the generic Launcher#addToWorkspace(ItemInfo, boolean) diagnostic target;
-     * the add paths are observed through addPendingItem and completeAddShortcut instead.
-     */
     private fun hookAddItemMethods(classLoader: ClassLoader) {
         try {
             val launcherClass = classLoader.loadClass("com.android.launcher3.Launcher")
@@ -218,7 +297,6 @@ class ZuiLauncherHotseatHook : AppHookModule() {
             val pendingAddItemInfoClass =
                 classLoader.loadClass("com.android.launcher3.PendingAddItemInfo")
 
-            // Hook completeAddShortcut to bypass add restrictions
             val completeAddMethod = launcherClass.getDeclaredMethod(
                 "completeAddShortcut",
                 Intent::class.java,
@@ -233,7 +311,6 @@ class ZuiLauncherHotseatHook : AppHookModule() {
                 chain.proceed()
             }
 
-            // Hook the addPendingItem method
             val addPendingItemMethod = launcherClass.getDeclaredMethod(
                 "addPendingItem",
                 pendingAddItemInfoClass,
@@ -243,60 +320,47 @@ class ZuiLauncherHotseatHook : AppHookModule() {
                 Int::class.javaPrimitiveType,
                 Int::class.javaPrimitiveType
             )
-            hookWithId(
-                addPendingItemMethod,
-                "add_pending_item"
-            ) { chain ->
-                // Ensure adding items is not restricted
+            hookWithId(addPendingItemMethod, "add_pending_item") { chain ->
                 val container = chain.args[1] as Int
-
                 if (container == HOTSEAT_CONTAINER) {
                     logger.debug("Adding item to hotseat, bypassing restriction")
                 }
                 chain.proceed()
             }
 
-            // Hook addToWorkspace (a more generic method); removed from Launcher in 18.6
-            val itemInfoClass = loadClassOrNull(classLoader, "com.android.launcher3.model.data.ItemInfo")
+            val itemInfoClass = loadClassOrNull(classLoader, ITEM_INFO_CLASS)
+            val containerField = itemInfoClass?.let { tryFieldOrNull(it, "container") }
             val addToWorkspaceMethod = itemInfoClass?.let {
                 tryGetDeclared(
-                    launcherClass, "addToWorkspace",
-                    it, Boolean::class.javaPrimitiveType
+                    launcherClass,
+                    "addToWorkspace",
+                    it,
+                    Boolean::class.javaPrimitiveType
                 )
             }
-            if (addToWorkspaceMethod == null) {
-                warnMissing(
-                    "Launcher.addToWorkspace(ItemInfo, boolean)",
-                    "informational hotseat add log"
-                )
-            } else {
+            if (addToWorkspaceMethod != null) {
                 hookWithId(addToWorkspaceMethod, "add_to_workspace") { chain ->
-                    val container = readIntField(chain.args.getOrNull(0), "container")
+                    val container = readIntField(chain.args.getOrNull(0), containerField)
                     if (container == HOTSEAT_CONTAINER) {
                         logger.debug("Added item to hotseat workspace")
                     }
                     chain.proceed()
                 }
+            } else {
+                logger.debug("Launcher.addToWorkspace absent, skipped")
             }
         } catch (t: Throwable) {
             logger.error("Failed to hook add item methods", t)
         }
     }
 
-    /**
-     * Hook 5: modify the hotseat count limit at the database level.
-     *
-     * 18.6 dropped the getter; the count is a public instance field on
-     * InvariantDeviceProfile, so it is written on the live profile object.
-     */
     private fun hookDatabaseHotseatLimit(classLoader: ClassLoader) {
-        val invProfileClass = loadClassOrNull(classLoader, "com.android.launcher3.InvariantDeviceProfile")
+        val invProfileClass = loadClassOrNull(classLoader, INVARIANT_DP_CLASS)
         if (invProfileClass == null) {
             logger.error("Failed to hook database hotseat limit: InvariantDeviceProfile missing")
             return
         }
 
-        // Hook InvariantDeviceProfile.getNumDatabaseHotseatIcons (older builds)
         val getNumMethod = tryGetDeclared(invProfileClass, "getNumDatabaseHotseatIcons")
         if (getNumMethod != null) {
             hookWithId(getNumMethod, "get_num") { chain ->
@@ -307,6 +371,7 @@ class ZuiLauncherHotseatHook : AppHookModule() {
         }
 
         val numField = tryFieldOrNull(invProfileClass, "numDatabaseHotseatIcons")
+        val numShownField = tryFieldOrNull(invProfileClass, "numShownHotseatIcons")
         if (numField == null) {
             warnMissing("InvariantDeviceProfile.numDatabaseHotseatIcons", "database hotseat limit")
             return
@@ -321,58 +386,47 @@ class ZuiLauncherHotseatHook : AppHookModule() {
             return
         }
 
-        val getDeviceProfile = tryGetDeclared(
-            invProfileClass, "getDeviceProfile", Context::class.java
-        )
+        tryGetDeclared(invProfileClass, "initGrid", String::class.java)?.let { initGrid ->
+            hookWithId(initGrid, "hotseat_init_grid") { chain ->
+                val result = chain.proceed()
+                chain.thisObject?.let { raiseInvHotseatFields(it, numField, numShownField) }
+                result
+            }
+        }
+
+        val getDeviceProfile = tryGetDeclared(invProfileClass, "getDeviceProfile", Context::class.java)
         if (getDeviceProfile == null) {
             warnMissing("InvariantDeviceProfile.getDeviceProfile", "database hotseat limit")
             return
         }
         hookWithId(getDeviceProfile, "hotseat_database_count") { chain ->
-            val invariantProfile = chain.thisObject
-            if (invariantProfile != null) {
-                try {
-                    if (numField.getInt(invariantProfile) != HOTSEAT_ITEM_LIMIT) {
-                        numField.setInt(invariantProfile, HOTSEAT_ITEM_LIMIT)
-                        logger.debug("Raised database hotseat count to $HOTSEAT_ITEM_LIMIT")
-                    }
-                } catch (t: Throwable) {
-                    logger.warn("Failed to write numDatabaseHotseatIcons: ${t.javaClass.simpleName}")
-                }
-            }
+            chain.thisObject?.let { raiseInvHotseatFields(it, numField, numShownField) }
             chain.proceed()
         }
     }
 
-    /**
-     * Hook 6: modify LoaderCursor placement check logic.
-     *
-     * 18.6 dropped the `boolean` parameter of checkItemPlacement and added two parameters
-     * to checkAndAddItem; both are resolved with the old signature as fallback.
-     */
-    private fun hookLoaderCursorMethods(classLoader: ClassLoader) {
+    private fun hookLoaderCursorMethods(classLoader: ClassLoader, indexedBMethodName: String?) {
         val loaderCursorClass = loadClassOrNull(classLoader, "com.android.launcher3.model.LoaderCursor")
-        val itemInfoClass = loadClassOrNull(classLoader, "com.android.launcher3.model.data.ItemInfo")
+        val itemInfoClass = loadClassOrNull(classLoader, ITEM_INFO_CLASS)
         if (loaderCursorClass == null || itemInfoClass == null) {
             logger.error("Failed to hook LoaderCursor: class missing")
             return
         }
+        val containerField = tryFieldOrNull(itemInfoClass, "container")
+        val screenIdField = tryFieldOrNull(itemInfoClass, "screenId")
 
-        // Hook checkItemPlacement to bypass the hotseat placement check
         val placementMethod = tryGetDeclared(loaderCursorClass, "checkItemPlacement", itemInfoClass)
             ?: tryGetDeclared(
-                loaderCursorClass, "checkItemPlacement",
-                itemInfoClass, Boolean::class.javaPrimitiveType
+                loaderCursorClass,
+                "checkItemPlacement",
+                itemInfoClass,
+                Boolean::class.javaPrimitiveType
             )
-        if (placementMethod == null) {
-            warnMissing("LoaderCursor.checkItemPlacement", "hotseat placement check")
-        } else {
+        if (placementMethod != null) {
             hookWithId(placementMethod, "check_item_placement") { chain ->
                 val itemInfo = chain.args.getOrNull(0)
-                val container = readIntField(itemInfo, "container")
-                val screenId = readIntField(itemInfo, "screenId")
-
-                // If it is the hotseat and the position is within the extended range, return true directly
+                val container = readIntField(itemInfo, containerField)
+                val screenId = readIntField(itemInfo, screenIdField)
                 if (container == HOTSEAT_CONTAINER && screenId != null &&
                     screenId in 0 until HOTSEAT_ITEM_LIMIT
                 ) {
@@ -384,16 +438,16 @@ class ZuiLauncherHotseatHook : AppHookModule() {
             }
         }
 
-        // Hook the dimension check - method name comes from the offline index
-        val dimensionCheck = resolveDimensionCheck(loaderCursorClass, itemInfoClass, placementMethod)
-        if (dimensionCheck == null) {
-            warnMissing("LoaderCursor dimension check", "hotseat dimension check")
-        } else {
+        val dimensionCheck = resolveDimensionCheck(
+            loaderCursorClass,
+            itemInfoClass,
+            placementMethod,
+            indexedBMethodName
+        )
+        if (dimensionCheck != null) {
             hookWithId(dimensionCheck, "hook_289") { chain ->
                 val result = chain.proceed()
-                val container = readIntField(chain.args.getOrNull(0), "container")
-
-                // If it is the hotseat, force return false (do not delete)
+                val container = readIntField(chain.args.getOrNull(0), containerField)
                 if (container == HOTSEAT_CONTAINER) {
                     logger.debug("Bypassed hotseat dimension check")
                     false
@@ -403,16 +457,14 @@ class ZuiLauncherHotseatHook : AppHookModule() {
             }
         }
 
-        // Hook the checkAndAddItem method
         val checkAndAddItemMethod = resolveCheckAndAddItem(classLoader, loaderCursorClass, itemInfoClass)
         if (checkAndAddItemMethod == null) {
             warnMissing("LoaderCursor.checkAndAddItem", "hotseat add log")
         } else {
             hookWithId(checkAndAddItemMethod, "check_and_add_item") { chain ->
                 val itemInfo = chain.args.getOrNull(0)
-                val container = readIntField(itemInfo, "container")
-                val screenId = readIntField(itemInfo, "screenId")
-
+                val container = readIntField(itemInfo, containerField)
+                val screenId = readIntField(itemInfo, screenIdField)
                 if (container == HOTSEAT_CONTAINER) {
                     logger.debug("checkAndAddItem - hotseat position: $screenId")
                 }
@@ -421,13 +473,8 @@ class ZuiLauncherHotseatHook : AppHookModule() {
         }
     }
 
-    /**
-     * Hook 7: database operation hooks.
-     *
-     * 18.6 moved the write from LauncherModel to ModelWriter#addOrMoveItemInDatabase.
-     */
     private fun hookDatabaseOperations(classLoader: ClassLoader) {
-        val itemInfoClass = loadClassOrNull(classLoader, "com.android.launcher3.model.data.ItemInfo")
+        val itemInfoClass = loadClassOrNull(classLoader, ITEM_INFO_CLASS)
         if (itemInfoClass == null) {
             logger.error("Failed to hook database operations: ItemInfo missing")
             return
@@ -436,17 +483,25 @@ class ZuiLauncherHotseatHook : AppHookModule() {
         val launcherModelClass = loadClassOrNull(classLoader, "com.android.launcher3.LauncherModel")
         val legacyMethod = launcherModelClass?.let {
             tryGetDeclared(
-                it, "addOrMoveItemInDatabase", itemInfoClass,
-                Int::class.javaPrimitiveType, Int::class.javaPrimitiveType,
-                Int::class.javaPrimitiveType, Int::class.javaPrimitiveType
+                it,
+                "addOrMoveItemInDatabase",
+                itemInfoClass,
+                Int::class.javaPrimitiveType,
+                Int::class.javaPrimitiveType,
+                Int::class.javaPrimitiveType,
+                Int::class.javaPrimitiveType
             )
         }
         val writerClass = loadClassOrNull(classLoader, "com.android.launcher3.model.ModelWriter")
         val writerMethod = writerClass?.let {
             tryGetDeclared(
-                it, "addOrMoveItemInDatabase", itemInfoClass,
-                Int::class.javaPrimitiveType, Int::class.javaPrimitiveType,
-                Int::class.javaPrimitiveType, Int::class.javaPrimitiveType
+                it,
+                "addOrMoveItemInDatabase",
+                itemInfoClass,
+                Int::class.javaPrimitiveType,
+                Int::class.javaPrimitiveType,
+                Int::class.javaPrimitiveType,
+                Int::class.javaPrimitiveType
             )
         }
         val addOrMoveMethod = legacyMethod ?: writerMethod
@@ -458,32 +513,43 @@ class ZuiLauncherHotseatHook : AppHookModule() {
         hookWithId(addOrMoveMethod, "add_or_move") { chain ->
             val container = chain.args.getOrNull(1) as? Int
             val screen = chain.args.getOrNull(2) as? Int
-
             if (container == HOTSEAT_CONTAINER && screen != null && screen >= 5) {
                 logger.debug("Database operation - hotseat position: $screen")
-                // Allow the operation to continue
             }
             chain.proceed()
         }
     }
 
-    /**
-     * Hook 9: modify CellLayout related methods.
-     */
     private fun hookCellLayoutMethods(classLoader: ClassLoader) {
         try {
             val cellLayoutClass = classLoader.loadClass("com.android.launcher3.CellLayout")
 
-            // Hook CellLayout.findCellForSpan so it can always find a cell
-            val findCellMethod = cellLayoutClass.getDeclaredMethod(
+            val newSigMethod = tryGetDeclared(
+                cellLayoutClass,
                 "findCellForSpan",
-                IntArray::class.java, Int::class.javaPrimitiveType, Int::class.javaPrimitiveType
+                Int::class.javaPrimitiveType,
+                Int::class.javaPrimitiveType,
+                IntArray::class.java
             )
+            val findCellMethod: Method
+            val cellXYIdx: Int
+            if (newSigMethod != null) {
+                findCellMethod = newSigMethod
+                cellXYIdx = 2
+            } else {
+                findCellMethod = cellLayoutClass.getDeclaredMethod(
+                    "findCellForSpan",
+                    IntArray::class.java,
+                    Int::class.javaPrimitiveType,
+                    Int::class.javaPrimitiveType
+                )
+                cellXYIdx = 0
+            }
+
             hookWithId(findCellMethod, "find_cell") { chain ->
                 val result = chain.proceed() as Boolean
                 if (!result) {
-                    // If no cell was found originally, force return true and set coordinates
-                    val cellXY = chain.args[0] as IntArray
+                    val cellXY = chain.args[cellXYIdx] as IntArray
                     cellXY[0] = 0
                     cellXY[1] = 0
                     logger.debug("Forced cell position found")
@@ -496,25 +562,17 @@ class ZuiLauncherHotseatHook : AppHookModule() {
         }
     }
 
-    /**
-     * Resolves the obfuscated `(ItemInfo) -> boolean` dimension check in LoaderCursor.
-     *
-     * The offline index also matches checkItemPlacement on 18.6, so a name that points at
-     * the placement check falls back to the single remaining candidate.
-     */
     private fun resolveDimensionCheck(
         loaderCursorClass: Class<*>,
         itemInfoClass: Class<*>,
-        placementMethod: Method?
+        placementMethod: Method?,
+        indexedBMethodName: String?
     ): Method? {
-        val indexed = try {
-            loaderCursorClass.getDeclaredMethod(findBMethodName(), itemInfoClass)
-        } catch (_: Throwable) {
-            null
-        }
-        if (indexed != null && indexed != placementMethod) {
-            indexed.isAccessible = true
-            return indexed
+        if (indexedBMethodName != null) {
+            val indexed = tryGetDeclared(loaderCursorClass, indexedBMethodName, itemInfoClass)
+            if (indexed != null && indexed != placementMethod) {
+                return indexed
+            }
         }
         val candidates = loaderCursorClass.declaredMethods.filter {
             it.parameterCount == 1 &&
@@ -530,7 +588,6 @@ class ZuiLauncherHotseatHook : AppHookModule() {
         return candidates[0]
     }
 
-    /** Resolves checkAndAddItem for both the 18.6 four-parameter and the old two-parameter form. */
     private fun resolveCheckAndAddItem(
         classLoader: ClassLoader,
         loaderCursorClass: Class<*>,
@@ -541,8 +598,12 @@ class ZuiLauncherHotseatHook : AppHookModule() {
         val dataModel = loadClassOrNull(classLoader, "com.android.launcher3.model.BgDataModel")
         if (loadedItems != null && memoryLogger != null && dataModel != null) {
             tryGetDeclared(
-                loaderCursorClass, "checkAndAddItem",
-                itemInfoClass, loadedItems, memoryLogger, dataModel
+                loaderCursorClass,
+                "checkAndAddItem",
+                itemInfoClass,
+                loadedItems,
+                memoryLogger,
+                dataModel
             )?.let { return it }
         }
         return dataModel?.let {
@@ -550,14 +611,57 @@ class ZuiLauncherHotseatHook : AppHookModule() {
         }
     }
 
-    /** Reads a public ItemInfo field, tolerating a host that renamed it. */
-    private fun readIntField(target: Any?, name: String): Int? {
-        if (target == null) return null
+    private fun raiseInvHotseatFields(
+        profile: Any?,
+        numDbField: Field?,
+        numShownField: Field?
+    ) {
+        if (profile == null) return
+        try {
+            if (numDbField != null && numDbField.getInt(profile) != HOTSEAT_ITEM_LIMIT) {
+                numDbField.setInt(profile, HOTSEAT_ITEM_LIMIT)
+                logger.debug("Raised database hotseat count to $HOTSEAT_ITEM_LIMIT")
+            }
+            if (numShownField != null && numShownField.getInt(profile) != HOTSEAT_ITEM_LIMIT) {
+                numShownField.setInt(profile, HOTSEAT_ITEM_LIMIT)
+            }
+        } catch (t: Throwable) {
+            logger.warn("Failed to write InvariantDeviceProfile hotseat fields: ${t.javaClass.simpleName}")
+        }
+    }
+
+    private fun readIntField(target: Any?, field: Field?): Int? {
+        if (target == null || field == null) return null
         return try {
-            val field: Field = target.javaClass.getField(name)
             field.getInt(target)
         } catch (_: Throwable) {
             null
+        }
+    }
+
+    private fun readString(module: JsonObject?, key: String): String? =
+        module?.get(key)?.takeIf { !it.isJsonNull }?.asString?.takeIf { it.isNotEmpty() }
+
+    private fun parseParamTypes(classLoader: ClassLoader, raw: String): Array<Class<*>>? =
+        runCatching {
+            raw.split(",").map { resolveType(classLoader, it.trim()) }.toTypedArray()
+        }.getOrNull()
+
+    private fun resolveType(classLoader: ClassLoader, name: String): Class<*> = when (name) {
+        "boolean" -> Boolean::class.javaPrimitiveType!!
+        "byte" -> Byte::class.javaPrimitiveType!!
+        "short" -> Short::class.javaPrimitiveType!!
+        "int" -> Int::class.javaPrimitiveType!!
+        "long" -> Long::class.javaPrimitiveType!!
+        "float" -> Float::class.javaPrimitiveType!!
+        "double" -> Double::class.javaPrimitiveType!!
+        "char" -> Char::class.javaPrimitiveType!!
+        "void" -> Void.TYPE
+        else -> if (name.endsWith("[]")) {
+            val element = resolveType(classLoader, name.removeSuffix("[]"))
+            java.lang.reflect.Array.newInstance(element, 0).javaClass
+        } else {
+            classLoader.loadClass(name)
         }
     }
 
@@ -579,32 +683,16 @@ class ZuiLauncherHotseatHook : AppHookModule() {
         null
     }
 
-    /** Warns once per process about a reflection target this launcher build no longer has. */
     private fun warnMissing(target: String, feature: String) {
         if (warnedTargets.add(target)) {
             logger.warn("$feature: $target is absent in this launcher build, skipped")
         }
     }
 
-    /**
-     * Read from the offline index the obfuscated method name in LoaderCursor with
-     * signature (ItemInfo)→boolean. Falls back to the hardcoded "b" when the
-     * index is missing or the lookup fails.
-     */
-    private fun findBMethodName(): String {
-        return DexIndexStore.string(
-            xposed,
-            ScopeKeys.LAUNCHER.packageName,
-            DexIndexConstants.ModuleKeys.ZUI_LAUNCHER_HOTSEAT,
-            DexIndexConstants.Keys.LOADER_CURSOR_B_METHOD
-        ) ?: "b"
-    }
-
     private companion object {
-        /** Dock slots the module extends to, whatever the stock grid option allows. */
         const val HOTSEAT_ITEM_LIMIT = 20
-
-        /** LauncherSettings.Favorites.CONTAINER_HOTSEAT. */
         const val HOTSEAT_CONTAINER = -101
+        const val INVARIANT_DP_CLASS = "com.android.launcher3.InvariantDeviceProfile"
+        const val ITEM_INFO_CLASS = "com.android.launcher3.model.data.ItemInfo"
     }
 }

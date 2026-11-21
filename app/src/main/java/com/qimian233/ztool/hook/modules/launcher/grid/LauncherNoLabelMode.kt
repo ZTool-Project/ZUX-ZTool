@@ -3,8 +3,11 @@ package com.qimian233.ztool.hook.modules.launcher.grid
 import android.annotation.SuppressLint
 import android.os.Build
 import android.util.FloatProperty
+import com.qimian233.ztool.data.keys.PreferenceKeys
 import com.qimian233.ztool.data.keys.ScopeKeys
+import com.qimian233.ztool.dexindex.base.DexIndexConstants
 import com.qimian233.ztool.hook.base.AppHookModule
+import com.qimian233.ztool.hook.base.DexIndexStore
 import io.github.libxposed.api.XposedModuleInterface
 import java.lang.reflect.Constructor
 import java.lang.reflect.Method
@@ -13,24 +16,37 @@ import java.lang.reflect.Proxy
 /**
  * Desktop no-label mode for ZUI Launcher.
  *
- * Hides BubbleTextView and ActiveIconView labels visually while keeping the
- * text intact for screen readers. Drawer callers and shortcut popups keep
- * their labels. See docs/research/launcher_no_label_mode.md.
+ * Hides BubbleTextView and ActiveIconView labels visually while keeping text
+ * intact for screen readers. Drawer callers and shortcut popups keep labels.
+ * See docs/research/launcher_no_label_mode.md.
  */
 @SuppressLint("PrivateApi")
 class LauncherNoLabelMode : AppHookModule() {
 
-    override fun getModuleName(): String = "launcher_no_label_mode"
+    @Volatile
+    private var popupImplClassName: String? = null
+
+    override fun getModuleName(): String = PreferenceKeys.LAUNCHER_NO_LABEL_MODE.name
 
     override fun getTargetPackages(): Array<out String> = arrayOf(ScopeKeys.LAUNCHER.packageName)
 
     override fun handleLoadPackage(param: XposedModuleInterface.PackageLoadedParam) {
+        val module = DexIndexStore.lookup(xposed, ScopeKeys.LAUNCHER.packageName)
+            ?.getAsJsonObject(DexIndexConstants.JSON_MODULES)
+            ?.getAsJsonObject(DexIndexConstants.ModuleKeys.LAUNCHER_NO_LABEL_MODE)
+        fun readKey(key: String): String? =
+            module?.get(key)?.takeIf { !it.isJsonNull }?.asString?.takeIf { it.isNotEmpty() }
+
+        popupImplClassName = readKey(DexIndexConstants.Keys.NO_LABEL_POPUP_IMPL_CLASS)
+        val folderAnimCreateMethodName = readKey(DexIndexConstants.Keys.NO_LABEL_FOLDER_ANIM_CREATE_METHOD)
+        val floatBiFuncMethodName = readKey(DexIndexConstants.Keys.NO_LABEL_FLOAT_BI_FUNC_METHOD) ?: "apply"
+
         installBubbleTextViewVisibilityHook(param)
         installActiveIconViewVisibilityHook(param)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.CINNAMON_BUN) {
             installFolderNameHook(param)
-            installFolderAnimationItemHook(param)
-            installFloatingTextAlphaHook(param)
+            installFolderAnimationItemHook(param, folderAnimCreateMethodName)
+            installFloatingTextAlphaHook(param, floatBiFuncMethodName)
         }
     }
 
@@ -39,12 +55,14 @@ class LauncherNoLabelMode : AppHookModule() {
      * (shortcut popups, deep shortcuts, app drawer).
      */
     private fun isFromIgnoredPath(): Boolean {
+        val popupImpl = popupImplClassName
         return Thread.currentThread().stackTrace.any { frame ->
-            frame.className == "com.android.launcher3.popup.PopupContainerWithArrow" &&
-                    frame.methodName == "initializeSystemShortcut" ||
-                    frame.className == "com.android.launcher3.shortcuts.DeepShortcutTextView" ||
-                    frame.className.startsWith("com.android.launcher3.allapps.") ||
-                    frame.className.startsWith("com.android.launcher3.appprediction.")
+            (frame.className == "com.android.launcher3.popup.PopupContainerWithArrow" ||
+                (popupImpl != null && frame.className == popupImpl)) &&
+                frame.methodName == "initializeSystemShortcut" ||
+                frame.className == "com.android.launcher3.shortcuts.DeepShortcutTextView" ||
+                frame.className.startsWith("com.android.launcher3.allapps.") ||
+                frame.className.startsWith("com.android.launcher3.appprediction.")
         }
     }
 
@@ -59,7 +77,7 @@ class LauncherNoLabelMode : AppHookModule() {
                 bubbleTextViewClass, "setTextVisibility",
                 Boolean::class.javaPrimitiveType
             )
-            hookWithId(setTextVisibilityMethod, "set_text_visibility_1") {  chain ->
+            hookWithId(setTextVisibilityMethod, "set_text_visibility_1") { chain ->
                 if (isFromIgnoredPath()) {
                     chain.proceed()
                 } else {
@@ -72,7 +90,7 @@ class LauncherNoLabelMode : AppHookModule() {
                 bubbleTextViewClass, "setTextAlpha",
                 Float::class.javaPrimitiveType
             )
-            hookWithId(setTextAlphaMethod, "set_text_alpha_1") {  chain ->
+            hookWithId(setTextAlphaMethod, "set_text_alpha_1") { chain ->
                 if (isFromIgnoredPath()) {
                     chain.proceed()
                 } else {
@@ -101,7 +119,7 @@ class LauncherNoLabelMode : AppHookModule() {
                 activeIconViewClass, "setTextVisibility",
                 Boolean::class.javaPrimitiveType
             )
-            hookWithId(setTextVisibilityMethod, "set_text_visibility_2") {  chain ->
+            hookWithId(setTextVisibilityMethod, "set_text_visibility_2") { chain ->
                 if (isFromIgnoredPath()) {
                     chain.proceed()
                 } else {
@@ -114,7 +132,7 @@ class LauncherNoLabelMode : AppHookModule() {
                 activeIconViewClass, "setTextAlpha",
                 Float::class.javaPrimitiveType
             )
-            hookWithId(setTextAlphaMethod, "set_text_alpha_2") {  chain ->
+            hookWithId(setTextAlphaMethod, "set_text_alpha_2") { chain ->
                 if (isFromIgnoredPath()) {
                     chain.proceed()
                 } else {
@@ -127,7 +145,7 @@ class LauncherNoLabelMode : AppHookModule() {
                 activeIconViewClass, "setIgnoreSetAlphaVisible",
                 Boolean::class.javaPrimitiveType
             )
-            hookWithId(setIgnoreMethod, "set_ignore") {  chain ->
+            hookWithId(setIgnoreMethod, "set_ignore") { chain ->
                 if (isFromIgnoredPath()) {
                     chain.proceed()
                 } else {
@@ -185,7 +203,10 @@ class LauncherNoLabelMode : AppHookModule() {
      * Android 17+ only. Hides labels on the throw-away item views created for
      * folder open/close animations.
      */
-    fun installFolderAnimationItemHook(param: XposedModuleInterface.PackageLoadedParam) {
+    fun installFolderAnimationItemHook(
+        param: XposedModuleInterface.PackageLoadedParam,
+        createMethodName: String? = null
+    ) {
         try {
             val loader: ClassLoader = param.defaultClassLoader
             val animationManagerClass: Class<*> =
@@ -196,11 +217,16 @@ class LauncherNoLabelMode : AppHookModule() {
                 loader.loadClass("com.zui.launcher.ActiveIconView")
             val appPairIconClass: Class<*> =
                 loader.loadClass("com.android.launcher3.apppairs.AppPairIcon")
-
-            val createAnimItemMethod: Method = findMethod(
-                animationManagerClass, "D",
+            val itemInfoClass: Class<*> =
                 loader.loadClass("com.android.launcher3.model.data.ItemInfo")
-            )
+
+            val createAnimItemMethod: Method = if (createMethodName != null) {
+                findMethod(animationManagerClass, createMethodName, itemInfoClass)
+            } else {
+                listOf("createNewView", "D").firstNotNullOfOrNull { candidate ->
+                    runCatching { findMethod(animationManagerClass, candidate, itemInfoClass) }.getOrNull()
+                } ?: throw NoSuchMethodException("FolderAnimationManager createNewView/D not found")
+            }
             val bubbleSetVisibility: Method = findMethod(
                 bubbleTextViewClass, "setTextVisibility", Boolean::class.javaPrimitiveType
             )
@@ -235,12 +261,15 @@ class LauncherNoLabelMode : AppHookModule() {
      * Android 17+ only. Redirects the floating-view text-alpha channel to a
      * detached property, so folder animations cannot re-show a hidden label.
      */
-    fun installFloatingTextAlphaHook(param: XposedModuleInterface.PackageLoadedParam) {
+    fun installFloatingTextAlphaHook(
+        param: XposedModuleInterface.PackageLoadedParam,
+        floatBiFuncMethodName: String = "apply"
+    ) {
         try {
             val loader: ClassLoader = param.defaultClassLoader
             val bubbleTextViewClass: Class<*> =
                 loader.loadClass("com.android.launcher3.BubbleTextView")
-            val detachedAlphaSource = DetachedFloatingTextAlpha(loader)
+            val detachedAlphaSource = DetachedFloatingTextAlpha(loader, floatBiFuncMethodName)
 
             val getFloatingMethod: Method =
                 findMethod(bubbleTextViewClass, "getFloatingViewTextAlpha")
@@ -262,7 +291,10 @@ class LauncherNoLabelMode : AppHookModule() {
      * Builds detached text-alpha MultiProperty instances with the same channel
      * layout as BubbleTextView: AnimatedFloat target, two channels, product.
      */
-    private class DetachedFloatingTextAlpha(loader: ClassLoader) {
+    private class DetachedFloatingTextAlpha(
+        loader: ClassLoader,
+        floatBiFuncMethodName: String
+    ) {
 
         private val animatedFloatConstructor: Constructor<*> =
             loader.loadClass("com.android.launcher3.anim.AnimatedFloat")
@@ -275,7 +307,7 @@ class LauncherNoLabelMode : AppHookModule() {
                     Any::class.java,
                     FloatProperty::class.java,
                     Int::class.javaPrimitiveType,
-                    loader.loadClass("com.android.launcher3.util.MultiPropertyFactory\$FloatBiFunction"),
+                    loader.loadClass($$"com.android.launcher3.util.MultiPropertyFactory$FloatBiFunction"),
                     Float::class.javaPrimitiveType
                 )
         private val getChannelMethod: Method =
@@ -284,10 +316,10 @@ class LauncherNoLabelMode : AppHookModule() {
         private val productBiFunction: Any =
             Proxy.newProxyInstance(
                 loader,
-                arrayOf(loader.loadClass("com.android.launcher3.util.MultiPropertyFactory\$FloatBiFunction"))
+                arrayOf(loader.loadClass($$"com.android.launcher3.util.MultiPropertyFactory$FloatBiFunction"))
             ) { proxy, method, args ->
                 when (method.name) {
-                    "apply" -> (args!![0] as Float) * (args[1] as Float)
+                    floatBiFuncMethodName -> (args!![0] as Float) * (args[1] as Float)
                     "equals" -> proxy === args?.get(0)
                     "hashCode" -> System.identityHashCode(proxy)
                     "toString" -> "ZToolDetachedFloatingTextAlpha"
@@ -303,6 +335,5 @@ class LauncherNoLabelMode : AppHookModule() {
             return getChannelMethod.invoke(factory, 1)!!
         }
     }
-
 }
 

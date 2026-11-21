@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Context
 import com.qimian233.ztool.data.settings.LauncherIconAliasController
 import com.qimian233.ztool.data.theme.ThemePreferencesRepository
+import com.qimian233.ztool.dexindex.base.DexIndexManager
 import io.github.libxposed.service.XposedService
 import io.github.libxposed.service.XposedServiceHelper
 import kotlinx.coroutines.CoroutineScope
@@ -100,6 +101,9 @@ class ZToolApplication : Application(), XposedServiceHelper.OnServiceListener {
         isModuleActivated = true
         _isModuleActivated.value = true
         XposedServiceBridge.currentService = service
+        startupScope.launch(Dispatchers.IO) {
+            DexIndexManager.syncRemoteFiles(this@ZToolApplication)
+        }
     }
 
     override fun onServiceDied(service: XposedService) {

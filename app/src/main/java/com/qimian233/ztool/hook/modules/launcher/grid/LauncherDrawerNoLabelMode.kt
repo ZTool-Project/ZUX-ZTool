@@ -5,17 +5,18 @@ import android.os.Build
 import android.view.View
 import com.qimian233.ztool.data.keys.PreferenceKeys
 import com.qimian233.ztool.data.keys.ScopeKeys
+import com.qimian233.ztool.dexindex.base.DexIndexConstants
 import com.qimian233.ztool.hook.base.AppHookModule
+import com.qimian233.ztool.hook.base.DexIndexStore
 import io.github.libxposed.api.XposedModuleInterface
 import java.lang.reflect.Method
 
 /**
- * Drawer no-label mode; companion of [LauncherNoLabelMode] with an inverted gate.
+ * Drawer no-label mode; companion of LauncherNoLabelMode with an inverted gate.
  *
  * Hides drawer labels for calls from the all-apps list and prediction row, and
  * at attach/bind time inside drawer containers. Hook ids use the "drawer_"
  * prefix because both modules hook the same executables.
- * See docs/research/launcher_no_label_mode.md.
  */
 @SuppressLint("PrivateApi")
 class LauncherDrawerNoLabelMode : AppHookModule() {
@@ -25,11 +26,20 @@ class LauncherDrawerNoLabelMode : AppHookModule() {
     override fun getTargetPackages(): Array<out String> = arrayOf(ScopeKeys.LAUNCHER.packageName)
 
     override fun handleLoadPackage(param: XposedModuleInterface.PackageLoadedParam) {
+        val module = DexIndexStore.lookup(xposed, ScopeKeys.LAUNCHER.packageName)
+            ?.getAsJsonObject(DexIndexConstants.JSON_MODULES)
+            ?.getAsJsonObject(DexIndexConstants.ModuleKeys.LAUNCHER_DRAWER_NO_LABEL_MODE)
+        fun readKey(key: String): String? =
+            module?.get(key)?.takeIf { !it.isJsonNull }?.asString?.takeIf { it.isNotEmpty() }
+
+        val activeBindItemName = readKey(DexIndexConstants.Keys.DRAWER_NO_LABEL_ACTIVE_BIND_ITEM_METHOD)
+        val bubbleBindItemName = readKey(DexIndexConstants.Keys.DRAWER_NO_LABEL_BUBBLE_BIND_ITEM_METHOD)
+
         installBubbleTextViewVisibilityHook(param)
         installActiveIconViewVisibilityHook(param)
-        installActiveIconViewDrawerLabelHook(param)
+        installActiveIconViewDrawerLabelHook(param, activeBindItemName)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.CINNAMON_BUN) {
-            installBubbleTextViewDrawerLabelHook(param)
+            installBubbleTextViewDrawerLabelHook(param, bubbleBindItemName, hasIndex = module != null)
         }
     }
 
@@ -136,7 +146,10 @@ class LauncherDrawerNoLabelMode : AppHookModule() {
      * Hides ActiveIconView labels at attach and rebind time when the parent is
      * a drawer container.
      */
-    fun installActiveIconViewDrawerLabelHook(param: XposedModuleInterface.PackageLoadedParam) {
+    fun installActiveIconViewDrawerLabelHook(
+        param: XposedModuleInterface.PackageLoadedParam,
+        bindItemMethodName: String? = null
+    ) {
         try {
             val loader: ClassLoader = param.defaultClassLoader
             val activeIconViewClass: Class<*> =
@@ -189,12 +202,16 @@ class LauncherDrawerNoLabelMode : AppHookModule() {
                 (chain.thisObject as? View)?.let { hideLabelIfInDrawer(it) }
             }
 
-            val applyFromItemInfoWithIconMethod: Method = findMethod(
-                activeIconViewClass, "applyFromItemInfoWithIcon", itemInfoWithIconClass
-            )
-            hookWithId(applyFromItemInfoWithIconMethod, "drawer_active_icon_bind_itemwithicon") { chain ->
-                chain.proceed()
-                (chain.thisObject as? View)?.let { hideLabelIfInDrawer(it) }
+            val resolvedBindName = bindItemMethodName ?: "applyFromItemInfoWithIcon"
+            runCatching {
+                findMethod(activeIconViewClass, resolvedBindName, itemInfoWithIconClass)
+            }.onSuccess { method ->
+                hookWithId(method, "drawer_active_icon_bind_itemwithicon") { chain ->
+                    chain.proceed()
+                    (chain.thisObject as? View)?.let { hideLabelIfInDrawer(it) }
+                }
+            }.onFailure {
+                logger.debug("ActiveIconView#$resolvedBindName not found, skipped")
             }
 
             logger.info("ActiveIconView drawer label hooks installed successfully!")
@@ -207,7 +224,11 @@ class LauncherDrawerNoLabelMode : AppHookModule() {
      * Android 17+ only. Force-hides drawer BubbleTextView labels at attach and
      * bind time, mirroring the ActiveIconView path above.
      */
-    fun installBubbleTextViewDrawerLabelHook(param: XposedModuleInterface.PackageLoadedParam) {
+    fun installBubbleTextViewDrawerLabelHook(
+        param: XposedModuleInterface.PackageLoadedParam,
+        bindItemMethodName: String? = null,
+        hasIndex: Boolean = false
+    ) {
         try {
             val loader: ClassLoader = param.defaultClassLoader
             val bubbleTextViewClass: Class<*> =
@@ -259,12 +280,23 @@ class LauncherDrawerNoLabelMode : AppHookModule() {
                 (chain.thisObject as? View)?.let { hideLabelIfInDrawer(it) }
             }
 
-            val applyFromItemInfoWithIconMethod: Method = findMethod(
-                bubbleTextViewClass, "applyFromItemInfoWithIcon", itemInfoWithIconClass
-            )
-            hookWithId(applyFromItemInfoWithIconMethod, "drawer_bubble_text_bind_itemwithicon") { chain ->
-                chain.proceed()
-                (chain.thisObject as? View)?.let { hideLabelIfInDrawer(it) }
+            val optionalTargets = buildList {
+                if (bindItemMethodName != null) {
+                    add(bindItemMethodName to "drawer_bubble_text_bind_itemwithicon")
+                } else if (!hasIndex) {
+                    add("applyFromItemInfoWithIcon" to "drawer_bubble_text_bind_itemwithicon")
+                }
+                add("reapplyItemInfo" to "drawer_bubble_text_bind_reapply")
+                add("applyIconAndLabel" to "drawer_bubble_text_bind_icon_label")
+            }
+            for ((methodName, hookId) in optionalTargets) {
+                val method = runCatching {
+                    findMethod(bubbleTextViewClass, methodName, itemInfoWithIconClass)
+                }.getOrNull() ?: continue
+                hookWithId(method, hookId) { chain ->
+                    chain.proceed()
+                    (chain.thisObject as? View)?.let { hideLabelIfInDrawer(it) }
+                }
             }
 
             logger.info("BubbleTextView drawer label hooks installed successfully!")
@@ -272,5 +304,4 @@ class LauncherDrawerNoLabelMode : AppHookModule() {
             logger.error("Exception caught in BubbleTextView drawer label hook: ", e)
         }
     }
-
 }

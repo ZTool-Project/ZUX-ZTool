@@ -7,11 +7,13 @@ import android.os.Build
 import android.util.Log
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
+import com.qimian233.ztool.XposedServiceBridge
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import org.luckypray.dexkit.DexKitBridge
 import java.io.File
+import java.io.FileOutputStream
 import java.security.MessageDigest
 
 /**
@@ -161,11 +163,48 @@ object DexIndexManager {
         }
         root.add(DexIndexConstants.JSON_MODULES, modules)
 
-        // Atomic write: tmp first then rename, so hook processes never read a half-written JSON
-        tmp.writeText(root.toString())
+        // Atomic write: tmp first then rename, so local readers never observe a half-written JSON
+        val jsonText = root.toString()
+        tmp.writeText(jsonText)
         if (!tmp.renameTo(target)) {
-            target.writeText(root.toString())
+            target.writeText(jsonText)
             tmp.delete()
+        }
+        publishRemoteFile(name, jsonText)
+    }
+
+    /** Mirrors existing local index files into the libxposed Remote Files store once the service binds. */
+    fun syncRemoteFiles(context: Context) {
+        if (XposedServiceBridge.getService() == null) return
+        synchronized(lock) {
+            val dir = indexDir(context)
+            for (indexer in DexIndexRegistry.indexers) {
+                val name = DexIndexConstants.fileName(indexer.scopePackage)
+                val file = File(dir, name)
+                if (file.isFile) {
+                    runCatching { file.readText() }.getOrNull()?.let { text ->
+                        publishRemoteFile(name, text)
+                    }
+                }
+            }
+        }
+    }
+
+    private fun publishRemoteFile(name: String, content: String): Boolean {
+        val service = XposedServiceBridge.getService() ?: return false
+        return try {
+            service.openRemoteFile(name).use { pfd ->
+                FileOutputStream(pfd.fileDescriptor).use { out ->
+                    runCatching { out.channel.truncate(0) }
+                    out.write(content.toByteArray(Charsets.UTF_8))
+                    out.flush()
+                }
+            }
+            Log.i(TAG, "published remote file $name")
+            true
+        } catch (t: Throwable) {
+            Log.w(TAG, "publishRemoteFile failed for $name", t)
+            false
         }
     }
 

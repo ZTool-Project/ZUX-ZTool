@@ -3,9 +3,14 @@ package com.qimian233.ztool.hook.modules.launcher.grid
 import android.graphics.Point
 import android.graphics.Rect
 import android.view.View
+import com.google.gson.JsonObject
+import com.qimian233.ztool.data.keys.ScopeKeys
+import com.qimian233.ztool.dexindex.base.DexIndexConstants
+import com.qimian233.ztool.hook.base.DexIndexStore
 import com.qimian233.ztool.hook.base.HookReflectionHelper.findField
 import com.qimian233.ztool.hook.base.HookReflectionHelper.findMethod
 import com.qimian233.ztool.hook.base.ModuleLog
+import io.github.libxposed.api.XposedInterface
 import java.lang.reflect.Field
 import java.lang.reflect.Method
 import java.util.concurrent.ConcurrentHashMap
@@ -13,9 +18,9 @@ import java.util.concurrent.ConcurrentHashMap
 /**
  * Workspace grid geometry shared by the launcher grid hooks.
  *
- * The live page's own cell size wins over the DeviceProfile design values; the design
- * fallback is only used before the first layout pass. Geometry is read through the host's
- * WorkspaceProfile when present, else through the pre-18.6 DeviceProfile fields.
+ * The live page's own cell size wins over the DeviceProfile design values.
+ * Resolves geometry across WorkspaceProfile copy+getters, stripped WorkspaceProfile
+ * fields (18.6.0.1116+), and legacy DeviceProfile fields.
  * See docs/research/zui_launcher_wide_grid_geometry.md.
  */
 object LauncherGridMetrics {
@@ -23,7 +28,7 @@ object LauncherGridMetrics {
     /**
      * One snapshot of the workspace grid, in pixels.
      *
-     * [measured] is false while only the DeviceProfile design fallback is known.
+     * @property measured false while only the DeviceProfile design fallback is known.
      */
     class Metrics(
         val cols: Int,
@@ -61,7 +66,7 @@ object LauncherGridMetrics {
         val insetToSmallFolder: Int get() = (cellWidth - folderIconSizePx) / 2
     }
 
-    /** DeviceProfile geometry access, as a field set (pre-18.6) or a profile object (18.6+). */
+    /** DeviceProfile geometry access across pre-18.6, 18.6 copy+getter, and 18.6+ field builds. */
     private interface Geometry {
         fun cellLayoutPadding(dp: Any): Rect?
         fun cellLayoutBorderSpacePx(dp: Any): Point?
@@ -70,6 +75,7 @@ object LauncherGridMetrics {
         fun iconTextSizePx(dp: Any): Int?
         fun iconDrawablePaddingPx(dp: Any): Int?
         fun folderIconSizePx(dp: Any): Int?
+        fun folderIconOffsetYPx(dp: Any): Int?
         fun widgetPadding(dp: Any): Rect?
         fun cellYPaddingPx(dp: Any): Int?
         fun writeCellYPaddingPx(dp: Any, value: Int): Boolean
@@ -86,6 +92,7 @@ object LauncherGridMetrics {
         private val iconTextSize: Field,
         private val iconDrawablePadding: Field,
         private val folderIconSize: Field,
+        private val folderIconOffsetY: Field?,
         private val widgetPadding: Field,
         private val cellYPadding: Field,
         private val horizontalMargin: Field
@@ -104,6 +111,8 @@ object LauncherGridMetrics {
 
         override fun folderIconSizePx(dp: Any): Int? = folderIconSize.getInt(dp)
 
+        override fun folderIconOffsetYPx(dp: Any): Int? = folderIconOffsetY?.getInt(dp)
+
         override fun widgetPadding(dp: Any): Rect? = widgetPadding.get(dp) as? Rect
 
         override fun cellYPaddingPx(dp: Any): Int? = cellYPadding.getInt(dp)
@@ -112,7 +121,7 @@ object LauncherGridMetrics {
             try {
                 cellYPadding.setInt(dp, value)
                 true
-            } catch (t: Throwable) {
+            } catch (_: Throwable) {
                 false
             }
 
@@ -122,20 +131,20 @@ object LauncherGridMetrics {
             try {
                 horizontalMargin.setInt(dp, value)
                 true
-            } catch (t: Throwable) {
+            } catch (_: Throwable) {
                 false
             }
     }
 
     /**
-     * 18.6+ layout: geometry lives in an immutable WorkspaceProfile reached from DeviceProfile.
-     * Scalar writes rebuild the profile through its data-class `copy` and install it back.
+     * 18.6 layout with getters and copy: scalar writes rebuild WorkspaceProfile via copy.
      */
     private class ProfileGeometry(
         private val getWorkspaceProfile: Method,
         private val setWorkspaceProfile: Method,
         private val getFolderProfile: Method?,
         private val folderIconSize: Method?,
+        private val folderIconOffsetY: Method?,
         private val cellLayoutPadding: Method,
         private val borderSpace: Method,
         private val cellHeight: Method,
@@ -154,7 +163,7 @@ object LauncherGridMetrics {
 
         private fun profile(dp: Any): Any? = try {
             getWorkspaceProfile.invoke(dp)
-        } catch (t: Throwable) {
+        } catch (_: Throwable) {
             null
         }
 
@@ -170,16 +179,19 @@ object LauncherGridMetrics {
 
         override fun iconDrawablePaddingPx(dp: Any): Int? = read(dp, iconDrawablePadding) as? Int
 
-        override fun folderIconSizePx(dp: Any): Int? = try {
+        override fun folderIconSizePx(dp: Any): Int? = readFolderInt(dp, folderIconSize)
+
+        override fun folderIconOffsetYPx(dp: Any): Int? = readFolderInt(dp, folderIconOffsetY)
+
+        private fun readFolderInt(dp: Any, getter: Method?): Int? = try {
             val getFolder = getFolderProfile
-            val getSize = folderIconSize
-            if (getFolder == null || getSize == null) {
+            if (getFolder == null || getter == null) {
                 null
             } else {
                 val folder = getFolder.invoke(dp)
-                if (folder == null) null else getSize.invoke(folder) as? Int
+                if (folder == null) null else getter.invoke(folder) as? Int
             }
-        } catch (t: Throwable) {
+        } catch (_: Throwable) {
             null
         }
 
@@ -198,7 +210,7 @@ object LauncherGridMetrics {
         private fun read(dp: Any, getter: Method): Any? = try {
             val target = profile(dp)
             if (target == null) null else getter.invoke(target)
-        } catch (t: Throwable) {
+        } catch (_: Throwable) {
             null
         }
 
@@ -223,6 +235,111 @@ object LauncherGridMetrics {
             }
         } catch (t: Throwable) {
             logger?.error("grid metrics: profile write failed", t)
+            false
+        }
+    }
+
+    /**
+     * 18.6.0.1116+ layout where R8 stripped WorkspaceProfile/FolderProfile getters and copy.
+     * Reads and mutates the underlying fields directly via accessible Field handles.
+     */
+    private class DirectFieldGeometry(
+        private val dpWorkspaceProfileField: Field?,
+        private val dpGetWorkspaceProfile: Method?,
+        private val dpFolderProfileField: Field?,
+        private val dpGetFolderProfile: Method?,
+        private val folderIconSize: Field?,
+        private val folderIconOffsetY: Field?,
+        private val cellLayoutPadding: Field,
+        private val borderSpace: Field,
+        private val cellHeight: Field,
+        private val iconSize: Field,
+        private val iconTextSize: Field,
+        private val iconDrawablePadding: Field,
+        private val widgetPadding: Field,
+        private val cellYPadding: Field,
+        private val horizontalMargin: Field,
+        private val logger: ModuleLog?
+    ) : Geometry {
+
+        private fun workspaceProfile(dp: Any): Any? = try {
+            dpWorkspaceProfileField?.get(dp) ?: dpGetWorkspaceProfile?.invoke(dp)
+        } catch (_: Throwable) {
+            null
+        }
+
+        private fun folderProfile(dp: Any): Any? = try {
+            dpFolderProfileField?.get(dp) ?: dpGetFolderProfile?.invoke(dp)
+        } catch (_: Throwable) {
+            null
+        }
+
+        override fun cellLayoutPadding(dp: Any): Rect? =
+            workspaceProfile(dp)?.let { cellLayoutPadding.get(it) as? Rect }
+
+        override fun cellLayoutBorderSpacePx(dp: Any): Point? =
+            workspaceProfile(dp)?.let { borderSpace.get(it) as? Point }
+
+        override fun cellHeightPx(dp: Any): Int? =
+            workspaceProfile(dp)?.let { cellHeight.getInt(it) }
+
+        override fun iconSizePx(dp: Any): Int? =
+            workspaceProfile(dp)?.let { iconSize.getInt(it) }
+
+        override fun iconTextSizePx(dp: Any): Int? =
+            workspaceProfile(dp)?.let { iconTextSize.getInt(it) }
+
+        override fun iconDrawablePaddingPx(dp: Any): Int? =
+            workspaceProfile(dp)?.let { iconDrawablePadding.getInt(it) }
+
+        override fun folderIconSizePx(dp: Any): Int? = try {
+            val field = folderIconSize ?: return null
+            val folder = folderProfile(dp) ?: return null
+            field.getInt(folder)
+        } catch (_: Throwable) {
+            null
+        }
+
+        override fun folderIconOffsetYPx(dp: Any): Int? = try {
+            val field = folderIconOffsetY ?: return null
+            val folder = folderProfile(dp) ?: return null
+            field.getInt(folder)
+        } catch (_: Throwable) {
+            null
+        }
+
+        override fun widgetPadding(dp: Any): Rect? =
+            workspaceProfile(dp)?.let { widgetPadding.get(it) as? Rect }
+
+        override fun cellYPaddingPx(dp: Any): Int? =
+            workspaceProfile(dp)?.let { cellYPadding.getInt(it) }
+
+        override fun writeCellYPaddingPx(dp: Any, value: Int): Boolean = try {
+            val ws = workspaceProfile(dp)
+            if (ws == null) {
+                false
+            } else {
+                cellYPadding.setInt(ws, value)
+                true
+            }
+        } catch (t: Throwable) {
+            logger?.error("grid metrics: direct write cellYPaddingPx failed", t)
+            false
+        }
+
+        override fun horizontalMarginPx(dp: Any): Int? =
+            workspaceProfile(dp)?.let { horizontalMargin.getInt(it) }
+
+        override fun writeHorizontalMarginPx(dp: Any, value: Int): Boolean = try {
+            val ws = workspaceProfile(dp)
+            if (ws == null) {
+                false
+            } else {
+                horizontalMargin.setInt(ws, value)
+                true
+            }
+        } catch (t: Throwable) {
+            logger?.error("grid metrics: direct write horizontalMarginPx failed", t)
             false
         }
     }
@@ -253,15 +370,24 @@ object LauncherGridMetrics {
     private val textHeightCache = ConcurrentHashMap<Int, Int>()
 
     /**
-     * Resolves the reflection handles once per process.
+     * Resolves reflection handles once per process.
      *
      * @return false when a required member is missing; callers then keep their design math.
      */
     @Synchronized
-    fun install(classLoader: ClassLoader, logger: ModuleLog?): Boolean {
+    fun install(
+        classLoader: ClassLoader,
+        logger: ModuleLog?,
+        xposed: XposedInterface? = null
+    ): Boolean {
         log = logger
         if (ready) return true
         return try {
+            val module = xposed?.let {
+                DexIndexStore.lookup(it, ScopeKeys.LAUNCHER.packageName)
+                    ?.getAsJsonObject(DexIndexConstants.JSON_MODULES)
+                    ?.getAsJsonObject(DexIndexConstants.ModuleKeys.LAUNCHER_GRID_METRICS)
+            }
             dpClass = classLoader.loadClass("com.android.launcher3.DeviceProfile")
             cellLayoutClass = classLoader.loadClass("com.android.launcher3.CellLayout")
             dpInv = findField(dpClass, "inv")
@@ -276,7 +402,9 @@ object LauncherGridMetrics {
                 "calculateTextHeight",
                 Float::class.javaPrimitiveType
             )
-            geometry = resolveProfileGeometry(classLoader) ?: resolveLegacyGeometry()
+            geometry = resolveProfileGeometry(classLoader, module)
+                ?: resolveDirectFieldGeometry(classLoader, module)
+                ?: resolveLegacyGeometry()
             ready = geometry != null
             ready
         } catch (t: Throwable) {
@@ -285,24 +413,20 @@ object LauncherGridMetrics {
         }
     }
 
-    /** True once [install] succeeded. */
+    /** True once install succeeded. */
     val installed: Boolean get() = ready
 
-    /** 18.6+ geometry: DeviceProfile#getWorkspaceProfile plus the WorkspaceProfile getters. */
-    private fun resolveProfileGeometry(classLoader: ClassLoader): Geometry? {
+    /** 18.6 geometry: DeviceProfile#getWorkspaceProfile plus WorkspaceProfile getters and copy. */
+    private fun resolveProfileGeometry(classLoader: ClassLoader, module: JsonObject?): Geometry? {
         return try {
-            val profileClass = classLoader.loadClass("com.android.launcher3.deviceprofile.WorkspaceProfile")
-            // Optional: a missing FolderProfile only removes the folder icon size, instead
-            // of disabling the whole geometry layer.
-            val folderClass = try {
-                classLoader.loadClass("com.android.launcher3.deviceprofile.FolderProfile")
-            } catch (t: Throwable) {
-                log?.warn("grid metrics: FolderProfile unavailable, folder icon size disabled")
-                null
-            }
+            val wsClassName = readKey(module, DexIndexConstants.Keys.GRID_METRICS_WORKSPACE_PROFILE_CLASS)
+                ?: "com.android.launcher3.deviceprofile.WorkspaceProfile"
+            val folderClassName = readKey(module, DexIndexConstants.Keys.GRID_METRICS_FOLDER_PROFILE_CLASS)
+                ?: "com.android.launcher3.deviceprofile.FolderProfile"
+            val profileClass = classLoader.loadClass(wsClassName)
             val copy = profileClass.declaredMethods.firstOrNull { it.name == "copy" }
             if (copy == null) {
-                log?.error("grid metrics: WorkspaceProfile#copy missing")
+                log?.debug("grid metrics: WorkspaceProfile#copy absent, trying direct field geometry")
                 return null
             }
             val getters = Array<Method?>(COPY_GETTERS.size) { i ->
@@ -310,7 +434,7 @@ object LauncherGridMetrics {
             }
             val missing = COPY_GETTERS.indices.filter { getters[it] == null }
             if (missing.isNotEmpty()) {
-                log?.warn(
+                log?.debug(
                     "grid metrics: WorkspaceProfile getters missing: " +
                         missing.joinToString { COPY_GETTERS[it] }
                 )
@@ -319,26 +443,29 @@ object LauncherGridMetrics {
             if (copy.parameterCount != getters.size ||
                 getters.indices.any { copy.parameterTypes[it] != getters[it]?.returnType }
             ) {
-                log?.error("grid metrics: WorkspaceProfile#copy signature changed")
+                log?.debug("grid metrics: WorkspaceProfile#copy signature changed")
                 return null
             }
-            val getFolderProfile = try {
-                findMethod(dpClass, "getFolderProfile")
-            } catch (t: Throwable) {
-                null
-            }
+            val folderClass = runCatching { classLoader.loadClass(folderClassName) }.getOrNull()
+            val getFolderProfileName = readKey(module, DexIndexConstants.Keys.GRID_METRICS_DP_GET_FOLDER_PROFILE_METHOD)
+                ?: "getFolderProfile"
+            val getFolderProfile = runCatching { findMethod(dpClass, getFolderProfileName) }.getOrNull()
             val folderIconSize = folderClass?.let {
-                try {
-                    findMethod(it, "getFolderIconSizePx")
-                } catch (t: Throwable) {
-                    null
-                }
+                runCatching { findMethod(it, "getFolderIconSizePx") }.getOrNull()
             }
+            val folderIconOffsetY = folderClass?.let {
+                runCatching { findMethod(it, "getFolderIconOffsetYPx") }.getOrNull()
+            }
+            val getWsName = readKey(module, DexIndexConstants.Keys.GRID_METRICS_DP_GET_WORKSPACE_PROFILE_METHOD)
+                ?: "getWorkspaceProfile"
+            val setWsName = readKey(module, DexIndexConstants.Keys.GRID_METRICS_DP_SET_WORKSPACE_PROFILE_METHOD)
+                ?: "setWorkspaceProfile"
             ProfileGeometry(
-                findMethod(dpClass, "getWorkspaceProfile"),
-                findMethod(dpClass, "setWorkspaceProfile", profileClass),
+                findMethod(dpClass, getWsName),
+                findMethod(dpClass, setWsName, profileClass),
                 getFolderProfile,
                 folderIconSize,
+                folderIconOffsetY,
                 findMethod(profileClass, "getCellLayoutPaddingPx"),
                 findMethod(profileClass, "getCellLayoutBorderSpacePx"),
                 findMethod(profileClass, "getCellHeightPx"),
@@ -354,8 +481,106 @@ object LauncherGridMetrics {
                 COPY_GETTERS.indexOf("getCellYPaddingPx"),
                 log
             )
+        } catch (_: Throwable) {
+            log?.debug("grid metrics: WorkspaceProfile copy geometry unavailable, trying direct fields")
+            null
+        }
+    }
+
+    /** 18.6.0.1116+ geometry: direct field reads/writes on WorkspaceProfile and FolderProfile. */
+    private fun resolveDirectFieldGeometry(classLoader: ClassLoader, module: JsonObject?): Geometry? {
+        return try {
+            val wsClassName = readKey(module, DexIndexConstants.Keys.GRID_METRICS_WORKSPACE_PROFILE_CLASS)
+                ?: "com.android.launcher3.deviceprofile.WorkspaceProfile"
+            val folderClassName = readKey(module, DexIndexConstants.Keys.GRID_METRICS_FOLDER_PROFILE_CLASS)
+                ?: "com.android.launcher3.deviceprofile.FolderProfile"
+            val profileClass = classLoader.loadClass(wsClassName)
+
+            val dpWsFieldName = readKey(module, DexIndexConstants.Keys.GRID_METRICS_DP_WORKSPACE_PROFILE_FIELD)
+                ?: "mWorkspaceProfile"
+            val dpGetWsName = readKey(module, DexIndexConstants.Keys.GRID_METRICS_DP_GET_WORKSPACE_PROFILE_METHOD)
+                ?: "getWorkspaceProfile"
+            val dpWsField = runCatching { findField(dpClass, dpWsFieldName) }.getOrNull()
+            val dpGetWs = runCatching { findMethod(dpClass, dpGetWsName) }.getOrNull()
+            if (dpWsField == null && dpGetWs == null) {
+                log?.debug("grid metrics: DeviceProfile WorkspaceProfile accessor missing")
+                return null
+            }
+
+            val folderClass = runCatching { classLoader.loadClass(folderClassName) }.getOrNull()
+            val dpFolderFieldName = readKey(module, DexIndexConstants.Keys.GRID_METRICS_DP_FOLDER_PROFILE_FIELD)
+                ?: "mFolderProfile"
+            val dpGetFolderName = readKey(module, DexIndexConstants.Keys.GRID_METRICS_DP_GET_FOLDER_PROFILE_METHOD)
+                ?: "getFolderProfile"
+            val dpFolderField = runCatching { findField(dpClass, dpFolderFieldName) }.getOrNull()
+            val dpGetFolder = runCatching { findMethod(dpClass, dpGetFolderName) }.getOrNull()
+            val folderIconSize = folderClass?.let {
+                val name = readKey(module, DexIndexConstants.Keys.GRID_METRICS_FOLDER_ICON_SIZE_FIELD)
+                    ?: "folderIconSizePx"
+                runCatching { findField(it, name) }.getOrNull()
+            }
+            val folderIconOffsetY = folderClass?.let {
+                val name = readKey(module, DexIndexConstants.Keys.GRID_METRICS_FOLDER_ICON_OFFSET_Y_FIELD)
+                    ?: "folderIconOffsetYPx"
+                runCatching { findField(it, name) }.getOrNull()
+            }
+
+            val cellLayoutPadding = findField(
+                profileClass,
+                readKey(module, DexIndexConstants.Keys.GRID_METRICS_WS_CELL_LAYOUT_PADDING_FIELD)
+                    ?: "cellLayoutPaddingPx"
+            )
+            val borderSpace = findField(
+                profileClass,
+                readKey(module, DexIndexConstants.Keys.GRID_METRICS_WS_BORDER_SPACE_FIELD)
+                    ?: "cellLayoutBorderSpacePx"
+            )
+            val cellHeight = findField(
+                profileClass,
+                readKey(module, DexIndexConstants.Keys.GRID_METRICS_WS_CELL_HEIGHT_FIELD)
+                    ?: "cellHeightPx"
+            )
+            val iconSize = findField(
+                profileClass,
+                readKey(module, DexIndexConstants.Keys.GRID_METRICS_WS_ICON_SIZE_FIELD)
+                    ?: "iconSizePx"
+            )
+            val iconTextSize = findField(
+                profileClass,
+                readKey(module, DexIndexConstants.Keys.GRID_METRICS_WS_ICON_TEXT_SIZE_FIELD)
+                    ?: "iconTextSizePx"
+            )
+            val iconDrawablePadding = findField(
+                profileClass,
+                readKey(module, DexIndexConstants.Keys.GRID_METRICS_WS_ICON_DRAWABLE_PADDING_FIELD)
+                    ?: "iconDrawablePaddingPx"
+            )
+            val widgetPadding = findField(
+                profileClass,
+                readKey(module, DexIndexConstants.Keys.GRID_METRICS_WS_WIDGET_PADDING_FIELD)
+                    ?: "widgetPadding"
+            )
+            val cellYPadding = findField(
+                profileClass,
+                readKey(module, DexIndexConstants.Keys.GRID_METRICS_WS_CELL_Y_PADDING_FIELD)
+                    ?: "cellYPaddingPx"
+            )
+            val horizontalMargin = findField(
+                profileClass,
+                readKey(module, DexIndexConstants.Keys.GRID_METRICS_WS_DESIRED_H_MARGIN_FIELD)
+                    ?: "desiredWorkspaceHorizontalMarginPx"
+            )
+
+            log?.debug("grid metrics: using DirectFieldGeometry ($wsClassName)")
+            DirectFieldGeometry(
+                dpWsField, dpGetWs, dpFolderField, dpGetFolder,
+                folderIconSize, folderIconOffsetY,
+                cellLayoutPadding, borderSpace, cellHeight,
+                iconSize, iconTextSize, iconDrawablePadding,
+                widgetPadding, cellYPadding, horizontalMargin, log
+            )
         } catch (t: Throwable) {
-            log?.warn("grid metrics: WorkspaceProfile geometry unavailable, trying legacy fields")
+            log?.debug("grid metrics: direct field geometry unavailable ($t), trying legacy fields")
             null
         }
     }
@@ -384,6 +609,7 @@ object LauncherGridMetrics {
             findField(dpClass, "iconTextSizePx"),
             findField(dpClass, "iconDrawablePaddingPx"),
             findField(dpClass, "folderIconSizePx"),
+            runCatching { findField(dpClass, "folderIconOffsetYPx") }.getOrNull(),
             findField(dpClass, "widgetPadding"),
             findField(dpClass, "cellYPaddingPx"),
             findField(dpClass, "desiredWorkspaceHorizontalMarginPx")
@@ -392,6 +618,9 @@ object LauncherGridMetrics {
         log?.error("grid metrics: no DeviceProfile geometry available", t)
         null
     }
+
+    private fun readKey(module: JsonObject?, key: String): String? =
+        module?.get(key)?.takeIf { !it.isJsonNull }?.asString?.takeIf { it.isNotEmpty() }
 
     /** Walks up from an icon view to the CellLayout page it is placed on. */
     fun pageOf(view: View?): View? {
@@ -412,7 +641,7 @@ object LauncherGridMetrics {
         if (dp == null) return null
         return try {
             g.cellLayoutPadding(dp)
-        } catch (t: Throwable) {
+        } catch (_: Throwable) {
             null
         }
     }
@@ -423,7 +652,62 @@ object LauncherGridMetrics {
         if (dp == null) return null
         return try {
             g.cellLayoutBorderSpacePx(dp)
-        } catch (t: Throwable) {
+        } catch (_: Throwable) {
+            null
+        }
+    }
+
+    /** Widget padding from the active profile. */
+    fun widgetPadding(dp: Any?): Rect? {
+        val g = geometry ?: return null
+        if (dp == null) return null
+        return try {
+            g.widgetPadding(dp)
+        } catch (_: Throwable) {
+            null
+        }
+    }
+
+    /** Workspace icon size in px. */
+    fun iconSizePx(dp: Any?): Int? {
+        val g = geometry ?: return null
+        if (dp == null) return null
+        return try {
+            g.iconSizePx(dp)
+        } catch (_: Throwable) {
+            null
+        }
+    }
+
+    /** Workspace icon drawable padding in px. */
+    fun iconDrawablePaddingPx(dp: Any?): Int? {
+        val g = geometry ?: return null
+        if (dp == null) return null
+        return try {
+            g.iconDrawablePaddingPx(dp)
+        } catch (_: Throwable) {
+            null
+        }
+    }
+
+    /** Folder icon size in px. */
+    fun folderIconSizePx(dp: Any?): Int? {
+        val g = geometry ?: return null
+        if (dp == null) return null
+        return try {
+            g.folderIconSizePx(dp)
+        } catch (_: Throwable) {
+            null
+        }
+    }
+
+    /** Folder icon vertical offset in px. */
+    fun folderIconOffsetYPx(dp: Any?): Int? {
+        val g = geometry ?: return null
+        if (dp == null) return null
+        return try {
+            g.folderIconOffsetYPx(dp)
+        } catch (_: Throwable) {
             null
         }
     }
@@ -434,7 +718,7 @@ object LauncherGridMetrics {
         if (dp == null) return null
         return try {
             g.horizontalMarginPx(dp)
-        } catch (t: Throwable) {
+        } catch (_: Throwable) {
             null
         }
     }
@@ -445,12 +729,12 @@ object LauncherGridMetrics {
         if (dp == null) return false
         return try {
             g.writeHorizontalMarginPx(dp, value)
-        } catch (t: Throwable) {
+        } catch (_: Throwable) {
             false
         }
     }
 
-    /** Reads the grid from [page] when its measured cell is available, else from [dp]. */
+    /** Reads the grid from the page when its measured cell is available, else from dp. */
     fun fromPage(page: View?, dp: Any?): Metrics? {
         val g = geometry ?: return null
         if (!ready || dp == null) return null
@@ -514,7 +798,7 @@ object LauncherGridMetrics {
         return try {
             (g.iconSizePx(dp) ?: return null) + (g.iconDrawablePaddingPx(dp) ?: return null) +
                 (textHeight(g.iconTextSizePx(dp) ?: 0) ?: 0)
-        } catch (t: Throwable) {
+        } catch (_: Throwable) {
             null
         }
     }
@@ -525,7 +809,7 @@ object LauncherGridMetrics {
         if (!ready || dp == null) return null
         return try {
             g.cellYPaddingPx(dp)
-        } catch (t: Throwable) {
+        } catch (_: Throwable) {
             null
         }
     }
@@ -536,7 +820,7 @@ object LauncherGridMetrics {
         if (!ready || dp == null) return false
         return try {
             g.writeCellYPaddingPx(dp, value)
-        } catch (t: Throwable) {
+        } catch (_: Throwable) {
             false
         }
     }

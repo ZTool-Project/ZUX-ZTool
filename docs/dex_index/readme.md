@@ -41,7 +41,7 @@ native 库并 mmap APK；热重载 replay 时对同一 APK 重复 create，nativ
 com.qimian233.ztool.dexindex/
   DexIndexConstants.kt   // 目录名/schema 版本/模块 key/字段 key 常量
   DexIndexer.kt          // 接口：scopePackage + index(bridge, context): JsonObject
-  LauncherDexIndexer.kt  // com.zui.launcher 作用域（3 模块查询）
+  LauncherDexIndexer.kt  // com.zui.launcher 作用域（v8 覆盖 17 个模块：dock/misc/freeform/grid/unmask/icon-pack）
   SystemUiDexIndexer.kt  // com.android.systemui 作用域（3 模块查询）
   MobileDesktopDexIndexer.kt // com.motorola.mobiledesktop 作用域（2 模块查询）
   DexIndexRegistry.kt    // indexers 注册表（作用域 → Indexer 唯一映射）
@@ -75,12 +75,12 @@ com.qimian233.ztool.hook.base/
 
 ```json
 {
-  "schemaVersion": 4,
+  "schemaVersion": 8,
   "generatedAt": 1730000000000,
   "systemFingerprint": "Lenovo/TB710FU/TB710FU:17/...:user/release-keys",
   "apk": { "path": "...", "lastUpdateTime": 123, "signatureHash": "sha256-hex" },
   "modules": {
-    "clean_global_search": { "hotwordInitMethod": "K0", "hotwordDataMethod": "E0" }
+    "clean_global_search": { "cleanSearchClass": "com.zui.launcher.globalsearch.GlobalSearchView", "hotwordDataMethod": "access$1700" }
   }
 }
 ```
@@ -104,3 +104,4 @@ com.qimian233.ztool.hook.base/
 - 首次安装后目标进程可能先于索引启动 → 走硬编码 fallback（行为与改造前一致，不劣化）。
 - 不要在 hook lambda（`hookWithId` 回调）里读索引/做 IO；在 `handleLoadPackage` 阶段读好。
 - `DexIndexManager` 依赖 dexkit native 库（app 侧），索引失败不影响 app 使用。
+- `SCHEMA_VERSION = 8` 扩展了 `com.zui.launcher` 离线索引覆盖（含 Dock 背景/最近任务、强制停止与一键清理、全局搜索、批量卸载、桌面小窗、应用图标去遮罩/图标包及全部 10 个 Grid 布局与大文件夹模块），并兼容 Android 17 R8 重排与内联变更；`LauncherDexIndexer` 中缺失或被内联的条目会省略对应字段，由 Hook 侧按需回退。
