@@ -19,25 +19,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowForward
-import androidx.compose.material.icons.automirrored.rounded.Article
-import androidx.compose.material.icons.automirrored.rounded.OpenInNew
-import androidx.compose.material.icons.rounded.Apps
-import androidx.compose.material.icons.rounded.Backup
-import androidx.compose.material.icons.rounded.Build
-import androidx.compose.material.icons.rounded.Category
-import androidx.compose.material.icons.rounded.DeleteForever
-import androidx.compose.material.icons.rounded.Info
-import androidx.compose.material.icons.rounded.Language
-import androidx.compose.material.icons.rounded.HideSource
-import androidx.compose.material.icons.rounded.Palette
-import androidx.compose.material.icons.rounded.RestorePage
-import androidx.compose.material.icons.rounded.Save
-import androidx.compose.material.icons.rounded.SettingsBackupRestore
-import androidx.compose.material.icons.rounded.Speed
-import androidx.compose.material.icons.rounded.Update
-import androidx.compose.material.icons.rounded.VisibilityOff
+import com.qimian233.ztool.ui.icons.ZToolIcons
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -414,10 +396,10 @@ private fun settingsSections(
                     key = "app_settings_backup_config",
                     title = stringResource(R.string.page_settings_backup_config_to_file),
                     onClick = onBackup,
-                    icon = Icons.Rounded.Backup,
+                    icon = ZToolIcons.Backup,
                     trailingContent = {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
+                            imageVector = ZToolIcons.ArrowForward,
                             contentDescription = null,
                             tint = LocalZToolColorScheme.current.onSurfaceVariant
                         )
@@ -427,10 +409,10 @@ private fun settingsSections(
                     key = "app_settings_restore_config",
                     title = stringResource(R.string.page_settings_restore_config_from_file),
                     onClick = onRestore,
-                    icon = Icons.Rounded.RestorePage,
+                    icon = ZToolIcons.RestorePage,
                     trailingContent = {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
+                            imageVector = ZToolIcons.ArrowForward,
                             contentDescription = null,
                             tint = LocalZToolColorScheme.current.onSurfaceVariant
                         )
@@ -440,10 +422,10 @@ private fun settingsSections(
                     key = "app_settings_restore_default",
                     title = stringResource(R.string.page_settings_restore_default_config),
                     onClick = onRestoreDefault,
-                    icon = Icons.Rounded.SettingsBackupRestore,
+                    icon = ZToolIcons.SettingsBackupRestore,
                     trailingContent = {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
+                            imageVector = ZToolIcons.ArrowForward,
                             contentDescription = null,
                             tint = LocalZToolColorScheme.current.onSurfaceVariant
                         )
@@ -460,7 +442,7 @@ private fun settingsSections(
                     summary = stringResource(R.string.page_settings_display_entry_in_settings_summary),
                     checked = state.isEntryDisplayedInSettings,
                     onCheckedChange = onEntryDisplayChanged,
-                    icon = Icons.AutoMirrored.Rounded.OpenInNew
+                    icon = ZToolIcons.OpenInNew
                 ),
                 SettingItem.Switch(
                     key = "app_settings_show_all_apps",
@@ -468,7 +450,7 @@ private fun settingsSections(
                     summary = stringResource(R.string.page_settings_show_all_apps_summary),
                     checked = state.isShowAllAppsEnabled,
                     onCheckedChange = onShowAllAppsChanged,
-                    icon = Icons.Rounded.Apps
+                    icon = ZToolIcons.Apps
                 ),
                 SettingItem.Switch(
                     key = "app_settings_hide_launcher_icon",
@@ -476,28 +458,28 @@ private fun settingsSections(
                     summary = stringResource(R.string.page_settings_hide_launcher_icon_summary),
                     checked = state.isLauncherIconHidden,
                     onCheckedChange = onHideLauncherIconChanged,
-                    icon = Icons.Rounded.HideSource
+                    icon = ZToolIcons.HideSource
                 ),
                 SettingItem.Switch(
                     key = "app_settings_hide_from_recents",
                     title = stringResource(R.string.page_settings_hide_from_recents),
                     checked = state.isHideFromRecentsEnabled,
                     onCheckedChange = onHideFromRecentsChanged,
-                    icon = Icons.Rounded.VisibilityOff
+                    icon = ZToolIcons.VisibilityOff
                 ),
                 SettingItem.Switch(
                     key = "app_settings_auto_check_update",
                     title = stringResource(R.string.page_settings_auto_check_update_title),
                     checked = state.isAutoCheckUpdateEnabled,
                     onCheckedChange = onAutoCheckUpdateChanged,
-                    icon = Icons.Rounded.Update
+                    icon = ZToolIcons.Update
                 ),
                 SettingItem.Switch(
                     key = "app_settings_use_gh_proxy_update",
                     title = stringResource(R.string.page_settings_use_gh_proxy_update_title),
                     checked = state.isGhProxyUpdateEnabled,
                     onCheckedChange = onGhProxyUpdateChanged,
-                    icon = Icons.Rounded.Speed
+                    icon = ZToolIcons.Speed
                 )
             )
         ),
@@ -512,16 +494,16 @@ private fun settingsSections(
                     options = LogLevel.entries,
                     optionLabel = { it.name },
                     onOptionSelected = onLogLevelChanged,
-                    icon = Icons.AutoMirrored.Rounded.Article
+                    icon = ZToolIcons.Article
                 ),
                 SettingItem.Action(
                     key = "app_settings_export_logs",
                     title = stringResource(R.string.page_settings_export_logs),
                     onClick = onExportLogs,
-                    icon = Icons.Rounded.Save,
+                    icon = ZToolIcons.Save,
                     trailingContent = {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
+                            imageVector = ZToolIcons.ArrowForward,
                             contentDescription = null,
                             tint = LocalZToolColorScheme.current.onSurfaceVariant
                         )
@@ -532,10 +514,10 @@ private fun settingsSections(
                     title = stringResource(R.string.page_settings_delete_all_logs),
                     summary = stringResource(R.string.page_settings_delete_all_logs_summary),
                     onClick = onDeleteAllLogs,
-                    icon = Icons.Rounded.DeleteForever,
+                    icon = ZToolIcons.DeleteForever,
                     trailingContent = {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
+                            imageVector = ZToolIcons.ArrowForward,
                             contentDescription = null,
                             tint = LocalZToolColorScheme.current.onSurfaceVariant
                         )
@@ -549,10 +531,10 @@ private fun settingsSections(
                     key = "app_settings_ui_theme",
                     title = stringResource(R.string.page_settings_app_ui_theme_settings),
                     onClick = onOpenThemeSettings,
-                    icon = Icons.Rounded.Palette,
+                    icon = ZToolIcons.Palette,
                     trailingContent = {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
+                            imageVector = ZToolIcons.ArrowForward,
                             contentDescription = null,
                             tint = LocalZToolColorScheme.current.onSurfaceVariant
                         )
@@ -562,10 +544,10 @@ private fun settingsSections(
                     key = "app_settings_language",
                     title = stringResource(R.string.page_settings_app_language_settings),
                     onClick = onOpenLanguageSettings,
-                    icon = Icons.Rounded.Language,
+                    icon = ZToolIcons.Language,
                     trailingContent = {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
+                            imageVector = ZToolIcons.ArrowForward,
                             contentDescription = null,
                             tint = LocalZToolColorScheme.current.onSurfaceVariant
                         )
@@ -576,10 +558,10 @@ private fun settingsSections(
                     title = stringResource(R.string.page_settings_misc_title),
                     summary = stringResource(R.string.page_settings_misc_summary),
                     onClick = onOpenMisc,
-                    icon = Icons.Rounded.Category,
+                    icon = ZToolIcons.Category,
                     trailingContent = {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
+                            imageVector = ZToolIcons.ArrowForward,
                             contentDescription = null,
                             tint = LocalZToolColorScheme.current.onSurfaceVariant
                         )
@@ -590,10 +572,10 @@ private fun settingsSections(
                     title = stringResource(R.string.page_settings_advanced_title),
                     summary = stringResource(R.string.page_settings_advanced_summary),
                     onClick = onOpenAdvanced,
-                    icon = Icons.Rounded.Build,
+                    icon = ZToolIcons.Build,
                     trailingContent = {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
+                            imageVector = ZToolIcons.ArrowForward,
                             contentDescription = null,
                             tint = LocalZToolColorScheme.current.onSurfaceVariant
                         )
@@ -607,10 +589,10 @@ private fun settingsSections(
                     key = "app_settings_about",
                     title = stringResource(R.string.page_settings_show_about_page),
                     onClick = onAbout,
-                    icon = Icons.Rounded.Info,
+                    icon = ZToolIcons.Info,
                     trailingContent = {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
+                            imageVector = ZToolIcons.ArrowForward,
                             contentDescription = null,
                             tint = LocalZToolColorScheme.current.onSurfaceVariant
                         )

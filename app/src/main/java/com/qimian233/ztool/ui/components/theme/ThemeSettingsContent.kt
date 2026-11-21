@@ -3,18 +3,7 @@ package com.qimian233.ztool.ui.components.theme
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.BlurOn
-import androidx.compose.material.icons.rounded.CallToAction
-import androidx.compose.material.icons.rounded.Colorize
-import androidx.compose.material.icons.rounded.Contrast
-import androidx.compose.material.icons.rounded.DarkMode
-import androidx.compose.material.icons.rounded.Dashboard
-import androidx.compose.material.icons.rounded.DesignServices
-import androidx.compose.material.icons.rounded.FormatColorFill
-import androidx.compose.material.icons.rounded.Image
-import androidx.compose.material.icons.rounded.Style
-import androidx.compose.material.icons.rounded.Swipe
+import com.qimian233.ztool.ui.icons.ZToolIcons
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -208,7 +197,7 @@ fun themeSettingsSections(
                         options = frontendStyleOptions,
                         optionLabel = { it.label },
                         onOptionSelected = { onFrontendStyleChanged(it.value) },
-                        icon = Icons.Rounded.Dashboard
+                        icon = ZToolIcons.Dashboard
                     )
                 )
                 add(
@@ -219,7 +208,7 @@ fun themeSettingsSections(
                         options = themeModeOptions,
                         optionLabel = { it.label },
                         onOptionSelected = { onThemeModeChanged(it.value) },
-                        icon = Icons.Rounded.DarkMode
+                        icon = ZToolIcons.DarkMode
                     )
                 )
                 add(
@@ -230,7 +219,7 @@ fun themeSettingsSections(
                         options = colorSpecOptions,
                         optionLabel = { it.label },
                         onOptionSelected = { onMaterialColorSpecChanged(it.value) },
-                        icon = Icons.Rounded.DesignServices
+                        icon = ZToolIcons.DesignServices
                     )
                 )
                 add(
@@ -241,7 +230,7 @@ fun themeSettingsSections(
                         options = paletteOptions,
                         optionLabel = { it.label },
                         onOptionSelected = { onMaterialPaletteChanged(it.value) },
-                        icon = Icons.Rounded.Style
+                        icon = ZToolIcons.Style
                     )
                 )
                 add(
@@ -250,7 +239,7 @@ fun themeSettingsSections(
                         title = stringResource(R.string.page_settings_use_alternative_icon_title),
                         checked = settings.useAlternativeIcon,
                         onCheckedChange = onUseAlternativeIconChanged,
-                        icon = Icons.Rounded.Image
+                        icon = ZToolIcons.Image
                     )
                 )
                 add(
@@ -260,7 +249,7 @@ fun themeSettingsSections(
                         summary = stringResource(R.string.page_settings_predictive_back_gesture_summary),
                         checked = settings.predictiveBackGestureEnabled,
                         onCheckedChange = onPredictiveBackGestureChanged,
-                        icon = Icons.Rounded.Swipe
+                        icon = ZToolIcons.Swipe
                     )
                 )
                 if (LocalZToolThemeSpec.current.style == FrontendStyle.Material3Expressive) {
@@ -271,7 +260,7 @@ fun themeSettingsSections(
                             summary = stringResource(R.string.page_settings_amoled_black_summary),
                             checked = settings.amoledBlackEnabled,
                             onCheckedChange = onAmoledBlackChanged,
-                            icon = Icons.Rounded.Contrast
+                            icon = ZToolIcons.Contrast
                         )
                     )
                 }
@@ -283,7 +272,7 @@ fun themeSettingsSections(
                         checked = settings.dynamicColorEnabled,
                         onCheckedChange = onDynamicColorChanged,
                         enabled = !settings.manualColorEnabled,
-                        icon = Icons.Rounded.Colorize
+                        icon = ZToolIcons.Colorize
                     )
                 )
                 add(
@@ -293,7 +282,7 @@ fun themeSettingsSections(
                         summary = stringResource(R.string.page_settings_manual_color_summary),
                         checked = settings.manualColorEnabled,
                         onCheckedChange = onManualColorChanged,
-                        icon = Icons.Rounded.FormatColorFill
+                        icon = ZToolIcons.FormatColorFill
                     )
                 )
                 if (settings.manualColorEnabled) {
@@ -307,7 +296,7 @@ fun themeSettingsSections(
                                     isError = manualSeedColorError,
                                     onColorTextChanged = onManualSeedColorTextChanged,
                                     onEditingFinished = onManualSeedColorEditingFinished,
-                                    icon = Icons.Rounded.FormatColorFill
+                                    icon = ZToolIcons.FormatColorFill
                                 )
                             }
                         )
@@ -322,7 +311,7 @@ fun themeSettingsSections(
                             summary = stringResource(R.string.page_settings_enable_floating_bottom_bar_summary),
                             checked = settings.enableFloatingBottomBar,
                             onCheckedChange = onEnableFloatingBottomBarChanged,
-                            icon = Icons.Rounded.CallToAction
+                            icon = ZToolIcons.CallToAction
                         )
                     )
                     if (settings.enableFloatingBottomBar) {
@@ -333,7 +322,7 @@ fun themeSettingsSections(
                                 summary = stringResource(R.string.page_settings_enable_floating_bottom_bar_blur_summary),
                                 checked = settings.enableFloatingBottomBarBlur,
                                 onCheckedChange = onEnableFloatingBottomBarBlurChanged,
-                                icon = Icons.Rounded.BlurOn
+                                icon = ZToolIcons.BlurOn
                             )
                         )
                     }

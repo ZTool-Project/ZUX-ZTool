@@ -9,9 +9,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.Refresh
+import com.qimian233.ztool.ui.icons.ZToolIcons
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -141,7 +139,7 @@ internal fun PackageInstallerSettingsScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                            imageVector = ZToolIcons.ArrowBack,
                             contentDescription = null
                         )
                     }
@@ -151,7 +149,7 @@ internal fun PackageInstallerSettingsScreen(
         floatingActionButton = {
             ZToolExtendedFloatingActionButton(
                 onClick = onRestart,
-                icon = {Icon(imageVector = Icons.Rounded.Refresh, contentDescription = null)},
+                icon = {Icon(imageVector = ZToolIcons.Refresh, contentDescription = null)},
                 text = {Text(stringResource(R.string.common_restart_yes))})
         }
     ) { innerPadding ->

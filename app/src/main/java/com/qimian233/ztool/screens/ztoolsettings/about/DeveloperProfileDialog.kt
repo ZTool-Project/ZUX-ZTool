@@ -12,8 +12,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowForward
+import com.qimian233.ztool.ui.icons.ZToolIcons
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -124,7 +123,7 @@ private fun DeveloperSocialLinkRow(
             modifier = Modifier.weight(1f)
         )
         Icon(
-            imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
+            imageVector = ZToolIcons.ArrowForward,
             contentDescription = null,
             tint = LocalZToolColorScheme.current.onSurfaceVariant
         )

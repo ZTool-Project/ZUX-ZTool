@@ -16,17 +16,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.automirrored.rounded.ArrowForward
-import androidx.compose.material.icons.automirrored.rounded.Article
-import androidx.compose.material.icons.rounded.BugReport
-import androidx.compose.material.icons.rounded.Code
-import androidx.compose.material.icons.rounded.Favorite
-import androidx.compose.material.icons.rounded.Gavel
-import androidx.compose.material.icons.rounded.History
-import androidx.compose.material.icons.rounded.Science
-import androidx.compose.material.icons.rounded.SystemUpdate
+import com.qimian233.ztool.ui.icons.ZToolIcons
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -210,7 +200,7 @@ private fun SettingsAboutScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                            imageVector = ZToolIcons.ArrowBack,
                             contentDescription = null
                         )
                     }
@@ -255,7 +245,7 @@ private fun SettingsAboutScreen(
                         onClick = onOpenGithub,
                         highlightKey = "about_view_source",
                         modifier = getModifier(0),
-                        icon = Icons.Rounded.Code
+                        icon = ZToolIcons.Code
                     )
                     AboutActionRow(
                         title = stringResource(R.string.page_settings_about_view_issues_title),
@@ -263,7 +253,7 @@ private fun SettingsAboutScreen(
                         onClick = onOpenGithubIssues,
                         highlightKey = "about_view_issues",
                         modifier = getModifier(1),
-                        icon = Icons.Rounded.BugReport
+                        icon = ZToolIcons.BugReport
                     )
                     AboutActionRow(
                         title = stringResource(R.string.page_settings_about_license_title),
@@ -275,7 +265,7 @@ private fun SettingsAboutScreen(
                             )
                         },
                         modifier = getModifier(2),
-                        icon = Icons.Rounded.Gavel
+                        icon = ZToolIcons.Gavel
                     )
                     AboutActionRow(
                         title = stringResource(R.string.page_settings_about_acknowledgements_title),
@@ -283,7 +273,7 @@ private fun SettingsAboutScreen(
                         onClick = onOpenAcknowledgements,
                         highlightKey = "about_acknowledgements",
                         modifier = getModifier(3),
-                        icon = Icons.Rounded.Favorite
+                        icon = ZToolIcons.Favorite
                     )
                     AboutActionRow(
                         title = stringResource(R.string.page_settings_about_user_agreement_title),
@@ -291,7 +281,7 @@ private fun SettingsAboutScreen(
                         onClick = { showAgreementDialog = true },
                         highlightKey = "about_user_agreement",
                         modifier = getModifier(4),
-                        icon = Icons.AutoMirrored.Rounded.Article
+                        icon = ZToolIcons.Article
                     )
                 }
                 Spacer(modifier = Modifier.height(16.dp))
@@ -303,7 +293,7 @@ private fun SettingsAboutScreen(
                         onCheckedChange = onTogglePrereleaseUpdate,
                         highlightKey = "about_prerelease_update",
                         modifier = getModifier(0),
-                        icon = Icons.Rounded.Science
+                        icon = ZToolIcons.Science
                     )
                     AboutActionRow(
                         title = stringResource(R.string.page_settings_about_app_update_title),
@@ -311,7 +301,7 @@ private fun SettingsAboutScreen(
                         onClick = updateRowClick,
                         highlightKey = "about_check_update",
                         modifier = getModifier(1),
-                        icon = Icons.Rounded.SystemUpdate,
+                        icon = ZToolIcons.SystemUpdate,
                         showTrailingArrow = true
                     )
                     AboutActionRow(
@@ -320,7 +310,7 @@ private fun SettingsAboutScreen(
                         onClick = onOpenChangelog,
                         highlightKey = "about_changelog",
                         modifier = getModifier(2),
-                        icon = Icons.Rounded.History
+                        icon = ZToolIcons.History
                     )
                 }
                 Spacer(modifier = Modifier.height(32.dp))
@@ -504,7 +494,7 @@ internal fun AboutActionRow(
                     }
                     if (showTrailingArrow) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
+                            imageVector = ZToolIcons.ArrowForward,
                             contentDescription = null,
                             tint = LocalZToolColorScheme.current.onSurfaceVariant
                         )

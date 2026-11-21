@@ -228,6 +228,7 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.navigationevent.compose)
     implementation(libs.miuix.android)
+    implementation(libs.miuix.icons)
     implementation(libs.miuix.blur)
     implementation(libs.material.color.utilities)
     implementation(libs.androidx.lifecycle.runtime)

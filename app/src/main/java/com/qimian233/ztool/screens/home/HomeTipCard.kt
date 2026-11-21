@@ -7,9 +7,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Lightbulb
-import androidx.compose.material.icons.rounded.Warning
+import com.qimian233.ztool.ui.icons.ZToolIcons
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -55,7 +53,7 @@ internal fun TipCard(tip: HomeTip) {
         Column(modifier = Modifier.padding(20.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
-                    imageVector = if (tip.hotReloadWarning) Icons.Rounded.Warning else Icons.Rounded.Lightbulb,
+                    imageVector = if (tip.hotReloadWarning) ZToolIcons.Warning else ZToolIcons.Lightbulb,
                     contentDescription = null,
                     tint = contentColor
                 )

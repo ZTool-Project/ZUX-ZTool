@@ -19,14 +19,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.BatterySaver
-import androidx.compose.material.icons.rounded.Brightness4
-import androidx.compose.material.icons.rounded.Build
-import androidx.compose.material.icons.rounded.BuildCircle
-import androidx.compose.material.icons.rounded.DarkMode
-import androidx.compose.material.icons.rounded.DeleteForever
+import com.qimian233.ztool.ui.icons.ZToolIcons
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -202,7 +195,7 @@ private fun SettingsMiscScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                            imageVector = ZToolIcons.ArrowBack,
                             contentDescription = null
                         )
                     }
@@ -267,7 +260,7 @@ private fun miscSettingsSections(
                     },
                     onClick = onDeleteOtaPackageClick,
                     enabled = !state.deleteOtaPackageInProgress,
-                    icon = if (state.deleteOtaPackageInProgress) null else Icons.Rounded.DeleteForever,
+                    icon = if (state.deleteOtaPackageInProgress) null else ZToolIcons.DeleteForever,
                     trailingContent = if (state.deleteOtaPackageInProgress) {
                         {
                             ZToolCircularProgressIndicator(modifier = Modifier.size(28.dp))
@@ -280,7 +273,7 @@ private fun miscSettingsSections(
                     summary = stringResource(R.string.system_framework_fix_night_mode_summary),
                     onClick = onFixNightModeOverride,
                     enabled = !state.fixNightModeOverrideInProgress,
-                    icon = if (state.fixNightModeOverrideInProgress) null else Icons.Rounded.Brightness4,
+                    icon = if (state.fixNightModeOverrideInProgress) null else ZToolIcons.Brightness4,
                     trailingContent = if (state.fixNightModeOverrideInProgress) {
                         {
                             ZToolCircularProgressIndicator(modifier = Modifier.size(28.dp))
@@ -292,7 +285,7 @@ private fun miscSettingsSections(
                     title = stringResource(R.string.engineering_codes_title),
                     summary = stringResource(R.string.engineering_codes_summary),
                     onClick = onOpenEngineeringCodes,
-                    icon = Icons.Rounded.BuildCircle
+                    icon = ZToolIcons.BuildCircle
                 ),
                 SettingItem.Action(
                     key = "misc_open_reduce_bright_colors",
@@ -304,7 +297,7 @@ private fun miscSettingsSections(
                             "com.android.settings.Settings\$ReduceBrightColorsSettingsActivity"
                         )
                     },
-                    icon = Icons.Rounded.DarkMode
+                    icon = ZToolIcons.DarkMode
                 ),
                 SettingItem.Action(
                     key = "misc_open_app_battery_usage",
@@ -316,7 +309,7 @@ private fun miscSettingsSections(
                             "com.android.settings.Settings\$AppBatteryUsageActivity"
                         )
                     },
-                    icon = Icons.Rounded.BatterySaver
+                    icon = ZToolIcons.BatterySaver
                 )
             )
         ),
@@ -347,7 +340,7 @@ private fun miscSettingsSections(
                     summary = "${state.apiVersion}",
                     onClick = {},
                     enabled = false,
-                    icon = Icons.Rounded.Build
+                    icon = ZToolIcons.Build
                 )
             )
         )

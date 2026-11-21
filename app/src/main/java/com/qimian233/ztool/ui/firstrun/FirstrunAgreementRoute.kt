@@ -36,14 +36,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.OpenInNew
-import androidx.compose.material.icons.rounded.Apps
-import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.Extension
-import androidx.compose.material.icons.rounded.Numbers
-import androidx.compose.material.icons.rounded.QueryStats
-import androidx.compose.material.icons.rounded.RestartAlt
+import com.qimian233.ztool.ui.icons.ZToolIcons
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import com.qimian233.ztool.ui.theme.LocalZToolColorScheme
@@ -682,21 +675,21 @@ private fun PermissionPage(
                         title = stringResource(R.string.page_firstrun_root_title),
                         summary = stringResource(R.string.page_firstrun_root_summary),
                         checked = state.hasRoot,
-                        icon = Icons.Rounded.Numbers,
+                        icon = ZToolIcons.Numbers,
                         onClick = onRequestRoot
                     ),
                     ActionEntry(
                         title = stringResource(R.string.page_firstrun_module_title),
                         summary = stringResource(R.string.page_firstrun_module_summary),
                         checked = state.isModuleActive,
-                        icon = Icons.Rounded.Extension,
+                        icon = ZToolIcons.Extension,
                         onClick = onCheckModule
                     ),
                     ActionEntry(
                         title = stringResource(R.string.page_firstrun_packages_title),
                         summary = stringResource(R.string.page_firstrun_packages_summary),
                         checked = state.canListApps,
-                        icon = Icons.Rounded.Apps,
+                        icon = ZToolIcons.Apps,
                         onClick = onRequestPackages
                     )
                 )
@@ -711,21 +704,21 @@ private fun PermissionPage(
                         title = stringResource(R.string.page_firstrun_usage_title),
                         summary = stringResource(R.string.page_firstrun_usage_summary),
                         checked = state.hasUsageStats,
-                        icon = Icons.Rounded.QueryStats,
+                        icon = ZToolIcons.QueryStats,
                         onClick = onRequestUsage
                     ),
                     ActionEntry(
                         title = stringResource(R.string.page_firstrun_overlay_title),
                         summary = stringResource(R.string.page_firstrun_overlay_summary),
                         checked = state.hasOverlay,
-                        icon = Icons.AutoMirrored.Rounded.OpenInNew,
+                        icon = ZToolIcons.OpenInNew,
                         onClick = onRequestOverlay
                     ),
                     ActionEntry(
                         title = stringResource(R.string.page_firstrun_autostart_title),
                         summary = stringResource(R.string.page_firstrun_autostart_summary),
                         checked = state.hasAutoStart,
-                        icon = Icons.Rounded.RestartAlt,
+                        icon = ZToolIcons.RestartAlt,
                         onClick = onRequestAutoStart
                     )
                 )
@@ -885,7 +878,7 @@ private fun FirstrunActionCard(
                     modifier = Modifier.weight(1f)
                 )
                 if (checked) {
-                    Icon(imageVector = Icons.Rounded.Check, contentDescription = null, tint = LocalZToolColorScheme.current.primary)
+                    Icon(imageVector = ZToolIcons.Check, contentDescription = null, tint = LocalZToolColorScheme.current.primary)
                 }
             }
             Spacer(modifier = Modifier.height(8.dp))

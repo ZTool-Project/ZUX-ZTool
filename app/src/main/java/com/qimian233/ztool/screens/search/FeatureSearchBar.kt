@@ -28,9 +28,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowForward
-import androidx.compose.material.icons.rounded.Search
+import com.qimian233.ztool.ui.icons.ZToolIcons
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -195,7 +193,7 @@ private fun Material3FeatureSearchBar(
                 placeholder = { Text(stringResource(R.string.search_hint)) },
                 leadingIcon = {
                     Icon(
-                        imageVector = Icons.Rounded.Search,
+                        imageVector = ZToolIcons.Search,
                         contentDescription = null
                     )
                 },
@@ -398,7 +396,7 @@ private fun SearchResultRow(
         }
         Spacer(modifier = Modifier.width(12.dp))
         Icon(
-            imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
+            imageVector = ZToolIcons.ArrowForward,
             contentDescription = null,
             tint = LocalZToolColorScheme.current.onSurfaceVariant
         )

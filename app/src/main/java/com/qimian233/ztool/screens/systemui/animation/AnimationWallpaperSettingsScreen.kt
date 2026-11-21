@@ -11,10 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.automirrored.rounded.ArrowForward
-import androidx.compose.material.icons.rounded.Refresh
+import com.qimian233.ztool.ui.icons.ZToolIcons
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -228,7 +225,7 @@ private fun AnimationWallpaperSettingsScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                            imageVector = ZToolIcons.ArrowBack,
                             contentDescription = null
                         )
                     }
@@ -238,7 +235,7 @@ private fun AnimationWallpaperSettingsScreen(
         floatingActionButton = {
             ZToolExtendedFloatingActionButton(
                 onClick = onRestartScope,
-                icon = { Icon(Icons.Rounded.Refresh, contentDescription = null) },
+                icon = { Icon(ZToolIcons.Refresh, contentDescription = null) },
                 text = { Text(stringResource(R.string.common_restart_yes)) }
             )
         }
@@ -326,7 +323,7 @@ private fun animationWallpaperSettingsSections(
                     onClick = onSelectPortraitVideo,
                     trailingContent = {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
+                            imageVector = ZToolIcons.ArrowForward,
                             contentDescription = null,
                             tint = LocalZToolColorScheme.current.onSurfaceVariant
                         )
@@ -340,7 +337,7 @@ private fun animationWallpaperSettingsSections(
                     onClick = onSelectLandVideo,
                     trailingContent = {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
+                            imageVector = ZToolIcons.ArrowForward,
                             contentDescription = null,
                             tint = LocalZToolColorScheme.current.onSurfaceVariant
                         )
@@ -412,7 +409,7 @@ private fun animationWallpaperSettingsSections(
                     onClick = onSelectWpPortraitVideo,
                     trailingContent = {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
+                            imageVector = ZToolIcons.ArrowForward,
                             contentDescription = null,
                             tint = LocalZToolColorScheme.current.onSurfaceVariant
                         )
@@ -426,7 +423,7 @@ private fun animationWallpaperSettingsSections(
                     onClick = onSelectWpLandVideo,
                     trailingContent = {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
+                            imageVector = ZToolIcons.ArrowForward,
                             contentDescription = null,
                             tint = LocalZToolColorScheme.current.onSurfaceVariant
                         )

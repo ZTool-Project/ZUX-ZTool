@@ -8,10 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Science
-import androidx.compose.material.icons.rounded.Speed
-import androidx.compose.material.icons.rounded.Update
+import com.qimian233.ztool.ui.icons.ZToolIcons
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -73,14 +70,14 @@ internal fun FirstrunUpdatePage(
                         title = stringResource(R.string.page_firstrun_update_gh_proxy_title),
                         checked = isGhProxyUpdateEnabled,
                         onCheckedChange = onGhProxyUpdateChanged,
-                        icon = Icons.Rounded.Speed
+                        icon = ZToolIcons.Speed
                     )
                     ZToolSettingsDivider()
                     ZToolSwitchRow(
                         title = stringResource(R.string.page_firstrun_update_auto_check_title),
                         checked = isAutoCheckUpdateEnabled,
                         onCheckedChange = onAutoCheckUpdateChanged,
-                        icon = Icons.Rounded.Update
+                        icon = ZToolIcons.Update
                     )
                     ZToolSettingsDivider()
                     ZToolSwitchRow(
@@ -88,7 +85,7 @@ internal fun FirstrunUpdatePage(
                         summary = stringResource(R.string.page_firstrun_update_prerelease_summary),
                         checked = isPrereleaseUpdateEnabled,
                         onCheckedChange = onPrereleaseUpdateChanged,
-                        icon = Icons.Rounded.Science
+                        icon = ZToolIcons.Science
                     )
                 }
             }

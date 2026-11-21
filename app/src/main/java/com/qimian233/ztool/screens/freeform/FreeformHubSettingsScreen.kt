@@ -22,11 +22,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.automirrored.rounded.ArrowForward
-import androidx.compose.material.icons.automirrored.rounded.OpenInNew
-import androidx.compose.material.icons.rounded.Refresh
+import com.qimian233.ztool.ui.icons.ZToolIcons
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -583,7 +579,7 @@ private fun FreeformHubSettingsScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                            imageVector = ZToolIcons.ArrowBack,
                             contentDescription = null
                         )
                     }
@@ -593,7 +589,7 @@ private fun FreeformHubSettingsScreen(
         floatingActionButton = {
             ZToolExtendedFloatingActionButton(
                 onClick = onRestartSystem,
-                icon = { Icon(Icons.Rounded.Refresh, contentDescription = null) },
+                icon = { Icon(ZToolIcons.Refresh, contentDescription = null) },
                 text = { Text(stringResource(R.string.freeform_hub_restart_button)) }
             )
         }
@@ -699,7 +695,7 @@ private fun freeformHubSections(
                         onClick = onStartFloatingWindow,
                         icon = {
                             Icon(
-                                imageVector = Icons.AutoMirrored.Rounded.OpenInNew,
+                                imageVector = ZToolIcons.OpenInNew,
                                 contentDescription = null,
                                 tint = LocalZToolColorScheme.current.onSurfaceVariant
                             )
@@ -1058,7 +1054,7 @@ private fun freeformHubActionItem(
                 icon()
             } else {
                 Icon(
-                    imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
+                    imageVector = ZToolIcons.ArrowForward,
                     contentDescription = null,
                     tint = LocalZToolColorScheme.current.onSurfaceVariant
                 )
@@ -1087,7 +1083,7 @@ private fun KeepAlivePackagesRow(
         )
         Spacer(modifier = Modifier.width(16.dp))
         Icon(
-            imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
+            imageVector = ZToolIcons.ArrowForward,
             contentDescription = null,
             tint = LocalZToolColorScheme.current.onSurfaceVariant
         )

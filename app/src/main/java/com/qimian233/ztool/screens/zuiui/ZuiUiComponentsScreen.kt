@@ -11,10 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.Refresh
-import androidx.compose.material.icons.rounded.Search
+import com.qimian233.ztool.ui.icons.ZToolIcons
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -235,7 +232,7 @@ private fun ZuiUiComponentsScreen(
                 title = title,
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = null)
+                        Icon(ZToolIcons.ArrowBack, contentDescription = null)
                     }
                 }
             )
@@ -243,7 +240,7 @@ private fun ZuiUiComponentsScreen(
         floatingActionButton = {
             ZToolExtendedFloatingActionButton(
                 onClick = onApply,
-                icon = { Icon(Icons.Rounded.Refresh, contentDescription = null) },
+                icon = { Icon(ZToolIcons.Refresh, contentDescription = null) },
                 text = { Text(stringResource(R.string.ui_components_reload_button)) }
             )
         }
@@ -588,7 +585,7 @@ private fun zuiUiComponentsSections(
                         summary = scanSummary(scanState),
                         onClick = onScan,
                         enabled = !scanState.running,
-                        icon = if (scanState.running) null else Icons.Rounded.Search,
+                        icon = if (scanState.running) null else ZToolIcons.Search,
                         trailingContent = if (scanState.running) {
                             {
                                 ZToolCircularProgressIndicator(modifier = Modifier.size(28.dp))

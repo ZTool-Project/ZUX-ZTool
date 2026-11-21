@@ -11,15 +11,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.DataObject
-import androidx.compose.material.icons.rounded.Refresh
-import androidx.compose.material.icons.rounded.Restore
-import androidx.compose.material.icons.rounded.RocketLaunch
-import androidx.compose.material.icons.rounded.Search
-import androidx.compose.material.icons.rounded.SettingsBackupRestore
-import androidx.compose.material.icons.rounded.Widgets
+import com.qimian233.ztool.ui.icons.ZToolIcons
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -218,7 +210,7 @@ private fun SettingsAdvancedScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                            imageVector = ZToolIcons.ArrowBack,
                             contentDescription = null
                         )
                     }
@@ -290,7 +282,7 @@ private fun advancedSettingsSections(
                     title = stringResource(R.string.preference_editor_title),
                     summary = stringResource(R.string.preference_editor_summary),
                     onClick = onOpenPreferenceEditor,
-                    icon = Icons.Rounded.DataObject
+                    icon = ZToolIcons.DataObject
                 ),
                 SettingItem.Action(
                     key = "advanced_import_xsharedprefs",
@@ -298,7 +290,7 @@ private fun advancedSettingsSections(
                     summary = buildImportSummary(inProgress = state.importInProgress),
                     onClick = onImportClick,
                     enabled = !state.importInProgress,
-                    icon = if (state.importInProgress) null else Icons.Rounded.SettingsBackupRestore,
+                    icon = if (state.importInProgress) null else ZToolIcons.SettingsBackupRestore,
                     trailingContent = if (state.importInProgress) {
                         {
                             ZToolCircularProgressIndicator(modifier = Modifier.size(28.dp))
@@ -311,7 +303,7 @@ private fun advancedSettingsSections(
                     summary = dexIndexSummary,
                     onClick = onRefreshDexIndex,
                     enabled = !dexIndexInProgress,
-                    icon = if (dexIndexInProgress) null else Icons.Rounded.Search,
+                    icon = if (dexIndexInProgress) null else ZToolIcons.Search,
                     trailingContent = if (dexIndexInProgress) {
                         {
                             ZToolCircularProgressIndicator(modifier = Modifier.size(28.dp))
@@ -327,7 +319,7 @@ private fun advancedSettingsSections(
                     ),
                     onClick = onResetClick,
                     enabled = !state.resetInProgress,
-                    icon = if (state.resetInProgress) null else Icons.Rounded.Restore,
+                    icon = if (state.resetInProgress) null else ZToolIcons.Restore,
                     trailingContent = if (state.resetInProgress) {
                         {
                             ZToolCircularProgressIndicator(modifier = Modifier.size(28.dp))
@@ -346,7 +338,7 @@ private fun advancedSettingsSections(
                     ),
                     onClick = onHotReloadClick,
                     enabled = hotReloadSupported && hasTargets && !state.hotReloadInProgress,
-                    icon = if (state.hotReloadInProgress) null else Icons.Rounded.Refresh,
+                    icon = if (state.hotReloadInProgress) null else ZToolIcons.Refresh,
                     trailingContent = if (state.hotReloadInProgress) {
                         {
                             ZToolCircularProgressIndicator(modifier = Modifier.size(28.dp))
@@ -363,7 +355,7 @@ private fun advancedSettingsSections(
                             anchor = firstrunRowAnchor
                         )
                     },
-                    icon = Icons.Rounded.RocketLaunch,
+                    icon = ZToolIcons.RocketLaunch,
                     trailingContent = {
                         Box(
                             modifier = Modifier
@@ -390,7 +382,7 @@ private fun devOnlyAdvancedRows(onOpenHomeCardPreview: () -> Unit): List<Setting
         title = stringResource(R.string.page_settings_advanced_home_card_preview_title),
         summary = stringResource(R.string.page_settings_advanced_home_card_preview_summary),
         onClick = onOpenHomeCardPreview,
-        icon = Icons.Rounded.Widgets
+        icon = ZToolIcons.Widgets
     )
 )
 

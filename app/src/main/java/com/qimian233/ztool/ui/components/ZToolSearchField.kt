@@ -3,9 +3,7 @@ package com.qimian233.ztool.ui.components
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Search
+import com.qimian233.ztool.ui.icons.ZToolIcons
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -64,7 +62,7 @@ fun ZToolSearchField(
         },
         modifier = modifier.fillMaxWidth(),
         placeholder = { Text(placeholder) },
-        leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
+        leadingIcon = { Icon(ZToolIcons.Search, contentDescription = null) },
         trailingIcon = {
             if (state.text.isNotEmpty()) {
                 IconButton(
@@ -72,7 +70,7 @@ fun ZToolSearchField(
                     shapes = IconButtonDefaults.shapes()
                 ) {
                     Icon(
-                        Icons.Rounded.Close,
+                        ZToolIcons.Close,
                         contentDescription = stringResource(R.string.common_search_clear_button)
                     )
                 }

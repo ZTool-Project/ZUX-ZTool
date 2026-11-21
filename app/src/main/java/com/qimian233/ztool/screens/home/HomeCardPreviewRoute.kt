@@ -12,9 +12,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.Tune
+import com.qimian233.ztool.ui.icons.ZToolIcons
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -80,7 +78,7 @@ fun HomeCardPreviewRoute(onBack: () -> Unit) {
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                            imageVector = ZToolIcons.ArrowBack,
                             contentDescription = null
                         )
                     }
@@ -88,7 +86,7 @@ fun HomeCardPreviewRoute(onBack: () -> Unit) {
                 actions = {
                     IconButton(onClick = { consoleVisible = true }) {
                         Icon(
-                            imageVector = Icons.Rounded.Tune,
+                            imageVector = ZToolIcons.Tune,
                             contentDescription = stringResource(R.string.home_card_preview_console_title)
                         )
                     }

@@ -5,14 +5,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.Info
-import androidx.compose.material.icons.rounded.BugReport
-import androidx.compose.material.icons.rounded.SettingsEthernet
-import androidx.compose.material.icons.rounded.Smartphone
-import androidx.compose.material.icons.rounded.Tune
-import androidx.compose.material.icons.rounded.Verified
+import com.qimian233.ztool.ui.icons.ZToolIcons
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
@@ -61,7 +54,7 @@ fun EngineeringCodesRoute(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                            imageVector = ZToolIcons.ArrowBack,
                             contentDescription = null
                         )
                     }
@@ -148,12 +141,13 @@ private fun engineeringCodeTitle(key: String): String = when (key) {
     else -> key
 }
 
+@Composable
 private fun engineeringCodeIcon(key: String) = when (key) {
-    "version_info" -> Icons.Rounded.Info
-    "sn" -> Icons.Rounded.Smartphone
-    "framework_version" -> Icons.Rounded.Verified
-    "imei" -> Icons.Rounded.SettingsEthernet
-    "usb_debug" -> Icons.Rounded.Tune
-    "offline_log" -> Icons.Rounded.BugReport
-    else -> Icons.Rounded.Info
+    "version_info" -> ZToolIcons.Info
+    "sn" -> ZToolIcons.Smartphone
+    "framework_version" -> ZToolIcons.Verified
+    "imei" -> ZToolIcons.SettingsEthernet
+    "usb_debug" -> ZToolIcons.Tune
+    "offline_log" -> ZToolIcons.BugReport
+    else -> ZToolIcons.Info
 }

@@ -17,12 +17,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.automirrored.rounded.ArrowForward
-import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.material.icons.rounded.Info
-import androidx.compose.material.icons.rounded.Refresh
+import com.qimian233.ztool.ui.icons.ZToolIcons
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -252,7 +247,7 @@ private fun FrameworkSettingsScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                            imageVector = ZToolIcons.ArrowBack,
                             contentDescription = null
                         )
                     }
@@ -262,7 +257,7 @@ private fun FrameworkSettingsScreen(
         floatingActionButton = {
             ZToolExtendedFloatingActionButton(
                 onClick = onRestart,
-                icon = {Icon(imageVector = Icons.Rounded.Refresh, contentDescription = null)},
+                icon = {Icon(imageVector = ZToolIcons.Refresh, contentDescription = null)},
                 text = {Text(stringResource(R.string.common_restart_yes))})
         }
     ) { innerPadding ->
@@ -763,7 +758,7 @@ private fun AiInputSettingsContent(
             modifier = Modifier.padding(start = 12.dp)
         ) {
             Icon(
-                imageVector = Icons.Rounded.Info,
+                imageVector = ZToolIcons.Info,
                 contentDescription = null,
                 tint = LocalZToolColorScheme.current.onSurfaceVariant
             )
@@ -900,7 +895,7 @@ private fun PenHapticRedirectRuleRow(
             modifier = Modifier.weight(1f)
         )
         Icon(
-            imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
+            imageVector = ZToolIcons.ArrowForward,
             contentDescription = null,
             tint = LocalZToolColorScheme.current.onSurfaceVariant,
             modifier = Modifier.size(18.dp)
@@ -915,7 +910,7 @@ private fun PenHapticRedirectRuleRow(
         )
         IconButton(onClick = { onRemoveRule(rule.sourceId) }) {
             Icon(
-                imageVector = Icons.Rounded.Delete,
+                imageVector = ZToolIcons.Delete,
                 contentDescription = stringResource(R.string.system_framework_pen_haptic_remove_rule_button),
                 tint = LocalZToolColorScheme.current.onSurfaceVariant
             )
@@ -946,7 +941,7 @@ private fun ClipboardToastPackagesRow(
         )
         Spacer(modifier = Modifier.width(16.dp))
         Icon(
-            imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
+            imageVector = ZToolIcons.ArrowForward,
             contentDescription = null,
             tint = LocalZToolColorScheme.current.onSurfaceVariant
         )

@@ -173,6 +173,7 @@ General UI rules:
 - Keep business screens style-agnostic; route Material/Miuix differences through theme and shared component adapters.
 - Use `ZToolTheme` and `MaterialTheme.colorScheme` for normal app colors.
 - `ZToolTheme` bridges `ZToolDefaultFontFamily` and `MaterialTheme.typography` <-> `MiuixTheme.textStyles` for both styles; business screens should continue using `MaterialTheme.typography.*` / `material3.Text`, and avoid hardcoding `FontFamily.SansSerif` or mixing `MiuixText` outside Miuix-only glue components.
+- All UI icons must go through `com.qimian233.ztool.ui.icons.ZToolIcons`. Screens, firstrun pages, and shared UI components must not import or reference `androidx.compose.material.icons.*` or `top.yukonga.miuix.kmp.icon.*` directly; register new icons in `ZToolIcons` instead (with a Miuix pairing when an idiomatic HyperOS glyph exists). `ZToolIconsContractTest` enforces this at test time.
 - Keep frontend style, theme mode, dynamic color, manual seed color, and AMOLED behavior in the theme settings layer, not in feature pages.
 - Do not reintroduce XML navigation, View-based screen scaffolding, old adapters, or Fragment navigation for new work.
 - Do not put shell/root operations, raw threads, preference I/O, or imperative dialogs directly in Composables. Use Repository/ViewModel/state.
@@ -284,7 +285,9 @@ Follow the steps below:
    resource text in the same review.
 3. If a setting row or feature entry was added, moved, or renamed, run
    `.\gradlew.bat testDebugUnitTest --tests "com.qimian233.ztool.SearchIndexConsistencyTest"`.
-4. Commit your changes.
+4. If UI icons were added or screen icon imports changed, run
+   `.\gradlew.bat testDebugUnitTest --tests "com.qimian233.ztool.ui.icons.ZToolIconsContractTest"`.
+5. Commit your changes.
 
 Not automated yet (no CI gate — decided later): the KDoc line cap, the `Text("...")`
 hardcoded-literal check, and the hook-fallback sync check are currently review-time

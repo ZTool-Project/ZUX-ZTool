@@ -14,10 +14,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.automirrored.rounded.ArrowForward
-import androidx.compose.material.icons.rounded.Refresh
+import com.qimian233.ztool.ui.icons.ZToolIcons
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -210,7 +207,7 @@ private fun LockScreenSettingsScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                            imageVector = ZToolIcons.ArrowBack,
                             contentDescription = null
                         )
                     }
@@ -220,7 +217,7 @@ private fun LockScreenSettingsScreen(
         floatingActionButton = {
             ZToolExtendedFloatingActionButton(
                 onClick = onRestartScope,
-                icon = { Icon(Icons.Rounded.Refresh, contentDescription = null) },
+                icon = { Icon(ZToolIcons.Refresh, contentDescription = null) },
                 text = { Text(stringResource(R.string.common_restart_yes)) }
             )
         }
@@ -386,7 +383,7 @@ private fun lockScreenSettingsSections(
                     onClick = onOpenLenovoAodSettings,
                     trailingContent = {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
+                            imageVector = ZToolIcons.ArrowForward,
                             contentDescription = null,
                             tint = LocalZToolColorScheme.current.onSurfaceVariant
                         )

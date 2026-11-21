@@ -14,10 +14,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.automirrored.rounded.ArrowForward
-import androidx.compose.material.icons.rounded.Refresh
+import com.qimian233.ztool.ui.icons.ZToolIcons
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -173,7 +170,7 @@ private fun GameToolSettingsScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                            imageVector = ZToolIcons.ArrowBack,
                             contentDescription = null
                         )
                     }
@@ -183,7 +180,7 @@ private fun GameToolSettingsScreen(
         floatingActionButton = {
             ZToolExtendedFloatingActionButton(
                 onClick = onRestart,
-                icon = {Icon(imageVector = Icons.Rounded.Refresh, contentDescription = null)},
+                icon = {Icon(imageVector = ZToolIcons.Refresh, contentDescription = null)},
                 text = {Text(stringResource(R.string.common_restart_yes))})
         }
     ) { innerPadding ->
@@ -374,7 +371,7 @@ private fun WhitelistRow(
         }
         Spacer(modifier = Modifier.width(16.dp))
         Icon(
-            imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
+            imageVector = ZToolIcons.ArrowForward,
             contentDescription = null,
             tint = LocalZToolColorScheme.current.onSurfaceVariant
         )

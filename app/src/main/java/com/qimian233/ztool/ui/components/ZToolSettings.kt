@@ -19,11 +19,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowForward
-import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenuPopup
 import androidx.compose.material3.DropdownMenuGroup
@@ -69,9 +64,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.takeOrElse
+import com.qimian233.ztool.ui.icons.ZToolIcons
 import com.qimian233.ztool.ui.theme.FrontendStyle
 import com.qimian233.ztool.ui.theme.LocalZToolThemeSpec
-import top.yukonga.miuix.kmp.icon.basic.ArrowUpDown
 import top.yukonga.miuix.kmp.basic.BasicComponent as MiuixBasicComponent
 import top.yukonga.miuix.kmp.basic.BasicComponentDefaults
 import top.yukonga.miuix.kmp.basic.DropdownImpl as MiuixDropdownImpl
@@ -79,7 +74,6 @@ import top.yukonga.miuix.kmp.basic.DropdownItem as MiuixDropdownItem
 import top.yukonga.miuix.kmp.basic.ListPopupColumn as MiuixListPopupColumn
 import top.yukonga.miuix.kmp.basic.PopupPositionProvider as MiuixPopupPositionProvider
 import top.yukonga.miuix.kmp.basic.Switch as MiuixSwitch
-import top.yukonga.miuix.kmp.icon.MiuixIcons.Basic as MiuixIcons
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.window.WindowListPopup as MiuixWindowListPopup
 
@@ -255,7 +249,7 @@ fun ZToolSwitchRow(
                     thumbContent = if (checked) {
                         {
                             Icon(
-                                imageVector = Icons.Filled.Check,
+                                imageVector = ZToolIcons.SwitchCheck,
                                 contentDescription = null,
                                 modifier = Modifier.size(SwitchDefaults.IconSize),
                             )
@@ -263,7 +257,7 @@ fun ZToolSwitchRow(
                     } else {
                         {
                             Icon(
-                                imageVector = Icons.Filled.Close,
+                                imageVector = ZToolIcons.SwitchClose,
                                 contentDescription = null,
                                 modifier = Modifier.size(SwitchDefaults.IconSize),
                             )
@@ -579,7 +573,7 @@ fun <T> ZToolPopupDialogField(
             modifier = Modifier.size(40.dp)
         ) {
             Icon(
-                imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
+                imageVector = ZToolIcons.ArrowForward,
                 contentDescription = null,
                 tint = if (enabled && options.isNotEmpty()) {
                     LocalZToolColorScheme.current.onSurfaceVariant
@@ -713,7 +707,7 @@ private fun <T> ZToolMiuixPopupMenuField(
                 modifier = Modifier.size(24.dp)
             ) {
                 Icon(
-                    imageVector = MiuixIcons.ArrowUpDown,
+                    imageVector = ZToolIcons.DropdownIndicator,
                     contentDescription = null,
                     tint = if (enabled && options.isNotEmpty()) {
                         LocalZToolColorScheme.current.onSurfaceVariant
@@ -821,7 +815,7 @@ private fun <T> ZToolMaterialPopupMenuField(
                 modifier = Modifier.size(24.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Filled.ArrowDropDown,
+                    imageVector = ZToolIcons.DropdownIndicator,
                     contentDescription = null,
                     tint = if (enabled && options.isNotEmpty()) {
                         LocalZToolColorScheme.current.onSurfaceVariant
@@ -864,7 +858,7 @@ private fun <T> ZToolMaterialPopupMenuField(
                             setExpanded(false)
                         },
                         selectedLeadingIcon = {
-                            Icon(Icons.Filled.Check, contentDescription = null)
+                            Icon(ZToolIcons.Check, contentDescription = null)
                         }
                     )
                 }

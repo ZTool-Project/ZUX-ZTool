@@ -16,11 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.automirrored.rounded.ArrowForward
-import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.Refresh
+import com.qimian233.ztool.ui.icons.ZToolIcons
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -372,7 +368,7 @@ private fun SettingsDetailScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                            imageVector = ZToolIcons.ArrowBack,
                             contentDescription = null
                         )
                     }
@@ -384,7 +380,7 @@ private fun SettingsDetailScreen(
                 onClick = onRestartScope,
                 icon = {
                     Icon(
-                        imageVector = Icons.Rounded.Refresh,
+                        imageVector = ZToolIcons.Refresh,
                         contentDescription = null
                     )
                 },
@@ -473,7 +469,7 @@ private fun settingsDetailSections(
                         onClick = onImportFont,
                         icon = {
                             Icon(
-                                imageVector = Icons.Rounded.Add,
+                                imageVector = ZToolIcons.Add,
                                 contentDescription = null,
                                 tint = LocalZToolColorScheme.current.onSurfaceVariant
                             )
@@ -663,7 +659,7 @@ private fun settingsDetailActionItem(
                 icon()
             } else {
                 Icon(
-                    imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
+                    imageVector = ZToolIcons.ArrowForward,
                     contentDescription = null,
                     tint = LocalZToolColorScheme.current.onSurfaceVariant
                 )

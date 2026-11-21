@@ -21,20 +21,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Android
-import androidx.compose.material.icons.rounded.Cancel
-import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.DeveloperBoard
-import androidx.compose.material.icons.rounded.Extension
-import androidx.compose.material.icons.rounded.Memory
-import androidx.compose.material.icons.rounded.PhoneAndroid
-import androidx.compose.material.icons.rounded.Public
-import androidx.compose.material.icons.rounded.Refresh
-import androidx.compose.material.icons.rounded.Security
-import androidx.compose.material.icons.rounded.SwapHoriz
-import androidx.compose.material.icons.rounded.SystemUpdate
-import androidx.compose.material.icons.rounded.Warning
+import com.qimian233.ztool.ui.icons.ZToolIcons
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -190,7 +177,7 @@ internal fun NonZuxOsCard(onDismiss: () -> Unit) {
         Column(modifier = Modifier.padding(20.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
-                    imageVector = Icons.Rounded.Warning,
+                    imageVector = ZToolIcons.Warning,
                     contentDescription = null,
                     tint = LocalZToolColorScheme.current.onErrorContainer
                 )
@@ -230,7 +217,7 @@ internal fun DevBuildCard() {
         Column(modifier = Modifier.padding(20.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
-                    imageVector = Icons.Rounded.Warning,
+                    imageVector = ZToolIcons.Warning,
                     contentDescription = null,
                     tint = LocalZToolColorScheme.current.onErrorContainer
                 )
@@ -277,7 +264,7 @@ internal fun UpdateCard(
         Column(modifier = Modifier.padding(20.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
-                    imageVector = Icons.Rounded.SystemUpdate,
+                    imageVector = ZToolIcons.SystemUpdate,
                     contentDescription = null,
                     tint = LocalZToolColorScheme.current.onTertiaryContainer
                 )
@@ -349,9 +336,9 @@ internal fun ModuleStatusCard(
     }
 
     val icon = when {
-        bothActive -> Icons.Rounded.CheckCircle
-        anyActive -> Icons.Rounded.Warning
-        else -> Icons.Rounded.Cancel
+        bothActive -> ZToolIcons.CheckCircle
+        anyActive -> ZToolIcons.Warning
+        else -> ZToolIcons.Cancel
     }
 
     ZToolCard(
@@ -399,7 +386,7 @@ internal fun ModuleStatusCard(
                         Spacer(modifier = Modifier.height(4.dp))
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
-                                imageVector = Icons.Rounded.Refresh,
+                                imageVector = ZToolIcons.Refresh,
                                 contentDescription = null,
                                 tint = palette.content.copy(alpha = 0.6f),
                                 modifier = Modifier.size(14.dp)
@@ -460,49 +447,49 @@ private fun SystemInfoCard(state: HomeUiState) {
             key = "home_device_code_name",
             title = stringResource(R.string.page_home_device_code_name),
             value = state.deviceModel,
-            icon = Icons.Rounded.PhoneAndroid
+            icon = ZToolIcons.PhoneAndroid
         ),
         SystemInfoRow(
             key = "home_android_version",
             title = stringResource(R.string.page_home_android_version),
             value = state.androidVersion,
-            icon = Icons.Rounded.Android
+            icon = ZToolIcons.Android
         ),
         SystemInfoRow(
             key = "home_build_version",
             title = stringResource(R.string.page_home_build_version),
             value = state.buildVersion,
-            icon = Icons.Rounded.Memory
+            icon = ZToolIcons.Memory
         ),
         SystemInfoRow(
             key = "home_kernel_version",
             title = stringResource(R.string.page_home_kernel_version),
             value = state.kernelVersion,
-            icon = Icons.Rounded.DeveloperBoard
+            icon = ZToolIcons.DeveloperBoard
         ),
         SystemInfoRow(
             key = "home_current_slot",
             title = stringResource(R.string.page_home_current_slot),
             value = state.currentSlot,
-            icon = Icons.Rounded.SwapHoriz
+            icon = ZToolIcons.SwapHoriz
         ),
         SystemInfoRow(
             key = "home_rom_region",
             title = stringResource(R.string.page_home_rom_region),
             value = state.romRegion,
-            icon = Icons.Rounded.Public
+            icon = ZToolIcons.Public
         ),
         SystemInfoRow(
             key = "home_root_source",
             title = stringResource(R.string.page_home_root),
             value = state.rootSource,
-            icon = Icons.Rounded.Security
+            icon = ZToolIcons.Security
         ),
         SystemInfoRow(
             key = "home_framework_info",
             title = stringResource(R.string.page_home_framework),
             value = state.frameworkVersion,
-            icon = Icons.Rounded.Extension
+            icon = ZToolIcons.Extension
         )
     )
 
