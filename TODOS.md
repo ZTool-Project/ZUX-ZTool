@@ -41,6 +41,7 @@
     - [x] 原生权限控制器（需要更改文案，Android 15, 16, 17 均可用）
     - [x] 关闭杜比（需要更改文案，提醒用户重启其他相关作用域）
     - [x] 去除应用图标蒙版
+    - [x] 设置内的 ZTool 入口
   - [ ] 游戏助手
     - [x] 禁止游戏音频优化（行为变更：系统框架侧作用域由 android 修正为 system）
     - [ ] SoC 温度显示修复
@@ -126,13 +127,13 @@
     - [ ] 跳过互传开启警告
     - [ ] 自动接受互传请求
     - [ ] 禁止互传自动关闭
-  - [ ] 系统框架（行为变更：移除无用的 android 作用域，系统框架相关功能仅需勾选 system 作用域）
+  - [x] 系统框架（行为变更：移除无用的 android 作用域，系统框架相关功能仅需勾选 system 作用域）
     - [x] 默认竖屏（会把系统界面崩掉，ZTool 应该不会修他）
-    - [ ] PC 模式竖屏
+    - [x] PC 模式竖屏
     - [x] 禁止高温禁用 HBM
     - [x] 亮灭屏动画
     - [x] 核心破解
-    - [ ] 强开分屏（OneModeService 已从 system_server 移除）
+    - [x] 强开分屏（已退休，OneModeService 已从 system_server 移除）
     - [x] 允许获取应用列表
     - [x] 允许关联 APP 启动
     - [x] 允许不受信任的触摸
@@ -142,7 +143,7 @@
     - [x] 移除高音量警告
     - [x] 非线性音量加减（行为变更：作用域由 android 修正为 system）
     - [x] 精细音量调节（行为变更：作用域由 android 修正为 system）
-    - [ ] 自定义 AI 输入唤起符号（删除或者改实现，现在的实现不安全）
+    - [x] 自定义 AI 输入唤起符号（A17 似乎打不开这个功能了）
     - [x] 手写笔震动波形重定向（行为变更：作用域由 android 修正为 system；Android 17 补齐 *WithStatus 链路重定向）
   - [ ] 安全中心
     - [ ] 允许 APP 自启
@@ -167,20 +168,24 @@
     - [x] 禁用静默安装
     - [x] 禁止上报应用列表
     - [x] 禁用 SDAC
-  - [ ] 自由窗口侧边栏（推倒重来）
+  - [x] 自由窗口侧边栏（已退休，不宜针对重度 R8 的目标应用开发新功能）
   - [ ] 用户界面组件
     - [x] 对话框按钮容器
     - [ ] 开关样式（M3 样式失效；添加 MIUIX 样式；重做 M3 样式）
     - [x] 加载动画
-  - [ ] 小窗
-    - [ ] 关闭黑名单（可能在 A17 不需要了？）
-    - [ ] 一视界规则（已重构，可能功能应在 Android 17 退休）
-    - [ ] 小窗贴边气泡（除修复外另查一下微信贴边）
+  - [x] 小窗
+    - [x] 关闭黑名单（A17 仍保留 zuilandscape_app_should_hide.xml，Hook 原样可用）
+    - [x] 一视界拓展模块（源码确认仍读 /data/system/zui/embedding/embedding_config.json，待真机验证）
+    - [x] 一视界规则（A17 已退休 XML 编辑器，改用白名单解锁 Hook）
+      - [x] 分屏、小窗、固定比例小窗编辑器（已退休）
+      - [x] 解锁浮窗分屏应用黑名单
+    - [x] 小窗贴边气泡（已适配 A17 CaptionController 拖拽边界与 OvfBaseTask.setScaleTaskSurface；微信因 i_f_drag_mode="0" 走等比缩放不触发 WindowContainer.setBounds 导致失灵，已一并适配，待真机验证）
     - [x] 小窗转全屏阈值
-    - [ ] 小窗底部把手缩放（快速滑动全屏/关闭未修复）
-    - [ ] 小窗底部快速滑动关闭/全屏（宿主 positioner 重构，链路待确认）
-    - [x] 消除小窗额头（桌面模式待适配）
-    - [ ] 所有 APP 显示小窗入口（黑名单机制消失，可能可以在 A17 隐藏）
+    - [x] 小窗底部把手缩放（已同步补齐快速滑动全屏/关闭链路）
+    - [x] 小窗底部快速滑动关闭/全屏（已适配 A17 OvfDriListenerInjector 与新 positioner / DesktopTasksController 链路，待真机验证）
+    - [x] 动态隐藏小窗底角把手（已适配 A17 positioner 与 WindowDecorationWrapper，待真机验证）
+    - [x] 消除小窗额头（已适配普通小窗与 A17 ZuiDesktopMode 桌面模式，待真机验证）
+    - [x] 所有 APP 显示小窗入口（已通过离线 DexIndex v7 适配 R8 混淆后的 FreeformUtilities 与 SwipeUpHandler 内联黑名单，待真机验证）
     - [x] 小窗后台保活（和已有保活功能冲突，应当删除）
     - [x] 关联启动小窗打开
 
