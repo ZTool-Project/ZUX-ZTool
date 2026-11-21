@@ -23,7 +23,11 @@ class PackageInstallerSettingsRepository(
                 KEY_V2_DARK_COLOR_FIX,
                 PreferenceKeys.PACKAGE_INSTALLER_V2_DARK_COLOR_FIX.default
             ),
-            disableDeletePackage = prefsUtils.loadBooleanSetting(KEY_DISABLE_DELETE_PACKAGE, false)
+            disableDeletePackage = prefsUtils.loadBooleanSetting(KEY_DISABLE_DELETE_PACKAGE, false),
+            lockDeleteCheckBox = prefsUtils.loadBooleanSetting(
+                KEY_LOCK_DELETE_CHECKBOX,
+                PreferenceKeys.PACKAGE_INSTALLER_LOCK_DELETE_CHECKBOX.default
+            )
         )
     }
 
@@ -55,6 +59,10 @@ class PackageInstallerSettingsRepository(
         prefsUtils.saveBooleanSetting(KEY_DISABLE_DELETE_PACKAGE, enabled)
     }
 
+    fun saveLockDeleteCheckBox(enabled: Boolean) {
+        prefsUtils.saveBooleanSetting(KEY_LOCK_DELETE_CHECKBOX, enabled)
+    }
+
     fun forceStopPackage(): RestartPackageResult {
         val scopes = ScopeUtils.getScopes(FeatureDestination.PackageInstaller)
         return when (val result = ScopeUtils.restartScope(scopes)) {
@@ -78,6 +86,7 @@ class PackageInstallerSettingsRepository(
         private val KEY_PACKAGE_INSTALLER_STYLE_HOOK = PreferenceKeys.PACKAGE_INSTALLER_STYLE_HOOK.name
         private val KEY_V2_DARK_COLOR_FIX = PreferenceKeys.PACKAGE_INSTALLER_V2_DARK_COLOR_FIX.name
         private val KEY_DISABLE_DELETE_PACKAGE = PreferenceKeys.PACKAGE_INSTALLER_DISABLE_DELETE.name
+        private val KEY_LOCK_DELETE_CHECKBOX = PreferenceKeys.PACKAGE_INSTALLER_LOCK_DELETE_CHECKBOX.name
     }
 }
 

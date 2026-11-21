@@ -60,6 +60,11 @@ class PackageInstallerSettingsViewModel(
         repository.saveDisableDeletePackage(enabled)
     }
 
+    fun setLockDeleteCheckBox(enabled: Boolean) {
+        _uiState.value = _uiState.value.copy(lockDeleteCheckBox = enabled)
+        repository.saveLockDeleteCheckBox(enabled)
+    }
+
     fun showRestartConfirmDialog() {
         _uiState.value = _uiState.value.copy(showRestartConfirmDialog = true)
     }
@@ -93,5 +98,6 @@ data class PackageInstallerSettingsUiState(
     val packageInstallerStyleHook: Boolean = false,
     val v2DarkColorFix: Boolean = false,
     val disableDeletePackage: Boolean = false,
+    val lockDeleteCheckBox: Boolean = false,
     val showRestartConfirmDialog: Boolean = false
 )

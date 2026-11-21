@@ -591,7 +591,9 @@
     <string name="package_installer_v2_dark_color_fix_title">修复原生安装器深色模式配色</string>
     <string name="package_installer_v2_dark_color_fix_summary">修复原生安装器在深色模式下容器、文字与按钮仍显示浅色导致看不清的问题</string>
     <string name="package_installer_disable_delete_package_title">不要删除安装包</string>
-    <string name="package_installer_disable_delete_package_summary">拦截安装器安装完成后的删除安装包行为</string>
+    <string name="package_installer_disable_delete_package_summary">安装完成后默认取消勾选删除安装包</string>
+    <string name="package_installer_lock_delete_checkbox_title">锁定删除安装包勾选项</string>
+    <string name="package_installer_lock_delete_checkbox_summary">保持删除安装包选项始终未勾选，禁止手动重新勾选</string>
     <!--系统界面 一级功能页导航资源值-->
     <string name="system_ui_status_bar_setting_title">状态栏设置</string>
     <string name="system_ui_status_bar_setting_summary">自定义状态栏时钟、通知图标等设置</string>

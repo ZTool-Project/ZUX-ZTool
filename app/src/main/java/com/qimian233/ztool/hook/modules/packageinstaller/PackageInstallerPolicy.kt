@@ -25,6 +25,7 @@ internal data class PackageInstallerOptions(
     val nativeStyle: Boolean = false,
     val disableInstallerAd: Boolean = false,
     val disableDeletePackage: Boolean = false,
+    val lockDeleteCheckBox: Boolean = false,
     val disableScanApk: Boolean = false,
     val alwaysAllowPermission: Boolean = false,
     val skipWarnPage: Boolean = false,
@@ -42,13 +43,33 @@ internal data class PackageInstallerOptions(
     val needsAdBlock: Boolean get() = !nativeStyle && disableInstallerAd
     val needsNoDelete: Boolean get() = !nativeStyle && disableDeletePackage
 
-    fun intersect(installed: PackageInstallerOptions): PackageInstallerOptions = copy(
-        disableInstallerAd = disableInstallerAd && installed.disableInstallerAd,
-        disableDeletePackage = disableDeletePackage && installed.disableDeletePackage,
-        disableScanApk = disableScanApk && installed.disableScanApk,
-        alwaysAllowPermission = alwaysAllowPermission && installed.alwaysAllowPermission,
-        skipWarnPage = skipWarnPage && installed.skipWarnPage,
-    )
+    fun intersect(installed: PackageInstallerOptions): PackageInstallerOptions {
+        val effectiveNoDelete = disableDeletePackage && installed.disableDeletePackage
+        return copy(
+            disableInstallerAd = disableInstallerAd && installed.disableInstallerAd,
+            disableDeletePackage = effectiveNoDelete,
+            lockDeleteCheckBox = effectiveNoDelete && lockDeleteCheckBox,
+            disableScanApk = disableScanApk && installed.disableScanApk,
+            alwaysAllowPermission = alwaysAllowPermission && installed.alwaysAllowPermission,
+            skipWarnPage = skipWarnPage && installed.skipWarnPage,
+        )
+    }
+}
+
+internal enum class DeleteCheckBoxAction {
+    NONE,
+    UNCHECK_ONLY,
+    UNCHECK_AND_LOCK,
+}
+
+internal fun resolveDeleteCheckBoxAction(
+    options: PackageInstallerOptions,
+    isConfigurationChanged: Boolean,
+): DeleteCheckBoxAction = when {
+    !options.needsNoDelete -> DeleteCheckBoxAction.NONE
+    options.lockDeleteCheckBox -> DeleteCheckBoxAction.UNCHECK_AND_LOCK
+    isConfigurationChanged -> DeleteCheckBoxAction.NONE
+    else -> DeleteCheckBoxAction.UNCHECK_ONLY
 }
 
 internal data class ScanResultSnapshot(

@@ -205,6 +205,7 @@ object PreferenceKeys {
     val PACKAGE_INSTALLER_STYLE_HOOK = BoolKey("packageInstallerStyle_hook", false)
     val PACKAGE_INSTALLER_V2_DARK_COLOR_FIX = BoolKey("package_installer_v2_dark_color_fix", false)
     val PACKAGE_INSTALLER_DISABLE_DELETE = BoolKey("package_installer_disable_delete", false)
+    val PACKAGE_INSTALLER_LOCK_DELETE_CHECKBOX = BoolKey("package_installer_lock_delete_checkbox", false)
 
     val DISABLE_FORCE_STOP = BoolKey("disable_force_stop", false)
     val ZUI_LAUNCHER_HOTSEAT = BoolKey("zui_launcher_hotseat", false)
@@ -487,6 +488,7 @@ object PreferenceKeys {
         DISABLE_SCAN_APK, ALWAYS_ALLOW_PERMISSION, SKIP_WARN_PAGE,
         DISABLE_INSTALLER_AD, PACKAGE_INSTALLER_STYLE_HOOK,
         PACKAGE_INSTALLER_V2_DARK_COLOR_FIX, PACKAGE_INSTALLER_DISABLE_DELETE,
+        PACKAGE_INSTALLER_LOCK_DELETE_CHECKBOX,
         DISABLE_FORCE_STOP, ZUI_LAUNCHER_HOTSEAT, CUSTOM_GRID_SIZE,
         CLEAN_GLOBAL_SEARCH, DISABLE_DOCK_BAR, DISABLE_DOCK_BACKGROUND,
         LAUNCHER_RECENT_TASK_MEMORY_VIEW, LAUNCHER_NO_LABEL_MODE,

@@ -86,6 +86,7 @@ fun PackageInstallerSettingsRoute(
             onPackageInstallerStyleHookChanged = viewModel::setPackageInstallerStyleHook,
             onV2DarkColorFixChanged = viewModel::setV2DarkColorFix,
             onDisableDeletePackageChanged = viewModel::setDisableDeletePackage,
+            onLockDeleteCheckBoxChanged = viewModel::setLockDeleteCheckBox,
             scrollState = scrollState,
             highlightRegistry = highlightRegistry
         )
@@ -131,6 +132,7 @@ internal fun PackageInstallerSettingsScreen(
     onPackageInstallerStyleHookChanged: (Boolean) -> Unit,
     onV2DarkColorFixChanged: (Boolean) -> Unit,
     onDisableDeletePackageChanged: (Boolean) -> Unit,
+    onLockDeleteCheckBoxChanged: (Boolean) -> Unit,
     scrollState: ScrollState,
     highlightRegistry: HighlightAnchorRegistry
 ) {
@@ -177,7 +179,8 @@ internal fun PackageInstallerSettingsScreen(
                         onDisableInstallerAdChanged = onDisableInstallerAdChanged,
                         onPackageInstallerStyleHookChanged = onPackageInstallerStyleHookChanged,
                         onV2DarkColorFixChanged = onV2DarkColorFixChanged,
-                        onDisableDeletePackageChanged = onDisableDeletePackageChanged
+                        onDisableDeletePackageChanged = onDisableDeletePackageChanged,
+                        onLockDeleteCheckBoxChanged = onLockDeleteCheckBoxChanged
                     ),
                     bottomPadding = 96.dp,
                     highlightRegistry = highlightRegistry
@@ -196,7 +199,8 @@ internal fun packageInstallerSettingsSections(
     onDisableInstallerAdChanged: (Boolean) -> Unit,
     onPackageInstallerStyleHookChanged: (Boolean) -> Unit,
     onV2DarkColorFixChanged: (Boolean) -> Unit,
-    onDisableDeletePackageChanged: (Boolean) -> Unit
+    onDisableDeletePackageChanged: (Boolean) -> Unit,
+    onLockDeleteCheckBoxChanged: (Boolean) -> Unit
 ): List<SettingSection> {
     return listOf(
         SettingSection(
@@ -241,6 +245,17 @@ internal fun packageInstallerSettingsSections(
                             key = "package_installer_disable_delete_package"
                         )
                     )
+                    if (state.disableDeletePackage) {
+                        add(
+                            SettingItem.Switch(
+                                title = stringResource(R.string.package_installer_lock_delete_checkbox_title),
+                                summary = stringResource(R.string.package_installer_lock_delete_checkbox_summary),
+                                checked = state.lockDeleteCheckBox,
+                                onCheckedChange = onLockDeleteCheckBoxChanged,
+                                key = "package_installer_lock_delete_checkbox"
+                            )
+                        )
+                    }
                     add(
                         SettingItem.Switch(
                             title = stringResource(R.string.package_installer_disable_scan_apk_title),

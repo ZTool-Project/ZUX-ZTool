@@ -1,5 +1,6 @@
 package com.qimian233.ztool
 
+import com.qimian233.ztool.hook.modules.packageinstaller.DeleteCheckBoxAction
 import com.qimian233.ztool.hook.modules.packageinstaller.InstallFlowState
 import com.qimian233.ztool.hook.modules.packageinstaller.PackageInstallerConstants
 import com.qimian233.ztool.hook.modules.packageinstaller.PackageInstallerOptions
@@ -8,6 +9,7 @@ import com.qimian233.ztool.hook.modules.packageinstaller.V2ColorPalette
 import com.qimian233.ztool.hook.modules.packageinstaller.isV2DarkColorFixActive
 import com.qimian233.ztool.hook.modules.packageinstaller.remapV2ButtonTextColor
 import com.qimian233.ztool.hook.modules.packageinstaller.remapV2TextColor
+import com.qimian233.ztool.hook.modules.packageinstaller.resolveDeleteCheckBoxAction
 import com.qimian233.ztool.hook.modules.packageinstaller.resolvePermissionDialogId
 import com.qimian233.ztool.hook.modules.packageinstaller.resolvePermsManageType
 import com.qimian233.ztool.hook.modules.packageinstaller.shouldClearDialogChildBackground
@@ -194,5 +196,86 @@ class PackageInstallerPolicyTest {
         assertEquals(dark.primary, remapV2ButtonTextColor(host.primary, host, dark))
         assertEquals(0xFF654321.toInt(), remapV2ButtonTextColor(0xFF654321.toInt(), host, dark))
         assertEquals(dark.primary, remapV2ButtonTextColor(dark.primary, dark, dark))
+    }
+
+    @Test
+    fun lockDeleteCheckBoxAloneDoesNotActivateNoDeleteOrOemOwner() {
+        val lockOnly = PackageInstallerOptions(lockDeleteCheckBox = true)
+        assertFalse(lockOnly.enabled)
+        assertFalse(lockOnly.needsNoDelete)
+    }
+
+    @Test
+    fun intersectAllowsHotTogglingLockDeleteOnlyWhenNoDeleteIsInstalledAndActive() {
+        val installedNoDeleteOnly = PackageInstallerOptions(
+            disableDeletePackage = true,
+            lockDeleteCheckBox = false,
+        )
+        val currentBothOn = PackageInstallerOptions(
+            disableDeletePackage = true,
+            lockDeleteCheckBox = true,
+        )
+        val effectiveBothOn = currentBothOn.intersect(installedNoDeleteOnly)
+        assertTrue(effectiveBothOn.disableDeletePackage)
+        assertTrue(effectiveBothOn.lockDeleteCheckBox)
+
+        val currentNoDeleteOff = PackageInstallerOptions(
+            disableDeletePackage = false,
+            lockDeleteCheckBox = true,
+        )
+        val effectiveNoDeleteOff = currentNoDeleteOff.intersect(installedNoDeleteOnly)
+        assertFalse(effectiveNoDeleteOff.disableDeletePackage)
+        assertFalse(effectiveNoDeleteOff.lockDeleteCheckBox)
+
+        val installedNotInstalled = PackageInstallerOptions(
+            disableDeletePackage = false,
+            lockDeleteCheckBox = false,
+        )
+        val effectiveNotInstalled = currentBothOn.intersect(installedNotInstalled)
+        assertFalse(effectiveNotInstalled.disableDeletePackage)
+        assertFalse(effectiveNotInstalled.lockDeleteCheckBox)
+    }
+
+    @Test
+    fun resolveDeleteCheckBoxActionDistinguishesUncheckOnlyAndLockedModes() {
+        val disabled = PackageInstallerOptions(disableDeletePackage = false, lockDeleteCheckBox = true)
+        assertEquals(
+            DeleteCheckBoxAction.NONE,
+            resolveDeleteCheckBoxAction(disabled, isConfigurationChanged = false),
+        )
+        assertEquals(
+            DeleteCheckBoxAction.NONE,
+            resolveDeleteCheckBoxAction(disabled, isConfigurationChanged = true),
+        )
+
+        val nativeOverride = PackageInstallerOptions(
+            nativeStyle = true,
+            disableDeletePackage = true,
+            lockDeleteCheckBox = true,
+        )
+        assertEquals(
+            DeleteCheckBoxAction.NONE,
+            resolveDeleteCheckBoxAction(nativeOverride, isConfigurationChanged = false),
+        )
+
+        val unlocked = PackageInstallerOptions(disableDeletePackage = true, lockDeleteCheckBox = false)
+        assertEquals(
+            DeleteCheckBoxAction.UNCHECK_ONLY,
+            resolveDeleteCheckBoxAction(unlocked, isConfigurationChanged = false),
+        )
+        assertEquals(
+            DeleteCheckBoxAction.NONE,
+            resolveDeleteCheckBoxAction(unlocked, isConfigurationChanged = true),
+        )
+
+        val locked = PackageInstallerOptions(disableDeletePackage = true, lockDeleteCheckBox = true)
+        assertEquals(
+            DeleteCheckBoxAction.UNCHECK_AND_LOCK,
+            resolveDeleteCheckBoxAction(locked, isConfigurationChanged = false),
+        )
+        assertEquals(
+            DeleteCheckBoxAction.UNCHECK_AND_LOCK,
+            resolveDeleteCheckBoxAction(locked, isConfigurationChanged = true),
+        )
     }
 }

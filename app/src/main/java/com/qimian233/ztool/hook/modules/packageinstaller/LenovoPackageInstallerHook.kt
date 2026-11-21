@@ -87,11 +87,13 @@ class LenovoPackageInstallerHook : AppHookModule() {
             alwaysAllowPermission = requested.alwaysAllowPermission && permsReady,
             disableInstallerAd = requested.disableInstallerAd && adReady,
             disableDeletePackage = requested.disableDeletePackage && noDeleteReady,
+            lockDeleteCheckBox = requested.disableDeletePackage && noDeleteReady && requested.lockDeleteCheckBox,
         )
         logger.info(
             "Lenovo PackageInstaller installed: scan=${installed.disableScanApk}, " +
                 "warn=${installed.skipWarnPage}, perms=${installed.alwaysAllowPermission}, " +
-                "ad=${installed.disableInstallerAd}, noDelete=${installed.disableDeletePackage}"
+                "ad=${installed.disableInstallerAd}, noDelete=${installed.disableDeletePackage}, " +
+                "lockDelete=${installed.lockDeleteCheckBox}"
         )
     }
 
@@ -370,6 +372,11 @@ class LenovoPackageInstallerHook : AppHookModule() {
         val installSuccessClass = loader.loadClass(CLASS_INSTALL_SUCCESS_EXTRA)
         val initView = findMethod(installSuccessClass, "initView")
         val mDeleteApkField = findField(installSuccessClass, "mDeleteApk")
+        val isConfigChangeField = runCatching {
+            findField(installSuccessClass, "isConfigChanage")
+        }.getOrElse {
+            runCatching { findField(installSuccessClass, "isConfigChange") }.getOrNull()
+        }
         val delCheckBoxId = runCatching {
             findField(loader.loadClass($$"com.android.packageinstaller.R$id"), "del_check_box")
                 .getInt(null)
@@ -377,8 +384,13 @@ class LenovoPackageInstallerHook : AppHookModule() {
 
         handles += hookWithId(initView, "pi_oem_install_success_init_view") { chain ->
             val result = chain.proceed()
-            if (!options().disableDeletePackage) return@hookWithId result
             val instance = chain.thisObject ?: return@hookWithId result
+            val isConfigChanged = runCatching {
+                isConfigChangeField?.getBoolean(instance) == true
+            }.getOrDefault(false)
+            val action = resolveDeleteCheckBoxAction(options(), isConfigChanged)
+            if (action == DeleteCheckBoxAction.NONE) return@hookWithId result
+
             mDeleteApkField.setBoolean(instance, false)
 
             val activity = instance as? Activity ?: return@hookWithId result
@@ -394,11 +406,19 @@ class LenovoPackageInstallerHook : AppHookModule() {
             if (viewId != 0) {
                 val checkBox = activity.findViewById<View?>(viewId) as? CheckBox
                 if (checkBox != null) {
-                    checkBox.setOnCheckedChangeListener(null)
-                    checkBox.isChecked = false
-                    checkBox.setOnCheckedChangeListener { buttonView, isChecked ->
-                        runCatching { mDeleteApkField.setBoolean(instance, false) }
-                        if (isChecked) buttonView.isChecked = false
+                    when (action) {
+                        DeleteCheckBoxAction.UNCHECK_AND_LOCK -> {
+                            checkBox.setOnCheckedChangeListener(null)
+                            checkBox.isChecked = false
+                            checkBox.setOnCheckedChangeListener { buttonView, isChecked ->
+                                runCatching { mDeleteApkField.setBoolean(instance, false) }
+                                if (isChecked) buttonView.isChecked = false
+                            }
+                        }
+                        DeleteCheckBoxAction.UNCHECK_ONLY -> {
+                            checkBox.isChecked = false
+                        }
+                        DeleteCheckBoxAction.NONE -> Unit
                     }
                 }
             } else {
@@ -476,6 +496,10 @@ class LenovoPackageInstallerHook : AppHookModule() {
             disableDeletePackage = prefs.getBoolean(
                 PreferenceKeys.PACKAGE_INSTALLER_DISABLE_DELETE.name,
                 PreferenceKeys.PACKAGE_INSTALLER_DISABLE_DELETE.default
+            ),
+            lockDeleteCheckBox = prefs.getBoolean(
+                PreferenceKeys.PACKAGE_INSTALLER_LOCK_DELETE_CHECKBOX.name,
+                PreferenceKeys.PACKAGE_INSTALLER_LOCK_DELETE_CHECKBOX.default
             ),
             disableScanApk = prefs.getBoolean(
                 PreferenceKeys.DISABLE_SCAN_APK.name,

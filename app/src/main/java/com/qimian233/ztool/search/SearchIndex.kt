@@ -1494,6 +1494,14 @@ object SearchIndex {
             parentMode = SearchParentMode.REQUIRE_OFF
         ),
         packageInstaller.item(
+            id = "package_installer_lock_delete_checkbox",
+            titleRes = R.string.package_installer_lock_delete_checkbox_title,
+            summaryRes = R.string.package_installer_lock_delete_checkbox_summary,
+            parentTitleRes = R.string.package_installer_disable_delete_package_title,
+            parentKey = "package_installer_disable_delete_package",
+            parentMode = SearchParentMode.REQUIRE_ON
+        ),
+        packageInstaller.item(
             id = "package_installer_disable_scan_apk",
             titleRes = R.string.package_installer_disable_scan_apk_title,
             summaryRes = R.string.package_installer_disable_scan_apk_summary,

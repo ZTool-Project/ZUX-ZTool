@@ -504,7 +504,9 @@
     <string name="package_installer_v2_dark_color_fix_title">Fix native installer dark mode colors</string>
     <string name="package_installer_v2_dark_color_fix_summary">Fix light dialog container, text, and button colors in dark mode on the native installer</string>
     <string name="package_installer_disable_delete_package_title">Do not delete APK</string>
-    <string name="package_installer_disable_delete_package_summary">Block the installer from deleting the package after installation.</string>
+    <string name="package_installer_disable_delete_package_summary">Uncheck the delete-APK option by default after installation.</string>
+    <string name="package_installer_lock_delete_checkbox_title">Lock delete-APK checkbox</string>
+    <string name="package_installer_lock_delete_checkbox_summary">Keep the delete-APK checkbox unchecked and prevent manually checking it.</string>
     <string name="system_ui_status_bar_setting_title">Status bar settings</string>
     <string name="system_ui_status_bar_setting_summary">Customize status bar clock, notification icons, and more.</string>
     <string name="system_ui_lock_screen_setting_title">Lock screen settings</string>
