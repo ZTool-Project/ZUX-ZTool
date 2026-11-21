@@ -50,6 +50,11 @@ class PackageInstallerSettingsViewModel(
         repository.savePackageInstallerStyleHook(enabled)
     }
 
+    fun setV2DarkColorFix(enabled: Boolean) {
+        _uiState.value = _uiState.value.copy(v2DarkColorFix = enabled)
+        repository.saveV2DarkColorFix(enabled)
+    }
+
     fun setDisableDeletePackage(enabled: Boolean) {
         _uiState.value = _uiState.value.copy(disableDeletePackage = enabled)
         repository.saveDisableDeletePackage(enabled)
@@ -86,6 +91,7 @@ data class PackageInstallerSettingsUiState(
     val skipWarnPage: Boolean = false,
     val disableInstallerAd: Boolean = false,
     val packageInstallerStyleHook: Boolean = false,
+    val v2DarkColorFix: Boolean = false,
     val disableDeletePackage: Boolean = false,
     val showRestartConfirmDialog: Boolean = false
 )

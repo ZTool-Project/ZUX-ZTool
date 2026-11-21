@@ -4,8 +4,13 @@ import com.qimian233.ztool.hook.modules.packageinstaller.InstallFlowState
 import com.qimian233.ztool.hook.modules.packageinstaller.PackageInstallerConstants
 import com.qimian233.ztool.hook.modules.packageinstaller.PackageInstallerOptions
 import com.qimian233.ztool.hook.modules.packageinstaller.ScanResultSnapshot
+import com.qimian233.ztool.hook.modules.packageinstaller.V2ColorPalette
+import com.qimian233.ztool.hook.modules.packageinstaller.isV2DarkColorFixActive
+import com.qimian233.ztool.hook.modules.packageinstaller.remapV2ButtonTextColor
+import com.qimian233.ztool.hook.modules.packageinstaller.remapV2TextColor
 import com.qimian233.ztool.hook.modules.packageinstaller.resolvePermissionDialogId
 import com.qimian233.ztool.hook.modules.packageinstaller.resolvePermsManageType
+import com.qimian233.ztool.hook.modules.packageinstaller.shouldClearDialogChildBackground
 import com.qimian233.ztool.hook.modules.packageinstaller.shouldEnqueueCompletionMessage
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -139,5 +144,55 @@ class PackageInstallerPolicyTest {
         assertEquals(12, resolvePermissionDialogId(12, true))
         assertEquals(8, resolvePermissionDialogId(8, true))
         assertEquals(10, resolvePermissionDialogId(10, false))
+    }
+
+    @Test
+    fun v2DarkColorFixRequiresBothNativeStyleAndDarkFixEnabled() {
+        assertFalse(isV2DarkColorFixActive(nativeStyle = false, darkColorFix = false))
+        assertFalse(isV2DarkColorFixActive(nativeStyle = false, darkColorFix = true))
+        assertFalse(isV2DarkColorFixActive(nativeStyle = true, darkColorFix = false))
+        assertTrue(isV2DarkColorFixActive(nativeStyle = true, darkColorFix = true))
+    }
+
+    @Test
+    fun dialogChildBackgroundClearsOnlyUnfixedHostContainerColor() {
+        val hostLight = 0xFFE7E7F1.toInt()
+        val dark = 0xFF1D1F26.toInt()
+        val divider = 0x1F000000
+
+        assertTrue(shouldClearDialogChildBackground(hostLight, hostLight, dark))
+        assertFalse(shouldClearDialogChildBackground(divider, hostLight, dark))
+        assertFalse(shouldClearDialogChildBackground(dark, dark, dark))
+    }
+
+    @Test
+    fun v2ColorRemappersReplaceOnlyMismatchedSemanticTokens() {
+        val host = V2ColorPalette(
+            surfaceContainerHigh = 0xFFE7E7F1.toInt(),
+            primary = 0xFF4C5E8B.toInt(),
+            onPrimary = 0xFFF9F8FF.toInt(),
+            onSurface = 0xFF30323A.toInt(),
+            onSurfaceVariant = 0xFF5D5F68.toInt(),
+            outlineVariant = 0xFFB0B1BC.toInt(),
+        )
+        val dark = V2ColorPalette(
+            surfaceContainerHigh = 0xFF1D1F26.toInt(),
+            primary = 0xFFB8C6EE.toInt(),
+            onPrimary = 0xFF323F60.toInt(),
+            onSurface = 0xFFE4E5F0.toInt(),
+            onSurfaceVariant = 0xFFA9AAB5.toInt(),
+            outlineVariant = 0xFF454850.toInt(),
+        )
+
+        assertEquals(dark.onSurface, remapV2TextColor(host.onSurface, host, dark))
+        assertEquals(dark.onSurfaceVariant, remapV2TextColor(host.onSurfaceVariant, host, dark))
+        assertEquals(dark.primary, remapV2TextColor(host.primary, host, dark))
+        assertEquals(0xFF123456.toInt(), remapV2TextColor(0xFF123456.toInt(), host, dark))
+        assertEquals(dark.onSurface, remapV2TextColor(dark.onSurface, dark, dark))
+
+        assertEquals(dark.onPrimary, remapV2ButtonTextColor(host.onPrimary, host, dark))
+        assertEquals(dark.primary, remapV2ButtonTextColor(host.primary, host, dark))
+        assertEquals(0xFF654321.toInt(), remapV2ButtonTextColor(0xFF654321.toInt(), host, dark))
+        assertEquals(dark.primary, remapV2ButtonTextColor(dark.primary, dark, dark))
     }
 }

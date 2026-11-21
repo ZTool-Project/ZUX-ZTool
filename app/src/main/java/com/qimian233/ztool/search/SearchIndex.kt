@@ -1470,6 +1470,14 @@ object SearchIndex {
             summaryRes = R.string.package_installer_enable_row_style_summary
         ),
         packageInstaller.item(
+            id = "package_installer_v2_dark_color_fix",
+            titleRes = R.string.package_installer_v2_dark_color_fix_title,
+            summaryRes = R.string.package_installer_v2_dark_color_fix_summary,
+            parentTitleRes = R.string.package_installer_enable_row_style_title,
+            parentKey = "package_installer_enable_row_style",
+            parentMode = SearchParentMode.REQUIRE_ON
+        ),
+        packageInstaller.item(
             id = "package_installer_disable_installer_ad",
             titleRes = R.string.package_installer_disable_installer_ad_title,
             summaryRes = R.string.package_installer_disable_installer_ad_summary,

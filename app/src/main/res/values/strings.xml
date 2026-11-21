@@ -588,6 +588,8 @@
     <string name="package_installer_disable_installer_ad_summary">安装完成后的界面不再显示广告</string>
     <string name="package_installer_enable_row_style_title">启用原生安装器</string>
     <string name="package_installer_enable_row_style_summary">启用原生安装器样式</string>
+    <string name="package_installer_v2_dark_color_fix_title">修复原生安装器深色模式配色</string>
+    <string name="package_installer_v2_dark_color_fix_summary">修复原生安装器在深色模式下容器、文字与按钮仍显示浅色导致看不清的问题</string>
     <string name="package_installer_disable_delete_package_title">不要删除安装包</string>
     <string name="package_installer_disable_delete_package_summary">拦截安装器安装完成后的删除安装包行为</string>
     <!--系统界面 一级功能页导航资源值-->

@@ -19,6 +19,10 @@ class PackageInstallerSettingsRepository(
             skipWarnPage = prefsUtils.loadBooleanSetting(KEY_SKIP_WARN_PAGE, false),
             disableInstallerAd = prefsUtils.loadBooleanSetting(KEY_DISABLE_INSTALLER_AD, false),
             packageInstallerStyleHook = prefsUtils.loadBooleanSetting(KEY_PACKAGE_INSTALLER_STYLE_HOOK, false),
+            v2DarkColorFix = prefsUtils.loadBooleanSetting(
+                KEY_V2_DARK_COLOR_FIX,
+                PreferenceKeys.PACKAGE_INSTALLER_V2_DARK_COLOR_FIX.default
+            ),
             disableDeletePackage = prefsUtils.loadBooleanSetting(KEY_DISABLE_DELETE_PACKAGE, false)
         )
     }
@@ -41,6 +45,10 @@ class PackageInstallerSettingsRepository(
 
     fun savePackageInstallerStyleHook(enabled: Boolean) {
         prefsUtils.saveBooleanSetting(KEY_PACKAGE_INSTALLER_STYLE_HOOK, enabled)
+    }
+
+    fun saveV2DarkColorFix(enabled: Boolean) {
+        prefsUtils.saveBooleanSetting(KEY_V2_DARK_COLOR_FIX, enabled)
     }
 
     fun saveDisableDeletePackage(enabled: Boolean) {
@@ -68,6 +76,7 @@ class PackageInstallerSettingsRepository(
         private val KEY_SKIP_WARN_PAGE = PreferenceKeys.SKIP_WARN_PAGE.name
         private val KEY_DISABLE_INSTALLER_AD = PreferenceKeys.DISABLE_INSTALLER_AD.name
         private val KEY_PACKAGE_INSTALLER_STYLE_HOOK = PreferenceKeys.PACKAGE_INSTALLER_STYLE_HOOK.name
+        private val KEY_V2_DARK_COLOR_FIX = PreferenceKeys.PACKAGE_INSTALLER_V2_DARK_COLOR_FIX.name
         private val KEY_DISABLE_DELETE_PACKAGE = PreferenceKeys.PACKAGE_INSTALLER_DISABLE_DELETE.name
     }
 }

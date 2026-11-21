@@ -51,6 +51,7 @@ import com.qimian233.ztool.hook.modules.tbengine.LenovoOTAHook
 import com.qimian233.ztool.hook.modules.ota.NoAutoOtaInstall
 import com.qimian233.ztool.hook.modules.packageinstaller.LenovoPackageInstallerHook
 import com.qimian233.ztool.hook.modules.packageinstaller.PackageInstallerStyleHook
+import com.qimian233.ztool.hook.modules.packageinstaller.PackageInstallerV2DarkColorHook
 import com.qimian233.ztool.hook.modules.pp.BlockGamePolicyUpdate
 import com.qimian233.ztool.hook.modules.pp.BlockPowerPolicySync
 import com.qimian233.ztool.hook.modules.safecenter.DisableAllVirusScans
@@ -302,6 +303,7 @@ object HookManager {
 
     private fun registerPackageInstallerModules() {
         registerHookModule(PackageInstallerStyleHook())
+        registerHookModule(PackageInstallerV2DarkColorHook())
         registerHookModule(LenovoPackageInstallerHook())
     }
 

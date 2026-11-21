@@ -109,3 +109,45 @@ internal fun resolvePermissionDialogId(dialogId: Int, alwaysAllow: Boolean): Int
     } else {
         dialogId
     }
+
+internal data class V2ColorPalette(
+    val surfaceContainerHigh: Int,
+    val primary: Int,
+    val onPrimary: Int,
+    val onSurface: Int,
+    val onSurfaceVariant: Int,
+    val outlineVariant: Int,
+)
+
+internal fun isV2DarkColorFixActive(nativeStyle: Boolean, darkColorFix: Boolean): Boolean =
+    nativeStyle && darkColorFix
+
+internal fun shouldClearDialogChildBackground(
+    backgroundColor: Int,
+    hostSurfaceContainerHigh: Int,
+    darkSurfaceContainerHigh: Int,
+): Boolean =
+    hostSurfaceContainerHigh != darkSurfaceContainerHigh &&
+        backgroundColor == hostSurfaceContainerHigh
+
+internal fun remapV2TextColor(
+    currentColor: Int,
+    host: V2ColorPalette,
+    dark: V2ColorPalette,
+): Int = when {
+    currentColor == host.onSurface && host.onSurface != dark.onSurface -> dark.onSurface
+    currentColor == host.onSurfaceVariant && host.onSurfaceVariant != dark.onSurfaceVariant ->
+        dark.onSurfaceVariant
+    currentColor == host.primary && host.primary != dark.primary -> dark.primary
+    else -> currentColor
+}
+
+internal fun remapV2ButtonTextColor(
+    currentColor: Int,
+    host: V2ColorPalette,
+    dark: V2ColorPalette,
+): Int = when {
+    currentColor == host.onPrimary && host.onPrimary != dark.onPrimary -> dark.onPrimary
+    currentColor == host.primary && host.primary != dark.primary -> dark.primary
+    else -> currentColor
+}

@@ -84,6 +84,7 @@ fun PackageInstallerSettingsRoute(
             onSkipWarnPageChanged = viewModel::setSkipWarnPage,
             onDisableInstallerAdChanged = viewModel::setDisableInstallerAd,
             onPackageInstallerStyleHookChanged = viewModel::setPackageInstallerStyleHook,
+            onV2DarkColorFixChanged = viewModel::setV2DarkColorFix,
             onDisableDeletePackageChanged = viewModel::setDisableDeletePackage,
             scrollState = scrollState,
             highlightRegistry = highlightRegistry
@@ -128,6 +129,7 @@ internal fun PackageInstallerSettingsScreen(
     onSkipWarnPageChanged: (Boolean) -> Unit,
     onDisableInstallerAdChanged: (Boolean) -> Unit,
     onPackageInstallerStyleHookChanged: (Boolean) -> Unit,
+    onV2DarkColorFixChanged: (Boolean) -> Unit,
     onDisableDeletePackageChanged: (Boolean) -> Unit,
     scrollState: ScrollState,
     highlightRegistry: HighlightAnchorRegistry
@@ -174,6 +176,7 @@ internal fun PackageInstallerSettingsScreen(
                         onSkipWarnPageChanged = onSkipWarnPageChanged,
                         onDisableInstallerAdChanged = onDisableInstallerAdChanged,
                         onPackageInstallerStyleHookChanged = onPackageInstallerStyleHookChanged,
+                        onV2DarkColorFixChanged = onV2DarkColorFixChanged,
                         onDisableDeletePackageChanged = onDisableDeletePackageChanged
                     ),
                     bottomPadding = 96.dp,
@@ -192,6 +195,7 @@ internal fun packageInstallerSettingsSections(
     onSkipWarnPageChanged: (Boolean) -> Unit,
     onDisableInstallerAdChanged: (Boolean) -> Unit,
     onPackageInstallerStyleHookChanged: (Boolean) -> Unit,
+    onV2DarkColorFixChanged: (Boolean) -> Unit,
     onDisableDeletePackageChanged: (Boolean) -> Unit
 ): List<SettingSection> {
     return listOf(
@@ -207,6 +211,17 @@ internal fun packageInstallerSettingsSections(
                         key = "package_installer_enable_row_style"
                     )
                 )
+                if (state.packageInstallerStyleHook) {
+                    add(
+                        SettingItem.Switch(
+                            title = stringResource(R.string.package_installer_v2_dark_color_fix_title),
+                            summary = stringResource(R.string.package_installer_v2_dark_color_fix_summary),
+                            checked = state.v2DarkColorFix,
+                            onCheckedChange = onV2DarkColorFixChanged,
+                            key = "package_installer_v2_dark_color_fix"
+                        )
+                    )
+                }
                 if (!state.packageInstallerStyleHook) {
                     add(
                         SettingItem.Switch(
