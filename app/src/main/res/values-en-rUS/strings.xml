@@ -746,6 +746,8 @@
     <string name="launcher_big_folder_align_summary">Make big folders look better.</string>
     <string name="launcher_big_folder_square_style_title">Optimize square folder appearance</string>
     <string name="launcher_big_folder_square_style_summary">Use a centered square blur background and proportional 3×3 grid for square big folders, stacking the 9th slot at 10 or more apps</string>
+    <string name="launcher_big_folder_strip_style_title">Optimize 1x2 and 2x1 folder appearance</string>
+    <string name="launcher_big_folder_strip_style_summary">Align background with same-size widgets using a 3×1 / 1×3 grid, stacking the end slot at 4 or more apps</string>
     <string name="launcher_big_folder_blur_guard_title">Big folder blur crash guard</string>
     <string name="launcher_big_folder_blur_guard_summary">Works around a launcher defect: long-pressing a big folder crashes when dynamic blur is on</string>
     <string name="launcher_app_icon_unmask_title">Remove desktop icon mask</string>

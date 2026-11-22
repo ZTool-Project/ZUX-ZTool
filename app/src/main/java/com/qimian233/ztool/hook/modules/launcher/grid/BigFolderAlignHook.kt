@@ -24,15 +24,32 @@ import java.lang.reflect.Modifier
 import java.util.Locale
 
 /**
- * Aligns square big folders (`spanX == spanY >= 2`) to a centered square blur
- * background, proportional 3x3 inner grid, and 10+ ninth-slot diagonal stack.
+ * Aligns square (`3x3`, 10+ stack) and strip (`1x2` 3x1 / `2x1` 1x3, 4+ stack)
+ * big folders to widget-matched backgrounds and proportional inner grids.
  */
 @SuppressLint("PrivateApi")
 class BigFolderAlignHook : AppHookModule() {
 
+    private enum class StyleKind { SQUARE, STRIP_1X2, STRIP_2X1 }
+
+    private data class FolderStyleSpec(val kind: StyleKind, val cols: Int, val rows: Int) {
+        val capacity: Int get() = cols * rows
+    }
+
+    private class GridLayout(
+        val iconPx: Float,
+        val gapX: Float,
+        val gapY: Float,
+        val gridLeft: Float,
+        val gridStartY: Float
+    )
+
     override fun getModuleName(): String = PreferenceKeys.LAUNCHER_BIG_FOLDER_ALIGN.name
 
     override fun getTargetPackages(): Array<String> = arrayOf(ScopeKeys.LAUNCHER.packageName)
+
+    private var squareStyleEnabled = false
+    private var stripStyleEnabled = false
 
     private var coreReady = false
     private var ruleReady = false
@@ -87,23 +104,30 @@ class BigFolderAlignHook : AppHookModule() {
     private lateinit var famTmpParams: Field
     private lateinit var famComputeBigAnim: Method
 
-    private val suppressStackingForNine = ThreadLocal.withInitial { false }
+    private val suppressStackingForExactCapacity = ThreadLocal.withInitial { false }
 
     @Throws(Throwable::class)
     override fun handleLoadPackage(param: PackageLoadedParam) {
-        val squareStyleEnabled = runCatching {
-            xposed.getRemotePreferences("xposed_module_config").getBoolean(
+        val prefs = runCatching { xposed.getRemotePreferences("xposed_module_config") }.getOrNull()
+        squareStyleEnabled = runCatching {
+            prefs?.getBoolean(
                 PreferenceKeys.LAUNCHER_BIG_FOLDER_SQUARE_STYLE.name,
                 PreferenceKeys.LAUNCHER_BIG_FOLDER_SQUARE_STYLE.default
             )
-        }.getOrDefault(PreferenceKeys.LAUNCHER_BIG_FOLDER_SQUARE_STYLE.default)
-        if (!squareStyleEnabled) {
-            logger.debug("BigFolderAlign: square style sub-feature disabled, skipping")
+        }.getOrNull() ?: PreferenceKeys.LAUNCHER_BIG_FOLDER_SQUARE_STYLE.default
+        stripStyleEnabled = runCatching {
+            prefs?.getBoolean(
+                PreferenceKeys.LAUNCHER_BIG_FOLDER_STRIP_STYLE.name,
+                PreferenceKeys.LAUNCHER_BIG_FOLDER_STRIP_STYLE.default
+            )
+        }.getOrNull() ?: PreferenceKeys.LAUNCHER_BIG_FOLDER_STRIP_STYLE.default
+        if (!squareStyleEnabled && !stripStyleEnabled) {
+            logger.debug("BigFolderAlign: all folder style sub-features disabled, skipping")
             return
         }
 
         val classLoader = param.defaultClassLoader
-        logger.debug("BigFolderAlign installing")
+        logger.debug("BigFolderAlign installing (square=$squareStyleEnabled strip=$stripStyleEnabled)")
 
         val module = DexIndexStore.lookup(xposed, ScopeKeys.LAUNCHER.packageName)
             ?.getAsJsonObject(DexIndexConstants.JSON_MODULES)
@@ -120,7 +144,7 @@ class BigFolderAlignHook : AppHookModule() {
         hookSetupGeometry()
         if (bfcReady) hookChildCountRewrite()
         if (ruleReady) hookChildGridRule()
-        if (bfcReady && folderIconReady && pimReady) hookNineItemStackThreshold()
+        if (bfcReady && folderIconReady && pimReady) hookExactCapacityStackThreshold()
         if (folderIconReady) hookFolderLabelAndPadding()
         if (ruleReady && folderIconReady && famReady && ruleParamsScale != null) hookBigFolderItemAnim()
     }
@@ -386,7 +410,7 @@ class BigFolderAlignHook : AppHookModule() {
                 val pb = chain.thisObject ?: return@hookWithId null
                 val spanX = pbSpanX.getInt(pb)
                 val spanY = pbSpanY.getInt(pb)
-                if (!isSquareBigFolder(spanX, spanY)) return@hookWithId null
+                val spec = resolveSpec(spanX, spanY) ?: return@hookWithId null
 
                 val stockOffsetX = pbOffsetX.getInt(pb).coerceAtLeast(0)
                 val stockOffsetY = pbOffsetY.getInt(pb).coerceAtLeast(0)
@@ -398,20 +422,30 @@ class BigFolderAlignHook : AppHookModule() {
 
                 val availW = (slotW - stockOffsetX * 2).coerceAtLeast(1)
                 val availH = (slotH - stockOffsetY * 2).coerceAtLeast(1)
-                val side = minOf(availW, availH)
-                val offsetX = (slotW - side) / 2
-                val offsetY = (slotH - side) / 2
+                val bgW: Int
+                val bgH: Int
+                if (spec.kind == StyleKind.SQUARE) {
+                    val side = minOf(availW, availH)
+                    bgW = side
+                    bgH = side
+                } else {
+                    // Align 1x2 and 2x1 blurred plates with same-size desktop widget slots.
+                    bgW = availW
+                    bgH = availH
+                }
+                val offsetX = (slotW - bgW) / 2
+                val offsetY = (slotH - bgH) / 2
 
-                pbPreviewSize.setInt(pb, side)
-                pbPreviewSizeY.setInt(pb, side)
+                pbPreviewSize.setInt(pb, bgW)
+                pbPreviewSizeY.setInt(pb, bgH)
                 pbOffsetX.setInt(pb, offsetX)
                 pbOffsetY.setInt(pb, offsetY)
 
-                val logKey = "${spanX}x$spanY:${slotW}x$slotH->$side"
+                val logKey = "${spanX}x$spanY:${slotW}x$slotH->${bgW}x$bgH"
                 if (loggedGeometry.add(logKey)) {
                     logger.debug(
                         "BigFolderAlign setup span=${spanX}x$spanY slot=${slotW}x$slotH " +
-                            "stock=${stockW}x$stockH side=$side offset=($offsetX,$offsetY)"
+                            "stock=${stockW}x$stockH bg=${bgW}x$bgH offset=($offsetX,$offsetY)"
                     )
                 }
             } catch (t: Throwable) {
@@ -427,16 +461,16 @@ class BigFolderAlignHook : AppHookModule() {
             try {
                 val spanX = chain.args[0] as Int
                 val spanY = chain.args[1] as Int
-                if (!isSquareBigFolder(spanX, spanY)) return@hookWithId chain.proceed()
+                val spec = resolveSpec(spanX, spanY) ?: return@hookWithId chain.proceed()
                 val out = chain.args[2] as IntArray?
-                if (suppressStackingForNine.get() == true) {
-                    out?.set(0, GRID_CAPACITY + 1)
+                if (suppressStackingForExactCapacity.get() == true) {
+                    out?.set(0, spec.capacity + 1)
                     out?.set(1, 1)
-                    return@hookWithId GRID_CAPACITY + 1
+                    return@hookWithId spec.capacity + 1
                 }
-                out?.set(0, CHILD_COLS)
-                out?.set(1, CHILD_ROWS)
-                return@hookWithId GRID_CAPACITY
+                out?.set(0, spec.cols)
+                out?.set(1, spec.rows)
+                return@hookWithId spec.capacity
             } catch (t: Throwable) {
                 logger.error("childCount rewrite failed", t)
                 return@hookWithId chain.proceed()
@@ -472,42 +506,30 @@ class BigFolderAlignHook : AppHookModule() {
                     availH = args[6] as Int
                     padTop = args[7] as Int
                 }
-                if (index < 0 || !isBigFolder || !isSquareBigFolder(spanX, spanY)) {
+                val spec = if (index >= 0 && isBigFolder) resolveSpec(spanX, spanY) else null
+                if (spec == null) {
                     return@hookWithId if (ruleComputeIs9Args) result else null
                 }
 
                 val rule = chain.thisObject
                 val boxW = if (availW > 0) availW.toFloat() else ruleBgWidth.getFloat(rule)
                 val boxH = if (availH > 0) availH.toFloat() else ruleBgHeight.getFloat(rule)
-                val side = minOf(boxW, boxH)
                 val iconSize = ruleIconSize.getFloat(rule)
-                if (side <= 0f || iconSize <= 0f) {
+                if (boxW <= 0f || boxH <= 0f || iconSize <= 0f) {
                     return@hookWithId if (ruleComputeIs9Args) result else null
                 }
 
-                val outerPad = side * OUTER_PAD_RATIO
-                val headerH = if (padTop > 0) (padTop * 2f).coerceIn(0f, side * MAX_HEADER_RATIO) else 0f
-                val gridTop = maxOf(outerPad, headerH)
-                val gridBottom = side - outerPad
-                val availGridH = (gridBottom - gridTop).coerceAtLeast(side * MIN_GRID_HEIGHT_RATIO)
-                val gap = availGridH * (GAP_RATIO / (1f - 2f * OUTER_PAD_RATIO))
-                val iconPx = minOf(
-                    (availGridH - (CHILD_ROWS - 1) * gap) / CHILD_ROWS,
-                    (side - 2f * outerPad - (CHILD_COLS - 1) * gap) / CHILD_COLS
-                ).coerceAtLeast(1f)
-                val gridExtent = CHILD_COLS * iconPx + (CHILD_COLS - 1) * gap
-                val gridLeft = (boxW - gridExtent) / 2f
-                val gridStartY = (boxH - side) / 2f + gridTop + (availGridH - gridExtent) / 2f
-                val scale = iconPx / iconSize
+                val layout = computeGridLayout(spec, boxW, boxH, padTop)
+                val scale = layout.iconPx / iconSize
 
-                // Indices >= 9 are ZUI-native stacked items sharing the bottom-right 9th slot (index 8).
-                val clampedIdx = if (index >= GRID_CAPACITY) GRID_CAPACITY - 1 else index
-                val rawCol = clampedIdx % CHILD_COLS
+                // Indices >= capacity stack in the final slot (bottom-right, bottom, or END side).
+                val clampedIdx = if (index >= spec.capacity) spec.capacity - 1 else index
+                val rawCol = clampedIdx % spec.cols
                 val isRtl = TextUtils.getLayoutDirectionFromLocale(Locale.getDefault()) == View.LAYOUT_DIRECTION_RTL
-                val col = if (isRtl) (CHILD_COLS - 1 - rawCol) else rawCol
-                val row = clampedIdx / CHILD_COLS
-                val newX = gridLeft + col * (iconPx + gap)
-                val newY = gridStartY + row * (iconPx + gap)
+                val col = if (isRtl) (spec.cols - 1 - rawCol) else rawCol
+                val row = clampedIdx / spec.cols
+                val newX = layout.gridLeft + col * (layout.iconPx + layout.gapX)
+                val newY = layout.gridStartY + row * (layout.iconPx + layout.gapY)
 
                 if (ruleComputeIs9Args) {
                     val drawingParams = result ?: args[2]
@@ -530,16 +552,90 @@ class BigFolderAlignHook : AppHookModule() {
         logger.debug("hooked ClippedFolderIconLayoutRule computePreviewItemDrawingParams")
     }
 
-    private fun hookNineItemStackThreshold() {
+    private fun computeGridLayout(spec: FolderStyleSpec, boxW: Float, boxH: Float, padTop: Int): GridLayout {
+        return when (spec.kind) {
+            StyleKind.SQUARE -> {
+                val side = minOf(boxW, boxH)
+                val outerPad = side * OUTER_PAD_RATIO
+                val headerH = if (padTop > 0) (padTop * 2f).coerceIn(0f, side * MAX_HEADER_RATIO) else 0f
+                val gridTop = maxOf(outerPad, headerH)
+                val gridBottom = side - outerPad
+                val availGridH = (gridBottom - gridTop).coerceAtLeast(side * MIN_GRID_HEIGHT_RATIO)
+                val gap = availGridH * (GAP_RATIO / (1f - 2f * OUTER_PAD_RATIO))
+                val iconPx = minOf(
+                    (availGridH - (spec.rows - 1) * gap) / spec.rows,
+                    (side - 2f * outerPad - (spec.cols - 1) * gap) / spec.cols
+                ).coerceAtLeast(1f)
+                val gridExtent = spec.cols * iconPx + (spec.cols - 1) * gap
+                GridLayout(
+                    iconPx = iconPx,
+                    gapX = gap,
+                    gapY = gap,
+                    gridLeft = (boxW - gridExtent) / 2f,
+                    gridStartY = (boxH - side) / 2f + gridTop + (availGridH - gridExtent) / 2f
+                )
+            }
+            StyleKind.STRIP_1X2 -> {
+                val shortSide = minOf(boxW, boxH)
+                val minOuterPad = shortSide * STRIP_OUTER_PAD_RATIO
+                val headerH = if (padTop > 0) (padTop * 2f).coerceIn(0f, boxH * MAX_HEADER_RATIO) else 0f
+                val gridTop = maxOf(minOuterPad, headerH)
+                val availGridH = (boxH - minOuterPad - gridTop).coerceAtLeast(boxH * MIN_GRID_HEIGHT_RATIO)
+                val minGap = boxH * STRIP_MIN_GAP_RATIO
+                val maxByShort = (boxW - 2f * minOuterPad).coerceAtLeast(1f)
+                val maxByLong = ((availGridH - (spec.rows - 1) * minGap) / spec.rows).coerceAtLeast(1f)
+                val iconPx = minOf(maxByShort, maxByLong).coerceAtLeast(1f)
+                val maxGap = ((availGridH - spec.rows * iconPx) / (spec.rows - 1)).coerceAtLeast(0f)
+                val spanH = if (padTop > 0) (boxH - gridTop) else boxH
+                val evenGap = ((spanH - spec.rows * iconPx) / (spec.rows + 1)).coerceAtLeast(0f)
+                val gapY = evenGap.coerceIn(minGap.coerceAtMost(maxGap), maxGap)
+                val gridH = spec.rows * iconPx + (spec.rows - 1) * gapY
+                val gridStartY = if (padTop > 0) gridTop + (availGridH - gridH) / 2f else (boxH - gridH) / 2f
+                GridLayout(
+                    iconPx = iconPx,
+                    gapX = 0f,
+                    gapY = gapY,
+                    gridLeft = (boxW - iconPx) / 2f,
+                    gridStartY = gridStartY
+                )
+            }
+            StyleKind.STRIP_2X1 -> {
+                val shortSide = minOf(boxW, boxH)
+                val minOuterPad = shortSide * STRIP_OUTER_PAD_RATIO
+                val headerH = if (padTop > 0) (padTop * 2f).coerceIn(0f, boxH * STRIP_2X1_MAX_HEADER_RATIO) else 0f
+                val gridTop = maxOf(minOuterPad, headerH)
+                val availGridH = (boxH - minOuterPad - gridTop).coerceAtLeast(boxH * MIN_GRID_HEIGHT_RATIO)
+                val availGridW = (boxW - 2f * minOuterPad).coerceAtLeast(1f)
+                val minGap = boxW * STRIP_MIN_GAP_RATIO
+                val maxByShort = availGridH.coerceAtLeast(1f)
+                val maxByLong = ((availGridW - (spec.cols - 1) * minGap) / spec.cols).coerceAtLeast(1f)
+                val iconPx = minOf(maxByShort, maxByLong).coerceAtLeast(1f)
+                val maxGap = ((availGridW - spec.cols * iconPx) / (spec.cols - 1)).coerceAtLeast(0f)
+                val evenGap = ((boxW - spec.cols * iconPx) / (spec.cols + 1)).coerceAtLeast(0f)
+                val gapX = evenGap.coerceIn(minGap.coerceAtMost(maxGap), maxGap)
+                val gridW = spec.cols * iconPx + (spec.cols - 1) * gapX
+                GridLayout(
+                    iconPx = iconPx,
+                    gapX = gapX,
+                    gapY = 0f,
+                    gridLeft = (boxW - gridW) / 2f,
+                    gridStartY = gridTop + (availGridH - iconPx) / 2f
+                )
+            }
+        }
+    }
+
+    private fun hookExactCapacityStackThreshold() {
         hookWithId(pimDrawParams, "big_folder_align_draw_params") { chain ->
             val icon = runCatching { pimIcon.get(chain.thisObject) }.getOrNull()
             val list = chain.args.getOrNull(1) as? List<*>
-            if (isSquareFolderIcon(icon) && list?.size == GRID_CAPACITY) {
-                suppressStackingForNine.set(true)
+            val spec = resolveIconSpec(icon)
+            if (spec != null && list?.size == spec.capacity) {
+                suppressStackingForExactCapacity.set(true)
                 try {
                     return@hookWithId chain.proceed()
                 } finally {
-                    suppressStackingForNine.remove()
+                    suppressStackingForExactCapacity.remove()
                 }
             }
             chain.proceed()
@@ -548,24 +644,25 @@ class BigFolderAlignHook : AppHookModule() {
         hookWithId(pimCheckClick, "big_folder_align_check_click") { chain ->
             val icon = chain.args.getOrNull(0)
             val list = runCatching { pimFirstPage.get(chain.thisObject) as? List<*> }.getOrNull()
-            if (isSquareFolderIcon(icon) && list?.size == GRID_CAPACITY) {
-                suppressStackingForNine.set(true)
+            val spec = resolveIconSpec(icon)
+            if (spec != null && list?.size == spec.capacity) {
+                suppressStackingForExactCapacity.set(true)
                 try {
                     return@hookWithId chain.proceed()
                 } finally {
-                    suppressStackingForNine.remove()
+                    suppressStackingForExactCapacity.remove()
                 }
             }
             chain.proceed()
         }
-        logger.debug("hooked PreviewItemManager 9-item threshold")
+        logger.debug("hooked PreviewItemManager exact-capacity threshold")
     }
 
     private fun hookFolderLabelAndPadding() {
         fiPadTopMethod?.let { padTopMethod ->
             hookWithId(padTopMethod, "big_folder_align_pad_top") { chain ->
                 val icon = chain.thisObject
-                if (icon != null && isSquareFolderIcon(icon) && !isLabelVisible(icon)) {
+                if (icon != null && resolveIconSpec(icon) != null && !isLabelVisible(icon)) {
                     return@hookWithId 0
                 }
                 chain.proceed()
@@ -582,7 +679,7 @@ class BigFolderAlignHook : AppHookModule() {
                 chain.proceed()
                 try {
                     val icon = chain.thisObject ?: return@hookWithId null
-                    if (!isSquareFolderIcon(icon)) return@hookWithId null
+                    if (resolveIconSpec(icon) == null) return@hookWithId null
                     val bg = bgField.get(icon) ?: return@hookWithId null
                     val desiredTop = pbOffsetY.getInt(bg) + topMarginField.getInt(icon)
                     val label = labelField.get(icon) as? View ?: return@hookWithId null
@@ -605,7 +702,7 @@ class BigFolderAlignHook : AppHookModule() {
             try {
                 val fam = chain.thisObject ?: return@hookWithId chain.proceed()
                 val icon = famFolderIcon.get(fam)
-                if (!isSquareFolderIcon(icon)) return@hookWithId chain.proceed()
+                val spec = resolveIconSpec(icon) ?: return@hookWithId chain.proceed()
 
                 val tmpParams = famTmpParams.get(fam) ?: return@hookWithId chain.proceed()
                 val hookedScale = ruleParamsScale?.getFloat(tmpParams) ?: 0f
@@ -622,11 +719,11 @@ class BigFolderAlignHook : AppHookModule() {
                 }
                 args[8] = hookedScale * sizeRatio * newScaleFolder
 
-                // Disable 9th-slot close shrinkage/fade when a 9-app folder renders unstacked.
+                // Disable end-slot close shrinkage/fade when item count matches grid capacity.
                 val animItemCount = args[1] as Int
                 val stackThreshold = args[2] as Int
-                if (animItemCount == GRID_CAPACITY && stackThreshold == GRID_CAPACITY) {
-                    args[2] = GRID_CAPACITY + 1
+                if (animItemCount == spec.capacity && stackThreshold == spec.capacity) {
+                    args[2] = spec.capacity + 1
                 }
                 return@hookWithId chain.proceed(args)
             } catch (t: Throwable) {
@@ -637,12 +734,17 @@ class BigFolderAlignHook : AppHookModule() {
         logger.debug("hooked FolderAnimationManager.computeBigFolderItemAnim")
     }
 
-    private fun isSquareBigFolder(spanX: Int, spanY: Int): Boolean = spanX == spanY && spanX >= 2
+    private fun resolveSpec(spanX: Int, spanY: Int): FolderStyleSpec? = when {
+        squareStyleEnabled && spanX == spanY && spanX >= 2 -> SQUARE_SPEC
+        stripStyleEnabled && spanX == 1 && spanY == 2 -> STRIP_1X2_SPEC
+        stripStyleEnabled && spanX == 2 && spanY == 1 -> STRIP_2X1_SPEC
+        else -> null
+    }
 
-    private fun isSquareFolderIcon(icon: Any?): Boolean {
-        if (icon == null || !folderIconReady) return false
-        val info = fiInfo.get(icon) ?: return false
-        return isSquareBigFolder(fiSpanX.getInt(info), fiSpanY.getInt(info))
+    private fun resolveIconSpec(icon: Any?): FolderStyleSpec? {
+        if (icon == null || !folderIconReady) return null
+        val info = fiInfo.get(icon) ?: return null
+        return resolveSpec(fiSpanX.getInt(info), fiSpanY.getInt(info))
     }
 
     private fun isLabelVisible(icon: Any): Boolean {
@@ -726,15 +828,20 @@ class BigFolderAlignHook : AppHookModule() {
     }
 
     companion object {
-        private const val CHILD_COLS = 3
-        private const val CHILD_ROWS = 3
-        private const val GRID_CAPACITY = CHILD_COLS * CHILD_ROWS
+        private val SQUARE_SPEC = FolderStyleSpec(StyleKind.SQUARE, 3, 3)
+        private val STRIP_1X2_SPEC = FolderStyleSpec(StyleKind.STRIP_1X2, 1, 3)
+        private val STRIP_2X1_SPEC = FolderStyleSpec(StyleKind.STRIP_2X1, 3, 1)
 
         // Proportional 3x3 layout parameters inside the square background.
         private const val OUTER_PAD_RATIO = 0.0475f
         private const val GAP_RATIO = 0.025f
         private const val MAX_HEADER_RATIO = 0.30f
         private const val MIN_GRID_HEIGHT_RATIO = 0.45f
+
+        // 0.075 edge padding leaves 0.85 * shortSide for the strip icon diameter.
+        private const val STRIP_OUTER_PAD_RATIO = 0.075f
+        private const val STRIP_MIN_GAP_RATIO = 0.025f
+        private const val STRIP_2X1_MAX_HEADER_RATIO = 0.36f
 
         private val loggedGeometry: MutableSet<String> =
             java.util.Collections.newSetFromMap(java.util.concurrent.ConcurrentHashMap())

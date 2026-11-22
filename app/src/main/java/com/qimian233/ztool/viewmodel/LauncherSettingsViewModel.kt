@@ -197,6 +197,11 @@ class LauncherSettingsViewModel(
         repository.saveBigFolderSquareStyle(enabled)
     }
 
+    fun setBigFolderStripStyle(enabled: Boolean) {
+        _uiState.value = _uiState.value.copy(bigFolderStripStyle = enabled)
+        repository.saveBigFolderStripStyle(enabled)
+    }
+
     fun setAppIconUnmask(enabled: Boolean) {
         _uiState.value = _uiState.value.copy(appIconUnmask = enabled)
         repository.saveAppIconUnmask(enabled)
@@ -338,6 +343,7 @@ data class LauncherSettingsUiState(
     val launcherBatchUninstall: Boolean = false,
     val bigFolderAlign: Boolean = false,
     val bigFolderSquareStyle: Boolean = false,
+    val bigFolderStripStyle: Boolean = false,
     /** Host big-folder blur crash guard; on by default (key launcher_big_folder_blur_guard). */
     val bigFolderBlurGuard: Boolean = true,
     val appIconUnmask: Boolean = false,
