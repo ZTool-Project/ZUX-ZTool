@@ -1,6 +1,8 @@
 package com.qimian233.ztool.hook.modules.launcher.grid
 
 import android.animation.AnimatorSet
+import android.animation.TimeInterpolator
+import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Canvas
@@ -22,6 +24,8 @@ import java.lang.reflect.Field
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
 import java.util.Locale
+import java.util.WeakHashMap
+import kotlin.math.abs
 
 /**
  * Aligns square (`3x3`, 10+ stack), strip (`1x2` 3x1 / `2x1` 1x3, 4+ stack), and
@@ -44,6 +48,15 @@ class BigFolderAlignHook : AppHookModule() {
         val gridStartY: Float
     )
 
+    private data class PreResizeBgSnapshot(
+        val beforeSpanX: Int,
+        val beforeSpanY: Int,
+        val left: Int,
+        val top: Int,
+        val right: Int,
+        val bottom: Int
+    )
+
     override fun getModuleName(): String = PreferenceKeys.LAUNCHER_BIG_FOLDER_ALIGN.name
 
     override fun getTargetPackages(): Array<String> = arrayOf(ScopeKeys.LAUNCHER.packageName)
@@ -58,6 +71,7 @@ class BigFolderAlignHook : AppHookModule() {
     private var folderIconReady = false
     private var pimReady = false
     private var famReady = false
+    private var resizeReady = false
 
     // PreviewBackground
     private lateinit var pbSpanX: Field
@@ -105,7 +119,38 @@ class BigFolderAlignHook : AppHookModule() {
     private lateinit var famTmpParams: Field
     private lateinit var famComputeBigAnim: Method
 
+    // Resize transition
+    private lateinit var fiOnBeforeResize: Method
+    private lateinit var fiOnAfterResize: Method
+    private var fiUpdateBgBlur: Method? = null
+    private var fiTransformDuration: Field? = null
+    private var fiTransformInterpolator: Field? = null
+    private lateinit var pbCellWidthBig: Field
+    private lateinit var pbCellHeightBig: Field
+    private lateinit var pbPreRect: Field
+    private lateinit var pbDstRect: Field
+    private lateinit var pbOffsetL: Field
+    private lateinit var pbOffsetT: Field
+    private lateinit var pbOffsetR: Field
+    private lateinit var pbOffsetB: Field
+    private var pbUseBeforeBgBt: Field? = null
+    private lateinit var pimPreParams: Field
+    private lateinit var pimOffsetX: Field
+    private lateinit var pimOffsetY: Field
+    private lateinit var pimDstWidth: Field
+    private lateinit var pimDstHeight: Field
+    private var pimHandleAnim: Field? = null
+    private lateinit var paramStartTransX: Field
+    private lateinit var paramStartTransY: Field
+    private lateinit var paramOffsetTransX: Field
+    private lateinit var paramOffsetTransY: Field
+    private lateinit var paramResizeTransX: Field
+    private lateinit var paramResizeTransY: Field
+    private lateinit var paramResizeScale: Field
+
     private val suppressStackingForExactCapacity = ThreadLocal.withInitial { false }
+    private val preResizeBgSnapshots = WeakHashMap<Any, PreResizeBgSnapshot>()
+    private val activeScaleAnimators = WeakHashMap<Any, ValueAnimator>()
 
     @Throws(Throwable::class)
     override fun handleLoadPackage(param: PackageLoadedParam) {
@@ -147,6 +192,7 @@ class BigFolderAlignHook : AppHookModule() {
         folderIconReady = resolveFolderIconRefs(classLoader, module)
         pimReady = resolvePreviewItemManagerRefs(classLoader, module)
         famReady = resolveFamRefs(classLoader, module)
+        resizeReady = resolveResizeRefs(classLoader)
 
         hookSetupGeometry()
         if (bfcReady) hookChildCountRewrite()
@@ -154,6 +200,7 @@ class BigFolderAlignHook : AppHookModule() {
         if (bfcReady && folderIconReady && pimReady) hookExactCapacityStackThreshold()
         if (folderIconReady) hookFolderLabelAndPadding()
         if (ruleReady && folderIconReady && famReady && ruleParamsScale != null) hookBigFolderItemAnim()
+        if (resizeReady) hookResizeAnimation()
     }
 
     private fun resolveCoreRefs(classLoader: ClassLoader, module: JsonObject?): Boolean {
@@ -410,6 +457,61 @@ class BigFolderAlignHook : AppHookModule() {
         }
     }
 
+    private fun resolveResizeRefs(classLoader: ClassLoader): Boolean {
+        if (!folderIconReady || !pimReady || fiBg == null || fiPreviewItemMgr == null) {
+            return false
+        }
+        return try {
+            val fi = classLoader.loadClass("com.android.launcher3.folder.FolderIcon")
+            fiOnBeforeResize = findMethod(
+                fi,
+                "onBeforeResize",
+                Int::class.javaPrimitiveType,
+                Int::class.javaPrimitiveType
+            )
+            fiOnAfterResize = findMethod(fi, "onAfterResize")
+            fiUpdateBgBlur = resolveOptionalMethod(fi, null, listOf("updateBgBlur"))
+            fiTransformDuration = resolveOptionalField(fi, null, "TRANSFORM_DURATION")
+            fiTransformInterpolator = resolveOptionalField(fi, null, "transformInterpolator")
+
+            val pb = classLoader.loadClass("com.android.launcher3.folder.PreviewBackground")
+            pbCellWidthBig = findField(pb, "cellWidthBig")
+            pbCellHeightBig = findField(pb, "cellHeightBig")
+            pbPreRect = findField(pb, "preFolderIconRect")
+            pbDstRect = findField(pb, "dstFolderIconRect")
+            pbOffsetL = findField(pb, "offsetL")
+            pbOffsetT = findField(pb, "offsetT")
+            pbOffsetR = findField(pb, "offsetR")
+            pbOffsetB = findField(pb, "offsetB")
+            pbUseBeforeBgBt = resolveOptionalField(pb, null, "useBeforeBgBt")
+
+            val pim = classLoader.loadClass("com.android.launcher3.folder.PreviewItemManager")
+            pimPreParams = findField(pim, "prePreviewItemParams")
+            pimOffsetX = findField(pim, "offsetX")
+            pimOffsetY = findField(pim, "offsetY")
+            pimDstWidth = findField(pim, "dstFolderIconWidth")
+            pimDstHeight = findField(pim, "dstFolderIconHeight")
+            pimHandleAnim = resolveOptionalField(pim, null, "handleAnim")
+
+            val paramsClass = if (ruleReady && ruleComputeIs9Args) {
+                ruleCompute.parameterTypes[2]
+            } else {
+                classLoader.loadClass("com.android.launcher3.folder.PreviewItemDrawingParams")
+            }
+            paramStartTransX = findField(paramsClass, "startTransX")
+            paramStartTransY = findField(paramsClass, "startTransY")
+            paramOffsetTransX = findField(paramsClass, "offsetTransX")
+            paramOffsetTransY = findField(paramsClass, "offsetTransY")
+            paramResizeTransX = ruleParamsTransX ?: findField(paramsClass, "transX")
+            paramResizeTransY = ruleParamsTransY ?: findField(paramsClass, "transY")
+            paramResizeScale = ruleParamsScale ?: findField(paramsClass, "scale")
+            true
+        } catch (t: Throwable) {
+            logger.error("resolve resize refs failed, resize anim hook skipped", t)
+            false
+        }
+    }
+
     private fun hookSetupGeometry() {
         hookWithId(pbSetup, "big_folder_align_setup") { chain ->
             chain.proceed()
@@ -424,38 +526,15 @@ class BigFolderAlignHook : AppHookModule() {
                 val stockW = pbPreviewSize.getInt(pb)
                 val stockH = pbPreviewSizeY.getInt(pb)
                 val view = chain.args.getOrNull(2) as? View
-                val slotW = view?.measuredWidth?.takeIf { it > 0 } ?: (stockW + stockOffsetX * 2)
-                val slotH = view?.measuredHeight?.takeIf { it > 0 } ?: (stockH + stockOffsetY * 2)
+                // setupLp updates layoutParams before onAfterResize recomputes; measuredWidth is still stale.
+                val slotW = view?.layoutParams?.width?.takeIf { it > 0 }
+                    ?: view?.measuredWidth?.takeIf { it > 0 }
+                    ?: (stockW + stockOffsetX * 2)
+                val slotH = view?.layoutParams?.height?.takeIf { it > 0 }
+                    ?: view?.measuredHeight?.takeIf { it > 0 }
+                    ?: (stockH + stockOffsetY * 2)
 
-                val availW = (slotW - stockOffsetX * 2).coerceAtLeast(1)
-                val availH = (slotH - stockOffsetY * 2).coerceAtLeast(1)
-                val bgW: Int
-                val bgH: Int
-                when (spec.kind) {
-                    StyleKind.SQUARE -> {
-                        val side = minOf(availW, availH)
-                        bgW = side
-                        bgH = side
-                    }
-                    StyleKind.STRIP_1X2 -> {
-                        // Match the optimized 2x2 square side on the vertical long edge.
-                        val side2x2 = minOf(availH, (slotW * 2 - stockOffsetX * 2).coerceAtLeast(1))
-                        bgW = availW
-                        bgH = side2x2
-                    }
-                    StyleKind.STRIP_2X1 -> {
-                        // Match the optimized 2x2 square side on the horizontal long edge.
-                        val side2x2 = minOf(availW, (slotH * 2 - stockOffsetY * 2).coerceAtLeast(1))
-                        bgW = side2x2
-                        bgH = availH
-                    }
-                    StyleKind.WIDE_3X2 -> {
-                        // Match the optimized 2x2 square height while keeping full 3-column width.
-                        val side2x2 = minOf(availH, ((slotW * 2) / 3 - stockOffsetX * 2).coerceAtLeast(1))
-                        bgW = availW
-                        bgH = side2x2
-                    }
-                }
+                val (bgW, bgH) = computeBackgroundSize(spec, slotW, slotH, stockOffsetX, stockOffsetY)
                 val offsetX = (slotW - bgW) / 2
                 val offsetY = (slotH - bgH) / 2
 
@@ -477,6 +556,38 @@ class BigFolderAlignHook : AppHookModule() {
             null
         }
         logger.debug("hooked PreviewBackground.setup")
+    }
+
+    private fun computeBackgroundSize(
+        spec: FolderStyleSpec,
+        slotW: Int,
+        slotH: Int,
+        stockOffsetX: Int,
+        stockOffsetY: Int
+    ): Pair<Int, Int> {
+        val availW = (slotW - stockOffsetX * 2).coerceAtLeast(1)
+        val availH = (slotH - stockOffsetY * 2).coerceAtLeast(1)
+        return when (spec.kind) {
+            StyleKind.SQUARE -> {
+                val side = minOf(availW, availH)
+                side to side
+            }
+            StyleKind.STRIP_1X2 -> {
+                // Match the optimized 2x2 square side on the vertical long edge.
+                val side2x2 = minOf(availH, (slotW * 2 - stockOffsetX * 2).coerceAtLeast(1))
+                availW to side2x2
+            }
+            StyleKind.STRIP_2X1 -> {
+                // Match the optimized 2x2 square side on the horizontal long edge.
+                val side2x2 = minOf(availW, (slotH * 2 - stockOffsetY * 2).coerceAtLeast(1))
+                side2x2 to availH
+            }
+            StyleKind.WIDE_3X2 -> {
+                // Match the optimized 2x2 square height while keeping full 3-column width.
+                val side2x2 = minOf(availH, ((slotW * 2) / 3 - stockOffsetX * 2).coerceAtLeast(1))
+                availW to side2x2
+            }
+        }
     }
 
     private fun hookChildCountRewrite() {
@@ -780,6 +891,178 @@ class BigFolderAlignHook : AppHookModule() {
         logger.debug("hooked FolderAnimationManager.computeBigFolderItemAnim")
     }
 
+    private fun hookResizeAnimation() {
+        hookWithId(fiOnBeforeResize, "big_folder_align_before_resize") { chain ->
+            chain.proceed()
+            try {
+                val icon = chain.thisObject ?: return@hookWithId null
+                val dstSpanX = chain.args[0] as Int
+                val dstSpanY = chain.args[1] as Int
+                val info = fiInfo.get(icon) ?: return@hookWithId null
+                val bg = fiBg?.get(icon) ?: return@hookWithId null
+                val pim = fiPreviewItemMgr?.get(icon) ?: return@hookWithId null
+
+                val beforeSpanX = fiSpanX.getInt(info)
+                val beforeSpanY = fiSpanY.getInt(info)
+                val preSlot = pbPreRect.get(bg) as? Rect ?: return@hookWithId null
+
+                val preLeft = preSlot.left + pbOffsetX.getInt(bg)
+                val preTop = preSlot.top + pbOffsetY.getInt(bg)
+                val preRight = preLeft + pbPreviewSize.getInt(bg)
+                val preBottom = preTop + pbPreviewSizeY.getInt(bg)
+                preResizeBgSnapshots[icon] = PreResizeBgSnapshot(
+                    beforeSpanX = beforeSpanX,
+                    beforeSpanY = beforeSpanY,
+                    left = preLeft,
+                    top = preTop,
+                    right = preRight,
+                    bottom = preBottom
+                )
+
+                val dstSpec = resolveSpec(dstSpanX, dstSpanY) ?: return@hookWithId null
+                val stockDstW = pimDstWidth.getInt(pim)
+                val stockDstH = pimDstHeight.getInt(pim)
+                val cellW = pbCellWidthBig.getInt(bg)
+                val cellH = pbCellHeightBig.getInt(bg)
+                val dstSlotW = (cellW * dstSpanX).takeIf { it > 0 } ?: stockDstW
+                val dstSlotH = (cellH * dstSpanY).takeIf { it > 0 } ?: stockDstH
+                val stockOffsetX = ((dstSlotW - stockDstW) / 2).coerceAtLeast(0)
+                val stockOffsetY = ((dstSlotH - stockDstH) / 2).coerceAtLeast(0)
+                val (dstBgW, dstBgH) = computeBackgroundSize(
+                    dstSpec,
+                    dstSlotW,
+                    dstSlotH,
+                    stockOffsetX,
+                    stockOffsetY
+                )
+                pimDstWidth.setInt(pim, dstBgW)
+                pimDstHeight.setInt(pim, dstBgH)
+            } catch (t: Throwable) {
+                logger.error("FolderIcon.onBeforeResize override failed", t)
+            }
+            null
+        }
+
+        hookWithId(fiOnAfterResize, "big_folder_align_after_resize") { chain ->
+            chain.proceed()
+            try {
+                val icon = chain.thisObject ?: return@hookWithId null
+                val pre = preResizeBgSnapshots.remove(icon) ?: return@hookWithId null
+                val info = fiInfo.get(icon) ?: return@hookWithId null
+                val bg = fiBg?.get(icon) ?: return@hookWithId null
+                val pim = fiPreviewItemMgr?.get(icon) ?: return@hookWithId null
+
+                val dstSpanX = fiSpanX.getInt(info)
+                val dstSpanY = fiSpanY.getInt(info)
+                if (resolveSpec(pre.beforeSpanX, pre.beforeSpanY) == null &&
+                    resolveSpec(dstSpanX, dstSpanY) == null
+                ) {
+                    return@hookWithId null
+                }
+
+                val dstSlot = pbDstRect.get(bg) as? Rect ?: return@hookWithId null
+                val dstLeft = dstSlot.left + pbOffsetX.getInt(bg)
+                val dstTop = dstSlot.top + pbOffsetY.getInt(bg)
+                val dstRight = dstLeft + pbPreviewSize.getInt(bg)
+                val dstBottom = dstTop + pbPreviewSizeY.getInt(bg)
+
+                val newOffsetL = pre.left - dstLeft
+                val newOffsetT = pre.top - dstTop
+                val newOffsetR = pre.right - dstRight
+                val newOffsetB = pre.bottom - dstBottom
+
+                pbOffsetL.setInt(bg, newOffsetL)
+                pbOffsetT.setInt(bg, newOffsetT)
+                pbOffsetR.setInt(bg, newOffsetR)
+                pbOffsetB.setInt(bg, newOffsetB)
+                pimOffsetX.setInt(pim, newOffsetL)
+                pimOffsetY.setInt(pim, newOffsetT)
+
+                if (newOffsetL > 0 || newOffsetT > 0 || newOffsetR < 0 || newOffsetB < 0) {
+                    pbUseBeforeBgBt?.setBoolean(bg, false)
+                }
+
+                (fiLabel?.get(icon) as? View)?.let { label ->
+                    label.translationY = newOffsetT.toFloat()
+                    label.translationX = when {
+                        newOffsetL != 0 -> newOffsetL / 2f
+                        newOffsetR != 0 -> newOffsetR / 2f
+                        else -> 0f
+                    }
+                }
+
+                val preParams = pimPreParams.get(pim) as? List<*>
+                val firstParams = pimFirstPage.get(pim) as? List<*>
+                activeScaleAnimators.remove(icon)?.cancel()
+                if (!preParams.isNullOrEmpty() && !firstParams.isNullOrEmpty()) {
+                    val startScales = FloatArray(preParams.size)
+                    val targetScales = FloatArray(preParams.size)
+                    var scaleChanges = false
+                    for (i in preParams.indices) {
+                        val p = preParams[i] ?: continue
+                        val target = firstParams[minOf(i, firstParams.lastIndex)] ?: continue
+                        val startX = paramStartTransX.getFloat(p)
+                        val startY = paramStartTransY.getFloat(p)
+                        val targetX = paramResizeTransX.getFloat(target)
+                        val targetY = paramResizeTransY.getFloat(target)
+                        paramOffsetTransX.setFloat(p, targetX - startX)
+                        paramOffsetTransY.setFloat(p, targetY - startY)
+                        paramResizeTransX.setFloat(p, startX + newOffsetL)
+                        paramResizeTransY.setFloat(p, startY + newOffsetT)
+
+                        val startScale = paramResizeScale.getFloat(p)
+                        val targetScale = paramResizeScale.getFloat(target)
+                        startScales[i] = startScale
+                        targetScales[i] = targetScale
+                        if (abs(targetScale - startScale) > 0.001f) {
+                            scaleChanges = true
+                        }
+                    }
+
+                    if (scaleChanges) {
+                        val animParams = ArrayList(preParams)
+                        val duration = runCatching {
+                            fiTransformDuration?.getInt(null)?.takeIf { it > 0 }?.toLong()
+                        }.getOrNull() ?: DEFAULT_RESIZE_DURATION_MS
+                        val interp = runCatching {
+                            fiTransformInterpolator?.get(icon) as? TimeInterpolator
+                        }.getOrNull()
+                        val iconView = icon as? View
+                        val scaleAnim = ValueAnimator.ofFloat(0f, 1f).apply {
+                            setDuration(duration)
+                            if (interp != null) interpolator = interp
+                            addUpdateListener { anim ->
+                                val running = pimHandleAnim?.let {
+                                    runCatching { it.getBoolean(pim) }.getOrNull()
+                                }
+                                if (running == false) {
+                                    anim.cancel()
+                                    return@addUpdateListener
+                                }
+                                val frac = anim.animatedValue as Float
+                                for (i in animParams.indices) {
+                                    val p = animParams[i] ?: continue
+                                    val scale = startScales[i] + (targetScales[i] - startScales[i]) * frac
+                                    runCatching { paramResizeScale.setFloat(p, scale) }
+                                }
+                                iconView?.invalidate()
+                            }
+                        }
+                        activeScaleAnimators[icon] = scaleAnim
+                        scaleAnim.start()
+                    }
+                }
+
+                runCatching { fiUpdateBgBlur?.invoke(icon) }
+                (icon as? View)?.invalidate()
+            } catch (t: Throwable) {
+                logger.error("FolderIcon.onAfterResize override failed", t)
+            }
+            null
+        }
+        logger.debug("hooked FolderIcon resize transitions")
+    }
+
     private fun resolveSpec(spanX: Int, spanY: Int): FolderStyleSpec? = when {
         squareStyleEnabled && spanX == spanY && spanX >= 2 -> SQUARE_SPEC
         stripStyleEnabled && spanX == 1 && spanY == 2 -> STRIP_1X2_SPEC
@@ -890,6 +1173,7 @@ class BigFolderAlignHook : AppHookModule() {
         private const val STRIP_OUTER_PAD_RATIO = 0.075f
         private const val STRIP_MIN_GAP_RATIO = 0.025f
         private const val STRIP_2X1_MAX_HEADER_RATIO = 0.36f
+        private const val DEFAULT_RESIZE_DURATION_MS = 300L
 
         private val loggedGeometry: MutableSet<String> =
             java.util.Collections.newSetFromMap(java.util.concurrent.ConcurrentHashMap())
