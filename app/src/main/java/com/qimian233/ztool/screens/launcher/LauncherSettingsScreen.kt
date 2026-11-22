@@ -132,6 +132,7 @@ fun LauncherSettingsRoute(
             onDisableRecentAppDisplayChanged = viewModel::setDisableRecentAppDisplay,
             onLauncherBatchUninstallChanged = viewModel::setLauncherBatchUninstall,
             onBigFolderAlignChanged = viewModel::setBigFolderAlign,
+            onBigFolderSquareStyleChanged = viewModel::setBigFolderSquareStyle,
             onBigFolderBlurGuardChanged = viewModel::setBigFolderBlurGuard,
             onAppIconUnmaskChanged = viewModel::setAppIconUnmask,
             onAppIconUnmaskDynamicChanged = viewModel::setAppIconUnmaskDynamic,
@@ -219,6 +220,7 @@ private fun LauncherSettingsScreen(
     onDisableRecentAppDisplayChanged: (Boolean) -> Unit,
     onLauncherBatchUninstallChanged: (Boolean) -> Unit,
     onBigFolderAlignChanged: (Boolean) -> Unit,
+    onBigFolderSquareStyleChanged: (Boolean) -> Unit,
     onBigFolderBlurGuardChanged: (Boolean) -> Unit,
     onAppIconUnmaskChanged: (Boolean) -> Unit,
     onAppIconUnmaskDynamicChanged: (Boolean) -> Unit,
@@ -294,6 +296,7 @@ private fun LauncherSettingsScreen(
                         onDisableRecentAppDisplayChanged = onDisableRecentAppDisplayChanged,
                         onLauncherBatchUninstallChanged = onLauncherBatchUninstallChanged,
                         onBigFolderAlignChanged = onBigFolderAlignChanged,
+                        onBigFolderSquareStyleChanged = onBigFolderSquareStyleChanged,
                         onBigFolderBlurGuardChanged = onBigFolderBlurGuardChanged,
                         onAppIconUnmaskChanged = onAppIconUnmaskChanged,
                         onAppIconUnmaskDynamicChanged = onAppIconUnmaskDynamicChanged,
@@ -337,6 +340,7 @@ private fun launcherSettingsSections(
     onDisableRecentAppDisplayChanged: (Boolean) -> Unit,
     onLauncherBatchUninstallChanged: (Boolean) -> Unit,
     onBigFolderAlignChanged: (Boolean) -> Unit,
+    onBigFolderSquareStyleChanged: (Boolean) -> Unit,
     onBigFolderBlurGuardChanged: (Boolean) -> Unit,
     onAppIconUnmaskChanged: (Boolean) -> Unit,
     onAppIconUnmaskDynamicChanged: (Boolean) -> Unit,
@@ -500,6 +504,17 @@ private fun launcherSettingsSections(
                 key = "launcher_big_folder_align"
             )
         )
+        if (state.bigFolderAlign) {
+            add(
+                SettingItem.Switch(
+                    title = stringResource(R.string.launcher_big_folder_square_style_title),
+                    summary = stringResource(R.string.launcher_big_folder_square_style_summary),
+                    checked = state.bigFolderSquareStyle,
+                    onCheckedChange = onBigFolderSquareStyleChanged,
+                    key = "launcher_big_folder_square_style"
+                )
+            )
+        }
         add(
             SettingItem.Switch(
                 title = stringResource(R.string.launcher_big_folder_blur_guard_title),

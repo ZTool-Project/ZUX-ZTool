@@ -91,6 +91,17 @@ class BigFolderAlignHook : AppHookModule() {
 
     @Throws(Throwable::class)
     override fun handleLoadPackage(param: PackageLoadedParam) {
+        val squareStyleEnabled = runCatching {
+            xposed.getRemotePreferences("xposed_module_config").getBoolean(
+                PreferenceKeys.LAUNCHER_BIG_FOLDER_SQUARE_STYLE.name,
+                PreferenceKeys.LAUNCHER_BIG_FOLDER_SQUARE_STYLE.default
+            )
+        }.getOrDefault(PreferenceKeys.LAUNCHER_BIG_FOLDER_SQUARE_STYLE.default)
+        if (!squareStyleEnabled) {
+            logger.debug("BigFolderAlign: square style sub-feature disabled, skipping")
+            return
+        }
+
         val classLoader = param.defaultClassLoader
         logger.debug("BigFolderAlign installing")
 

@@ -49,6 +49,10 @@ class LauncherSettingsRepository(
             disableRecentAppDisplay = prefsUtils.loadBooleanSetting(KEY_DISABLE_RECENT_APP_DISPLAY, false),
             launcherBatchUninstall = prefsUtils.loadBooleanSetting(KEY_LAUNCHER_BATCH_UNINSTALL, false),
             bigFolderAlign = prefsUtils.loadBooleanSetting(KEY_BIG_FOLDER_ALIGN, false),
+            bigFolderSquareStyle = prefsUtils.loadBooleanSetting(
+                KEY_BIG_FOLDER_SQUARE_STYLE,
+                PreferenceKeys.LAUNCHER_BIG_FOLDER_SQUARE_STYLE.default
+            ),
             bigFolderBlurGuard =
                 prefsUtils.loadBooleanSetting(KEY_LAUNCHER_BIG_FOLDER_BLUR_GUARD, true),
             appIconUnmask = prefsUtils.loadBooleanSetting(KEY_LAUNCHER_APP_ICON_UNMASK, false),
@@ -152,6 +156,10 @@ class LauncherSettingsRepository(
 
     fun saveBigFolderAlign(enabled: Boolean) {
         prefsUtils.saveBooleanSetting(KEY_BIG_FOLDER_ALIGN, enabled)
+    }
+
+    fun saveBigFolderSquareStyle(enabled: Boolean) {
+        prefsUtils.saveBooleanSetting(KEY_BIG_FOLDER_SQUARE_STYLE, enabled)
     }
 
     fun saveAppIconUnmask(enabled: Boolean) {
@@ -325,6 +333,8 @@ class LauncherSettingsRepository(
         private val KEY_DISABLE_RECENT_APP_DISPLAY = PreferenceKeys.DISABLE_RECENT_APPS_DISPLAY.name
         private val KEY_LAUNCHER_BATCH_UNINSTALL = PreferenceKeys.LAUNCHER_BATCH_UNINSTALL.name
         private val KEY_BIG_FOLDER_ALIGN = PreferenceKeys.LAUNCHER_BIG_FOLDER_ALIGN.name
+        private val KEY_BIG_FOLDER_SQUARE_STYLE =
+            PreferenceKeys.LAUNCHER_BIG_FOLDER_SQUARE_STYLE.name
         private val KEY_LAUNCHER_BIG_FOLDER_BLUR_GUARD =
             PreferenceKeys.LAUNCHER_BIG_FOLDER_BLUR_GUARD.name
         private val KEY_LAUNCHER_APP_ICON_UNMASK = PreferenceKeys.LAUNCHER_APP_ICON_UNMASK.name

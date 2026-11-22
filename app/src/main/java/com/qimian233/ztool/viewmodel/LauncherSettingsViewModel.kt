@@ -192,6 +192,11 @@ class LauncherSettingsViewModel(
         repository.saveBigFolderAlign(enabled)
     }
 
+    fun setBigFolderSquareStyle(enabled: Boolean) {
+        _uiState.value = _uiState.value.copy(bigFolderSquareStyle = enabled)
+        repository.saveBigFolderSquareStyle(enabled)
+    }
+
     fun setAppIconUnmask(enabled: Boolean) {
         _uiState.value = _uiState.value.copy(appIconUnmask = enabled)
         repository.saveAppIconUnmask(enabled)
@@ -332,6 +337,7 @@ data class LauncherSettingsUiState(
     val disableRecentAppDisplay: Boolean = false,
     val launcherBatchUninstall: Boolean = false,
     val bigFolderAlign: Boolean = false,
+    val bigFolderSquareStyle: Boolean = false,
     /** Host big-folder blur crash guard; on by default (key launcher_big_folder_blur_guard). */
     val bigFolderBlurGuard: Boolean = true,
     val appIconUnmask: Boolean = false,
@@ -368,7 +374,7 @@ data class LauncherSettingsUiState(
             dockBackgroundVisible = !disableDockBackground,
             // Dock expansion forces 20 hotseat columns; 8 slots is the on-device dock.
             dockIconCount = if (moreBigDock) 8 else 5,
-            bigFolderHooked = bigFolderAlign
+            bigFolderHooked = bigFolderAlign && bigFolderSquareStyle
         )
 }
 
