@@ -1,5 +1,6 @@
 package com.qimian233.ztool.screens.launcher
 
+import android.os.Build
 import android.widget.Toast
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.clickable
@@ -547,6 +548,7 @@ private fun launcherSettingsSections(
                 summary = stringResource(R.string.launcher_big_folder_blur_guard_summary),
                 checked = state.bigFolderBlurGuard,
                 onCheckedChange = onBigFolderBlurGuardChanged,
+                maxSdkVersion = Build.VERSION_CODES.BAKLAVA,
                 key = "launcher_big_folder_blur_guard"
             )
         )
