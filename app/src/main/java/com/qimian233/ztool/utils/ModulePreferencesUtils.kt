@@ -1,269 +1,82 @@
 package com.qimian233.ztool.utils
 
-import android.annotation.SuppressLint
 import android.content.Context
-import android.content.SharedPreferences
 import android.util.Log
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.google.gson.reflect.TypeToken
-import com.qimian233.ztool.ModuleActivationProbe
 import com.qimian233.ztool.XposedServiceBridge
 import com.qimian233.ztool.data.keys.PreferenceKeys
-import java.io.File
 import java.util.TreeMap
-import androidx.core.content.edit
 
 /**
- * SharedPreferences utility class wrapping read/write operations for the Xposed
- * module configuration.
+ * Local-first SharedPreferences wrapper for `xposed_module_config`.
  *
- * Type inference uses list-loop matching against [PreferenceKeys], replacing the
- * hardcoded || + equals chains.
+ * Reads and writes the app-local file as the single source of truth, mirrors
+ * mutations to LSPosed remote preferences when bound, and reconciles diffs
+ * through [onServiceBind].
  */
 class ModulePreferencesUtils(
-    private val context: Context,
-    private val modulePackageName: String = "com.qimian233.ztool"
+    context: Context
 ) {
+    private val appContext: Context = context.applicationContext ?: context
+    private val engine: ModulePreferencesSyncEngine = getOrCreateEngine(appContext)
 
-    // SharedPreferences instance access
+    /** True when the LSPosed remote preferences service is currently reachable. */
+    val isRemoteSyncAvailable: Boolean
+        get() = engine.isRemoteAvailable()
 
-    val modulePreferences: SharedPreferences
-        get() {
-            try {
-                if (ModuleActivationProbe.isModuleActive()
-                    && XposedServiceBridge.currentService != null
-                ) {
-                    return XposedServiceBridge.currentService!!
-                        .getRemotePreferences(PREFS_NAME)
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to get remote preferences", e)
-            }
-            try {
-                val moduleContext =
-                    context.createPackageContext(modulePackageName, Context.CONTEXT_IGNORE_SECURITY)
-                return moduleContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to get module preferences, using fallback", e)
-                return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            }
-        }
+    /** True when [featureName] is present in local preferences. */
+    fun containsSetting(featureName: String): Boolean = engine.containsSetting(featureName)
 
-    /**
-     * True when [modulePreferences] currently resolves to the LSPosed remote
-     * preferences service rather than a local fallback file.
-     */
-    val isUsingRemotePreferences: Boolean
-        get() = try {
-            ModuleActivationProbe.isModuleActive() && XposedServiceBridge.currentService != null
-        } catch (_: Exception) {
-            false
-        }
+    /** Returns the raw stored value for [featureName], or null if absent. */
+    fun readRawSetting(featureName: String): Any? = engine.readRawSetting(featureName)
 
     // Boolean
 
-    /** True when [featureName] is present, i.e. the user (or a restore) already set it. */
-    fun containsSetting(featureName: String): Boolean = modulePreferences.all.containsKey(featureName)
+    fun loadBooleanSetting(featureName: String, defaultValue: Boolean): Boolean =
+        engine.loadBooleanSetting(featureName, defaultValue)
 
-    fun loadBooleanSetting(featureName: String, defaultValue: Boolean): Boolean {
-        val prefs = modulePreferences
-        return try {
-            val value = prefs.getBoolean(featureName, defaultValue)
-            Log.d(TAG, "Loading $featureName: $value")
-            value
-        } catch (e: ClassCastException) {
-            val storedValue = prefs.all[featureName]
-            val repaired = coerceBooleanValue(storedValue)
-            if (repaired != null) {
-                Log.w(
-                    TAG, "Repairing illegal boolean setting type for $featureName: " +
-                            storedValue?.javaClass?.simpleName
-                )
-                saveBooleanSetting(featureName, repaired)
-                repaired
-            } else {
-                Log.e(
-                    TAG, "Illegal boolean setting value for $featureName" +
-                            ", using default: $defaultValue", e
-                )
-                defaultValue
-            }
-        }
-    }
-
-    @SuppressLint("ApplySharedPref")
-    fun saveBooleanSetting(featureName: String, value: Boolean): Boolean {
-        val prefs = modulePreferences
-        val success = prefs.edit()
-            .putBoolean(featureName, value)
-            .commit()
-        Log.d(TAG, "Saved $featureName: $value, success: $success")
-        return success
-    }
+    fun saveBooleanSetting(featureName: String, value: Boolean): Boolean =
+        engine.saveBooleanSetting(featureName, value)
 
     // String
 
-    fun loadStringSetting(featureName: String, defaultValue: String): String {
-        val prefs = modulePreferences
-        return try {
-            prefs.getString(featureName, defaultValue) ?: defaultValue
-        } catch (e: ClassCastException) {
-            val storedValue = prefs.all[featureName]
-            val repaired = coerceStringValue(storedValue)
-            if (repaired != null) {
-                Log.w(
-                    TAG, "Repairing illegal string setting type for $featureName: " +
-                            storedValue?.javaClass?.simpleName
-                )
-                saveStringSetting(featureName, repaired)
-                repaired
-            } else {
-                Log.e(
-                    TAG, "Illegal string setting value for $featureName" +
-                            ", using default", e
-                )
-                defaultValue
-            }
-        }
-    }
+    fun loadStringSetting(featureName: String, defaultValue: String): String =
+        engine.loadStringSetting(featureName, defaultValue)
 
-    @SuppressLint("ApplySharedPref")
     fun saveStringSetting(featureName: String, value: String) {
-        modulePreferences.edit(commit = true) {
-            putString(featureName, value)
-        }
+        engine.saveStringSetting(featureName, value)
     }
 
     // Int
 
-    @SuppressLint("ApplySharedPref")
     fun saveIntegerSetting(featureName: String, value: Int) {
-        modulePreferences.edit(commit = true) {
-            putInt(featureName, value)
-        }
+        engine.saveIntegerSetting(featureName, value)
     }
 
-    fun loadIntegerSetting(featureName: String, defaultValue: Int): Int {
-        val prefs = modulePreferences
-        return try {
-            prefs.getInt(featureName, defaultValue)
-        } catch (e: ClassCastException) {
-            val storedValue = prefs.all[featureName]
-            val repaired = coerceIntegerValue(storedValue)
-            if (repaired != null) {
-                Log.w(
-                    TAG, "Repairing illegal integer setting type for $featureName: " +
-                            storedValue?.javaClass?.simpleName
-                )
-                saveIntegerSetting(featureName, repaired)
-                repaired
-            } else {
-                Log.e(
-                    TAG, "Illegal integer setting value for $featureName" +
-                            ", using default: $defaultValue", e
-                )
-                defaultValue
-            }
-        }
-    }
+    fun loadIntegerSetting(featureName: String, defaultValue: Int): Int =
+        engine.loadIntegerSetting(featureName, defaultValue)
 
     // Float
 
-    @SuppressLint("ApplySharedPref")
     fun saveFloatSetting(featureName: String, value: Float) {
-        modulePreferences.edit(commit = true) {
-            putFloat(featureName, value)
-        }
+        engine.saveFloatSetting(featureName, value)
     }
 
-    fun loadFloatSetting(featureName: String, defaultValue: Float): Float {
-        val prefs = modulePreferences
-        return try {
-            prefs.getFloat(featureName, defaultValue)
-        } catch (e: ClassCastException) {
-            val storedValue = prefs.all[featureName]
-            val repaired = coerceFloatValue(storedValue)
-            if (repaired != null) {
-                Log.w(
-                    TAG, "Repairing illegal float setting type for $featureName: " +
-                            storedValue?.javaClass?.simpleName
-                )
-                saveFloatSetting(featureName, repaired)
-                repaired
-            } else {
-                Log.e(
-                    TAG, "Illegal float setting value for $featureName" +
-                            ", using default: $defaultValue", e
-                )
-                defaultValue
-            }
-        }
-    }
+    fun loadFloatSetting(featureName: String, defaultValue: Float): Float =
+        engine.loadFloatSetting(featureName, defaultValue)
 
-    /**
-     * Removes a single key from the module preferences (remote when available,
-     * local fallback otherwise). Returns the commit result.
-     */
-    @SuppressLint("ApplySharedPref")
-    fun removeSetting(featureName: String): Boolean {
-        val success = modulePreferences.edit()
-            .remove(featureName)
-            .commit()
-        Log.d(TAG, "Removed $featureName, success: $success")
-        return success
-    }
+    /** Removes [featureName] from local preferences and mirrors the deletion to remote. */
+    fun removeSetting(featureName: String): Boolean = engine.removeSetting(featureName)
 
     // Batch operations
 
-    @SuppressLint("WorldReadableFiles", "ApplySharedPref")
     fun clearAllSettings() {
-        modulePreferences.edit(commit = true) { clear() }
+        engine.clearAllSettings()
     }
 
-    @SuppressLint("WorldReadableFiles")
-    fun getAllSettings(): Map<String, Any> {
-        return try {
-            val prefs = modulePreferences
-            @Suppress("UNCHECKED_CAST")
-            val allEntries = TreeMap<String, Any>().apply { putAll(prefs.all as Map<String, Any>) }
-            Log.d(TAG, "Successfully read all settings, entries: " + allEntries.size)
-            allEntries
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to read all settings", e)
-            emptyMap()
-        }
-    }
-
-    fun getAllSettingsFromLocal(): Map<String, Any> {
-        return try {
-            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            @Suppress("UNCHECKED_CAST")
-            val allEntries = TreeMap<String, Any>().apply { putAll(prefs.all as Map<String, Any>) }
-            Log.d(TAG, "Successfully read local settings, entries: " + allEntries.size)
-            allEntries
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to read local settings", e)
-            emptyMap()
-        }
-    }
-
-    @SuppressLint("ApplySharedPref")
-    fun deleteLocalModulePreferences() {
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val cleared = prefs.edit().clear().commit()
-        if (cleared) {
-            val prefsFile = File(
-                context.filesDir.parentFile,
-                "shared_prefs/$PREFS_NAME.xml"
-            )
-            if (prefsFile.exists()) {
-                val deleted = prefsFile.delete()
-                Log.d(TAG, "Deleted local prefs file: $deleted")
-            }
-        }
-        Log.d(TAG, "Cleared local module preferences, success: $cleared")
-    }
+    fun getAllSettings(): Map<String, Any> = engine.getAllSettings()
 
     // JSON serialization
 
@@ -286,84 +99,56 @@ class ModulePreferencesUtils(
     }
 
     /**
-     * Write a Map into SharedPreferences.
-     *
-     * Uses list-loop matching against [PreferenceKeys] to infer each key's data
-     * type, replacing the previous large hardcoded || + equals chains.
+     * Writes [mapToWrite] into SharedPreferences in one local commit and one
+     * remote commit, inferring types via [PreferenceKeys].
      */
     fun writeConfigToSharedPrefs(mapToWrite: Map<String, Any>) {
-        for ((key, value) in mapToWrite) {
-            try {
-                // Handle the leftover module_enabled_ prefix from older config versions
-                val cleanKey = key.replace("module_enabled_", "")
-                Log.d(
-                    TAG, "Processing key: $cleanKey, value: $value, type: " +
-                            value.javaClass.simpleName
-                )
-                when {
-                    PreferenceKeys.isFloatKey(cleanKey) -> {
-                        val floatValue = coerceFloatValue(value)
-                        if (floatValue != null) {
-                            Log.d(TAG, "Saving float key: $cleanKey")
-                            saveFloatSetting(cleanKey, floatValue)
-                        } else {
-                            Log.w(TAG, "Invalid float key value, skip: $cleanKey = $value")
-                        }
-                    }
-                    PreferenceKeys.isIntKey(cleanKey) -> {
-                        val intValue = coerceIntegerValue(value)
-                        if (intValue != null) {
-                            Log.d(TAG, "Saving integer key: $cleanKey")
-                            saveIntegerSetting(cleanKey, intValue)
-                        } else {
-                            Log.w(TAG, "Invalid integer key value, skip: $cleanKey = $value")
-                        }
-                    }
-                    PreferenceKeys.isBooleanKey(cleanKey) -> {
-                        val booleanValue = coerceBooleanValue(value)
-                        if (booleanValue != null) {
-                            Log.d(TAG, "Saving boolean key: $cleanKey")
-                            saveBooleanSetting(cleanKey, booleanValue)
-                        } else {
-                            Log.w(TAG, "Invalid boolean key value, skip: $cleanKey = $value")
-                        }
-                    }
-                    value is String -> {
-                        Log.d(TAG, "Saving string key: $cleanKey")
-                        saveStringSetting(cleanKey, value)
-                    }
-                    value is Int -> {
-                        Log.d(TAG, "Saving integer key: $cleanKey")
-                        saveIntegerSetting(cleanKey, value)
-                    }
-                    value is Boolean -> {
-                        Log.d(TAG, "Saving boolean key: $cleanKey")
-                        saveBooleanSetting(cleanKey, value)
-                    }
-                    value is Float -> {
-                        Log.d(TAG, "Saving single precision FP key: $cleanKey")
-                        saveFloatSetting(cleanKey, value)
-                    }
-                    value is Double -> {
-                        Log.d(TAG, "Saving double precision FP key: $cleanKey")
-                        saveFloatSetting(cleanKey, value.toFloat())
-                    }
-                    else -> {
-                        Log.d(TAG, "Saving unknown type key (as string): $cleanKey")
-                        saveStringSetting(cleanKey, value.toString())
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to save key: $key, value: $value, error: ${e.message}")
-            }
-        }
+        engine.writeConfigToSharedPrefs(mapToWrite)
     }
-
-    // Type coercion helpers
 
     companion object {
         private const val PREFS_NAME = "xposed_module_config"
+        private const val SYNC_META_PREFS_NAME = "ztool_prefs_sync_meta"
         private const val TAG = "ZToolXposedModulePrefsUtils"
+
+        private val engineLock = Any()
+
+        @Volatile
+        private var sharedEngine: ModulePreferencesSyncEngine? = null
+
+        private fun getOrCreateEngine(appContext: Context): ModulePreferencesSyncEngine {
+            return sharedEngine ?: synchronized(engineLock) {
+                sharedEngine ?: createEngine(appContext).also { sharedEngine = it }
+            }
+        }
+
+        private fun createEngine(appContext: Context): ModulePreferencesSyncEngine {
+            val localPrefs = appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val metaPrefs = appContext.getSharedPreferences(SYNC_META_PREFS_NAME, Context.MODE_PRIVATE)
+            return ModulePreferencesSyncEngine(
+                localPrefs = localPrefs,
+                metaPrefs = metaPrefs,
+                remotePrefsProvider = { XposedServiceBridge.currentService?.getRemotePreferences(PREFS_NAME) },
+                log = { level, msg, err ->
+                    when (level) {
+                        ModulePreferencesSyncEngine.LOG_DEBUG ->
+                            if (err != null) Log.d(TAG, msg, err) else Log.d(TAG, msg)
+                        ModulePreferencesSyncEngine.LOG_INFO ->
+                            if (err != null) Log.i(TAG, msg, err) else Log.i(TAG, msg)
+                        ModulePreferencesSyncEngine.LOG_WARN ->
+                            if (err != null) Log.w(TAG, msg, err) else Log.w(TAG, msg)
+                        else ->
+                            if (err != null) Log.e(TAG, msg, err) else Log.e(TAG, msg)
+                    }
+                }
+            )
+        }
+
+        /** Reconciles local SSOT and remote preferences when XposedService binds. */
+        internal fun onServiceBind(context: Context): ModulePreferencesSyncEngine.SyncOutcome {
+            val appContext = context.applicationContext ?: context
+            return getOrCreateEngine(appContext).reconcileWithRemote()
+        }
 
         fun getAllSettingsAsJSON(context: Context): String? {
             return try {

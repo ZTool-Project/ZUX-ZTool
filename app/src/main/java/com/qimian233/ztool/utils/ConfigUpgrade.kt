@@ -14,6 +14,7 @@ object ConfigUpgrade {
     enum class MigrationResult { SUCCESS, NO_OLD_DATA, FAILED }
 
     private const val TAG = "ConfigUpgrade"
+    private const val LEGACY_IMPORT_PREFS_NAME = "xposed_module_config_legacy_import"
     @SuppressLint("StaticFieldLeak")
     private var mPreferencesUtils: ModulePreferencesUtils? = null
     private var mCachedXSharedPrefsDir: String? = null
@@ -55,6 +56,7 @@ object ConfigUpgrade {
     }
 
     private fun upgradeRemotePrefs(context: Context): MigrationResult {
+        val appContext = context.applicationContext ?: context
         try {
             var oldDir = getXSharedPreferenceDirectory()
             if (oldDir == null || oldDir.trim().isEmpty()) {
@@ -67,42 +69,60 @@ object ConfigUpgrade {
             }
             Log.d(TAG, "Old XSharedPreferences directory: $oldDir")
 
-            val sharedPrefsDir = File(context.filesDir.parentFile, "shared_prefs")
-            val destPath = sharedPrefsDir.absolutePath
+            val sharedPrefsDir = File(appContext.filesDir.parentFile, "shared_prefs")
+            sharedPrefsDir.mkdirs()
+            val tempPrefsFile = File(sharedPrefsDir, "$LEGACY_IMPORT_PREFS_NAME.xml")
+            val srcFilePath = "$oldDir/xposed_module_config.xml"
+            val dstFilePath = tempPrefsFile.absolutePath
             val appUid = android.os.Process.myUid()
             val executor = EnhancedShellExecutor.getInstance()
 
             val copyResult = executor.executeRootCommand(
-                "cp " + oldDir + "/* " + destPath + "/ 2>/dev/null; " +
-                        "chown -R " + appUid + " " + destPath + "/ 2>/dev/null; " +
-                        "chmod -R 660 " + destPath + "/* 2>/dev/null; " +
-                        "echo DONE",
+                "if [ -f '$srcFilePath' ]; then " +
+                    "cp '$srcFilePath' '$dstFilePath' 2>/dev/null && " +
+                    "chown $appUid '$dstFilePath' 2>/dev/null && " +
+                    "chmod 660 '$dstFilePath' 2>/dev/null && " +
+                    "echo DONE; " +
+                "else echo NO_FILE; fi",
                 10
             )
-            if (!copyResult.isSuccess || !copyResult.output.contains("DONE")) {
-                Log.e(TAG, "Failed to copy old prefs files: " + copyResult.output)
-                return MigrationResult.FAILED
-            }
-            Log.d(TAG, "Copied old config files to shared_prefs")
-
-            val prefs = getPreferencesUtils(context)
-            val oldSettings = prefs.getAllSettingsFromLocal()
-            if (oldSettings.isEmpty()) {
-                Log.i(TAG, "No settings found in old config, skipping remote sync.")
+            if (copyResult.isSuccess && copyResult.output.contains("NO_FILE")) {
+                Log.i(TAG, "No legacy xposed_module_config.xml found in $oldDir, skipping.")
                 return MigrationResult.NO_OLD_DATA
             }
-            Log.d(TAG, "Read " + oldSettings.size + " settings from old config, syncing to RemotePreferences...")
+            if (!copyResult.isSuccess || !copyResult.output.contains("DONE")) {
+                Log.e(TAG, "Failed to copy old prefs file: " + copyResult.output)
+                return MigrationResult.FAILED
+            }
+            Log.d(TAG, "Copied old config file to temporary import prefs")
+
+            val oldSettings: Map<String, Any> = try {
+                val tempPrefs = appContext.getSharedPreferences(
+                    LEGACY_IMPORT_PREFS_NAME,
+                    Context.MODE_PRIVATE
+                )
+                @Suppress("UNCHECKED_CAST")
+                tempPrefs.all.filterValues { it != null } as Map<String, Any>
+            } finally {
+                runCatching { appContext.deleteSharedPreferences(LEGACY_IMPORT_PREFS_NAME) }
+            }
+
+            if (oldSettings.isEmpty()) {
+                Log.i(TAG, "No settings found in old config, skipping sync.")
+                return MigrationResult.NO_OLD_DATA
+            }
+            Log.d(TAG, "Read ${oldSettings.size} settings from old config, syncing to SSOT...")
+            val prefs = getPreferencesUtils(appContext)
             prefs.writeConfigToSharedPrefs(oldSettings)
 
             val newSettings = prefs.getAllSettings()
             if (newSettings.isNotEmpty()) {
-                Log.d(TAG, "Sync verified: " + newSettings.size + " settings in RemotePreferences.")
-                prefs.deleteLocalModulePreferences()
-                executor.executeRootCommand("rm -rf " + oldDir, 5)
-                Log.d(TAG, "Remote prefs upgrade completed successfully.")
+                Log.d(TAG, "Sync verified: ${newSettings.size} settings in module preferences.")
+                executor.executeRootCommand("rm -rf '$oldDir'", 5)
+                Log.d(TAG, "Legacy XSharedPreferences migration completed successfully.")
                 return MigrationResult.SUCCESS
             } else {
-                Log.e(TAG, "Remote prefs sync verification failed, keeping old files.")
+                Log.e(TAG, "Legacy migration verification failed, keeping old files.")
                 return MigrationResult.FAILED
             }
         } catch (e: Exception) {

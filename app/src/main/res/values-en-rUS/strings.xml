@@ -1310,7 +1310,7 @@
     <string name="page_settings_misc_summary">Other maintenance tools and device info</string>
     <string name="page_settings_advanced_reset_title">Reset all modified persistent values</string>
     <string name="preference_editor_title">SharedPreference Editor</string>
-    <string name="preference_editor_summary">Read and write raw preference values of the module remote config and the theme local config</string>
+    <string name="preference_editor_summary">Read and write raw preference values of the module config (local store synced to LSPosed) and the theme config</string>
     <string name="preference_editor_target_label">Target preference file</string>
     <string name="preference_editor_key_label">Preference key</string>
     <string name="preference_editor_value_label">Preference value</string>
@@ -1319,8 +1319,8 @@
     <string name="preference_editor_list">List</string>
     <string name="preference_editor_delete">Delete</string>
     <string name="preference_editor_value_null">(null)</string>
-    <string name="preference_editor_via_remote">Path: remote preferences (LSPosed service)</string>
-    <string name="preference_editor_via_local_fallback">Path: local fallback file</string>
+    <string name="preference_editor_via_remote">Storage: local primary (synced to LSPosed remote preferences)</string>
+    <string name="preference_editor_via_local_fallback">Storage: local primary (pending sync to LSPosed service)</string>
     <string name="preference_editor_result_write_success">Write succeeded: %1$s (%2$s)</string>
     <string name="preference_editor_result_delete_success">Delete succeeded: %1$s</string>
     <string name="preference_editor_result_list_header">%1$d preference entries:</string>

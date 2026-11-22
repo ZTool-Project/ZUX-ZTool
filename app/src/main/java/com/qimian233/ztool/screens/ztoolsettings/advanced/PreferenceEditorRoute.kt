@@ -47,7 +47,7 @@ import com.qimian233.ztool.viewmodel.PreferenceEditorViewModel
 
 /**
  * SharedPreference Editor screen: read/write/list/delete raw preference values
- * of the module remote config or the theme local config.
+ * of the module config or the theme config.
  */
 @Composable
 fun PreferenceEditorRoute(
@@ -326,7 +326,7 @@ private fun ResultTitle(text: String) {
     )
 }
 
-/** Remote/local-fallback tag; null for local-only targets. */
+/** Remote sync status tag; null for local-only targets. */
 @Composable
 private fun ViaRemoteFooter(viaRemote: Boolean?) {
     if (viaRemote == null) return

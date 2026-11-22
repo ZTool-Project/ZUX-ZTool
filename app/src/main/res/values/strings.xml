@@ -1318,7 +1318,7 @@
     <string name="page_settings_misc_summary">其余维护工具与设备信息</string>
     <string name="page_settings_advanced_reset_title">重置所有被修改的持久化值</string>
     <string name="preference_editor_title">偏好值编辑器</string>
-    <string name="preference_editor_summary">读写模块远程配置与主题本地配置的原始偏好值</string>
+    <string name="preference_editor_summary">读写模块配置（本地存储并同步至 LSPosed）与主题配置的原始偏好值</string>
     <string name="preference_editor_target_label">目标配置文件</string>
     <string name="preference_editor_key_label">偏好键 (Key)</string>
     <string name="preference_editor_value_label">偏好值 (Value)</string>
@@ -1327,8 +1327,8 @@
     <string name="preference_editor_list">列举</string>
     <string name="preference_editor_delete">删除</string>
     <string name="preference_editor_value_null">(null)</string>
-    <string name="preference_editor_via_remote">路径：远程偏好（LSPosed 服务）</string>
-    <string name="preference_editor_via_local_fallback">路径：本地回退文件</string>
+    <string name="preference_editor_via_remote">存储：本地主存（已同步至 LSPosed 远程偏好）</string>
+    <string name="preference_editor_via_local_fallback">存储：本地主存（待 LSPosed 服务连接后同步）</string>
     <string name="preference_editor_result_write_success">写入成功：%1$s（%2$s）</string>
     <string name="preference_editor_result_delete_success">删除成功：%1$s</string>
     <string name="preference_editor_result_list_header">共 %1$d 项偏好值：</string>

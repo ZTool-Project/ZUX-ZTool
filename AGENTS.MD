@@ -68,7 +68,7 @@ Core files (all Kotlin):
 - `hook/base/BaseHookModule.kt`: base class; `AppHookModule` for app hooks, `SystemHookModule` for system-framework hooks.
 - `hook/base/HookManager.kt`: registration and dispatch for Hook modules.
 - `hook/base/DexIndexStore.kt`: hook-side offline DexKit index reader (only index class allowed to touch libxposed).
-- `utils/ModulePreferencesUtils.kt`: app-side SharedPreferences read/write; uses `PreferenceKeys` list-based matching for backup/restore type inference.
+- `utils/ModulePreferencesUtils.kt`: app-side SharedPreferences read/write; treats local `xposed_module_config` as the SSOT with write-through and `onServiceBind` diff sync to LSPosed `RemotePreferences`, and uses `PreferenceKeys` list-based matching for backup/restore type inference (note: manual `adb` edits to the local XML require `am force-stop` + relaunch to sync).
 
 **libxposed Hook design patterns**: This project uses the libxposed API, NOT the legacy Rovo89 Xposed API — the two are almost entirely different syntactically. An agent unfamiliar with Hook development here should read the [guide](docs/hook/libxposed_guide_ztool_ver.md) instead of scanning hook sources; it defines the project's canonical Hook patterns (base-class choice, required method trio, ClassLoader acquisition, `findField`/`findMethod`, `hookWithId` with per-scope unique IDs, Chain SAM syntax, remote preferences reads, and the DexKit offline-index anti-obfuscation rule):
 

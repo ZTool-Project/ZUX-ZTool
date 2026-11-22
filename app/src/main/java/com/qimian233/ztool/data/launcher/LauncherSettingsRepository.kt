@@ -9,7 +9,6 @@ import com.qimian233.ztool.data.keys.PreferenceKeys
 import com.qimian233.ztool.utils.ScopeUtils
 import com.qimian233.ztool.viewmodel.ForceStopMode
 import com.qimian233.ztool.viewmodel.LauncherSettingsUiState
-import androidx.core.content.edit
 import kotlin.math.roundToInt
 
 class LauncherSettingsRepository(
@@ -275,9 +274,7 @@ class LauncherSettingsRepository(
                 KEY_ZUI_LAUNCHER_HOTSEAT,
                 prefsUtils.loadBooleanSetting(KEY_ZUI_LAUNCHER_HOTSEAT_BACKUP, false)
             )
-            prefsUtils.modulePreferences.edit(commit = true) {
-                remove(KEY_ZUI_LAUNCHER_HOTSEAT_BACKUP)
-            }
+            prefsUtils.removeSetting(KEY_ZUI_LAUNCHER_HOTSEAT_BACKUP)
         }
         prefsUtils.saveBooleanSetting(KEY_DISABLE_DOCK_BAR, enabled)
         return enabled && !prefsUtils.loadBooleanSetting(KEY_DISABLE_DOCK_WARNING_CONFIRMED, false)

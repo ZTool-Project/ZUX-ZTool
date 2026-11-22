@@ -5,6 +5,9 @@ import android.content.Context
 import com.qimian233.ztool.data.settings.LauncherIconAliasController
 import com.qimian233.ztool.data.theme.ThemePreferencesRepository
 import com.qimian233.ztool.dexindex.base.DexIndexManager
+import com.qimian233.ztool.service.EdgeBubbleService
+import com.qimian233.ztool.utils.ModulePreferencesSyncEngine
+import com.qimian233.ztool.utils.ModulePreferencesUtils
 import io.github.libxposed.service.XposedService
 import io.github.libxposed.service.XposedServiceHelper
 import kotlinx.coroutines.CoroutineScope
@@ -98,10 +101,14 @@ class ZToolApplication : Application(), XposedServiceHelper.OnServiceListener {
     }
 
     override fun onServiceBind(service: XposedService) {
+        XposedServiceBridge.currentService = service
         isModuleActivated = true
         _isModuleActivated.value = true
-        XposedServiceBridge.currentService = service
         startupScope.launch(Dispatchers.IO) {
+            val outcome = ModulePreferencesUtils.onServiceBind(this@ZToolApplication)
+            if (outcome == ModulePreferencesSyncEngine.SyncOutcome.BOOTSTRAPPED_FROM_REMOTE) {
+                EdgeBubbleService.maybeStart(this@ZToolApplication)
+            }
             DexIndexManager.syncRemoteFiles(this@ZToolApplication)
         }
     }

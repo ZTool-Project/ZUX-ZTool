@@ -8,8 +8,8 @@ import com.qimian233.ztool.utils.ModulePreferencesUtils
 
 /**
  * Backing preference files the editor can address. The xposed module config is
- * read/written through [ModulePreferencesUtils] (remote LSPosed preferences with
- * a local fallback); the theme file is plain local SharedPreferences.
+ * stored locally and mirrored to LSPosed remote preferences through
+ * [ModulePreferencesUtils]; the theme file is local-only SharedPreferences.
  */
 enum class PreferenceEditorTarget(val prefsFileName: String) {
     XPOSED_MODULE_CONFIG("xposed_module_config"),
@@ -51,47 +51,28 @@ sealed interface PreferenceEditOutcome {
  * Read/write/list/delete access to the editor target preference files.
  *
  * Type discipline:
- * - xposed_module_config: registered [PreferenceKeys] names are clamped to their
- *   declared type; unregistered keys are written as plain Strings (the caller
- *   shows a warning first).
- * - ztool_ui_theme_preferences: a local shim maps every existing theme key to
- *   its stored type (stand-in for a systematic key-type registry); unknown
- *   theme keys fall back to String after caller confirmation.
+ * - xposed_module_config: registered [PreferenceKeys] are clamped to their
+ *   declared type; unregistered keys write as Strings after user confirmation.
+ * - ztool_ui_theme_preferences: [THEME_KEY_TYPES] maps known theme keys to
+ *   their stored type; unknown keys write as Strings after user confirmation.
  */
 class PreferenceEditorRepository(context: Context) {
 
-    private val appContext = context.applicationContext
+    private val appContext = context.applicationContext ?: context
     private val moduleUtils = ModulePreferencesUtils(appContext)
 
-    /** For [PreferenceEditorTarget.XPOSED_MODULE_CONFIG]: remote service vs local fallback. */
+    /** True when LSPosed remote sync is currently reachable for xposed_module_config. */
     val xposedViaRemote: Boolean
-        get() = moduleUtils.isUsingRemotePreferences
+        get() = moduleUtils.isRemoteSyncAvailable
 
     fun isRegisteredKey(target: PreferenceEditorTarget, key: String): Boolean = when (target) {
         PreferenceEditorTarget.XPOSED_MODULE_CONFIG -> isXposedKeyRegistered(key)
         PreferenceEditorTarget.UI_THEME_PREFERENCES -> THEME_KEY_TYPES.containsKey(key)
     }
 
-    fun read(target: PreferenceEditorTarget, key: String): PreferenceEditOutcome {
-        val prefs = prefsFor(target) ?: return storageFailure(target)
-        return try {
-            if (!prefs.all.containsKey(key)) {
-                PreferenceEditOutcome.Failure(
-                    PreferenceEditorFailureReason.KEY_NOT_FOUND,
-                    "key \"$key\" does not exist"
-                )
-            } else {
-                val value = prefs.all[key]
-                PreferenceEditOutcome.Read(
-                    key = key,
-                    value = value,
-                    typeName = value?.javaClass?.simpleName ?: "null",
-                    viaRemote = viaRemote(target)
-                )
-            }
-        } catch (e: Exception) {
-            PreferenceEditOutcome.Failure(PreferenceEditorFailureReason.OTHER, e.message)
-        }
+    fun read(target: PreferenceEditorTarget, key: String): PreferenceEditOutcome = when (target) {
+        PreferenceEditorTarget.XPOSED_MODULE_CONFIG -> readXposed(key)
+        PreferenceEditorTarget.UI_THEME_PREFERENCES -> readTheme(key)
     }
 
     /**
@@ -103,83 +84,103 @@ class PreferenceEditorRepository(context: Context) {
         key: String,
         rawValue: String,
         allowUnregisteredAsString: Boolean
-    ): PreferenceEditOutcome {
-        val prefs = prefsFor(target) ?: return storageFailure(target)
-        return try {
-            val writtenType = when (target) {
-                PreferenceEditorTarget.XPOSED_MODULE_CONFIG ->
-                    writeXposed(prefs, key, rawValue, allowUnregisteredAsString)
-                PreferenceEditorTarget.UI_THEME_PREFERENCES ->
-                    writeTheme(prefs, key, rawValue, allowUnregisteredAsString)
-            } ?: return PreferenceEditOutcome.Failure(
+    ): PreferenceEditOutcome = when (target) {
+        PreferenceEditorTarget.XPOSED_MODULE_CONFIG ->
+            writeXposedOutcome(key, rawValue, allowUnregisteredAsString)
+        PreferenceEditorTarget.UI_THEME_PREFERENCES ->
+            writeThemeOutcome(key, rawValue, allowUnregisteredAsString)
+    }
+
+    fun delete(target: PreferenceEditorTarget, key: String): PreferenceEditOutcome = when (target) {
+        PreferenceEditorTarget.XPOSED_MODULE_CONFIG -> deleteXposed(key)
+        PreferenceEditorTarget.UI_THEME_PREFERENCES -> deleteTheme(key)
+    }
+
+    fun listAll(target: PreferenceEditorTarget): PreferenceEditOutcome = when (target) {
+        PreferenceEditorTarget.XPOSED_MODULE_CONFIG -> listAllXposed()
+        PreferenceEditorTarget.UI_THEME_PREFERENCES -> listAllTheme()
+    }
+
+    // Xposed module config (local SSOT + remote sync via ModulePreferencesUtils)
+
+    private fun readXposed(key: String): PreferenceEditOutcome = try {
+        if (!moduleUtils.containsSetting(key)) {
+            PreferenceEditOutcome.Failure(
+                PreferenceEditorFailureReason.KEY_NOT_FOUND,
+                "key \"$key\" does not exist"
+            )
+        } else {
+            val value = moduleUtils.readRawSetting(key)
+            PreferenceEditOutcome.Read(
+                key = key,
+                value = value,
+                typeName = value?.javaClass?.simpleName ?: "null",
+                viaRemote = moduleUtils.isRemoteSyncAvailable
+            )
+        }
+    } catch (e: Exception) {
+        PreferenceEditOutcome.Failure(PreferenceEditorFailureReason.OTHER, e.message)
+    }
+
+    private fun writeXposedOutcome(
+        key: String,
+        rawValue: String,
+        allowUnregisteredAsString: Boolean
+    ): PreferenceEditOutcome = try {
+        val writtenType = writeXposed(key, rawValue, allowUnregisteredAsString)
+            ?: return PreferenceEditOutcome.Failure(
                 PreferenceEditorFailureReason.TYPE_ERROR,
                 "value \"$rawValue\" does not match the registered type of \"$key\""
             )
-            if (!prefs.contains(key)) {
-                return PreferenceEditOutcome.Failure(
-                    PreferenceEditorFailureReason.OTHER,
-                    "commit did not persist the key"
-                )
-            }
+        if (!moduleUtils.containsSetting(key)) {
+            PreferenceEditOutcome.Failure(
+                PreferenceEditorFailureReason.OTHER,
+                "commit did not persist the key"
+            )
+        } else {
             PreferenceEditOutcome.Write(
                 key = key,
                 writtenTypeName = writtenType,
-                viaRemote = viaRemote(target)
+                viaRemote = moduleUtils.isRemoteSyncAvailable
             )
-        } catch (e: Exception) {
-            PreferenceEditOutcome.Failure(PreferenceEditorFailureReason.OTHER, e.message)
         }
+    } catch (e: Exception) {
+        PreferenceEditOutcome.Failure(PreferenceEditorFailureReason.OTHER, e.message)
     }
 
-    fun delete(target: PreferenceEditorTarget, key: String): PreferenceEditOutcome {
-        val prefs = prefsFor(target) ?: return storageFailure(target)
-        return try {
-            if (!prefs.all.containsKey(key)) {
-                PreferenceEditOutcome.Failure(
-                    PreferenceEditorFailureReason.KEY_NOT_FOUND,
-                    "key \"$key\" does not exist"
-                )
-            } else {
-                val success = when (target) {
-                    PreferenceEditorTarget.XPOSED_MODULE_CONFIG ->
-                        moduleUtils.removeSetting(key)
-                    PreferenceEditorTarget.UI_THEME_PREFERENCES ->
-                        @Suppress("ApplySharedPref")
-                        prefs.edit().remove(key).commit()
-                }
-                if (success) {
-                    PreferenceEditOutcome.Delete(key = key, viaRemote = viaRemote(target))
-                } else {
-                    PreferenceEditOutcome.Failure(
-                        PreferenceEditorFailureReason.OTHER,
-                        "commit returned false"
-                    )
-                }
-            }
-        } catch (e: Exception) {
-            PreferenceEditOutcome.Failure(PreferenceEditorFailureReason.OTHER, e.message)
+    private fun deleteXposed(key: String): PreferenceEditOutcome = try {
+        if (!moduleUtils.containsSetting(key)) {
+            PreferenceEditOutcome.Failure(
+                PreferenceEditorFailureReason.KEY_NOT_FOUND,
+                "key \"$key\" does not exist"
+            )
+        } else if (moduleUtils.removeSetting(key)) {
+            PreferenceEditOutcome.Delete(
+                key = key,
+                viaRemote = moduleUtils.isRemoteSyncAvailable
+            )
+        } else {
+            PreferenceEditOutcome.Failure(
+                PreferenceEditorFailureReason.OTHER,
+                "commit returned false"
+            )
         }
+    } catch (e: Exception) {
+        PreferenceEditOutcome.Failure(PreferenceEditorFailureReason.OTHER, e.message)
     }
 
-    fun listAll(target: PreferenceEditorTarget): PreferenceEditOutcome {
-        val prefs = prefsFor(target) ?: return storageFailure(target)
-        return try {
-            PreferenceEditOutcome.ListAll(java.util.TreeMap(prefs.all))
-        } catch (e: Exception) {
-            PreferenceEditOutcome.Failure(PreferenceEditorFailureReason.OTHER, e.message)
-        }
+    private fun listAllXposed(): PreferenceEditOutcome = try {
+        PreferenceEditOutcome.ListAll(java.util.TreeMap(moduleUtils.getAllSettings()))
+    } catch (e: Exception) {
+        PreferenceEditOutcome.Failure(PreferenceEditorFailureReason.OTHER, e.message)
     }
-
-    // Xposed module config (PreferenceKeys clamping)
 
     private fun isXposedKeyRegistered(key: String): Boolean =
         PreferenceKeys.isBooleanKey(key) || PreferenceKeys.isIntKey(key) ||
-                PreferenceKeys.isFloatKey(key) ||
-                PreferenceKeys.findStringKey(key) != null
+            PreferenceKeys.isFloatKey(key) ||
+            PreferenceKeys.findStringKey(key) != null
 
-    /** Returns the written type name, or null on a type-clamp failure. */
     private fun writeXposed(
-        prefs: SharedPreferences,
         key: String,
         rawValue: String,
         allowUnregisteredAsString: Boolean
@@ -212,7 +213,91 @@ class PreferenceEditorRepository(context: Context) {
 
     // Theme local prefs (shim type map)
 
-    /** Returns the written type name, or null on a type-clamp failure. */
+    private fun readTheme(key: String): PreferenceEditOutcome {
+        val prefs = themePrefs() ?: return storageFailure(PreferenceEditorTarget.UI_THEME_PREFERENCES)
+        return try {
+            if (!prefs.all.containsKey(key)) {
+                PreferenceEditOutcome.Failure(
+                    PreferenceEditorFailureReason.KEY_NOT_FOUND,
+                    "key \"$key\" does not exist"
+                )
+            } else {
+                val value = prefs.all[key]
+                PreferenceEditOutcome.Read(
+                    key = key,
+                    value = value,
+                    typeName = value?.javaClass?.simpleName ?: "null",
+                    viaRemote = null
+                )
+            }
+        } catch (e: Exception) {
+            PreferenceEditOutcome.Failure(PreferenceEditorFailureReason.OTHER, e.message)
+        }
+    }
+
+    private fun writeThemeOutcome(
+        key: String,
+        rawValue: String,
+        allowUnregisteredAsString: Boolean
+    ): PreferenceEditOutcome {
+        val prefs = themePrefs() ?: return storageFailure(PreferenceEditorTarget.UI_THEME_PREFERENCES)
+        return try {
+            val writtenType = writeTheme(prefs, key, rawValue, allowUnregisteredAsString)
+                ?: return PreferenceEditOutcome.Failure(
+                    PreferenceEditorFailureReason.TYPE_ERROR,
+                    "value \"$rawValue\" does not match the registered type of \"$key\""
+                )
+            if (!prefs.contains(key)) {
+                PreferenceEditOutcome.Failure(
+                    PreferenceEditorFailureReason.OTHER,
+                    "commit did not persist the key"
+                )
+            } else {
+                PreferenceEditOutcome.Write(
+                    key = key,
+                    writtenTypeName = writtenType,
+                    viaRemote = null
+                )
+            }
+        } catch (e: Exception) {
+            PreferenceEditOutcome.Failure(PreferenceEditorFailureReason.OTHER, e.message)
+        }
+    }
+
+    private fun deleteTheme(key: String): PreferenceEditOutcome {
+        val prefs = themePrefs() ?: return storageFailure(PreferenceEditorTarget.UI_THEME_PREFERENCES)
+        return try {
+            if (!prefs.all.containsKey(key)) {
+                PreferenceEditOutcome.Failure(
+                    PreferenceEditorFailureReason.KEY_NOT_FOUND,
+                    "key \"$key\" does not exist"
+                )
+            } else {
+                @Suppress("ApplySharedPref")
+                val success = prefs.edit().remove(key).commit()
+                if (success) {
+                    PreferenceEditOutcome.Delete(key = key, viaRemote = null)
+                } else {
+                    PreferenceEditOutcome.Failure(
+                        PreferenceEditorFailureReason.OTHER,
+                        "commit returned false"
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            PreferenceEditOutcome.Failure(PreferenceEditorFailureReason.OTHER, e.message)
+        }
+    }
+
+    private fun listAllTheme(): PreferenceEditOutcome {
+        val prefs = themePrefs() ?: return storageFailure(PreferenceEditorTarget.UI_THEME_PREFERENCES)
+        return try {
+            PreferenceEditOutcome.ListAll(java.util.TreeMap(prefs.all))
+        } catch (e: Exception) {
+            PreferenceEditOutcome.Failure(PreferenceEditorFailureReason.OTHER, e.message)
+        }
+    }
+
     private fun writeTheme(
         prefs: SharedPreferences,
         key: String,
@@ -244,22 +329,13 @@ class PreferenceEditorRepository(context: Context) {
         }
     }
 
-    // Common plumbing
-
-    private fun prefsFor(target: PreferenceEditorTarget): SharedPreferences? = try {
-        when (target) {
-            PreferenceEditorTarget.XPOSED_MODULE_CONFIG -> moduleUtils.modulePreferences
-            PreferenceEditorTarget.UI_THEME_PREFERENCES -> appContext.getSharedPreferences(
-                target.prefsFileName, Context.MODE_PRIVATE
-            )
-        }
+    private fun themePrefs(): SharedPreferences? = try {
+        appContext.getSharedPreferences(
+            PreferenceEditorTarget.UI_THEME_PREFERENCES.prefsFileName,
+            Context.MODE_PRIVATE
+        )
     } catch (_: Exception) {
         null
-    }
-
-    private fun viaRemote(target: PreferenceEditorTarget): Boolean? = when (target) {
-        PreferenceEditorTarget.XPOSED_MODULE_CONFIG -> moduleUtils.isUsingRemotePreferences
-        PreferenceEditorTarget.UI_THEME_PREFERENCES -> null
     }
 
     private fun storageFailure(target: PreferenceEditorTarget): PreferenceEditOutcome =
@@ -272,9 +348,8 @@ class PreferenceEditorRepository(context: Context) {
 
     companion object {
         /**
-         * Shim registry of every theme key [com.qimian233.ztool.data.theme.ThemePreferencesRepository]
-         * writes, mapped to its stored type. Temporary stand-in for a systematic
-         * key-type registry; keep in sync when theme settings gain new fields.
+         * Shim registry of every theme key written by ThemePreferencesRepository,
+         * mapped to its stored type. Keep in sync when theme settings add fields.
          */
         private val THEME_KEY_TYPES: Map<String, ThemeKeyType> = mapOf(
             "frontend_style" to ThemeKeyType.STRING,
