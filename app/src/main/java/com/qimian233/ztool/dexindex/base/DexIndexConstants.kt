@@ -5,13 +5,14 @@ import com.qimian233.ztool.data.keys.PreferenceKeys
 /** Constants for the offline DexKit index. */
 object DexIndexConstants {
 
+    // v11 restores MobileDesktopDexIndexer for BypassShareWarningHook tile/manager targets.
     // v10 adds BigFolderAlignHook FolderAnimationManager keys and LauncherNoLabelMode folder title fade keys.
     // v9 updates BigFolderAlignHook keys for the square 3x3 rewrite.
     // v8 adds Launcher grid/dock/misc/unmask/icon-pack keys and refreshes broken A17 queries.
     // v7 adds LauncherFreeformEntryHook keys for R8-obfuscated A17 ZUI Launcher.
     // v6 rebuilds existing SystemUI indexes for ordered paths and typed callback matching.
     // See docs/research/systemui_charging_animation_android17.md for earlier versions.
-    const val SCHEMA_VERSION = 10
+    const val SCHEMA_VERSION = 11
 
     const val JSON_SCHEMA_VERSION = "schemaVersion"
     const val JSON_GENERATED_AT = "generatedAt"
@@ -47,6 +48,7 @@ object DexIndexConstants {
         val LAUNCHER_ICON_PACK = PreferenceKeys.LAUNCHER_ICON_PACK.name
         val NO_CHARGE_ANIMATION = PreferenceKeys.NO_CHARGE_ANIMATION.name
         val SYSTEMUI_NETWORK_SPEED_DOUBLELAYER = PreferenceKeys.SYSTEMUI_NETWORK_SPEED_DOUBLELAYER.name
+        val BYPASS_SHARE_WARNING = PreferenceKeys.BYPASS_SHARE_WARNING.name
         val VOLUME_SLIDER_PERCENTAGE = PreferenceKeys.VOLUME_SLIDER_PERCENTAGE.name
     }
 
@@ -219,6 +221,11 @@ object DexIndexConstants {
         const val TARGET_CLASS = "targetClass"
         // SystemUINetworkSpeeddoublelayerHook
         const val HANDLER_INNER_CLASS = "handlerInnerClass"
+        // BypassShareWarningHook
+        const val MANAGER_CLASS = "managerClass"
+        const val MANAGER_FACTORY_METHOD = "managerFactoryMethod"
+        const val MANAGER_SET_METHOD = "managerSetMethod"
+        const val TILE_REFRESH_METHOD = "tileRefreshMethod"
         // VolumeSliderPercentageHook
         const val VOLUME_SLIDER_PROGRESS_LISTENER_CLASS = "progressListenerClass"
     }
