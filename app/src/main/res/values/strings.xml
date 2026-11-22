@@ -854,12 +854,12 @@
     <string name="launcher_protected_apps_summary">已保护%d个应用后台</string>
     <string name="launcher_force_stop_success">已重启应用进程</string>
     <string name="launcher_force_stop_fail">重启失败</string>
-    <string name="launcher_select_all_app">全部app</string>
+    <string name="launcher_select_all_app">全部应用</string>
     <string name="launcher_misc_title">杂项</string>
     <string name="launcher_disable_force_stop_enable_title">原生后台管理</string>
     <string name="launcher_disable_force_stop_enable_summary">联想的后台策略比较激进，开启后使用原生后台策略，保证后台服务存活</string>
-    <string name="launcher_dock_title">Dock栏</string>
-    <string name="launcher_larger_dock_title">Dock栏扩容</string>
+    <string name="launcher_dock_title">Dock 栏</string>
+    <string name="launcher_larger_dock_title">Dock 栏扩容</string>
     <string name="launcher_layout_title">桌面布局</string>
     <string name="launcher_preview_title">桌面预览</string>
     <string name="launcher_custom_grid_title">自定义桌面网格行列数</string>

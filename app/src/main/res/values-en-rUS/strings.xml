@@ -732,7 +732,7 @@
     <string name="launcher_protected_apps_summary">%d background apps protected</string>
     <string name="launcher_force_stop_success">App process restarted</string>
     <string name="launcher_force_stop_fail">Restart failed</string>
-    <string name="launcher_select_all_app">All apps</string>
+    <string name="launcher_select_all_app">All APPs</string>
     <string name="launcher_misc_title">Misc</string>
     <string name="launcher_disable_force_stop_enable_title">Native background management</string>
     <string name="launcher_disable_force_stop_enable_summary">Lenovo\'s background policy is aggressive. Enable this to use the native background policy and keep background services alive.</string>
