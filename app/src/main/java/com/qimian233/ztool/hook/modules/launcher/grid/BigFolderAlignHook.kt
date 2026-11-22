@@ -424,14 +424,24 @@ class BigFolderAlignHook : AppHookModule() {
                 val availH = (slotH - stockOffsetY * 2).coerceAtLeast(1)
                 val bgW: Int
                 val bgH: Int
-                if (spec.kind == StyleKind.SQUARE) {
-                    val side = minOf(availW, availH)
-                    bgW = side
-                    bgH = side
-                } else {
-                    // Align 1x2 and 2x1 blurred plates with same-size desktop widget slots.
-                    bgW = availW
-                    bgH = availH
+                when (spec.kind) {
+                    StyleKind.SQUARE -> {
+                        val side = minOf(availW, availH)
+                        bgW = side
+                        bgH = side
+                    }
+                    StyleKind.STRIP_1X2 -> {
+                        // Match the optimized 2x2 square side on the vertical long edge.
+                        val side2x2 = minOf(availH, (slotW * 2 - stockOffsetX * 2).coerceAtLeast(1))
+                        bgW = availW
+                        bgH = side2x2
+                    }
+                    StyleKind.STRIP_2X1 -> {
+                        // Match the optimized 2x2 square side on the horizontal long edge.
+                        val side2x2 = minOf(availW, (slotH * 2 - stockOffsetY * 2).coerceAtLeast(1))
+                        bgW = side2x2
+                        bgH = availH
+                    }
                 }
                 val offsetX = (slotW - bgW) / 2
                 val offsetY = (slotH - bgH) / 2
