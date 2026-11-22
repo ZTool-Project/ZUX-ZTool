@@ -664,15 +664,15 @@ private fun launcherSettingsSections(
     }
 
     val dockBarLayoutItems = buildList {
-        add(
-            SettingItem.Switch(
-                title = stringResource(R.string.launcher_disable_recent_app_display),
-                checked = state.disableRecentAppDisplay,
-                onCheckedChange = onDisableRecentAppDisplayChanged,
-                key = "launcher_disable_recent_app_display"
-            )
-        )
         if (!state.disableDockBar) {
+            add(
+                SettingItem.Switch(
+                    title = stringResource(R.string.launcher_disable_recent_app_display),
+                    checked = state.disableRecentAppDisplay,
+                    onCheckedChange = onDisableRecentAppDisplayChanged,
+                    key = "launcher_disable_recent_app_display"
+                )
+            )
             add(
                 SettingItem.Switch(
                     title = stringResource(R.string.launcher_larger_dock_title),
