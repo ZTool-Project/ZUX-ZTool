@@ -5,12 +5,13 @@ import com.qimian233.ztool.data.keys.PreferenceKeys
 /** Constants for the offline DexKit index. */
 object DexIndexConstants {
 
+    // v10 adds BigFolderAlignHook FolderAnimationManager keys and LauncherNoLabelMode folder title fade keys.
     // v9 updates BigFolderAlignHook keys for the square 3x3 rewrite.
     // v8 adds Launcher grid/dock/misc/unmask/icon-pack keys and refreshes broken A17 queries.
     // v7 adds LauncherFreeformEntryHook keys for R8-obfuscated A17 ZUI Launcher.
     // v6 rebuilds existing SystemUI indexes for ordered paths and typed callback matching.
     // See docs/research/systemui_charging_animation_android17.md for earlier versions.
-    const val SCHEMA_VERSION = 9
+    const val SCHEMA_VERSION = 10
 
     const val JSON_SCHEMA_VERSION = "schemaVersion"
     const val JSON_GENERATED_AT = "generatedAt"
@@ -147,14 +148,25 @@ object DexIndexConstants {
         const val BIG_FOLDER_ALIGN_FI_BG_FIELD = "bigFolderAlignFiBgField"
         const val BIG_FOLDER_ALIGN_FI_PAD_TOP_METHOD = "bigFolderAlignFiPadTopMethod"
         const val BIG_FOLDER_ALIGN_FI_NAME_TOP_MARGIN_FIELD = "bigFolderAlignFiNameTopMarginField"
+        const val BIG_FOLDER_ALIGN_FI_LAYOUT_RULE_FIELD = "bigFolderAlignFiLayoutRuleField"
+        const val BIG_FOLDER_ALIGN_FI_PIM_FIELD = "bigFolderAlignFiPimField"
         const val BIG_FOLDER_ALIGN_PIM_ICON_FIELD = "bigFolderAlignPimIconField"
         const val BIG_FOLDER_ALIGN_PIM_FIRST_PAGE_FIELD = "bigFolderAlignPimFirstPageField"
         const val BIG_FOLDER_ALIGN_PIM_DRAW_PARAMS_METHOD = "bigFolderAlignPimDrawParamsMethod"
         const val BIG_FOLDER_ALIGN_PIM_CHECK_CLICK_METHOD = "bigFolderAlignPimCheckClickMethod"
+        const val BIG_FOLDER_ALIGN_PIM_ICON_SIZE_FIELD = "bigFolderAlignPimIconSizeField"
+        const val BIG_FOLDER_ALIGN_FAM_ICON_FIELD = "bigFolderAlignFamIconField"
+        const val BIG_FOLDER_ALIGN_FAM_TMP_PARAMS_FIELD = "bigFolderAlignFamTmpParamsField"
+        const val BIG_FOLDER_ALIGN_FAM_COMPUTE_BIG_ANIM_METHOD = "bigFolderAlignFamComputeBigAnimMethod"
+        const val BIG_FOLDER_ALIGN_FAM_COMPUTE_BIG_ANIM_PARAMS = "bigFolderAlignFamComputeBigAnimParams"
         // LauncherNoLabelMode
         const val NO_LABEL_FOLDER_ANIM_CREATE_METHOD = "noLabelFolderAnimCreateMethod"
         const val NO_LABEL_POPUP_IMPL_CLASS = "noLabelPopupImplClass"
         const val NO_LABEL_FLOAT_BI_FUNC_METHOD = "noLabelFloatBiFuncMethod"
+        const val NO_LABEL_FOLDER_ANIM_CREATE_SET_METHOD = "noLabelFolderAnimCreateSetMethod"
+        const val NO_LABEL_FOLDER_ANIM_FOLDER_FIELD = "noLabelFolderAnimFolderField"
+        const val NO_LABEL_FOLDER_NAME_ANIM_FLAG_FIELD = "noLabelFolderNameAnimFlagField"
+        const val NO_LABEL_FOLDER_NAME_DELEGATE_FIELD = "noLabelFolderNameDelegateField"
         // LauncherDrawerNoLabelMode
         const val DRAWER_NO_LABEL_ACTIVE_BIND_ITEM_METHOD = "drawerNoLabelActiveBindItemMethod"
         const val DRAWER_NO_LABEL_BUBBLE_BIND_ITEM_METHOD = "drawerNoLabelBubbleBindItemMethod"

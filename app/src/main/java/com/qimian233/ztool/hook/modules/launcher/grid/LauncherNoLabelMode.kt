@@ -1,8 +1,11 @@
 package com.qimian233.ztool.hook.modules.launcher.grid
 
+import android.animation.AnimatorSet
+import android.animation.ObjectAnimator
 import android.annotation.SuppressLint
 import android.os.Build
 import android.util.FloatProperty
+import android.view.View
 import com.qimian233.ztool.data.keys.PreferenceKeys
 import com.qimian233.ztool.data.keys.ScopeKeys
 import com.qimian233.ztool.dexindex.base.DexIndexConstants
@@ -10,6 +13,7 @@ import com.qimian233.ztool.hook.base.AppHookModule
 import com.qimian233.ztool.hook.base.DexIndexStore
 import io.github.libxposed.api.XposedModuleInterface
 import java.lang.reflect.Constructor
+import java.lang.reflect.Field
 import java.lang.reflect.Method
 import java.lang.reflect.Proxy
 
@@ -40,6 +44,10 @@ class LauncherNoLabelMode : AppHookModule() {
         popupImplClassName = readKey(DexIndexConstants.Keys.NO_LABEL_POPUP_IMPL_CLASS)
         val folderAnimCreateMethodName = readKey(DexIndexConstants.Keys.NO_LABEL_FOLDER_ANIM_CREATE_METHOD)
         val floatBiFuncMethodName = readKey(DexIndexConstants.Keys.NO_LABEL_FLOAT_BI_FUNC_METHOD) ?: "apply"
+        val folderAnimCreateSetMethodName = readKey(DexIndexConstants.Keys.NO_LABEL_FOLDER_ANIM_CREATE_SET_METHOD)
+        val folderAnimFolderFieldName = readKey(DexIndexConstants.Keys.NO_LABEL_FOLDER_ANIM_FOLDER_FIELD)
+        val folderNameAnimFlagFieldName = readKey(DexIndexConstants.Keys.NO_LABEL_FOLDER_NAME_ANIM_FLAG_FIELD)
+        val folderNameDelegateFieldName = readKey(DexIndexConstants.Keys.NO_LABEL_FOLDER_NAME_DELEGATE_FIELD)
 
         installBubbleTextViewVisibilityHook(param)
         installActiveIconViewVisibilityHook(param)
@@ -47,6 +55,13 @@ class LauncherNoLabelMode : AppHookModule() {
             installFolderNameHook(param)
             installFolderAnimationItemHook(param, folderAnimCreateMethodName)
             installFloatingTextAlphaHook(param, floatBiFuncMethodName)
+            installFolderNameFadeAnimHook(
+                param,
+                folderAnimCreateSetMethodName,
+                folderAnimFolderFieldName,
+                folderNameAnimFlagFieldName,
+                folderNameDelegateFieldName
+            )
         }
     }
 
@@ -288,6 +303,69 @@ class LauncherNoLabelMode : AppHookModule() {
     }
 
     /**
+     * Android 17+ only. Disables big-folder title morph so open-folder titles
+     * fade smoothly during open and close animations when icon labels are hidden.
+     */
+    fun installFolderNameFadeAnimHook(
+        param: XposedModuleInterface.PackageLoadedParam,
+        createSetMethodName: String? = null,
+        folderFieldName: String? = null,
+        flagFieldName: String? = null,
+        delegateFieldName: String? = null
+    ) {
+        try {
+            val loader: ClassLoader = param.defaultClassLoader
+            val famClass: Class<*> =
+                loader.loadClass("com.android.launcher3.folder.FolderAnimationManager")
+            val folderClass: Class<*> =
+                loader.loadClass("com.android.launcher3.folder.Folder")
+
+            val createAnimatorSetMethod: Method = findMethod(
+                famClass,
+                createSetMethodName ?: "createAnimatorSet",
+                Boolean::class.javaPrimitiveType
+            )
+            val nameAnimFlagField: Field? = runCatching {
+                findField(folderClass, flagFieldName ?: "ENBALE_NAMR_ANIM")
+            }.getOrNull()
+            val famFolderField: Field? = runCatching {
+                findField(famClass, folderFieldName ?: "mFolder")
+            }.getOrNull()
+            val delegateField: Field? = runCatching {
+                findField(folderClass, delegateFieldName ?: "mFolderNameAnimDelegate")
+            }.getOrNull()
+
+            hookWithId(createAnimatorSetMethod, "folder_name_fade_anim") { chain ->
+                if (nameAnimFlagField != null) {
+                    runCatching {
+                        if (nameAnimFlagField.getBoolean(null)) {
+                            nameAnimFlagField.setBoolean(null, false)
+                        }
+                    }
+                }
+                val result = chain.proceed()
+                if (result is AnimatorSet && chain.args.firstOrNull() == false) {
+                    runCatching {
+                        val folder = famFolderField?.get(chain.thisObject)
+                        val delegate = folder?.let { delegateField?.get(it) as? View }
+                        if (delegate != null) {
+                            val fadeOut = ObjectAnimator.ofFloat(delegate, View.ALPHA, 1f, 0f).apply {
+                                duration = FOLDER_NAME_CLOSE_FADE_MS
+                            }
+                            result.play(fadeOut)
+                        }
+                    }
+                }
+                result
+            }
+
+            logger.info("Folder name fade animation hook installed successfully!")
+        } catch (e: Throwable) {
+            logger.error("Exception caught in folder name fade animation hook: ", e)
+        }
+    }
+
+    /**
      * Builds detached text-alpha MultiProperty instances with the same channel
      * layout as BubbleTextView: AnimatedFloat target, two channels, product.
      */
@@ -334,6 +412,11 @@ class LauncherNoLabelMode : AppHookModule() {
             )
             return getChannelMethod.invoke(factory, 1)!!
         }
+    }
+
+    private companion object {
+        // Matches FolderAnimationManager.mTextCloseDuration.
+        private const val FOLDER_NAME_CLOSE_FADE_MS = 120L
     }
 }
 

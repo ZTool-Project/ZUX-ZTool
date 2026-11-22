@@ -1,5 +1,6 @@
 package com.qimian233.ztool.hook.modules.launcher.grid
 
+import android.animation.AnimatorSet
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Canvas
@@ -19,6 +20,7 @@ import com.qimian233.ztool.hook.base.DexIndexStore
 import io.github.libxposed.api.XposedModuleInterface.PackageLoadedParam
 import java.lang.reflect.Field
 import java.lang.reflect.Method
+import java.lang.reflect.Modifier
 import java.util.Locale
 
 /**
@@ -37,6 +39,7 @@ class BigFolderAlignHook : AppHookModule() {
     private var bfcReady = false
     private var folderIconReady = false
     private var pimReady = false
+    private var famReady = false
 
     // PreviewBackground
     private lateinit var pbSpanX: Field
@@ -67,6 +70,8 @@ class BigFolderAlignHook : AppHookModule() {
     private var fiBg: Field? = null
     private var fiLabel: Field? = null
     private var fiNameTopMargin: Field? = null
+    private var fiLayoutRule: Field? = null
+    private var fiPreviewItemMgr: Field? = null
     private var fiLabelMethod: Method? = null
     private var fiPadTopMethod: Method? = null
 
@@ -75,6 +80,12 @@ class BigFolderAlignHook : AppHookModule() {
     private lateinit var pimFirstPage: Field
     private lateinit var pimDrawParams: Method
     private lateinit var pimCheckClick: Method
+    private var pimIconSize: Field? = null
+
+    // FolderAnimationManager
+    private lateinit var famFolderIcon: Field
+    private lateinit var famTmpParams: Field
+    private lateinit var famComputeBigAnim: Method
 
     private val suppressStackingForNine = ThreadLocal.withInitial { false }
 
@@ -93,12 +104,14 @@ class BigFolderAlignHook : AppHookModule() {
         bfcReady = resolveBfcRefs(classLoader, module)
         folderIconReady = resolveFolderIconRefs(classLoader, module)
         pimReady = resolvePreviewItemManagerRefs(classLoader, module)
+        famReady = resolveFamRefs(classLoader, module)
 
         hookSetupGeometry()
         if (bfcReady) hookChildCountRewrite()
         if (ruleReady) hookChildGridRule()
         if (bfcReady && folderIconReady && pimReady) hookNineItemStackThreshold()
         if (folderIconReady) hookFolderLabelAndPadding()
+        if (ruleReady && folderIconReady && famReady && ruleParamsScale != null) hookBigFolderItemAnim()
     }
 
     private fun resolveCoreRefs(classLoader: ClassLoader, module: JsonObject?): Boolean {
@@ -237,6 +250,16 @@ class BigFolderAlignHook : AppHookModule() {
                 readString(module, DexIndexConstants.Keys.BIG_FOLDER_ALIGN_FI_NAME_TOP_MARGIN_FIELD),
                 "mFolderNameTopMargin"
             )
+            fiLayoutRule = resolveOptionalField(
+                fi,
+                readString(module, DexIndexConstants.Keys.BIG_FOLDER_ALIGN_FI_LAYOUT_RULE_FIELD),
+                "mPreviewLayoutRule"
+            )
+            fiPreviewItemMgr = resolveOptionalField(
+                fi,
+                readString(module, DexIndexConstants.Keys.BIG_FOLDER_ALIGN_FI_PIM_FIELD),
+                "mPreviewItemManager"
+            )
             fiLabelMethod = resolveOptionalMethod(
                 fi,
                 readString(module, DexIndexConstants.Keys.BIG_FOLDER_ALIGN_FI_LABEL_METHOD),
@@ -268,6 +291,11 @@ class BigFolderAlignHook : AppHookModule() {
                 readString(module, DexIndexConstants.Keys.BIG_FOLDER_ALIGN_PIM_FIRST_PAGE_FIELD),
                 "mFirstPageParams"
             )
+            pimIconSize = resolveOptionalField(
+                pim,
+                readString(module, DexIndexConstants.Keys.BIG_FOLDER_ALIGN_PIM_ICON_SIZE_FIELD),
+                "mIconSize"
+            )
             val drawParamsName = readString(module, DexIndexConstants.Keys.BIG_FOLDER_ALIGN_PIM_DRAW_PARAMS_METHOD)
                 ?: "drawParams"
             pimDrawParams = findMethod(
@@ -294,6 +322,48 @@ class BigFolderAlignHook : AppHookModule() {
             true
         } catch (t: Throwable) {
             logger.error("resolve PreviewItemManager refs failed, 9-item unstack skipped", t)
+            false
+        }
+    }
+
+    private fun resolveFamRefs(classLoader: ClassLoader, module: JsonObject?): Boolean {
+        return try {
+            val fam = classLoader.loadClass("com.android.launcher3.folder.FolderAnimationManager")
+            famFolderIcon = resolveFirstField(
+                fam,
+                readString(module, DexIndexConstants.Keys.BIG_FOLDER_ALIGN_FAM_ICON_FIELD),
+                "mFolderIcon"
+            )
+            famTmpParams = resolveFirstField(
+                fam,
+                readString(module, DexIndexConstants.Keys.BIG_FOLDER_ALIGN_FAM_TMP_PARAMS_FIELD),
+                "mTmpParams"
+            )
+            val methodName = readString(
+                module,
+                DexIndexConstants.Keys.BIG_FOLDER_ALIGN_FAM_COMPUTE_BIG_ANIM_METHOD
+            )
+            val params = readParams(
+                classLoader,
+                module,
+                DexIndexConstants.Keys.BIG_FOLDER_ALIGN_FAM_COMPUTE_BIG_ANIM_PARAMS
+            )
+            famComputeBigAnim = if (methodName != null && params != null) {
+                findMethod(fam, methodName, *params)
+            } else {
+                fam.declaredMethods.singleOrNull { m ->
+                    !Modifier.isStatic(m.modifiers) &&
+                        m.returnType == Void.TYPE &&
+                        m.parameterCount == 15 &&
+                        m.parameterTypes[8] == Float::class.javaPrimitiveType &&
+                        m.parameterTypes[10] == Float::class.javaPrimitiveType &&
+                        m.parameterTypes[14] == AnimatorSet::class.java
+                }?.apply { isAccessible = true }
+                    ?: throw NoSuchMethodException("FolderAnimationManager.computeBigFolderItemAnim")
+            }
+            true
+        } catch (t: Throwable) {
+            logger.error("resolve FolderAnimationManager refs failed, item anim hook skipped", t)
             false
         }
     }
@@ -519,6 +589,43 @@ class BigFolderAlignHook : AppHookModule() {
         }
     }
 
+    private fun hookBigFolderItemAnim() {
+        hookWithId(famComputeBigAnim, "big_folder_align_item_anim") { chain ->
+            try {
+                val fam = chain.thisObject ?: return@hookWithId chain.proceed()
+                val icon = famFolderIcon.get(fam)
+                if (!isSquareFolderIcon(icon)) return@hookWithId chain.proceed()
+
+                val tmpParams = famTmpParams.get(fam) ?: return@hookWithId chain.proceed()
+                val hookedScale = ruleParamsScale?.getFloat(tmpParams) ?: 0f
+                if (hookedScale <= 0f) return@hookWithId chain.proceed()
+
+                val args: Array<Any?> = chain.args.toTypedArray()
+                val newScaleFolder = args[10] as Float
+                val intrinsicSize = fiLayoutRule?.get(icon)?.let { ruleIconSize.getFloat(it) } ?: 0f
+                val childIconSize = fiPreviewItemMgr?.get(icon)?.let { pimIconSize?.getInt(it) } ?: 0
+                val sizeRatio = if (intrinsicSize > 0f && childIconSize > 0) {
+                    intrinsicSize / childIconSize.toFloat()
+                } else {
+                    1f
+                }
+                args[8] = hookedScale * sizeRatio * newScaleFolder
+
+                // Disable 9th-slot close shrinkage/fade when a 9-app folder renders unstacked.
+                val animItemCount = args[1] as Int
+                val stackThreshold = args[2] as Int
+                if (animItemCount == GRID_CAPACITY && stackThreshold == GRID_CAPACITY) {
+                    args[2] = GRID_CAPACITY + 1
+                }
+                return@hookWithId chain.proceed(args)
+            } catch (t: Throwable) {
+                logger.error("computeBigFolderItemAnim override failed", t)
+                return@hookWithId chain.proceed()
+            }
+        }
+        logger.debug("hooked FolderAnimationManager.computeBigFolderItemAnim")
+    }
+
     private fun isSquareBigFolder(spanX: Int, spanY: Int): Boolean = spanX == spanY && spanX >= 2
 
     private fun isSquareFolderIcon(icon: Any?): Boolean {
@@ -613,8 +720,8 @@ class BigFolderAlignHook : AppHookModule() {
         private const val GRID_CAPACITY = CHILD_COLS * CHILD_ROWS
 
         // Proportional 3x3 layout parameters inside the square background.
-        private const val OUTER_PAD_RATIO = 0.085f
-        private const val GAP_RATIO = 0.055f
+        private const val OUTER_PAD_RATIO = 0.0475f
+        private const val GAP_RATIO = 0.025f
         private const val MAX_HEADER_RATIO = 0.30f
         private const val MIN_GRID_HEIGHT_RATIO = 0.45f
 

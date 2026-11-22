@@ -1292,6 +1292,18 @@ class LauncherDexIndexer : DexIndexer {
                     out.addProperty(DexIndexConstants.Keys.BIG_FOLDER_ALIGN_FI_BG_FIELD, it.name)
                     Log.i(TAG, "BigFolderAlign: fiBgField = ${it.name}")
                 }
+                fiClass.fields.singleOrNull {
+                    !Modifier.isStatic(it.modifiers) && it.typeName == LAYOUT_RULE_CLASS
+                }?.let {
+                    out.addProperty(DexIndexConstants.Keys.BIG_FOLDER_ALIGN_FI_LAYOUT_RULE_FIELD, it.name)
+                    Log.i(TAG, "BigFolderAlign: fiLayoutRuleField = ${it.name}")
+                }
+                fiClass.fields.singleOrNull {
+                    !Modifier.isStatic(it.modifiers) && it.typeName == PREVIEW_ITEM_MGR_CLASS
+                }?.let {
+                    out.addProperty(DexIndexConstants.Keys.BIG_FOLDER_ALIGN_FI_PIM_FIELD, it.name)
+                    Log.i(TAG, "BigFolderAlign: fiPimField = ${it.name}")
+                }
             }
             val fiLabelMethod = bridge.findMethod {
                 matcher {
@@ -1377,6 +1389,45 @@ class LauncherDexIndexer : DexIndexer {
         } catch (t: Throwable) {
             Log.w(TAG, "BigFolderAlign: PreviewItemManager query failed", t)
         }
+
+        try {
+            val famClass = findClassByName(bridge, FOLDER_ANIM_MGR_CLASS)
+            if (famClass != null) {
+                famClass.fields.singleOrNull {
+                    !Modifier.isStatic(it.modifiers) && it.typeName == FOLDER_ICON_CLASS
+                }?.let {
+                    out.addProperty(DexIndexConstants.Keys.BIG_FOLDER_ALIGN_FAM_ICON_FIELD, it.name)
+                    Log.i(TAG, "BigFolderAlign: famIconField = ${it.name}")
+                }
+                famClass.fields.singleOrNull {
+                    !Modifier.isStatic(it.modifiers) && it.typeName == PREVIEW_PARAMS_CLASS
+                }?.let {
+                    out.addProperty(DexIndexConstants.Keys.BIG_FOLDER_ALIGN_FAM_TMP_PARAMS_FIELD, it.name)
+                    Log.i(TAG, "BigFolderAlign: famTmpParamsField = ${it.name}")
+                }
+                val computeBigAnim = famClass.methods.singleOrNull {
+                    isNormalInstanceMethod(it) &&
+                        it.returnTypeName == "void" &&
+                        it.paramCount == 15 &&
+                        it.paramTypeNames[8] == "float" &&
+                        it.paramTypeNames[10] == "float" &&
+                        it.paramTypeNames[14] == "android.animation.AnimatorSet"
+                }
+                if (computeBigAnim != null) {
+                    val params = computeBigAnim.paramTypeNames.joinToString(",")
+                    out.addProperty(DexIndexConstants.Keys.BIG_FOLDER_ALIGN_FAM_COMPUTE_BIG_ANIM_METHOD, computeBigAnim.name)
+                    out.addProperty(DexIndexConstants.Keys.BIG_FOLDER_ALIGN_FAM_COMPUTE_BIG_ANIM_PARAMS, params)
+                    Log.i(TAG, "BigFolderAlign: famComputeBigAnim = ${computeBigAnim.name}($params)")
+
+                    fieldsOfTypeOn(computeBigAnim, PREVIEW_ITEM_MGR_CLASS, "int").singleOrNull()?.let {
+                        out.addProperty(DexIndexConstants.Keys.BIG_FOLDER_ALIGN_PIM_ICON_SIZE_FIELD, it)
+                        Log.i(TAG, "BigFolderAlign: pimIconSizeField = $it")
+                    }
+                }
+            }
+        } catch (t: Throwable) {
+            Log.w(TAG, "BigFolderAlign: FolderAnimationManager query failed", t)
+        }
         return out
     }
 
@@ -1421,6 +1472,52 @@ class LauncherDexIndexer : DexIndexer {
                 }
         } catch (t: Throwable) {
             Log.w(TAG, "LauncherNoLabelMode: floatBiFunc query failed", t)
+        }
+
+        try {
+            val famClass = findClassByName(bridge, FOLDER_ANIM_MGR_CLASS)
+            val folderClass = findClassByName(bridge, FOLDER_CLASS)
+            val createSetMethod = famClass?.methods?.singleOrNull {
+                isNormalInstanceMethod(it) &&
+                    it.returnTypeName == "android.animation.AnimatorSet" &&
+                    it.paramTypeNames == listOf("boolean")
+            }
+            createSetMethod?.let {
+                out.addProperty(DexIndexConstants.Keys.NO_LABEL_FOLDER_ANIM_CREATE_SET_METHOD, it.name)
+                Log.i(TAG, "LauncherNoLabelMode: folderAnimCreateSet = ${it.name}")
+            }
+            famClass?.fields?.singleOrNull {
+                !Modifier.isStatic(it.modifiers) && it.typeName == FOLDER_CLASS
+            }?.let {
+                out.addProperty(DexIndexConstants.Keys.NO_LABEL_FOLDER_ANIM_FOLDER_FIELD, it.name)
+                Log.i(TAG, "LauncherNoLabelMode: folderAnimFolderField = ${it.name}")
+            }
+            val flagField = createSetMethod?.usingFields
+                ?.map { it.field }
+                ?.distinctBy { "${it.className}#${it.name}" }
+                ?.singleOrNull {
+                    it.className == FOLDER_CLASS &&
+                        Modifier.isStatic(it.modifiers) &&
+                        !Modifier.isFinal(it.modifiers) &&
+                        it.typeName == "boolean"
+                }
+                ?: folderClass?.fields?.singleOrNull {
+                    Modifier.isStatic(it.modifiers) &&
+                        !Modifier.isFinal(it.modifiers) &&
+                        it.typeName == "boolean"
+                }
+            flagField?.let {
+                out.addProperty(DexIndexConstants.Keys.NO_LABEL_FOLDER_NAME_ANIM_FLAG_FIELD, it.name)
+                Log.i(TAG, "LauncherNoLabelMode: folderNameAnimFlagField = ${it.name}")
+            }
+            folderClass?.fields?.singleOrNull {
+                !Modifier.isStatic(it.modifiers) && it.typeName == BUBBLE_TEXT_VIEW_CLASS
+            }?.let {
+                out.addProperty(DexIndexConstants.Keys.NO_LABEL_FOLDER_NAME_DELEGATE_FIELD, it.name)
+                Log.i(TAG, "LauncherNoLabelMode: folderNameDelegateField = ${it.name}")
+            }
+        } catch (t: Throwable) {
+            Log.w(TAG, "LauncherNoLabelMode: folder title fade query failed", t)
         }
         return out
     }
@@ -1998,6 +2095,7 @@ class LauncherDexIndexer : DexIndexer {
         const val CONTAINER_CLASS = "com.android.launcher3.ShortcutAndWidgetContainer"
         const val DEVICE_PROFILE_CLASS = "com.android.launcher3.DeviceProfile"
         const val FOLDER_ICON_CLASS = "com.android.launcher3.folder.FolderIcon"
+        const val FOLDER_CLASS = "com.android.launcher3.folder.Folder"
         const val FOLDER_INFO_CLASS = "com.android.launcher3.model.data.FolderInfo"
         const val FOLDER_ANIM_MGR_CLASS = "com.android.launcher3.folder.FolderAnimationManager"
         const val PREVIEW_BG_CLASS = "com.android.launcher3.folder.PreviewBackground"

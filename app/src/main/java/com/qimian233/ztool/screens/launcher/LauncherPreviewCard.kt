@@ -308,11 +308,11 @@ private fun BigFolderItem(
         backgroundX = (slotW - side) / 2
         backgroundY = (slotH - side) / 2
 
-        val outerPad = side * 0.085f
+        val outerPad = side * 0.0475f
         val headerH = if (showLabel) side * 0.19f else 0.dp
         val gridTop = maxOf(outerPad, headerH)
         val availGridH = (side - outerPad - gridTop).coerceAtLeast(side * 0.45f)
-        val gap = availGridH * (0.055f / 0.83f)
+        val gap = availGridH * (0.025f / 0.905f)
         child = minOf((availGridH - gap * 2) / 3, (side - outerPad * 2 - gap * 2) / 3)
         gapH = gap
         gapV = gap
