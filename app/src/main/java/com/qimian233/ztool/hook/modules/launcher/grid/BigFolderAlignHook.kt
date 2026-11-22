@@ -24,13 +24,13 @@ import java.lang.reflect.Modifier
 import java.util.Locale
 
 /**
- * Aligns square (`3x3`, 10+ stack) and strip (`1x2` 3x1 / `2x1` 1x3, 4+ stack)
- * big folders to widget-matched backgrounds and proportional inner grids.
+ * Aligns square (`3x3`, 10+ stack), strip (`1x2` 3x1 / `2x1` 1x3, 4+ stack), and
+ * wide `2x3` (`3x4`, 13+ stack) big folders to matched backgrounds and proportional grids.
  */
 @SuppressLint("PrivateApi")
 class BigFolderAlignHook : AppHookModule() {
 
-    private enum class StyleKind { SQUARE, STRIP_1X2, STRIP_2X1 }
+    private enum class StyleKind { SQUARE, STRIP_1X2, STRIP_2X1, WIDE_3X2 }
 
     private data class FolderStyleSpec(val kind: StyleKind, val cols: Int, val rows: Int) {
         val capacity: Int get() = cols * rows
@@ -50,6 +50,7 @@ class BigFolderAlignHook : AppHookModule() {
 
     private var squareStyleEnabled = false
     private var stripStyleEnabled = false
+    private var wideStyleEnabled = false
 
     private var coreReady = false
     private var ruleReady = false
@@ -121,13 +122,19 @@ class BigFolderAlignHook : AppHookModule() {
                 PreferenceKeys.LAUNCHER_BIG_FOLDER_STRIP_STYLE.default
             )
         }.getOrNull() ?: PreferenceKeys.LAUNCHER_BIG_FOLDER_STRIP_STYLE.default
-        if (!squareStyleEnabled && !stripStyleEnabled) {
+        wideStyleEnabled = runCatching {
+            prefs?.getBoolean(
+                PreferenceKeys.LAUNCHER_BIG_FOLDER_WIDE_STYLE.name,
+                PreferenceKeys.LAUNCHER_BIG_FOLDER_WIDE_STYLE.default
+            )
+        }.getOrNull() ?: PreferenceKeys.LAUNCHER_BIG_FOLDER_WIDE_STYLE.default
+        if (!squareStyleEnabled && !stripStyleEnabled && !wideStyleEnabled) {
             logger.debug("BigFolderAlign: all folder style sub-features disabled, skipping")
             return
         }
 
         val classLoader = param.defaultClassLoader
-        logger.debug("BigFolderAlign installing (square=$squareStyleEnabled strip=$stripStyleEnabled)")
+        logger.debug("BigFolderAlign installing (square=$squareStyleEnabled strip=$stripStyleEnabled wide=$wideStyleEnabled)")
 
         val module = DexIndexStore.lookup(xposed, ScopeKeys.LAUNCHER.packageName)
             ?.getAsJsonObject(DexIndexConstants.JSON_MODULES)
@@ -442,6 +449,12 @@ class BigFolderAlignHook : AppHookModule() {
                         bgW = side2x2
                         bgH = availH
                     }
+                    StyleKind.WIDE_3X2 -> {
+                        // Match the optimized 2x2 square height while keeping full 3-column width.
+                        val side2x2 = minOf(availH, ((slotW * 2) / 3 - stockOffsetX * 2).coerceAtLeast(1))
+                        bgW = availW
+                        bgH = side2x2
+                    }
                 }
                 val offsetX = (slotW - bgW) / 2
                 val offsetY = (slotH - bgH) / 2
@@ -632,6 +645,29 @@ class BigFolderAlignHook : AppHookModule() {
                     gridStartY = gridTop + (availGridH - iconPx) / 2f
                 )
             }
+            StyleKind.WIDE_3X2 -> {
+                val outerPad = boxH * OUTER_PAD_RATIO
+                val headerH = if (padTop > 0) (padTop * 2f).coerceIn(0f, boxH * MAX_HEADER_RATIO) else 0f
+                val gridTop = maxOf(outerPad, headerH)
+                val availGridH = (boxH - outerPad - gridTop).coerceAtLeast(boxH * MIN_GRID_HEIGHT_RATIO)
+                val gapY = availGridH * (GAP_RATIO / (1f - 2f * OUTER_PAD_RATIO))
+                val maxByH = ((availGridH - (spec.rows - 1) * gapY) / spec.rows).coerceAtLeast(1f)
+                val availGridW = (boxW - 2f * outerPad).coerceAtLeast(1f)
+                val maxByW = ((availGridW - (spec.cols - 1) * gapY) / spec.cols).coerceAtLeast(1f)
+                val iconPx = minOf(maxByH, maxByW).coerceAtLeast(1f)
+                val maxGapX = ((availGridW - spec.cols * iconPx) / (spec.cols - 1)).coerceAtLeast(0f)
+                val evenGapX = ((boxW - spec.cols * iconPx) / (spec.cols + 1)).coerceAtLeast(0f)
+                val gapX = evenGapX.coerceIn(gapY.coerceAtMost(maxGapX), maxGapX)
+                val gridW = spec.cols * iconPx + (spec.cols - 1) * gapX
+                val gridH = spec.rows * iconPx + (spec.rows - 1) * gapY
+                GridLayout(
+                    iconPx = iconPx,
+                    gapX = gapX,
+                    gapY = gapY,
+                    gridLeft = (boxW - gridW) / 2f,
+                    gridStartY = gridTop + (availGridH - gridH) / 2f
+                )
+            }
         }
     }
 
@@ -748,6 +784,7 @@ class BigFolderAlignHook : AppHookModule() {
         squareStyleEnabled && spanX == spanY && spanX >= 2 -> SQUARE_SPEC
         stripStyleEnabled && spanX == 1 && spanY == 2 -> STRIP_1X2_SPEC
         stripStyleEnabled && spanX == 2 && spanY == 1 -> STRIP_2X1_SPEC
+        wideStyleEnabled && spanX == 3 && spanY == 2 -> WIDE_3X2_SPEC
         else -> null
     }
 
@@ -841,6 +878,7 @@ class BigFolderAlignHook : AppHookModule() {
         private val SQUARE_SPEC = FolderStyleSpec(StyleKind.SQUARE, 3, 3)
         private val STRIP_1X2_SPEC = FolderStyleSpec(StyleKind.STRIP_1X2, 1, 3)
         private val STRIP_2X1_SPEC = FolderStyleSpec(StyleKind.STRIP_2X1, 3, 1)
+        private val WIDE_3X2_SPEC = FolderStyleSpec(StyleKind.WIDE_3X2, 4, 3)
 
         // Proportional 3x3 layout parameters inside the square background.
         private const val OUTER_PAD_RATIO = 0.0475f

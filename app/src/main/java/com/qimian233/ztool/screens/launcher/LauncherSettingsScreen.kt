@@ -134,6 +134,7 @@ fun LauncherSettingsRoute(
             onBigFolderAlignChanged = viewModel::setBigFolderAlign,
             onBigFolderSquareStyleChanged = viewModel::setBigFolderSquareStyle,
             onBigFolderStripStyleChanged = viewModel::setBigFolderStripStyle,
+            onBigFolderWideStyleChanged = viewModel::setBigFolderWideStyle,
             onBigFolderBlurGuardChanged = viewModel::setBigFolderBlurGuard,
             onAppIconUnmaskChanged = viewModel::setAppIconUnmask,
             onAppIconUnmaskDynamicChanged = viewModel::setAppIconUnmaskDynamic,
@@ -223,6 +224,7 @@ private fun LauncherSettingsScreen(
     onBigFolderAlignChanged: (Boolean) -> Unit,
     onBigFolderSquareStyleChanged: (Boolean) -> Unit,
     onBigFolderStripStyleChanged: (Boolean) -> Unit,
+    onBigFolderWideStyleChanged: (Boolean) -> Unit,
     onBigFolderBlurGuardChanged: (Boolean) -> Unit,
     onAppIconUnmaskChanged: (Boolean) -> Unit,
     onAppIconUnmaskDynamicChanged: (Boolean) -> Unit,
@@ -300,6 +302,7 @@ private fun LauncherSettingsScreen(
                         onBigFolderAlignChanged = onBigFolderAlignChanged,
                         onBigFolderSquareStyleChanged = onBigFolderSquareStyleChanged,
                         onBigFolderStripStyleChanged = onBigFolderStripStyleChanged,
+                        onBigFolderWideStyleChanged = onBigFolderWideStyleChanged,
                         onBigFolderBlurGuardChanged = onBigFolderBlurGuardChanged,
                         onAppIconUnmaskChanged = onAppIconUnmaskChanged,
                         onAppIconUnmaskDynamicChanged = onAppIconUnmaskDynamicChanged,
@@ -345,6 +348,7 @@ private fun launcherSettingsSections(
     onBigFolderAlignChanged: (Boolean) -> Unit,
     onBigFolderSquareStyleChanged: (Boolean) -> Unit,
     onBigFolderStripStyleChanged: (Boolean) -> Unit,
+    onBigFolderWideStyleChanged: (Boolean) -> Unit,
     onBigFolderBlurGuardChanged: (Boolean) -> Unit,
     onAppIconUnmaskChanged: (Boolean) -> Unit,
     onAppIconUnmaskDynamicChanged: (Boolean) -> Unit,
@@ -525,6 +529,15 @@ private fun launcherSettingsSections(
                     checked = state.bigFolderStripStyle,
                     onCheckedChange = onBigFolderStripStyleChanged,
                     key = "launcher_big_folder_strip_style"
+                )
+            )
+            add(
+                SettingItem.Switch(
+                    title = stringResource(R.string.launcher_big_folder_wide_style_title),
+                    summary = stringResource(R.string.launcher_big_folder_wide_style_summary),
+                    checked = state.bigFolderWideStyle,
+                    onCheckedChange = onBigFolderWideStyleChanged,
+                    key = "launcher_big_folder_wide_style"
                 )
             )
         }
