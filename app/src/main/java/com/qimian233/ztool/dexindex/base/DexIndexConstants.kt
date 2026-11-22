@@ -47,9 +47,6 @@ object DexIndexConstants {
         val LAUNCHER_ICON_PACK = PreferenceKeys.LAUNCHER_ICON_PACK.name
         val NO_CHARGE_ANIMATION = PreferenceKeys.NO_CHARGE_ANIMATION.name
         val SYSTEMUI_NETWORK_SPEED_DOUBLELAYER = PreferenceKeys.SYSTEMUI_NETWORK_SPEED_DOUBLELAYER.name
-        val BYPASS_SHARE_WARNING = PreferenceKeys.BYPASS_SHARE_WARNING.name
-        val DISABLE_NEARBY_SHARE_COUNTDOWN = PreferenceKeys.DISABLE_NEARBY_SHARE_COUNTDOWN.name
-        val AUTO_ACCEPT_FILE_TRANSFER = PreferenceKeys.AUTO_ACCEPT_FILE_TRANSFER.name
         val VOLUME_SLIDER_PERCENTAGE = PreferenceKeys.VOLUME_SLIDER_PERCENTAGE.name
     }
 
@@ -219,22 +216,9 @@ object DexIndexConstants {
         const val ICON_PACK_APPEND_METHOD = "iconPackAppendMethod"
         // NoChargeAnimation
         const val HANDLER_FIELD_NAME = "handlerFieldName"
+        const val TARGET_CLASS = "targetClass"
         // SystemUINetworkSpeeddoublelayerHook
         const val HANDLER_INNER_CLASS = "handlerInnerClass"
-        // BypassShareWarningHook
-        const val MANAGER_CLASS = "managerClass"
-        const val MANAGER_FACTORY_METHOD = "managerFactoryMethod"
-        const val MANAGER_SET_METHOD = "managerSetMethod"
-        const val DIALOG_METHOD = "dialogMethod"
-        const val TILE_REFRESH_METHOD = "tileRefreshMethod"
-        // DisableNearbyShareAutoOffHook
-        const val TARGET_CLASS = "targetClass"
-        const val TARGET_METHOD = "targetMethod"
-        // AutoAcceptFileTransferHook
-        const val VM_FIELD_NAME = "vmFieldName"
-        const val ACCEPTED_FIELD_NAME = "acceptedFieldName"
-        const val LIVE_DATA_FIELD_NAME = "liveDataFieldName"
-        const val LIVE_DATA_UPDATE_METHOD = "liveDataUpdateMethod"
         // VolumeSliderPercentageHook
         const val VOLUME_SLIDER_PROGRESS_LISTENER_CLASS = "progressListenerClass"
     }

@@ -1,198 +1,69 @@
 package com.qimian233.ztool.hook.modules.mobiledesktop
 
-import android.content.Context
-import android.content.SharedPreferences
+import android.annotation.SuppressLint
+import android.app.Activity
+import android.os.Bundle
+import android.view.View
+import com.qimian233.ztool.data.keys.PreferenceKeys
 import com.qimian233.ztool.data.keys.ScopeKeys
-import com.qimian233.ztool.dexindex.base.DexIndexConstants
 import com.qimian233.ztool.hook.base.AppHookModule
-import com.qimian233.ztool.hook.base.DexIndexStore
-import io.github.libxposed.api.XposedModuleInterface
-import androidx.core.content.edit
+import io.github.libxposed.api.XposedModuleInterface.PackageLoadedParam
 
 /**
- * Hook to bypass the share warning dialog of Super Interconnect (FileUnion).
- *
- * Uses DexKit to dynamically match the obfuscated method names by method
- * signature (parameter types + return type) instead of relying on hardcoded
- * single-letter names.
+ * Bypasses the nearby-share exposure warning dialog in Super Interconnect
+ * (FileUnion) by auto-confirming it.
  */
 class BypassShareWarningHook : AppHookModule() {
 
-    companion object {
-        private val TARGET_PACKAGE = arrayOf(ScopeKeys.MOBILE_DESKTOP.packageName)
-        private const val TARGET_CLASS = "com.motorola.readyfor.tile.BaseFileUnionTile"
-        private const val DIALOG_CLASS =
-            "com.motorola.readyfor.common.dialog.ActionNoticeCommonDialogActivity"
-        private const val MANAGER_PKG = "com.motorola.mobiledesktop.manager"
-        private const val PREFS_NAME = "moto_ble_preference"
-        private const val PREF_KEY1 = "file_union_transfer_switch"
-        private const val PREF_KEY2 = "nearby_send_files"
-    }
+    override fun getModuleName(): String = PreferenceKeys.BYPASS_SHARE_WARNING.name
 
-    override fun getModuleName(): String = "bypass_share_warning"
+    override fun getTargetPackages(): Array<String> = arrayOf(ScopeKeys.MOBILE_DESKTOP.packageName)
 
-    override fun getTargetPackages(): Array<String> = TARGET_PACKAGE
-
-    override fun handleLoadPackage(param: XposedModuleInterface.PackageLoadedParam) {
+    @SuppressLint("DiscouragedApi")
+    override fun handleLoadPackage(param: PackageLoadedParam) {
         val classLoader = param.defaultClassLoader
-
-        val module = DexIndexStore.lookup(xposed, ScopeKeys.MOBILE_DESKTOP.packageName)
-            ?.getAsJsonObject(DexIndexConstants.ModuleKeys.BYPASS_SHARE_WARNING)
-
-        val managerClassName = module?.get(DexIndexConstants.Keys.MANAGER_CLASS)
-            ?.takeIf { !it.isJsonNull }?.asString ?: "$MANAGER_PKG.c0"
-        val managerFactoryMethodName = module?.get(DexIndexConstants.Keys.MANAGER_FACTORY_METHOD)
-            ?.takeIf { !it.isJsonNull }?.asString ?: "l"   // static factory: (Context) → manager
-        val managerSetMethodName = module?.get(DexIndexConstants.Keys.MANAGER_SET_METHOD)
-            ?.takeIf { !it.isJsonNull }?.asString ?: "z"    // instance: (boolean) → void
-        val tileRefreshMethod = module?.get(DexIndexConstants.Keys.TILE_REFRESH_METHOD)
-            ?.takeIf { !it.isJsonNull }?.asString ?: "b"
-
         try {
-            val baseFileUnionTileClass = classLoader.loadClass(TARGET_CLASS)
-            val onClickMethod = baseFileUnionTileClass.getDeclaredMethod("onClick")
-            hookWithId(onClickMethod, "on_click") { chain ->
-                val tile = chain.thisObject
-                val context = getContext(tile)
-                if (context == null) {
-                    chain.proceed()
-                } else {
-                    val enabled = isNearbyShareEnabled(context)
-                    logger.debug("IsNearbyShareEnabled: $enabled")
-                    if (enabled) {
-                        logger.debug("Nearby share already enabled, keep original disable flow.")
-                        chain.proceed()
-                    } else {
-                        setNearbyShareEnabled(
-                            tile, context, classLoader,
-                            managerClassName, managerFactoryMethodName, managerSetMethodName,
-                            tileRefreshMethod
-                        )
-                        logger.debug("Bypassed warning and enabled nearby share directly.")
-                        null
-                    }
+            val dialogClass = classLoader.loadClass(DIALOG_CLASS)
+            val onCreateMethod = dialogClass.getDeclaredMethod("onCreate", Bundle::class.java)
+            hookWithId(onCreateMethod, "dialog_on_create") { chain ->
+                val result = chain.proceed()
+                val activity = chain.thisObject as? Activity ?: return@hookWithId result
+                val intent = activity.intent ?: return@hookWithId result
+                if (intent.getIntExtra(EXTRA_DIALOG_EVENT, 0) != EVENT_FILE_SHARE_EXPOSE ||
+                    intent.getIntExtra(EXTRA_DIALOG_STYLE, 0) != STYLE_FILE_SHARE_EXPOSE
+                ) {
+                    return@hookWithId result
                 }
+                val positiveId = activity.resources.getIdentifier(
+                    RES_POSITIVE_BUTTON, "id", activity.packageName
+                )
+                if (positiveId == 0) {
+                    logger.warn("Resource id/$RES_POSITIVE_BUTTON not found in ${activity.packageName}")
+                    return@hookWithId result
+                }
+                val positiveButton = activity.findViewById<View>(positiveId)
+                if (positiveButton == null) {
+                    logger.warn("View id/$RES_POSITIVE_BUTTON not found in $DIALOG_CLASS")
+                    return@hookWithId result
+                }
+                // Triggering the positive button preserves native BT/Wi-Fi setup, permissions, and finish().
+                positiveButton.performClick()
+                logger.debug("Auto-confirmed share exposure dialog via $RES_POSITIVE_BUTTON.performClick()")
+                result
             }
-            logger.info("Installed hook for BaseFileUnionTile.onClick")
+            logger.info("Installed hook for $DIALOG_CLASS.onCreate")
         } catch (t: Throwable) {
-            logger.error("Failed to hook BaseFileUnionTile.onClick", t)
-        }
-
-        try {
-            val actionNoticeClass = classLoader.loadClass(DIALOG_CLASS)
-
-            // The p() method name comes from the offline index — no-arg void + references the file_share_expose_title field
-            val finalPMethodName = module?.get(DexIndexConstants.Keys.DIALOG_METHOD)
-                ?.takeIf { !it.isJsonNull }?.asString ?: "t" // default fallback (current version)
-            logger.debug("target method name of \"createAndStartExposureWarnDialog\": $finalPMethodName")
-
-            val pMethod = actionNoticeClass.getDeclaredMethod(finalPMethodName)
-            hookWithId(pMethod, "hook_162") {  chain ->
-                val myObject = chain.thisObject
-                val context = getContext(myObject)
-
-                // Try enabling via the newer MotoDiscoveryManager
-                try {
-                    val qClass = classLoader.loadClass("com.motorola.motoaccount.sdk.gf.q")
-                    val lMethod = qClass.getDeclaredMethod("l", Context::class.java)
-                    val qInstance = lMethod.invoke(null, context)
-                    qInstance.javaClass
-                        .getDeclaredMethod("B", Boolean::class.javaPrimitiveType)
-                        .invoke(qInstance, true)
-                    logger.debug("dialog hook: enabled via MotoDiscoveryManager")
-                } catch (_: ReflectiveOperationException) {
-                    // Fall back to the legacy manager
-                    val managerClass = classLoader.loadClass(managerClassName)
-                    val lMethod =
-                        managerClass.getDeclaredMethod(managerFactoryMethodName, Context::class.java)
-                    val manager = lMethod.invoke(null, context)
-                    if (manager == null) {
-                        logger.warn("Unable to get manager!")
-                    } else {
-                        val zMethod = manager.javaClass.getDeclaredMethod(
-                            managerSetMethodName, Boolean::class.javaPrimitiveType
-                        )
-                        zMethod.isAccessible = true
-                        zMethod.invoke(manager, true)
-                    }
-                }
-                null
-            }
-            logger.info("Installed hook for dialog activity method: $finalPMethodName")
-        } catch (e: Exception) {
-            logger.error("Failed to hook createAndStartExposureWarnIntent: ", e)
+            logger.error("Failed to install bypass share warning hook", t)
         }
     }
 
-    private fun getContext(tile: Any?): Context? {
-        return try {
-            val getApplicationContextMethod = tile!!.javaClass.getMethod("getApplicationContext")
-            val context = getApplicationContextMethod.invoke(tile)
-            context as? Context
-        } catch (_: Throwable) {
-            null
-        }
-    }
-
-    private fun isNearbyShareEnabled(context: Context): Boolean {
-        val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        return try {
-            prefs.getBoolean(PREF_KEY1, false) || prefs.getBoolean(PREF_KEY2, false)
-        } catch (t: Throwable) {
-            logger.error("Failed to read nearby share state", t)
-            false
-        }
-    }
-
-    private fun setNearbyShareEnabled(
-        tile: Any?,
-        context: Context,
-        classLoader: ClassLoader,
-        managerClass: String,
-        factoryMethod: String,
-        setMethod: String,
-        tileRefreshMethod: String
-    ) {
-        // Try multiple enable strategies to support both old and new versions:
-        //   Legacy: managerClass.l(context).z(true)  (c0)
-        //   New:    q.l(context).B(true)             (MotoDiscoveryManager)
-        //   Fallback: write SharedPreferences directly
-        try {
-            try {
-                val mc = classLoader.loadClass(managerClass)
-                val lMethod = mc.getDeclaredMethod(factoryMethod, Context::class.java)
-                val manager = lMethod.invoke(null, context)
-                if (manager != null) {
-                    val zMethod = manager.javaClass.getDeclaredMethod(
-                        setMethod, Boolean::class.javaPrimitiveType
-                    )
-                    zMethod.isAccessible = true
-                    zMethod.invoke(manager, true)
-                    logger.debug("enabled via legacy manager: $managerClass.$factoryMethod/$setMethod")
-                }
-            } catch (_: ReflectiveOperationException) {
-                logger.warn("legacy manager not found, trying MotoDiscoveryManager")
-                val qClass = classLoader.loadClass("com.motorola.motoaccount.sdk.gf.q")
-                val lMethod = qClass.getDeclaredMethod("l", Context::class.java)
-                val qInstance = lMethod.invoke(null, context)
-                qInstance.javaClass
-                    .getDeclaredMethod("B", Boolean::class.javaPrimitiveType)
-                    .invoke(qInstance, true)
-                logger.debug("enabled via MotoDiscoveryManager.q.l().B(true)")
-            }
-
-            context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-                .edit { putBoolean(PREF_KEY1, true) }
-            context.getSharedPreferences("sp_file_ble", Context.MODE_PRIVATE)
-                .edit { putBoolean("nearby_send_files", true) }
-
-            val bMethod = findMethod(tile!!.javaClass, tileRefreshMethod)
-            bMethod.isAccessible = true
-            bMethod.invoke(tile)
-
-            logger.debug("successfully set share to enabled")
-        } catch (e: Throwable) {
-            logger.error("Failed to set nearby share to enable: ", e)
-        }
+    private companion object {
+        const val DIALOG_CLASS =
+            "com.motorola.readyfor.common.dialog.ActionNoticeCommonDialogActivity"
+        const val EXTRA_DIALOG_STYLE = "dialog_style"
+        const val EXTRA_DIALOG_EVENT = "dialog_event"
+        const val STYLE_FILE_SHARE_EXPOSE = 20
+        const val EVENT_FILE_SHARE_EXPOSE = 20
+        const val RES_POSITIVE_BUTTON = "positiveTv"
     }
 }

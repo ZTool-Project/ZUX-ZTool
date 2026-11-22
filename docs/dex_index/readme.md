@@ -41,9 +41,8 @@ native 库并 mmap APK；热重载 replay 时对同一 APK 重复 create，nativ
 com.qimian233.ztool.dexindex/
   DexIndexConstants.kt   // 目录名/schema 版本/模块 key/字段 key 常量
   DexIndexer.kt          // 接口：scopePackage + index(bridge, context): JsonObject
-  LauncherDexIndexer.kt  // com.zui.launcher 作用域（v8 覆盖 17 个模块：dock/misc/freeform/grid/unmask/icon-pack）
-  SystemUiDexIndexer.kt  // com.android.systemui 作用域（3 模块查询）
-  MobileDesktopDexIndexer.kt // com.motorola.mobiledesktop 作用域（2 模块查询）
+  LauncherDexIndexer.kt      // com.zui.launcher 作用域（v8 覆盖 17 个模块：dock/misc/freeform/grid/unmask/icon-pack）
+  SystemUiDexIndexer.kt      // com.android.systemui 作用域（3 模块查询）
   DexIndexRegistry.kt    // indexers 注册表（作用域 → Indexer 唯一映射）
   DexIndexManager.kt     // app 侧执行器：bridge/原子写/指纹/异常隔离
   DexIndexReceiver.kt    // 模块安装/更新触发（先判 needsReindex，索引已新鲜则不重建）
