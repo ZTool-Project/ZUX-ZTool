@@ -51,7 +51,6 @@ import com.qimian233.ztool.ui.components.ZToolTextButton
 import com.qimian233.ztool.ui.components.ZToolTopAppBar
 import com.qimian233.ztool.ui.theme.LocalZToolColorScheme
 import com.qimian233.ztool.utils.AppChooserDialog
-import com.qimian233.ztool.viewmodel.BigFolderTuneKey
 import com.qimian233.ztool.viewmodel.ForceStopMode
 import com.qimian233.ztool.viewmodel.LauncherSettingsUiState
 import com.qimian233.ztool.viewmodel.LauncherSettingsViewModel
@@ -134,7 +133,6 @@ fun LauncherSettingsRoute(
             onLauncherBatchUninstallChanged = viewModel::setLauncherBatchUninstall,
             onBigFolderAlignChanged = viewModel::setBigFolderAlign,
             onBigFolderBlurGuardChanged = viewModel::setBigFolderBlurGuard,
-            onBigFolderTuneChanged = viewModel::setBigFolderTune,
             onAppIconUnmaskChanged = viewModel::setAppIconUnmask,
             onAppIconUnmaskDynamicChanged = viewModel::setAppIconUnmaskDynamic,
             onWideGridChanged = viewModel::setWideGrid,
@@ -222,7 +220,6 @@ private fun LauncherSettingsScreen(
     onLauncherBatchUninstallChanged: (Boolean) -> Unit,
     onBigFolderAlignChanged: (Boolean) -> Unit,
     onBigFolderBlurGuardChanged: (Boolean) -> Unit,
-    onBigFolderTuneChanged: (BigFolderTuneKey, Int) -> Unit,
     onAppIconUnmaskChanged: (Boolean) -> Unit,
     onAppIconUnmaskDynamicChanged: (Boolean) -> Unit,
     onWideGridChanged: (Boolean) -> Unit,
@@ -298,7 +295,6 @@ private fun LauncherSettingsScreen(
                         onLauncherBatchUninstallChanged = onLauncherBatchUninstallChanged,
                         onBigFolderAlignChanged = onBigFolderAlignChanged,
                         onBigFolderBlurGuardChanged = onBigFolderBlurGuardChanged,
-            onBigFolderTuneChanged = onBigFolderTuneChanged,
                         onAppIconUnmaskChanged = onAppIconUnmaskChanged,
                         onAppIconUnmaskDynamicChanged = onAppIconUnmaskDynamicChanged,
                         onWideGridChanged = onWideGridChanged,
@@ -342,7 +338,6 @@ private fun launcherSettingsSections(
     onLauncherBatchUninstallChanged: (Boolean) -> Unit,
     onBigFolderAlignChanged: (Boolean) -> Unit,
     onBigFolderBlurGuardChanged: (Boolean) -> Unit,
-    onBigFolderTuneChanged: (BigFolderTuneKey, Int) -> Unit,
     onAppIconUnmaskChanged: (Boolean) -> Unit,
     onAppIconUnmaskDynamicChanged: (Boolean) -> Unit,
     onWideGridChanged: (Boolean) -> Unit,
@@ -505,110 +500,6 @@ private fun launcherSettingsSections(
                 key = "launcher_big_folder_align"
             )
         )
-        if (state.bigFolderAlign) {
-            // Six independent hand tuning offsets; order follows docs/research/big_folder_tuning.md.
-            val tuneRange = LauncherSettingsRepository.BIG_FOLDER_TUNE_MIN.toFloat()..
-                LauncherSettingsRepository.BIG_FOLDER_TUNE_MAX.toFloat()
-            val tuneSteps = (LauncherSettingsRepository.BIG_FOLDER_TUNE_MAX -
-                LauncherSettingsRepository.BIG_FOLDER_TUNE_MIN) /
-                LauncherSettingsRepository.TUNE_STEP - 1
-            add(
-                SettingItem.Slider(
-                    title = stringResource(R.string.launcher_big_folder_tune_gap_h_title),
-                    summary = stringResource(R.string.launcher_big_folder_tune_summary),
-                    value = state.bigFolderTuneGapH.toFloat(),
-                    valueText = stringResource(
-                        R.string.launcher_big_folder_tune_value, state.bigFolderTuneGapH
-                    ),
-                    valueRange = tuneRange,
-                    steps = tuneSteps,
-                    onValueChange = {
-                        onBigFolderTuneChanged(BigFolderTuneKey.GAP_H, it.toInt())
-                    },
-                    key = "launcher_big_folder_tune_gap_h"
-                )
-            )
-            add(
-                SettingItem.Slider(
-                    title = stringResource(R.string.launcher_big_folder_tune_gap_v_title),
-                    summary = stringResource(R.string.launcher_big_folder_tune_summary),
-                    value = state.bigFolderTuneGapV.toFloat(),
-                    valueText = stringResource(
-                        R.string.launcher_big_folder_tune_value, state.bigFolderTuneGapV
-                    ),
-                    valueRange = tuneRange,
-                    steps = tuneSteps,
-                    onValueChange = {
-                        onBigFolderTuneChanged(BigFolderTuneKey.GAP_V, it.toInt())
-                    },
-                    key = "launcher_big_folder_tune_gap_v"
-                )
-            )
-            add(
-                SettingItem.Slider(
-                    title = stringResource(R.string.launcher_big_folder_tune_bg_x_title),
-                    summary = stringResource(R.string.launcher_big_folder_tune_summary),
-                    value = state.bigFolderTuneBgX.toFloat(),
-                    valueText = stringResource(
-                        R.string.launcher_big_folder_tune_value, state.bigFolderTuneBgX
-                    ),
-                    valueRange = tuneRange,
-                    steps = tuneSteps,
-                    onValueChange = {
-                        onBigFolderTuneChanged(BigFolderTuneKey.BG_X, it.toInt())
-                    },
-                    key = "launcher_big_folder_tune_bg_x"
-                )
-            )
-            add(
-                SettingItem.Slider(
-                    title = stringResource(R.string.launcher_big_folder_tune_bg_y_title),
-                    summary = stringResource(R.string.launcher_big_folder_tune_summary),
-                    value = state.bigFolderTuneBgY.toFloat(),
-                    valueText = stringResource(
-                        R.string.launcher_big_folder_tune_value, state.bigFolderTuneBgY
-                    ),
-                    valueRange = tuneRange,
-                    steps = tuneSteps,
-                    onValueChange = {
-                        onBigFolderTuneChanged(BigFolderTuneKey.BG_Y, it.toInt())
-                    },
-                    key = "launcher_big_folder_tune_bg_y"
-                )
-            )
-            add(
-                SettingItem.Slider(
-                    title = stringResource(R.string.launcher_big_folder_tune_shift_x_title),
-                    summary = stringResource(R.string.launcher_big_folder_tune_summary),
-                    value = state.bigFolderTuneShiftX.toFloat(),
-                    valueText = stringResource(
-                        R.string.launcher_big_folder_tune_value, state.bigFolderTuneShiftX
-                    ),
-                    valueRange = tuneRange,
-                    steps = tuneSteps,
-                    onValueChange = {
-                        onBigFolderTuneChanged(BigFolderTuneKey.SHIFT_X, it.toInt())
-                    },
-                    key = "launcher_big_folder_tune_shift_x"
-                )
-            )
-            add(
-                SettingItem.Slider(
-                    title = stringResource(R.string.launcher_big_folder_tune_shift_y_title),
-                    summary = stringResource(R.string.launcher_big_folder_tune_summary),
-                    value = state.bigFolderTuneShiftY.toFloat(),
-                    valueText = stringResource(
-                        R.string.launcher_big_folder_tune_value, state.bigFolderTuneShiftY
-                    ),
-                    valueRange = tuneRange,
-                    steps = tuneSteps,
-                    onValueChange = {
-                        onBigFolderTuneChanged(BigFolderTuneKey.SHIFT_Y, it.toInt())
-                    },
-                    key = "launcher_big_folder_tune_shift_y"
-                )
-            )
-        }
         add(
             SettingItem.Switch(
                 title = stringResource(R.string.launcher_big_folder_blur_guard_title),

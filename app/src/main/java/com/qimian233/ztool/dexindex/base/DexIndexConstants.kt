@@ -5,11 +5,12 @@ import com.qimian233.ztool.data.keys.PreferenceKeys
 /** Constants for the offline DexKit index. */
 object DexIndexConstants {
 
+    // v9 updates BigFolderAlignHook keys for the square 3x3 rewrite.
     // v8 adds Launcher grid/dock/misc/unmask/icon-pack keys and refreshes broken A17 queries.
     // v7 adds LauncherFreeformEntryHook keys for R8-obfuscated A17 ZUI Launcher.
     // v6 rebuilds existing SystemUI indexes for ordered paths and typed callback matching.
     // See docs/research/systemui_charging_animation_android17.md for earlier versions.
-    const val SCHEMA_VERSION = 8
+    const val SCHEMA_VERSION = 9
 
     const val JSON_SCHEMA_VERSION = "schemaVersion"
     const val JSON_GENERATED_AT = "generatedAt"
@@ -133,31 +134,23 @@ object DexIndexConstants {
         const val BIG_FOLDER_ALIGN_PB_OFFSET_X_FIELD = "bigFolderAlignPbOffsetXField"
         const val BIG_FOLDER_ALIGN_PB_OFFSET_Y_FIELD = "bigFolderAlignPbOffsetYField"
         const val BIG_FOLDER_ALIGN_PB_PREVIEW_SIZE_Y_FIELD = "bigFolderAlignPbPreviewSizeYField"
-        const val BIG_FOLDER_ALIGN_PB_COMPUTE_WH_METHOD = "bigFolderAlignPbComputeWhMethod"
-        const val BIG_FOLDER_ALIGN_PB_IS_UPDATE_METHOD = "bigFolderAlignPbIsUpdateMethod"
-        const val BIG_FOLDER_ALIGN_DP_UPDATE_ICON_SIZE_METHOD = "bigFolderAlignDpUpdateIconSizeMethod"
-        const val BIG_FOLDER_ALIGN_RULE_COLS_FIELD = "bigFolderAlignRuleColsField"
-        const val BIG_FOLDER_ALIGN_RULE_ROWS_FIELD = "bigFolderAlignRuleRowsField"
         const val BIG_FOLDER_ALIGN_RULE_ICON_SIZE_FIELD = "bigFolderAlignRuleIconSizeField"
         const val BIG_FOLDER_ALIGN_RULE_BG_WIDTH_FIELD = "bigFolderAlignRuleBgWidthField"
         const val BIG_FOLDER_ALIGN_RULE_BG_HEIGHT_FIELD = "bigFolderAlignRuleBgHeightField"
         const val BIG_FOLDER_ALIGN_RULE_COMPUTE_METHOD = "bigFolderAlignRuleComputeMethod"
         const val BIG_FOLDER_ALIGN_RULE_COMPUTE_PARAMS = "bigFolderAlignRuleComputeParams"
-        const val BIG_FOLDER_ALIGN_RULE_SCALE_METHOD = "bigFolderAlignRuleScaleMethod"
-        const val BIG_FOLDER_ALIGN_RULE_SCALE_PARAMS = "bigFolderAlignRuleScaleParams"
-        const val BIG_FOLDER_ALIGN_RULE_OFFSET_X_METHOD = "bigFolderAlignRuleOffsetXMethod"
-        const val BIG_FOLDER_ALIGN_RULE_OFFSET_Y_METHOD = "bigFolderAlignRuleOffsetYMethod"
-        const val BIG_FOLDER_ALIGN_RULE_OFFSET_PARAMS = "bigFolderAlignRuleOffsetParams"
         const val BIG_FOLDER_ALIGN_BFC_CLASS = "bigFolderAlignBfcClass"
-        const val BIG_FOLDER_ALIGN_BFC_CHILD_SCALE_FIELD = "bigFolderAlignBfcChildScaleField"
         const val BIG_FOLDER_ALIGN_BFC_CHILD_COUNT_METHOD = "bigFolderAlignBfcChildCountMethod"
-        const val BIG_FOLDER_ALIGN_BFC_STYLE_LIST_METHOD = "bigFolderAlignBfcStyleListMethod"
-        const val BIG_FOLDER_ALIGN_BFC_HGAP_METHOD = "bigFolderAlignBfcHGapMethod"
-        const val BIG_FOLDER_ALIGN_BFC_VGAP_METHOD = "bigFolderAlignBfcVGapMethod"
-        const val BIG_FOLDER_ALIGN_FI_ACTIVITY_FIELD = "bigFolderAlignFiActivityField"
         const val BIG_FOLDER_ALIGN_FI_INFO_FIELD = "bigFolderAlignFiInfoField"
         const val BIG_FOLDER_ALIGN_FI_LABEL_FIELD = "bigFolderAlignFiLabelField"
         const val BIG_FOLDER_ALIGN_FI_LABEL_METHOD = "bigFolderAlignFiLabelMethod"
+        const val BIG_FOLDER_ALIGN_FI_BG_FIELD = "bigFolderAlignFiBgField"
+        const val BIG_FOLDER_ALIGN_FI_PAD_TOP_METHOD = "bigFolderAlignFiPadTopMethod"
+        const val BIG_FOLDER_ALIGN_FI_NAME_TOP_MARGIN_FIELD = "bigFolderAlignFiNameTopMarginField"
+        const val BIG_FOLDER_ALIGN_PIM_ICON_FIELD = "bigFolderAlignPimIconField"
+        const val BIG_FOLDER_ALIGN_PIM_FIRST_PAGE_FIELD = "bigFolderAlignPimFirstPageField"
+        const val BIG_FOLDER_ALIGN_PIM_DRAW_PARAMS_METHOD = "bigFolderAlignPimDrawParamsMethod"
+        const val BIG_FOLDER_ALIGN_PIM_CHECK_CLICK_METHOD = "bigFolderAlignPimCheckClickMethod"
         // LauncherNoLabelMode
         const val NO_LABEL_FOLDER_ANIM_CREATE_METHOD = "noLabelFolderAnimCreateMethod"
         const val NO_LABEL_POPUP_IMPL_CLASS = "noLabelPopupImplClass"

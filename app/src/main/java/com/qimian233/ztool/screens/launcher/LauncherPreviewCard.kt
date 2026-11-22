@@ -25,7 +25,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -88,9 +87,6 @@ private const val WidgetPaddingToIcon = 0.21f
 
 /** Background corner radius against its height; the host uses a fixed dimension. */
 private const val FolderBackgroundRadiusFraction = 0.14f
-
-/** Icon + label block against the row pitch, i.e. what the host centres inside a cell. */
-private const val CellContentHeightFraction = 0.88f
 
 /** The launcher's "app updated" dot is blue by definition, regardless of the theme. */
 private val UpdateDotBlue = Color(0xFF3B82F6)
@@ -175,7 +171,6 @@ fun LauncherScreenPreview(config: LauncherPreviewConfig, modifier: Modifier = Mo
     val configuration = LocalConfiguration.current
     val screenWidth = configuration.screenWidthDp.toFloat().coerceAtLeast(1f)
     val screenHeight = configuration.screenHeightDp.toFloat().coerceAtLeast(1f)
-    val density = LocalDensity.current.density
     val frameAspect = screenWidth / screenHeight
 
     BoxWithConstraints(modifier = modifier, contentAlignment = Alignment.Center) {
@@ -198,9 +193,6 @@ fun LauncherScreenPreview(config: LauncherPreviewConfig, modifier: Modifier = Mo
             WorkspaceGrid(
                 config = config,
                 grid = grid,
-                frameWidth = frameWidth,
-                screenWidth = screenWidth,
-                density = density,
                 colors = colors
             )
             if (config.dockVisible) {
@@ -233,9 +225,6 @@ fun LauncherScreenPreview(config: LauncherPreviewConfig, modifier: Modifier = Mo
 private fun WorkspaceGrid(
     config: LauncherPreviewConfig,
     grid: MockGrid,
-    frameWidth: Dp,
-    screenWidth: Float,
-    density: Float,
     colors: ColorScheme
 ) {
     val showLabel = !config.noLabel
@@ -271,9 +260,6 @@ private fun WorkspaceGrid(
             BigFolderItem(
                 config = config,
                 grid = grid,
-                frameWidth = frameWidth,
-                screenWidth = screenWidth,
-                density = density,
                 showLabel = showLabel,
                 colors = colors
             )
@@ -282,62 +268,83 @@ private fun WorkspaceGrid(
 }
 
 /**
- * Draws one 2x2 big folder in the grid, following the geometry `BigFolderAlignHook` writes:
- * the background and the child grid are solved from the untuned span box, then moved by the
- * six hand tuning offsets.
+ * Draws one 2x2 big folder in the grid, switching between the stock rectangular
+ * 4x3 layout and the hooked square 3x3 layout with native top label.
  */
 @Composable
 private fun BigFolderItem(
     config: LauncherPreviewConfig,
     grid: MockGrid,
-    frameWidth: Dp,
-    screenWidth: Float,
-    density: Float,
     showLabel: Boolean,
     colors: ColorScheme
 ) {
-    val tune = config.bigFolderTune
-    // The alignment hook rewrites every multi-cell child grid to 3x3; the host table says 4x3.
-    val childColumns = if (config.bigFolderHooked) HookedChildColumns else HostChildColumns
-    val childRows = if (config.bigFolderHooked) HookedChildRows else HostChildRows
-    // Launcher px share the device density, so they scale into the mock frame.
-    val pxToMock = (frameWidth.value / screenWidth / density).dp
     val cell = grid.cellWidth
     val pitchY = grid.cellHeight
+    val slotW = cell * BigFolderSpan
+    val slotH = pitchY * BigFolderSpan
     val icon = grid.iconSize
-    val folderIcon = icon * FolderIconToIcon
-    val child = folderIcon * ChildIconScale
-    // DeviceProfile.widgetPadding insets the background and carries its art inset.
     val widgetPadding = icon * WidgetPaddingToIcon
-    val insetX = widgetPadding
-    val artInset = widgetPadding
-    val rowInset = maxOf(0.dp, pitchY * (1f - CellContentHeightFraction) / 2)
-    // Untuned box and background, then the tuned background box and position.
-    val baseWidth = cell * BigFolderSpan - insetX * 2
-    val baseHeight = pitchY * (BigFolderSpan - 1) + icon - artInset * 2
-    val backgroundWidth = baseWidth - (pxToMock * tune.bgX) * 2
-    val backgroundHeight = baseHeight - (pxToMock * tune.bgY) * 2
-    val backgroundX = insetX + pxToMock * tune.bgX
-    val backgroundY = rowInset + artInset + pxToMock * tune.bgY
-    val gapH = maxOf(
-        0.dp,
-        (baseWidth - child * childColumns) / (childColumns + 1) +
-            pxToMock * tune.gapH
-    )
-    val gapV = maxOf(
-        0.dp,
-        (baseHeight - child * childRows) / (childRows + 1) +
-            pxToMock * tune.gapV
-    )
-    val childGridWidth = child * childColumns + gapH * (childColumns - 1)
-    val childGridHeight = child * childRows + gapV * (childRows - 1)
-    val childLeft = backgroundX + backgroundWidth / 2 + pxToMock * tune.shiftX -
-        childGridWidth / 2
-    val childTop = backgroundY + backgroundHeight / 2 + pxToMock * tune.shiftY -
-        childGridHeight / 2
-    val labelTop = pitchY * (BigFolderSpan - 1) + rowInset + icon
+    val availW = (slotW - widgetPadding * 2).coerceAtLeast(1.dp)
+    val availH = (slotH - widgetPadding * 2).coerceAtLeast(1.dp)
 
-    Box(modifier = Modifier.size(cell * BigFolderSpan, pitchY * BigFolderSpan)) {
+    val childColumns: Int
+    val childRows: Int
+    val backgroundWidth: Dp
+    val backgroundHeight: Dp
+    val backgroundX: Dp
+    val backgroundY: Dp
+    val child: Dp
+    val gapH: Dp
+    val gapV: Dp
+    val childLeft: Dp
+    val childTop: Dp
+
+    if (config.bigFolderHooked) {
+        childColumns = HookedChildColumns
+        childRows = HookedChildRows
+        val side = minOf(availW, availH)
+        backgroundWidth = side
+        backgroundHeight = side
+        backgroundX = (slotW - side) / 2
+        backgroundY = (slotH - side) / 2
+
+        val outerPad = side * 0.085f
+        val headerH = if (showLabel) side * 0.19f else 0.dp
+        val gridTop = maxOf(outerPad, headerH)
+        val availGridH = (side - outerPad - gridTop).coerceAtLeast(side * 0.45f)
+        val gap = availGridH * (0.055f / 0.83f)
+        child = minOf((availGridH - gap * 2) / 3, (side - outerPad * 2 - gap * 2) / 3)
+        gapH = gap
+        gapV = gap
+        val gridExtent = child * childColumns + gap * (childColumns - 1)
+        childLeft = backgroundX + (side - gridExtent) / 2
+        childTop = backgroundY + gridTop + (availGridH - gridExtent) / 2
+    } else {
+        childColumns = HostChildColumns
+        childRows = HostChildRows
+        backgroundWidth = availW
+        backgroundHeight = availH
+        backgroundX = widgetPadding
+        backgroundY = widgetPadding
+
+        val headerH = if (showLabel) backgroundHeight * 0.18f else 0.dp
+        child = minOf(
+            icon * FolderIconToIcon * ChildIconScale,
+            (availW / (childColumns + 0.8f)),
+            ((availH - headerH) / (childRows + 0.8f))
+        ).coerceAtLeast(1.dp)
+        gapH = maxOf(0.dp, (availW - child * childColumns) / (childColumns + 1))
+        gapV = maxOf(0.dp, (availH - headerH - child * childRows) / (childRows + 1))
+        val gridW = child * childColumns + gapH * (childColumns - 1)
+        val gridH = child * childRows + gapV * (childRows - 1)
+        childLeft = backgroundX + (availW - gridW) / 2
+        childTop = backgroundY + headerH + (availH - headerH - gridH) / 2
+    }
+
+    val labelWidth = backgroundWidth * 0.46f
+    val labelHeight = (backgroundHeight * 0.06f).coerceIn(1.5.dp, 4.dp)
+
+    Box(modifier = Modifier.size(slotW, slotH)) {
         Box(
             modifier = Modifier
                 .offset(x = backgroundX, y = backgroundY)
@@ -345,6 +352,19 @@ private fun BigFolderItem(
                 .clip(RoundedCornerShape(backgroundHeight * FolderBackgroundRadiusFraction))
                 .background(colors.onSurfaceVariant.copy(alpha = 0.22f))
         )
+        if (showLabel) {
+            Box(
+                modifier = Modifier
+                    .offset(
+                        x = backgroundX + (backgroundWidth - labelWidth) / 2,
+                        y = backgroundY + backgroundHeight * 0.05f
+                    )
+                    .width(labelWidth)
+                    .height(labelHeight)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(colors.onSurfaceVariant.copy(alpha = 0.45f))
+            )
+        }
         repeat(childRows) { row ->
             repeat(childColumns) { column ->
                 Box(
@@ -358,16 +378,6 @@ private fun BigFolderItem(
                         .background(colors.primary.copy(alpha = 0.85f))
                 )
             }
-        }
-        if (showLabel) {
-            Box(
-                modifier = Modifier
-                    .offset(x = (cell * BigFolderSpan - icon * 0.9f) / 2, y = labelTop)
-                    .width(icon * 0.9f)
-                    .height((pitchY * LabelHeightFraction).coerceIn(1.5.dp, 5.dp))
-                    .clip(RoundedCornerShape(2.dp))
-                    .background(colors.onSurfaceVariant.copy(alpha = 0.45f))
-            )
         }
     }
 }

@@ -1190,38 +1190,9 @@ class LauncherDexIndexer : DexIndexer {
                         Log.i(TAG, "BigFolderAlign: pbPreviewSizeYField = $it")
                     }
                 }
-
-                pbClass.methods.singleOrNull {
-                    it.name != "<init>" && it.returnTypeName == "void" &&
-                        it.paramTypeNames == listOf(ACTIVITY_CONTEXT_CLASS, "int", "int", "int[]")
-                }?.let {
-                    out.addProperty(DexIndexConstants.Keys.BIG_FOLDER_ALIGN_PB_COMPUTE_WH_METHOD, it.name)
-                    Log.i(TAG, "BigFolderAlign: pbComputeWhMethod = ${it.name}")
-                }
-
-                pbClass.methods.singleOrNull {
-                    it.name != "<init>" && it.returnTypeName == "boolean" &&
-                        it.paramTypeNames == listOf(ACTIVITY_CONTEXT_CLASS)
-                }?.let {
-                    out.addProperty(DexIndexConstants.Keys.BIG_FOLDER_ALIGN_PB_IS_UPDATE_METHOD, it.name)
-                    Log.i(TAG, "BigFolderAlign: pbIsUpdateMethod = ${it.name}")
-                }
             }
         } catch (t: Throwable) {
             Log.w(TAG, "BigFolderAlign: PreviewBackground query failed", t)
-        }
-
-        try {
-            findClassByName(bridge, DEVICE_PROFILE_CLASS)?.methods?.singleOrNull {
-                isNormalMethod(it) &&
-                    it.returnTypeName == "void" &&
-                    it.paramTypeNames == listOf("float", "android.content.Context")
-            }?.let {
-                out.addProperty(DexIndexConstants.Keys.BIG_FOLDER_ALIGN_DP_UPDATE_ICON_SIZE_METHOD, it.name)
-                Log.i(TAG, "BigFolderAlign: dpUpdateIconSizeMethod = ${it.name}")
-            }
-        } catch (t: Throwable) {
-            Log.w(TAG, "BigFolderAlign: DeviceProfile updateIconSize query failed", t)
         }
 
         try {
@@ -1238,12 +1209,6 @@ class LauncherDexIndexer : DexIndexer {
                         it.returnTypeName == "float" &&
                         (it.paramTypeNames == listOf("boolean") || it.paramTypeNames == listOf("int", "boolean"))
                 }
-                if (scaleMethod != null) {
-                    val params = scaleMethod.paramTypeNames.joinToString(",")
-                    out.addProperty(DexIndexConstants.Keys.BIG_FOLDER_ALIGN_RULE_SCALE_METHOD, scaleMethod.name)
-                    out.addProperty(DexIndexConstants.Keys.BIG_FOLDER_ALIGN_RULE_SCALE_PARAMS, params)
-                    Log.i(TAG, "BigFolderAlign: ruleScale = ${scaleMethod.name}($params)")
-                }
 
                 val computeMethod = ruleClass.methods.singleOrNull {
                     isNormalInstanceMethod(it) && it.paramCount == 9 && it.returnTypeName == PREVIEW_PARAMS_CLASS
@@ -1257,39 +1222,6 @@ class LauncherDexIndexer : DexIndexer {
                     out.addProperty(DexIndexConstants.Keys.BIG_FOLDER_ALIGN_RULE_COMPUTE_METHOD, computeMethod.name)
                     out.addProperty(DexIndexConstants.Keys.BIG_FOLDER_ALIGN_RULE_COMPUTE_PARAMS, params)
                     Log.i(TAG, "BigFolderAlign: ruleCompute = ${computeMethod.name}($params)")
-                }
-
-                val offsetX = ruleClass.methods.singleOrNull {
-                    it.name == "getOffsetX" && it.returnTypeName == "float" && it.paramCount == 7
-                }
-                val offsetY = ruleClass.methods.singleOrNull {
-                    it.name == "getOffsetY" && it.returnTypeName == "float" && it.paramCount == 7
-                }
-                if (offsetX != null && offsetY != null && offsetX.paramTypeNames == offsetY.paramTypeNames) {
-                    val params = offsetX.paramTypeNames.joinToString(",")
-                    out.addProperty(DexIndexConstants.Keys.BIG_FOLDER_ALIGN_RULE_OFFSET_X_METHOD, offsetX.name)
-                    out.addProperty(DexIndexConstants.Keys.BIG_FOLDER_ALIGN_RULE_OFFSET_Y_METHOD, offsetY.name)
-                    out.addProperty(DexIndexConstants.Keys.BIG_FOLDER_ALIGN_RULE_OFFSET_PARAMS, params)
-                    Log.i(TAG, "BigFolderAlign: ruleOffset = ${offsetX.name}/${offsetY.name}($params)")
-                }
-
-                val iconRowCount = fieldsOfTypeOn(getPos, LAYOUT_RULE_CLASS, "int").singleOrNull()
-                iconRowCount?.let {
-                    out.addProperty(DexIndexConstants.Keys.BIG_FOLDER_ALIGN_RULE_ROWS_FIELD, it)
-                    Log.i(TAG, "BigFolderAlign: ruleRowsField = $it")
-                }
-
-                val previewMgrCompute = findClassByName(bridge, PREVIEW_ITEM_MGR_CLASS)?.methods?.singleOrNull {
-                    it.name != "<init>" && it.returnTypeName == "void" &&
-                        it.paramTypeNames == listOf("int", "int", "int")
-                }
-                val previewMgrRuleInts = fieldsOfTypeOn(previewMgrCompute, LAYOUT_RULE_CLASS, "int")
-                val computeRuleInts = fieldsOfTypeOn(computeMethod, LAYOUT_RULE_CLASS, "int")
-                if (iconRowCount != null) {
-                    (computeRuleInts - previewMgrRuleInts - iconRowCount).singleOrNull()?.let {
-                        out.addProperty(DexIndexConstants.Keys.BIG_FOLDER_ALIGN_RULE_COLS_FIELD, it)
-                        Log.i(TAG, "BigFolderAlign: ruleColsField = $it")
-                    }
                 }
 
                 val baselineScale = fieldsOfTypeOn(scaleMethod, LAYOUT_RULE_CLASS, "float").singleOrNull()
@@ -1327,40 +1259,12 @@ class LauncherDexIndexer : DexIndexer {
                 out.addProperty(DexIndexConstants.Keys.BIG_FOLDER_ALIGN_BFC_CLASS, bfcClass.name)
                 Log.i(TAG, "BigFolderAlign: bfcClass = ${bfcClass.name}")
 
-                bfcClass.fields.singleOrNull { Modifier.isStatic(it.modifiers) && it.typeName == "float" }?.let {
-                    out.addProperty(DexIndexConstants.Keys.BIG_FOLDER_ALIGN_BFC_CHILD_SCALE_FIELD, it.name)
-                    Log.i(TAG, "BigFolderAlign: bfcChildScaleField = ${it.name}")
-                }
                 bfcClass.methods.singleOrNull {
                     it.name != "<clinit>" && Modifier.isStatic(it.modifiers) &&
                         it.returnTypeName == "int" && it.paramTypeNames == listOf("int", "int", "int[]")
                 }?.let {
                     out.addProperty(DexIndexConstants.Keys.BIG_FOLDER_ALIGN_BFC_CHILD_COUNT_METHOD, it.name)
                     Log.i(TAG, "BigFolderAlign: bfcChildCountMethod = ${it.name}")
-                }
-                bfcClass.methods.singleOrNull {
-                    it.name != "<clinit>" && Modifier.isStatic(it.modifiers) &&
-                        it.paramCount == 0 && it.returnTypeName == "java.util.ArrayList"
-                }?.let {
-                    out.addProperty(DexIndexConstants.Keys.BIG_FOLDER_ALIGN_BFC_STYLE_LIST_METHOD, it.name)
-                    Log.i(TAG, "BigFolderAlign: bfcStyleListMethod = ${it.name}")
-                }
-
-                bfcClass.methods.singleOrNull {
-                    it.name == "getBigFolderIconHGap" &&
-                        it.returnTypeName == "float" &&
-                        it.paramTypeNames == listOf("int", "int")
-                }?.let {
-                    out.addProperty(DexIndexConstants.Keys.BIG_FOLDER_ALIGN_BFC_HGAP_METHOD, it.name)
-                    Log.i(TAG, "BigFolderAlign: bfcHGapMethod = ${it.name}")
-                }
-                bfcClass.methods.singleOrNull {
-                    it.name == "getBigFolderIconVGap" &&
-                        it.returnTypeName == "float" &&
-                        it.paramTypeNames == listOf("int", "int")
-                }?.let {
-                    out.addProperty(DexIndexConstants.Keys.BIG_FOLDER_ALIGN_BFC_VGAP_METHOD, it.name)
-                    Log.i(TAG, "BigFolderAlign: bfcVGapMethod = ${it.name}")
                 }
             }
         } catch (t: Throwable) {
@@ -1370,12 +1274,6 @@ class LauncherDexIndexer : DexIndexer {
         try {
             val fiClass = findClassByName(bridge, FOLDER_ICON_CLASS)
             if (fiClass != null) {
-                fiClass.fields.singleOrNull {
-                    !Modifier.isStatic(it.modifiers) && it.typeName == ACTIVITY_CONTEXT_CLASS
-                }?.let {
-                    out.addProperty(DexIndexConstants.Keys.BIG_FOLDER_ALIGN_FI_ACTIVITY_FIELD, it.name)
-                    Log.i(TAG, "BigFolderAlign: fiActivityField = ${it.name}")
-                }
                 fiClass.fields.singleOrNull {
                     !Modifier.isStatic(it.modifiers) && it.typeName == FOLDER_INFO_CLASS
                 }?.let {
@@ -1388,8 +1286,14 @@ class LauncherDexIndexer : DexIndexer {
                     out.addProperty(DexIndexConstants.Keys.BIG_FOLDER_ALIGN_FI_LABEL_FIELD, it.name)
                     Log.i(TAG, "BigFolderAlign: fiLabelField = ${it.name}")
                 }
+                fiClass.fields.singleOrNull {
+                    !Modifier.isStatic(it.modifiers) && it.typeName == PREVIEW_BG_CLASS
+                }?.let {
+                    out.addProperty(DexIndexConstants.Keys.BIG_FOLDER_ALIGN_FI_BG_FIELD, it.name)
+                    Log.i(TAG, "BigFolderAlign: fiBgField = ${it.name}")
+                }
             }
-            bridge.findMethod {
+            val fiLabelMethod = bridge.findMethod {
                 matcher {
                     declaredClass = FOLDER_ICON_CLASS
                     paramCount = 0
@@ -1399,12 +1303,79 @@ class LauncherDexIndexer : DexIndexer {
                         name = "requestLayout"
                     }
                 }
-            }.singleOrNull { isNormalMethod(it) }?.let {
+            }.singleOrNull { isNormalMethod(it) }
+            fiLabelMethod?.let {
                 out.addProperty(DexIndexConstants.Keys.BIG_FOLDER_ALIGN_FI_LABEL_METHOD, it.name)
                 Log.i(TAG, "BigFolderAlign: fiLabelMethod = ${it.name}")
             }
+            fieldsOfTypeOn(fiLabelMethod, FOLDER_ICON_CLASS, "int").singleOrNull()?.let {
+                out.addProperty(DexIndexConstants.Keys.BIG_FOLDER_ALIGN_FI_NAME_TOP_MARGIN_FIELD, it)
+                Log.i(TAG, "BigFolderAlign: fiNameTopMarginField = $it")
+            }
+            bridge.findMethod {
+                matcher {
+                    declaredClass = FOLDER_ICON_CLASS
+                    paramCount = 0
+                    returnType = "int"
+                    addInvoke {
+                        declaredClass = "android.graphics.Paint"
+                        name = "setTextSize"
+                    }
+                }
+            }.singleOrNull { isNormalMethod(it) }?.let {
+                out.addProperty(DexIndexConstants.Keys.BIG_FOLDER_ALIGN_FI_PAD_TOP_METHOD, it.name)
+                Log.i(TAG, "BigFolderAlign: fiPadTopMethod = ${it.name}")
+            }
         } catch (t: Throwable) {
             Log.w(TAG, "BigFolderAlign: FolderIcon query failed", t)
+        }
+
+        try {
+            val pimClass = findClassByName(bridge, PREVIEW_ITEM_MGR_CLASS)
+            if (pimClass != null) {
+                pimClass.fields.singleOrNull {
+                    !Modifier.isStatic(it.modifiers) && it.typeName == FOLDER_ICON_CLASS
+                }?.let {
+                    out.addProperty(DexIndexConstants.Keys.BIG_FOLDER_ALIGN_PIM_ICON_FIELD, it.name)
+                    Log.i(TAG, "BigFolderAlign: pimIconField = ${it.name}")
+                }
+                pimClass.methods.singleOrNull {
+                    isNormalInstanceMethod(it) &&
+                        it.returnTypeName == "void" &&
+                        it.paramTypeNames == listOf(
+                            "android.graphics.Canvas",
+                            "java.util.ArrayList",
+                            "android.graphics.PointF",
+                            "boolean",
+                            "android.graphics.Path",
+                            "boolean"
+                        )
+                }?.let {
+                    out.addProperty(DexIndexConstants.Keys.BIG_FOLDER_ALIGN_PIM_DRAW_PARAMS_METHOD, it.name)
+                    Log.i(TAG, "BigFolderAlign: pimDrawParamsMethod = ${it.name}")
+                }
+                val checkClickMethod = pimClass.methods.singleOrNull {
+                    isNormalInstanceMethod(it) &&
+                        it.returnTypeName == PREVIEW_PARAMS_CLASS &&
+                        it.paramTypeNames == listOf(
+                            FOLDER_ICON_CLASS,
+                            "float",
+                            "float",
+                            "android.graphics.Rect",
+                            "int"
+                        )
+                }
+                checkClickMethod?.let {
+                    out.addProperty(DexIndexConstants.Keys.BIG_FOLDER_ALIGN_PIM_CHECK_CLICK_METHOD, it.name)
+                    Log.i(TAG, "BigFolderAlign: pimCheckClickMethod = ${it.name}")
+                }
+                fieldsOfTypeOn(checkClickMethod, PREVIEW_ITEM_MGR_CLASS, "java.util.ArrayList").singleOrNull()?.let {
+                    out.addProperty(DexIndexConstants.Keys.BIG_FOLDER_ALIGN_PIM_FIRST_PAGE_FIELD, it)
+                    Log.i(TAG, "BigFolderAlign: pimFirstPageField = $it")
+                }
+            }
+        } catch (t: Throwable) {
+            Log.w(TAG, "BigFolderAlign: PreviewItemManager query failed", t)
         }
         return out
     }
