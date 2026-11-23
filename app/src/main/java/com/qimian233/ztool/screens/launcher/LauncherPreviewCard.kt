@@ -287,11 +287,14 @@ private fun BigFolderItem(
     val externalTitle = config.bigFolderExternalTitle && showLabel
     val labelGap = pitchY * LabelGapFraction
     val extLabelHeight = (pitchY * LabelHeightFraction).coerceIn(1.5.dp, 5.dp)
-    val extTop = ((pitchY - (icon + labelGap + extLabelHeight)) / 2).coerceAtLeast(0.dp)
-    val extBottom = (pitchY + extTop + icon).coerceAtMost(slotH - extLabelHeight - labelGap)
+    val iconTopInCell =
+        ((pitchY - (icon + if (showLabel) labelGap + extLabelHeight else 0.dp)) / 2)
+            .coerceAtLeast(0.dp)
+    val maxIconBottom = if (externalTitle) slotH - extLabelHeight - labelGap else slotH
+    val iconBottom = (pitchY + iconTopInCell + icon).coerceAtMost(maxIconBottom)
     val availW = (slotW - widgetPadding * 2).coerceAtLeast(1.dp)
-    val availH = if (externalTitle) {
-        (extBottom - extTop).coerceAtLeast(1.dp)
+    val availH = if (config.bigFolderHooked || externalTitle) {
+        (iconBottom - iconTopInCell).coerceAtLeast(1.dp)
     } else {
         (slotH - widgetPadding * 2).coerceAtLeast(1.dp)
     }
@@ -315,11 +318,7 @@ private fun BigFolderItem(
         backgroundWidth = side
         backgroundHeight = side
         backgroundX = (slotW - side) / 2
-        backgroundY = if (externalTitle) {
-            extTop + (availH - side) / 2
-        } else {
-            (slotH - side) / 2
-        }
+        backgroundY = iconTopInCell + (availH - side) / 2
 
         val outerPad = side * 0.0475f
         val headerH = if (showLabel && !externalTitle) side * 0.19f else 0.dp
@@ -338,7 +337,7 @@ private fun BigFolderItem(
         backgroundWidth = availW
         backgroundHeight = availH
         backgroundX = widgetPadding
-        backgroundY = if (externalTitle) extTop else widgetPadding
+        backgroundY = if (externalTitle) iconTopInCell else widgetPadding
 
         val headerH = if (showLabel && !externalTitle) backgroundHeight * 0.18f else 0.dp
         child = minOf(

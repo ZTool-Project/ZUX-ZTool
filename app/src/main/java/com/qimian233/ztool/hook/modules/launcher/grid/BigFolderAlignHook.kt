@@ -549,28 +549,25 @@ class BigFolderAlignHook : AppHookModule() {
                 }?.takeIf { it > 0 }
                 val slotH = view?.layoutParams?.height?.takeIf { it > 0 }
                     ?: view?.measuredHeight?.takeIf { it > 0 }
-                    ?: (if (externalTitle) fallbackSlotH else null)
+                    ?: fallbackSlotH
                     ?: (stockH + stockOffsetY * 2)
 
-                val externalRegion = if (externalTitle) {
-                    val context = chain.args.getOrNull(0) as? Context
-                    val dp = chain.args.getOrNull(1)?.let {
-                        runCatching { acGetDeviceProfile?.invoke(it) }.getOrNull()
-                    }
-                    val density = context?.resources?.displayMetrics?.density
-                        ?: view?.resources?.displayMetrics?.density
-                        ?: 1f
-                    BigFolderExternalTitleSupport.computeVerticalRegion(
-                        dp = dp,
-                        page = LauncherGridMetrics.pageOf(view),
-                        slotH = slotH,
-                        spanY = spanY,
-                        stockOffsetY = stockOffsetY,
-                        density = density
-                    )
-                } else {
-                    null
+                val context = chain.args.getOrNull(0) as? Context
+                val dp = chain.args.getOrNull(1)?.let {
+                    runCatching { acGetDeviceProfile?.invoke(it) }.getOrNull()
                 }
+                val density = context?.resources?.displayMetrics?.density
+                    ?: view?.resources?.displayMetrics?.density
+                    ?: 1f
+                val verticalRegion = BigFolderExternalTitleSupport.computeVerticalRegion(
+                    dp = dp,
+                    page = LauncherGridMetrics.pageOf(view),
+                    slotH = slotH,
+                    spanY = spanY,
+                    stockOffsetY = stockOffsetY,
+                    density = density,
+                    reserveBottomLabel = externalTitle
+                )
 
                 val (bgW, bgH) = computeBackgroundSize(
                     spec = spec,
@@ -578,15 +575,11 @@ class BigFolderAlignHook : AppHookModule() {
                     slotH = slotH,
                     stockOffsetX = stockOffsetX,
                     stockOffsetY = stockOffsetY,
-                    availHOverride = externalRegion?.regionH,
-                    twoRowAvailHOverride = externalRegion?.twoRowRegionH
+                    availHOverride = verticalRegion.regionH,
+                    twoRowAvailHOverride = verticalRegion.twoRowRegionH
                 )
                 val offsetX = (slotW - bgW) / 2
-                val offsetY = if (externalRegion != null) {
-                    externalRegion.regionTop + (externalRegion.regionH - bgH) / 2
-                } else {
-                    (slotH - bgH) / 2
-                }
+                val offsetY = verticalRegion.regionTop + (verticalRegion.regionH - bgH) / 2
 
                 pbPreviewSize.setInt(pb, bgW)
                 pbPreviewSizeY.setInt(pb, bgH)
@@ -990,29 +983,26 @@ class BigFolderAlignHook : AppHookModule() {
                 val dstSlotH = (cellH * dstSpanY).takeIf { it > 0 } ?: stockDstH
                 val stockOffsetX = ((dstSlotW - stockDstW) / 2).coerceAtLeast(0)
                 val stockOffsetY = ((dstSlotH - stockDstH) / 2).coerceAtLeast(0)
-                val externalRegion = if (BigFolderExternalTitleSupport.isActive) {
-                    val iconView = icon as? View
-                    val dp = fiActivity?.let { runCatching { it.get(icon) }.getOrNull() }
-                        ?.let { runCatching { acGetDeviceProfile?.invoke(it) }.getOrNull() }
-                    BigFolderExternalTitleSupport.computeVerticalRegion(
-                        dp = dp,
-                        page = LauncherGridMetrics.pageOf(iconView),
-                        slotH = dstSlotH,
-                        spanY = dstSpanY,
-                        stockOffsetY = stockOffsetY,
-                        density = iconView?.resources?.displayMetrics?.density ?: 1f
-                    )
-                } else {
-                    null
-                }
+                val iconView = icon as? View
+                val dp = fiActivity?.let { runCatching { it.get(icon) }.getOrNull() }
+                    ?.let { runCatching { acGetDeviceProfile?.invoke(it) }.getOrNull() }
+                val dstRegion = BigFolderExternalTitleSupport.computeVerticalRegion(
+                    dp = dp,
+                    page = LauncherGridMetrics.pageOf(iconView),
+                    slotH = dstSlotH,
+                    spanY = dstSpanY,
+                    stockOffsetY = stockOffsetY,
+                    density = iconView?.resources?.displayMetrics?.density ?: 1f,
+                    reserveBottomLabel = BigFolderExternalTitleSupport.isActive
+                )
                 val (dstBgW, dstBgH) = computeBackgroundSize(
                     dstSpec,
                     dstSlotW,
                     dstSlotH,
                     stockOffsetX,
                     stockOffsetY,
-                    availHOverride = externalRegion?.regionH,
-                    twoRowAvailHOverride = externalRegion?.twoRowRegionH
+                    availHOverride = dstRegion.regionH,
+                    twoRowAvailHOverride = dstRegion.twoRowRegionH
                 )
                 pimDstWidth.setInt(pim, dstBgW)
                 pimDstHeight.setInt(pim, dstBgH)

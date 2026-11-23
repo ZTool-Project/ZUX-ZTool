@@ -70,7 +70,8 @@ internal object BigFolderExternalTitleSupport {
         slotH: Int,
         spanY: Int,
         stockOffsetY: Int,
-        density: Float
+        density: Float,
+        reserveBottomLabel: Boolean = true
     ): VerticalRegion {
         val metrics = LauncherGridMetrics.fromPage(page, dp) ?: LauncherGridMetrics.cached
         val iconSizePx = metrics?.iconSizePx ?: LauncherGridMetrics.iconSizePx(dp) ?: 0
@@ -99,13 +100,21 @@ internal object BigFolderExternalTitleSupport {
             val lastRowTop = (slotH - cellH).coerceAtLeast(0)
             val iconVisualTop = (cellPadTop + effectiveOffsetY).coerceAtLeast(0)
             val iconVisualBottom = lastRowTop + iconVisualTop + effectiveFolderSize
-            val maxBgBottom = (slotH - textH - labelGap).coerceAtLeast(iconVisualTop + 1)
+            val maxBgBottom = if (reserveBottomLabel) {
+                (slotH - textH - labelGap).coerceAtLeast(iconVisualTop + 1)
+            } else {
+                slotH.coerceAtLeast(iconVisualTop + 1)
+            }
             val regionTop = iconVisualTop.coerceAtMost(maxBgBottom - 1).coerceAtLeast(0)
             val regionBottom = iconVisualBottom.coerceAtMost(maxBgBottom).coerceAtLeast(regionTop + 1)
 
             val cellPitchY = (cellH + borderY).coerceAtLeast(cellH)
             val twoRowSlotH = cellH * 2 + borderY
-            val twoRowMaxBottom = (twoRowSlotH - textH - labelGap).coerceAtLeast(regionTop + 1)
+            val twoRowMaxBottom = if (reserveBottomLabel) {
+                (twoRowSlotH - textH - labelGap).coerceAtLeast(regionTop + 1)
+            } else {
+                twoRowSlotH.coerceAtLeast(regionTop + 1)
+            }
             val twoRowBottom = (cellPitchY + iconVisualTop + effectiveFolderSize)
                 .coerceAtMost(twoRowMaxBottom)
             val twoRowRegionH = (twoRowBottom - regionTop).coerceAtLeast(1)
@@ -113,8 +122,13 @@ internal object BigFolderExternalTitleSupport {
         }
 
         val labelGap = (density * FALLBACK_LABEL_GAP_DP).toInt().coerceAtLeast(1)
-        val labelBand = (density * FALLBACK_LABEL_BAND_DP).toInt().coerceAtLeast(labelGap + 1)
         val regionTop = stockOffsetY.coerceAtLeast(0)
+        if (!reserveBottomLabel) {
+            val regionBottom = (slotH - regionTop).coerceAtLeast(regionTop + 1)
+            val twoRowH = (slotH * 2 / spanY.coerceAtLeast(1) - regionTop * 2).coerceAtLeast(1)
+            return VerticalRegion(regionTop, regionBottom, labelGap, twoRowH)
+        }
+        val labelBand = (density * FALLBACK_LABEL_BAND_DP).toInt().coerceAtLeast(labelGap + 1)
         val regionBottom = (slotH - labelBand).coerceAtLeast(regionTop + 1)
         val twoRowH = (slotH * 2 / spanY.coerceAtLeast(1) - labelBand - regionTop).coerceAtLeast(1)
         return VerticalRegion(regionTop, regionBottom, labelGap, twoRowH)
