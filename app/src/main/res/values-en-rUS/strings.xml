@@ -1469,4 +1469,8 @@
     <string name="page_settings_about_lingji2233_summary">ZUX Launcher customized icon pack hook</string>
     <string name="system_framework_force_immersive_mode_title">Force global immersive mode</string>
     <string name="system_framework_force_immersive_mode_summary">Hide status and navigation bars in all apps. Swipe from an edge to reveal them temporarily.</string>
+    <!-- Read by the hook (AppInfoHeaderDetailsHook) via getIdentifier; do not rename or remove -->
+    <string name="ztool_app_info_header_summary" tools:ignore="UnusedResources">Package Name: %1$s\nminSDK %2$d / target %3$d\nFirst Installed: %4$s\nLast Updated: %5$s\nSource: %6$s</string>
+    <string name="ztool_app_info_header_unknown_label" tools:ignore="UnusedResources">Unknown</string>
+    <string name="ztool_app_info_header_copied_message" tools:ignore="UnusedResources">Copied to clipboard</string>
 </resources>

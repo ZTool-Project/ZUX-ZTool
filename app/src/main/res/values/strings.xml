@@ -1524,4 +1524,8 @@
     <string name="page_settings_about_lingji2233_summary">ZUX 桌面自定义图标包 Hook</string>
     <string name="system_framework_force_immersive_mode_title">强制全局沉浸模式</string>
     <string name="system_framework_force_immersive_mode_summary">隐藏所有应用的状态栏和导航栏，边缘滑动可临时唤出</string>
+    <!-- Hook 侧读取（AppInfoHeaderDetailsHook）；经 getIdentifier 按名加载，勿改名勿删 -->
+    <string name="ztool_app_info_header_summary" tools:ignore="UnusedResources">包名: %1$s\nminSDK %2$d / target %3$d\n首次安装: %4$s\n最后更新: %5$s\n安装自: %6$s</string>
+    <string name="ztool_app_info_header_unknown_label" tools:ignore="UnusedResources">未知</string>
+    <string name="ztool_app_info_header_copied_message" tools:ignore="UnusedResources">已复制到剪贴板</string>
 </resources>

@@ -8,6 +8,7 @@ import android.content.pm.ApplicationInfo
 import android.content.pm.InstallSourceInfo
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
+import android.content.res.Resources
 import android.os.Build
 import android.text.TextUtils
 import android.view.View
@@ -25,22 +26,6 @@ import java.util.Locale
 
 @SuppressLint("PrivateApi", "DiscouragedApi")
 class AppInfoHeaderDetailsHook : AppHookModule() {
-
-    private var systemLanguage = Locale.getDefault().language
-    private val displayStringsCn = arrayOf("包名", "首次安装", "最后更新", "安装自", "已复制到剪贴板", "未知")
-    private val displayStringsAlternative = arrayOf(
-        "Package Name", "First Installed", "Last Updated", "Source", "Copied to clipboard", "Unknown"
-    )
-
-    private fun getDisplayString(stringIndex: Int): String {
-        return if (stringIndex <= 3) {
-            if (systemLanguage == "zh") displayStringsCn[stringIndex] + ": "
-            else displayStringsAlternative[stringIndex] + ": "
-        } else {
-            if (systemLanguage == "zh") displayStringsCn[stringIndex]
-            else displayStringsAlternative[stringIndex]
-        }
-    }
 
     override fun getModuleName(): String = PreferenceKeys.APP_DETAILS.name
 
@@ -94,7 +79,7 @@ class AppInfoHeaderDetailsHook : AppHookModule() {
                 }
 
                 val originalSummary = summaryView.text
-                val displayText = mergeSummary(originalSummary, appInfo)
+                val displayText = mergeSummary(originalSummary, appInfo, pkgInfo.packageName)
                 summaryView.isSingleLine = false
                 summaryView.maxLines = Integer.MAX_VALUE
                 summaryView.text = displayText
@@ -134,41 +119,80 @@ class AppInfoHeaderDetailsHook : AppHookModule() {
         return null
     }
 
-    private fun buildAppInfo(context: Context, pkgInfo: PackageInfo): String {
-        systemLanguage = Locale.getDefault().language
-        val appInfo: ApplicationInfo = pkgInfo.applicationInfo!!
-        return getDisplayString(0) + pkgInfo.packageName +
-            '\n' + "minSDK " +
-            appInfo.minSdkVersion +
-            " / target " +
-            appInfo.targetSdkVersion +
-            '\n' + getDisplayString(1) + formatTime(pkgInfo.firstInstallTime) +
-            '\n' + getDisplayString(2) + formatTime(pkgInfo.lastUpdateTime) +
-            '\n' + getDisplayString(3) + getInstallSource(context, pkgInfo.packageName)
+    private fun loadModuleResources(hostContext: Context): Resources? = try {
+        hostContext.createPackageContext(
+            MODULE_PACKAGE,
+            Context.CONTEXT_IGNORE_SECURITY
+        ).resources
+    } catch (t: Throwable) {
+        logger.warn("Failed to load ZTool resources: ${t.message}")
+        null
     }
 
-    private fun mergeSummary(originalSummary: CharSequence?, appInfo: String): String {
-        systemLanguage = Locale.getDefault().language
+    private fun moduleString(
+        moduleResources: Resources?,
+        resourceName: String,
+        fallback: String
+    ): String {
+        if (moduleResources == null) return fallback
+        return try {
+            val resId = moduleResources.getIdentifier(resourceName, "string", MODULE_PACKAGE)
+            if (resId != 0) moduleResources.getString(resId) else fallback
+        } catch (_: Throwable) {
+            fallback
+        }
+    }
+
+    private fun buildAppInfo(context: Context, pkgInfo: PackageInfo): String {
+        val moduleResources = loadModuleResources(context)
+        val unknownLabel = moduleString(moduleResources, STRING_UNKNOWN_LABEL, FALLBACK_UNKNOWN_LABEL)
+        val summaryTemplate = moduleString(moduleResources, STRING_SUMMARY, FALLBACK_SUMMARY)
+        val isFallback = moduleResources == null || summaryTemplate == FALLBACK_SUMMARY
+        val appInfo: ApplicationInfo = pkgInfo.applicationInfo!!
+        return String.format(
+            Locale.getDefault(),
+            summaryTemplate,
+            pkgInfo.packageName,
+            appInfo.minSdkVersion,
+            appInfo.targetSdkVersion,
+            formatTime(pkgInfo.firstInstallTime, unknownLabel, isFallback),
+            formatTime(pkgInfo.lastUpdateTime, unknownLabel, isFallback),
+            getInstallSource(context, pkgInfo.packageName, unknownLabel)
+        )
+    }
+
+    private fun mergeSummary(
+        originalSummary: CharSequence?,
+        appInfo: String,
+        packageName: String
+    ): String {
         if (TextUtils.isEmpty(originalSummary)) {
             return appInfo
         }
         val original = originalSummary.toString()
-        if (original.contains(getDisplayString(0)) && original.contains(getDisplayString(3))) {
+        if (original.contains(appInfo)) {
+            return original
+        }
+        if (original.contains(packageName) || original.contains(FALLBACK_MARKER)) {
             return appInfo
         }
         return original + "\n" + appInfo
     }
 
-    private fun formatTime(timeMillis: Long): String {
+    private fun formatTime(timeMillis: Long, unknownLabel: String, compact: Boolean): String {
         if (timeMillis <= 0L) {
-            systemLanguage = Locale.getDefault().language
-            return getDisplayString(5)
+            return unknownLabel
         }
-        return SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+        val pattern = if (compact) "yyyyMMdd-HHmmss" else "yyyy-MM-dd HH:mm:ss"
+        return SimpleDateFormat(pattern, Locale.getDefault())
             .format(Date(timeMillis))
     }
 
-    private fun getInstallSource(context: Context, packageName: String): String {
+    private fun getInstallSource(
+        context: Context,
+        packageName: String,
+        unknownLabel: String
+    ): String {
         try {
             val pm = context.packageManager
             val source: String? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -183,8 +207,7 @@ class AppInfoHeaderDetailsHook : AppHookModule() {
                 pm.getInstallerPackageName(packageName)
             }
             if (TextUtils.isEmpty(source)) {
-                systemLanguage = Locale.getDefault().language
-                return getDisplayString(5)
+                return unknownLabel
             }
 
             val label = getApplicationLabel(pm, source!!)
@@ -193,8 +216,7 @@ class AppInfoHeaderDetailsHook : AppHookModule() {
             }
             return source
         } catch (_: Throwable) {
-            systemLanguage = Locale.getDefault().language
-            return getDisplayString(5)
+            return unknownLabel
         }
     }
 
@@ -220,16 +242,31 @@ class AppInfoHeaderDetailsHook : AppHookModule() {
         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager?
         if (clipboard != null) {
             clipboard.setPrimaryClip(ClipData.newPlainText("app_info", text))
-            systemLanguage = Locale.getDefault().language
-            Toast.makeText(context, getDisplayString(4), Toast.LENGTH_SHORT).show()
+            val message = moduleString(
+                loadModuleResources(context),
+                STRING_COPIED_MESSAGE,
+                FALLBACK_COPIED_MESSAGE
+            )
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
         }
     }
 
     companion object {
+        private const val MODULE_PACKAGE = "com.qimian233.ztool"
         private val TARGET_PACKAGE = ScopeKeys.SETTINGS.packageName
         private const val CONTROLLER_CLASS =
             "com.android.settings.applications.appinfo.AppHeaderViewPreferenceController"
         private const val APP_ENTRY_CLASS =
             $$"com.android.settingslib.applications.ApplicationsState$AppEntry"
+
+        private const val STRING_SUMMARY = "ztool_app_info_header_summary"
+        private const val STRING_UNKNOWN_LABEL = "ztool_app_info_header_unknown_label"
+        private const val STRING_COPIED_MESSAGE = "ztool_app_info_header_copied_message"
+
+        private const val FALLBACK_MARKER = "[Fallback]"
+        private const val FALLBACK_SUMMARY =
+            "min %2\$d, target %3\$d, first installed %4\$s, last updated %5\$s, installed from: %6\$s. $FALLBACK_MARKER"
+        private const val FALLBACK_UNKNOWN_LABEL = "Unknown"
+        private const val FALLBACK_COPIED_MESSAGE = "Copied to clipboard $FALLBACK_MARKER"
     }
 }
