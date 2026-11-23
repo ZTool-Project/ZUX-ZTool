@@ -12,7 +12,6 @@ import com.qimian233.ztool.hook.base.AppHookModule
 import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.api.XposedModuleInterface.PackageLoadedParam
 import java.lang.Boolean
-import java.lang.invoke.MethodHandles
 import kotlin.Array
 import kotlin.Exception
 import kotlin.String
@@ -60,14 +59,12 @@ class PermissionControllerHook : AppHookModule() {
     @Throws(Throwable::class)
     private fun handleLoadSafeCenter(classLoader: ClassLoader) {
         val cls = classLoader.loadClass("com.lenovo.xuipermissionmanager.XuiPermissionManager")
-        val superclass: Class<*>? = cls.getSuperclass()
         val onCreate = cls.getDeclaredMethod("onCreate", Bundle::class.java)
-        val superOnCreateMethod = superclass!!.getDeclaredMethod("onCreate", Bundle::class.java)
-        val superOnCreateMethodHandle =
-            MethodHandles.lookup().unreflectSpecial(superOnCreateMethod, cls)
-        hookWithId(onCreate, "on_create_1") { chain: XposedInterface.Chain? ->
+        val superOnCreateInvoker =
+            xposed.getInvoker(findMethod(cls.superclass, "onCreate", Bundle::class.java))
+        hookWithId(onCreate, "on_create_1") { chain ->
             // redirect to AOSP permission manager
-            superOnCreateMethodHandle.invoke(chain!!.thisObject, chain.getArg(0))
+            superOnCreateInvoker.invokeSpecial(chain.thisObject, chain.getArg(0))
             val activity = chain.thisObject as Activity
             activity.startActivity(Intent("android.intent.action.MANAGE_PERMISSIONS"))
             activity.finish()
@@ -75,7 +72,12 @@ class PermissionControllerHook : AppHookModule() {
         }
 
         val onDestroy = cls.getDeclaredMethod("onDestroy")
-        hookWithId(onDestroy, "on_destroy") { null }
+        val superOnDestroyInvoker =
+            xposed.getInvoker(findMethod(cls.superclass, "onDestroy"))
+        hookWithId(onDestroy, "on_destroy") { chain ->
+            superOnDestroyInvoker.invokeSpecial(chain.thisObject)
+            null
+        }
     }
 
     private val isRowVersionTls = ThreadLocal<kotlin.Boolean?>()
