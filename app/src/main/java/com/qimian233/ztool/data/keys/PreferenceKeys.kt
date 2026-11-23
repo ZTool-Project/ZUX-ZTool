@@ -226,6 +226,7 @@ object PreferenceKeys {
     val LAUNCHER_BIG_FOLDER_SQUARE_STYLE = BoolKey("launcher_big_folder_square_style", false)
     val LAUNCHER_BIG_FOLDER_STRIP_STYLE = BoolKey("launcher_big_folder_strip_style", false)
     val LAUNCHER_BIG_FOLDER_WIDE_STYLE = BoolKey("launcher_big_folder_wide_style", false)
+    val LAUNCHER_BIG_FOLDER_EXTERNAL_TITLE = BoolKey("launcher_big_folder_external_title", false)
     // Crash guard for the host's big-folder blur update; on by default because the host
     // dereferences a null drag object there (see docs/research/zui_vs_oplus_launcher_grid_and_big_folder.md).
     val LAUNCHER_BIG_FOLDER_BLUR_GUARD = BoolKey("launcher_big_folder_blur_guard", true)
@@ -502,6 +503,7 @@ object PreferenceKeys {
         LAUNCHER_DRAWER_NO_LABEL_MODE, LAUNCHER_BIG_FOLDER_ALIGN,
         LAUNCHER_BIG_FOLDER_SQUARE_STYLE, LAUNCHER_BIG_FOLDER_STRIP_STYLE,
         LAUNCHER_BIG_FOLDER_WIDE_STYLE,
+        LAUNCHER_BIG_FOLDER_EXTERNAL_TITLE,
         LAUNCHER_HIDE_BLUE_POINT, DISMISS_CLOUD_FOLDER_CONFIRMATION,
         DISABLE_RECENT_APPS_DISPLAY, LAUNCHER_BATCH_UNINSTALL,
         LAUNCHER_WIDE_GRID, LAUNCHER_WIDE_GRID_SQUARE, LAUNCHER_ICON_SCALE_OVERRIDE,

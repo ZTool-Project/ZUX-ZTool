@@ -136,6 +136,7 @@ fun LauncherSettingsRoute(
             onBigFolderSquareStyleChanged = viewModel::setBigFolderSquareStyle,
             onBigFolderStripStyleChanged = viewModel::setBigFolderStripStyle,
             onBigFolderWideStyleChanged = viewModel::setBigFolderWideStyle,
+            onBigFolderExternalTitleChanged = viewModel::setBigFolderExternalTitle,
             onBigFolderBlurGuardChanged = viewModel::setBigFolderBlurGuard,
             onAppIconUnmaskChanged = viewModel::setAppIconUnmask,
             onAppIconUnmaskDynamicChanged = viewModel::setAppIconUnmaskDynamic,
@@ -226,6 +227,7 @@ private fun LauncherSettingsScreen(
     onBigFolderSquareStyleChanged: (Boolean) -> Unit,
     onBigFolderStripStyleChanged: (Boolean) -> Unit,
     onBigFolderWideStyleChanged: (Boolean) -> Unit,
+    onBigFolderExternalTitleChanged: (Boolean) -> Unit,
     onBigFolderBlurGuardChanged: (Boolean) -> Unit,
     onAppIconUnmaskChanged: (Boolean) -> Unit,
     onAppIconUnmaskDynamicChanged: (Boolean) -> Unit,
@@ -304,6 +306,7 @@ private fun LauncherSettingsScreen(
                         onBigFolderSquareStyleChanged = onBigFolderSquareStyleChanged,
                         onBigFolderStripStyleChanged = onBigFolderStripStyleChanged,
                         onBigFolderWideStyleChanged = onBigFolderWideStyleChanged,
+                        onBigFolderExternalTitleChanged = onBigFolderExternalTitleChanged,
                         onBigFolderBlurGuardChanged = onBigFolderBlurGuardChanged,
                         onAppIconUnmaskChanged = onAppIconUnmaskChanged,
                         onAppIconUnmaskDynamicChanged = onAppIconUnmaskDynamicChanged,
@@ -350,6 +353,7 @@ private fun launcherSettingsSections(
     onBigFolderSquareStyleChanged: (Boolean) -> Unit,
     onBigFolderStripStyleChanged: (Boolean) -> Unit,
     onBigFolderWideStyleChanged: (Boolean) -> Unit,
+    onBigFolderExternalTitleChanged: (Boolean) -> Unit,
     onBigFolderBlurGuardChanged: (Boolean) -> Unit,
     onAppIconUnmaskChanged: (Boolean) -> Unit,
     onAppIconUnmaskDynamicChanged: (Boolean) -> Unit,
@@ -542,6 +546,15 @@ private fun launcherSettingsSections(
                 )
             )
         }
+        add(
+            SettingItem.Switch(
+                title = stringResource(R.string.launcher_big_folder_external_title_title),
+                summary = stringResource(R.string.launcher_big_folder_external_title_summary),
+                checked = state.bigFolderExternalTitle,
+                onCheckedChange = onBigFolderExternalTitleChanged,
+                key = "launcher_big_folder_external_title"
+            )
+        )
         add(
             SettingItem.Switch(
                 title = stringResource(R.string.launcher_big_folder_blur_guard_title),

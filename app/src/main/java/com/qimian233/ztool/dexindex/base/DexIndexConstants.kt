@@ -5,6 +5,7 @@ import com.qimian233.ztool.data.keys.PreferenceKeys
 /** Constants for the offline DexKit index. */
 object DexIndexConstants {
 
+    // v12 adds BigFolderExternalTitleHook keys.
     // v11 restores MobileDesktopDexIndexer for BypassShareWarningHook tile/manager targets.
     // v10 adds BigFolderAlignHook FolderAnimationManager keys and LauncherNoLabelMode folder title fade keys.
     // v9 updates BigFolderAlignHook keys for the square 3x3 rewrite.
@@ -12,7 +13,7 @@ object DexIndexConstants {
     // v7 adds LauncherFreeformEntryHook keys for R8-obfuscated A17 ZUI Launcher.
     // v6 rebuilds existing SystemUI indexes for ordered paths and typed callback matching.
     // See docs/research/systemui_charging_animation_android17.md for earlier versions.
-    const val SCHEMA_VERSION = 11
+    const val SCHEMA_VERSION = 12
 
     const val JSON_SCHEMA_VERSION = "schemaVersion"
     const val JSON_GENERATED_AT = "generatedAt"
@@ -40,6 +41,8 @@ object DexIndexConstants {
         val LAUNCHER_BIG_FOLDER_BLUR_GUARD = PreferenceKeys.LAUNCHER_BIG_FOLDER_BLUR_GUARD.name
         const val LAUNCHER_GRID_METRICS = "launcher_grid_metrics"
         val LAUNCHER_BIG_FOLDER_ALIGN = PreferenceKeys.LAUNCHER_BIG_FOLDER_ALIGN.name
+        val LAUNCHER_BIG_FOLDER_EXTERNAL_TITLE =
+            PreferenceKeys.LAUNCHER_BIG_FOLDER_EXTERNAL_TITLE.name
         val LAUNCHER_NO_LABEL_MODE = PreferenceKeys.LAUNCHER_NO_LABEL_MODE.name
         val LAUNCHER_DRAWER_NO_LABEL_MODE = PreferenceKeys.LAUNCHER_DRAWER_NO_LABEL_MODE.name
         val LAUNCHER_WIDE_GRID = PreferenceKeys.LAUNCHER_WIDE_GRID.name
@@ -158,6 +161,22 @@ object DexIndexConstants {
         const val BIG_FOLDER_ALIGN_FAM_TMP_PARAMS_FIELD = "bigFolderAlignFamTmpParamsField"
         const val BIG_FOLDER_ALIGN_FAM_COMPUTE_BIG_ANIM_METHOD = "bigFolderAlignFamComputeBigAnimMethod"
         const val BIG_FOLDER_ALIGN_FAM_COMPUTE_BIG_ANIM_PARAMS = "bigFolderAlignFamComputeBigAnimParams"
+        // BigFolderExternalTitleHook
+        const val BIG_FOLDER_EXT_TITLE_FI_ACTIVITY_FIELD = "bigFolderExtTitleFiActivityField"
+        const val BIG_FOLDER_EXT_TITLE_FI_SET_NAME_SIZE_METHOD =
+            "bigFolderExtTitleFiSetNameSizeMethod"
+        const val BIG_FOLDER_EXT_TITLE_FI_SET_NAME_SCALE_METHOD =
+            "bigFolderExtTitleFiSetNameScaleMethod"
+        const val BIG_FOLDER_EXT_TITLE_FI_SET_ICON_MARGIN_METHOD =
+            "bigFolderExtTitleFiSetIconMarginMethod"
+        const val BIG_FOLDER_EXT_TITLE_FI_SET_NAME_COLOR_METHOD =
+            "bigFolderExtTitleFiSetNameColorMethod"
+        const val BIG_FOLDER_EXT_TITLE_RESIZE_LABEL_LISTENER_CLASS =
+            "bigFolderExtTitleResizeLabelListenerClass"
+        const val BIG_FOLDER_EXT_TITLE_RESIZE_LABEL_PB_FIELD =
+            "bigFolderExtTitleResizeLabelPbField"
+        const val BIG_FOLDER_EXT_TITLE_RESIZE_LABEL_FI_FIELD =
+            "bigFolderExtTitleResizeLabelFiField"
         // LauncherNoLabelMode
         const val NO_LABEL_FOLDER_ANIM_CREATE_METHOD = "noLabelFolderAnimCreateMethod"
         const val NO_LABEL_POPUP_IMPL_CLASS = "noLabelPopupImplClass"

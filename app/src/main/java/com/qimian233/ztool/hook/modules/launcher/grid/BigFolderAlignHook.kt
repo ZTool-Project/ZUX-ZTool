@@ -81,6 +81,8 @@ class BigFolderAlignHook : AppHookModule() {
     private lateinit var pbOffsetX: Field
     private lateinit var pbOffsetY: Field
     private lateinit var pbSetup: Method
+    private var pbCellHeightBig: Field? = null
+    private var acGetDeviceProfile: Method? = null
 
     // ClippedFolderIconLayoutRule & PreviewItemDrawingParams
     private lateinit var ruleIconSize: Field
@@ -101,6 +103,7 @@ class BigFolderAlignHook : AppHookModule() {
     private lateinit var fiSpanY: Field
     private var fiBg: Field? = null
     private var fiLabel: Field? = null
+    private var fiActivity: Field? = null
     private var fiNameTopMargin: Field? = null
     private var fiLayoutRule: Field? = null
     private var fiPreviewItemMgr: Field? = null
@@ -126,7 +129,6 @@ class BigFolderAlignHook : AppHookModule() {
     private var fiTransformDuration: Field? = null
     private var fiTransformInterpolator: Field? = null
     private lateinit var pbCellWidthBig: Field
-    private lateinit var pbCellHeightBig: Field
     private lateinit var pbPreRect: Field
     private lateinit var pbDstRect: Field
     private lateinit var pbOffsetL: Field
@@ -179,6 +181,7 @@ class BigFolderAlignHook : AppHookModule() {
         }
 
         val classLoader = param.defaultClassLoader
+        LauncherGridMetrics.install(classLoader, logger, xposed)
         logger.debug("BigFolderAlign installing (square=$squareStyleEnabled strip=$stripStyleEnabled wide=$wideStyleEnabled)")
 
         val module = DexIndexStore.lookup(xposed, ScopeKeys.LAUNCHER.packageName)
@@ -232,12 +235,16 @@ class BigFolderAlignHook : AppHookModule() {
                 "basePreviewOffsetY",
                 "q"
             )
+            pbCellHeightBig = runCatching { findField(pb, "cellHeightBig") }.getOrNull()
             pbSetup = findMethod(
                 pb, "setup",
                 Context::class.java, activityContextClass, View::class.java,
                 Int::class.javaPrimitiveType, Int::class.javaPrimitiveType,
                 Int::class.javaPrimitiveType, Int::class.javaPrimitiveType
             )
+            acGetDeviceProfile = runCatching {
+                activityContextClass.getMethod("getDeviceProfile")
+            }.getOrNull()
             true
         } catch (t: Throwable) {
             logger.error("resolve core refs failed, BigFolderAlign disabled", t)
@@ -334,6 +341,12 @@ class BigFolderAlignHook : AppHookModule() {
                 "mBackground"
             )
             fiLabel = resolveLabelField(classLoader, fi, module)
+            fiActivity = runCatching { findField(fi, "mActivity") }.getOrNull()
+                ?: runCatching {
+                    val ac = classLoader.loadClass("com.android.launcher3.views.ActivityContext")
+                    fi.declaredFields.firstOrNull { ac.isAssignableFrom(it.type) }
+                        ?.apply { isAccessible = true }
+                }.getOrNull()
             fiNameTopMargin = resolveOptionalField(
                 fi,
                 readString(module, DexIndexConstants.Keys.BIG_FOLDER_ALIGN_FI_NAME_TOP_MARGIN_FIELD),
@@ -476,7 +489,7 @@ class BigFolderAlignHook : AppHookModule() {
 
             val pb = classLoader.loadClass("com.android.launcher3.folder.PreviewBackground")
             pbCellWidthBig = findField(pb, "cellWidthBig")
-            pbCellHeightBig = findField(pb, "cellHeightBig")
+            pbCellHeightBig = pbCellHeightBig ?: findField(pb, "cellHeightBig")
             pbPreRect = findField(pb, "preFolderIconRect")
             pbDstRect = findField(pb, "dstFolderIconRect")
             pbOffsetL = findField(pb, "offsetL")
@@ -521,6 +534,7 @@ class BigFolderAlignHook : AppHookModule() {
                 val spanY = pbSpanY.getInt(pb)
                 val spec = resolveSpec(spanX, spanY) ?: return@hookWithId null
 
+                val externalTitle = BigFolderExternalTitleSupport.isActive
                 val stockOffsetX = pbOffsetX.getInt(pb).coerceAtLeast(0)
                 val stockOffsetY = pbOffsetY.getInt(pb).coerceAtLeast(0)
                 val stockW = pbPreviewSize.getInt(pb)
@@ -530,13 +544,49 @@ class BigFolderAlignHook : AppHookModule() {
                 val slotW = view?.layoutParams?.width?.takeIf { it > 0 }
                     ?: view?.measuredWidth?.takeIf { it > 0 }
                     ?: (stockW + stockOffsetX * 2)
+                val fallbackSlotH = pbCellHeightBig?.let {
+                    runCatching { it.getInt(pb) * spanY }.getOrNull()
+                }?.takeIf { it > 0 }
                 val slotH = view?.layoutParams?.height?.takeIf { it > 0 }
                     ?: view?.measuredHeight?.takeIf { it > 0 }
+                    ?: (if (externalTitle) fallbackSlotH else null)
                     ?: (stockH + stockOffsetY * 2)
 
-                val (bgW, bgH) = computeBackgroundSize(spec, slotW, slotH, stockOffsetX, stockOffsetY)
+                val externalRegion = if (externalTitle) {
+                    val context = chain.args.getOrNull(0) as? Context
+                    val dp = chain.args.getOrNull(1)?.let {
+                        runCatching { acGetDeviceProfile?.invoke(it) }.getOrNull()
+                    }
+                    val density = context?.resources?.displayMetrics?.density
+                        ?: view?.resources?.displayMetrics?.density
+                        ?: 1f
+                    BigFolderExternalTitleSupport.computeVerticalRegion(
+                        dp = dp,
+                        page = LauncherGridMetrics.pageOf(view),
+                        slotH = slotH,
+                        spanY = spanY,
+                        stockOffsetY = stockOffsetY,
+                        density = density
+                    )
+                } else {
+                    null
+                }
+
+                val (bgW, bgH) = computeBackgroundSize(
+                    spec = spec,
+                    slotW = slotW,
+                    slotH = slotH,
+                    stockOffsetX = stockOffsetX,
+                    stockOffsetY = stockOffsetY,
+                    availHOverride = externalRegion?.regionH,
+                    twoRowAvailHOverride = externalRegion?.twoRowRegionH
+                )
                 val offsetX = (slotW - bgW) / 2
-                val offsetY = (slotH - bgH) / 2
+                val offsetY = if (externalRegion != null) {
+                    externalRegion.regionTop + (externalRegion.regionH - bgH) / 2
+                } else {
+                    (slotH - bgH) / 2
+                }
 
                 pbPreviewSize.setInt(pb, bgW)
                 pbPreviewSizeY.setInt(pb, bgH)
@@ -563,10 +613,12 @@ class BigFolderAlignHook : AppHookModule() {
         slotW: Int,
         slotH: Int,
         stockOffsetX: Int,
-        stockOffsetY: Int
+        stockOffsetY: Int,
+        availHOverride: Int? = null,
+        twoRowAvailHOverride: Int? = null
     ): Pair<Int, Int> {
         val availW = (slotW - stockOffsetX * 2).coerceAtLeast(1)
-        val availH = (slotH - stockOffsetY * 2).coerceAtLeast(1)
+        val availH = availHOverride ?: (slotH - stockOffsetY * 2).coerceAtLeast(1)
         return when (spec.kind) {
             StyleKind.SQUARE -> {
                 val side = minOf(availW, availH)
@@ -579,7 +631,10 @@ class BigFolderAlignHook : AppHookModule() {
             }
             StyleKind.STRIP_2X1 -> {
                 // Match the optimized 2x2 square side on the horizontal long edge.
-                val side2x2 = minOf(availW, (slotH * 2 - stockOffsetY * 2).coerceAtLeast(1))
+                val side2x2 = minOf(
+                    availW,
+                    twoRowAvailHOverride ?: (slotH * 2 - stockOffsetY * 2).coerceAtLeast(1)
+                )
                 side2x2 to availH
             }
             StyleKind.WIDE_3X2 -> {
@@ -834,6 +889,7 @@ class BigFolderAlignHook : AppHookModule() {
         if (labelMethod != null && labelField != null && bgField != null && topMarginField != null) {
             hookWithId(labelMethod, "big_folder_align_label") { chain ->
                 chain.proceed()
+                if (BigFolderExternalTitleSupport.isActive) return@hookWithId null
                 try {
                     val icon = chain.thisObject ?: return@hookWithId null
                     if (resolveIconSpec(icon) == null) return@hookWithId null
@@ -906,10 +962,16 @@ class BigFolderAlignHook : AppHookModule() {
                 val beforeSpanY = fiSpanY.getInt(info)
                 val preSlot = pbPreRect.get(bg) as? Rect ?: return@hookWithId null
 
+                val preBgW = pbPreviewSize.getInt(bg)
+                val preBgH = if (beforeSpanX > 1 || beforeSpanY > 1) {
+                    pbPreviewSizeY.getInt(bg)
+                } else {
+                    preBgW
+                }
                 val preLeft = preSlot.left + pbOffsetX.getInt(bg)
                 val preTop = preSlot.top + pbOffsetY.getInt(bg)
-                val preRight = preLeft + pbPreviewSize.getInt(bg)
-                val preBottom = preTop + pbPreviewSizeY.getInt(bg)
+                val preRight = preLeft + preBgW
+                val preBottom = preTop + preBgH
                 preResizeBgSnapshots[icon] = PreResizeBgSnapshot(
                     beforeSpanX = beforeSpanX,
                     beforeSpanY = beforeSpanY,
@@ -923,17 +985,34 @@ class BigFolderAlignHook : AppHookModule() {
                 val stockDstW = pimDstWidth.getInt(pim)
                 val stockDstH = pimDstHeight.getInt(pim)
                 val cellW = pbCellWidthBig.getInt(bg)
-                val cellH = pbCellHeightBig.getInt(bg)
+                val cellH = pbCellHeightBig?.getInt(bg) ?: 0
                 val dstSlotW = (cellW * dstSpanX).takeIf { it > 0 } ?: stockDstW
                 val dstSlotH = (cellH * dstSpanY).takeIf { it > 0 } ?: stockDstH
                 val stockOffsetX = ((dstSlotW - stockDstW) / 2).coerceAtLeast(0)
                 val stockOffsetY = ((dstSlotH - stockDstH) / 2).coerceAtLeast(0)
+                val externalRegion = if (BigFolderExternalTitleSupport.isActive) {
+                    val iconView = icon as? View
+                    val dp = fiActivity?.let { runCatching { it.get(icon) }.getOrNull() }
+                        ?.let { runCatching { acGetDeviceProfile?.invoke(it) }.getOrNull() }
+                    BigFolderExternalTitleSupport.computeVerticalRegion(
+                        dp = dp,
+                        page = LauncherGridMetrics.pageOf(iconView),
+                        slotH = dstSlotH,
+                        spanY = dstSpanY,
+                        stockOffsetY = stockOffsetY,
+                        density = iconView?.resources?.displayMetrics?.density ?: 1f
+                    )
+                } else {
+                    null
+                }
                 val (dstBgW, dstBgH) = computeBackgroundSize(
                     dstSpec,
                     dstSlotW,
                     dstSlotH,
                     stockOffsetX,
-                    stockOffsetY
+                    stockOffsetY,
+                    availHOverride = externalRegion?.regionH,
+                    twoRowAvailHOverride = externalRegion?.twoRowRegionH
                 )
                 pimDstWidth.setInt(pim, dstBgW)
                 pimDstHeight.setInt(pim, dstBgH)
@@ -961,10 +1040,16 @@ class BigFolderAlignHook : AppHookModule() {
                 }
 
                 val dstSlot = pbDstRect.get(bg) as? Rect ?: return@hookWithId null
+                val dstBgW = pbPreviewSize.getInt(bg)
+                val dstBgH = if (dstSpanX > 1 || dstSpanY > 1) {
+                    pbPreviewSizeY.getInt(bg)
+                } else {
+                    dstBgW
+                }
                 val dstLeft = dstSlot.left + pbOffsetX.getInt(bg)
                 val dstTop = dstSlot.top + pbOffsetY.getInt(bg)
-                val dstRight = dstLeft + pbPreviewSize.getInt(bg)
-                val dstBottom = dstTop + pbPreviewSizeY.getInt(bg)
+                val dstRight = dstLeft + dstBgW
+                val dstBottom = dstTop + dstBgH
 
                 val newOffsetL = pre.left - dstLeft
                 val newOffsetT = pre.top - dstTop
@@ -983,11 +1068,16 @@ class BigFolderAlignHook : AppHookModule() {
                 }
 
                 (fiLabel?.get(icon) as? View)?.let { label ->
-                    label.translationY = newOffsetT.toFloat()
-                    label.translationX = when {
-                        newOffsetL != 0 -> newOffsetL / 2f
-                        newOffsetR != 0 -> newOffsetR / 2f
-                        else -> 0f
+                    if (BigFolderExternalTitleSupport.isActive) {
+                        label.translationY = newOffsetB.toFloat()
+                        label.translationX = (newOffsetL + newOffsetR) / 2f
+                    } else {
+                        label.translationY = newOffsetT.toFloat()
+                        label.translationX = when {
+                            newOffsetL != 0 -> newOffsetL / 2f
+                            newOffsetR != 0 -> newOffsetR / 2f
+                            else -> 0f
+                        }
                     }
                 }
 

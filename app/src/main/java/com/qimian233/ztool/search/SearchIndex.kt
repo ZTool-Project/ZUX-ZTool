@@ -1626,6 +1626,11 @@ object SearchIndex {
             parentKey = "launcher_big_folder_align"
         ),
         launcher.item(
+            id = "launcher_big_folder_external_title",
+            titleRes = R.string.launcher_big_folder_external_title_title,
+            summaryRes = R.string.launcher_big_folder_external_title_summary
+        ),
+        launcher.item(
             id = "launcher_big_folder_blur_guard",
             titleRes = R.string.launcher_big_folder_blur_guard_title,
             summaryRes = R.string.launcher_big_folder_blur_guard_summary

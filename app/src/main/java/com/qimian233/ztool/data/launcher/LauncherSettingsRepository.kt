@@ -61,6 +61,10 @@ class LauncherSettingsRepository(
                 KEY_BIG_FOLDER_WIDE_STYLE,
                 PreferenceKeys.LAUNCHER_BIG_FOLDER_WIDE_STYLE.default
             ),
+            bigFolderExternalTitle = prefsUtils.loadBooleanSetting(
+                KEY_BIG_FOLDER_EXTERNAL_TITLE,
+                PreferenceKeys.LAUNCHER_BIG_FOLDER_EXTERNAL_TITLE.default
+            ),
             bigFolderBlurGuard =
                 prefsUtils.loadBooleanSetting(KEY_LAUNCHER_BIG_FOLDER_BLUR_GUARD, true),
             appIconUnmask = prefsUtils.loadBooleanSetting(KEY_LAUNCHER_APP_ICON_UNMASK, false),
@@ -176,6 +180,10 @@ class LauncherSettingsRepository(
 
     fun saveBigFolderWideStyle(enabled: Boolean) {
         prefsUtils.saveBooleanSetting(KEY_BIG_FOLDER_WIDE_STYLE, enabled)
+    }
+
+    fun saveBigFolderExternalTitle(enabled: Boolean) {
+        prefsUtils.saveBooleanSetting(KEY_BIG_FOLDER_EXTERNAL_TITLE, enabled)
     }
 
     fun saveAppIconUnmask(enabled: Boolean) {
@@ -355,6 +363,8 @@ class LauncherSettingsRepository(
             PreferenceKeys.LAUNCHER_BIG_FOLDER_STRIP_STYLE.name
         private val KEY_BIG_FOLDER_WIDE_STYLE =
             PreferenceKeys.LAUNCHER_BIG_FOLDER_WIDE_STYLE.name
+        private val KEY_BIG_FOLDER_EXTERNAL_TITLE =
+            PreferenceKeys.LAUNCHER_BIG_FOLDER_EXTERNAL_TITLE.name
         private val KEY_LAUNCHER_BIG_FOLDER_BLUR_GUARD =
             PreferenceKeys.LAUNCHER_BIG_FOLDER_BLUR_GUARD.name
         private val KEY_LAUNCHER_APP_ICON_UNMASK = PreferenceKeys.LAUNCHER_APP_ICON_UNMASK.name

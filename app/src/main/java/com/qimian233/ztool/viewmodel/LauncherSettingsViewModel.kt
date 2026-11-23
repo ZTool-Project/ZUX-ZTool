@@ -207,6 +207,11 @@ class LauncherSettingsViewModel(
         repository.saveBigFolderWideStyle(enabled)
     }
 
+    fun setBigFolderExternalTitle(enabled: Boolean) {
+        _uiState.value = _uiState.value.copy(bigFolderExternalTitle = enabled)
+        repository.saveBigFolderExternalTitle(enabled)
+    }
+
     fun setAppIconUnmask(enabled: Boolean) {
         _uiState.value = _uiState.value.copy(appIconUnmask = enabled)
         repository.saveAppIconUnmask(enabled)
@@ -350,6 +355,7 @@ data class LauncherSettingsUiState(
     val bigFolderSquareStyle: Boolean = false,
     val bigFolderStripStyle: Boolean = false,
     val bigFolderWideStyle: Boolean = false,
+    val bigFolderExternalTitle: Boolean = false,
     /** Host big-folder blur crash guard; on by default (key launcher_big_folder_blur_guard). */
     val bigFolderBlurGuard: Boolean = true,
     val appIconUnmask: Boolean = false,
@@ -386,7 +392,8 @@ data class LauncherSettingsUiState(
             dockBackgroundVisible = !disableDockBackground,
             // Dock expansion forces 20 hotseat columns; 8 slots is the on-device dock.
             dockIconCount = if (moreBigDock) 8 else 5,
-            bigFolderHooked = bigFolderAlign && bigFolderSquareStyle
+            bigFolderHooked = bigFolderAlign && bigFolderSquareStyle,
+            bigFolderExternalTitle = bigFolderExternalTitle
         )
 }
 
@@ -406,4 +413,6 @@ data class LauncherPreviewConfig(
     val dockIconCount: Int,
     /** True while the big-folder alignment hook is on, which rewrites the child grid. */
     val bigFolderHooked: Boolean,
+    /** True when big folder titles are moved outside beneath the folder background. */
+    val bigFolderExternalTitle: Boolean = false,
 )

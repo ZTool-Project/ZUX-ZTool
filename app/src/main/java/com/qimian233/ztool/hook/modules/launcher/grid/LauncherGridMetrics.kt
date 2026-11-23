@@ -690,6 +690,28 @@ object LauncherGridMetrics {
         }
     }
 
+    /** Workspace icon text size in px. */
+    fun iconTextSizePx(dp: Any?): Int? {
+        val g = geometry ?: return null
+        if (!ready || dp == null) return null
+        return try {
+            g.iconTextSizePx(dp)
+        } catch (_: Throwable) {
+            null
+        }
+    }
+
+    /** Single-line workspace label height in px. */
+    fun textHeightPx(dp: Any?): Int? {
+        val g = geometry ?: return null
+        if (!ready || dp == null) return null
+        return try {
+            g.iconTextSizePx(dp)?.let { textHeight(it) }
+        } catch (_: Throwable) {
+            null
+        }
+    }
+
     /** Folder icon size in px. */
     fun folderIconSizePx(dp: Any?): Int? {
         val g = geometry ?: return null

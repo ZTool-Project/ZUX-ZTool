@@ -40,6 +40,10 @@ class LauncherDexIndexer : DexIndexer {
         )
         modules.add(DexIndexConstants.ModuleKeys.LAUNCHER_GRID_METRICS, indexLauncherGridMetrics(bridge))
         modules.add(DexIndexConstants.ModuleKeys.LAUNCHER_BIG_FOLDER_ALIGN, indexBigFolderAlign(bridge))
+        modules.add(
+            DexIndexConstants.ModuleKeys.LAUNCHER_BIG_FOLDER_EXTERNAL_TITLE,
+            indexBigFolderExternalTitle(bridge)
+        )
         modules.add(DexIndexConstants.ModuleKeys.LAUNCHER_NO_LABEL_MODE, indexLauncherNoLabelMode(bridge))
         modules.add(
             DexIndexConstants.ModuleKeys.LAUNCHER_DRAWER_NO_LABEL_MODE,
@@ -1427,6 +1431,131 @@ class LauncherDexIndexer : DexIndexer {
             }
         } catch (t: Throwable) {
             Log.w(TAG, "BigFolderAlign: FolderAnimationManager query failed", t)
+        }
+        return out
+    }
+
+    private fun indexBigFolderExternalTitle(bridge: DexKitBridge): JsonObject {
+        val out = JsonObject()
+        try {
+            val fiClass = findClassByName(bridge, FOLDER_ICON_CLASS)
+            fiClass?.fields?.singleOrNull {
+                !Modifier.isStatic(it.modifiers) && it.typeName == ACTIVITY_CONTEXT_CLASS
+            }?.let {
+                out.addProperty(DexIndexConstants.Keys.BIG_FOLDER_EXT_TITLE_FI_ACTIVITY_FIELD, it.name)
+                Log.i(TAG, "BigFolderExternalTitle: fiActivityField = ${it.name}")
+            }
+
+            bridge.findMethod {
+                matcher {
+                    declaredClass = FOLDER_ICON_CLASS
+                    paramCount = 0
+                    returnType = "void"
+                    addInvoke { name = "setTextSize" }
+                }
+            }.singleOrNull { isNormalMethod(it) }?.let {
+                out.addProperty(
+                    DexIndexConstants.Keys.BIG_FOLDER_EXT_TITLE_FI_SET_NAME_SIZE_METHOD,
+                    it.name
+                )
+                Log.i(TAG, "BigFolderExternalTitle: fiSetNameSizeMethod = ${it.name}")
+            }
+
+            bridge.findMethod {
+                matcher {
+                    declaredClass = FOLDER_ICON_CLASS
+                    paramCount = 0
+                    returnType = "void"
+                    addInvoke { name = "setScaleX" }
+                }
+            }.singleOrNull { isNormalMethod(it) }?.let {
+                out.addProperty(
+                    DexIndexConstants.Keys.BIG_FOLDER_EXT_TITLE_FI_SET_NAME_SCALE_METHOD,
+                    it.name
+                )
+                Log.i(TAG, "BigFolderExternalTitle: fiSetNameScaleMethod = ${it.name}")
+            }
+
+            bridge.findMethod {
+                matcher {
+                    declaredClass = FOLDER_ICON_CLASS
+                    paramCount = 0
+                    returnType = "void"
+                    addInvoke { name = "setMargins" }
+                }
+            }.singleOrNull { isNormalMethod(it) }?.let {
+                out.addProperty(
+                    DexIndexConstants.Keys.BIG_FOLDER_EXT_TITLE_FI_SET_ICON_MARGIN_METHOD,
+                    it.name
+                )
+                Log.i(TAG, "BigFolderExternalTitle: fiSetIconMarginMethod = ${it.name}")
+            }
+
+            bridge.findMethod {
+                matcher {
+                    declaredClass = FOLDER_ICON_CLASS
+                    paramTypes("int")
+                    returnType = "void"
+                    addInvoke { name = "getAttrColor" }
+                }
+            }.singleOrNull { isNormalMethod(it) }?.let {
+                out.addProperty(
+                    DexIndexConstants.Keys.BIG_FOLDER_EXT_TITLE_FI_SET_NAME_COLOR_METHOD,
+                    it.name
+                )
+                Log.i(TAG, "BigFolderExternalTitle: fiSetNameColorMethod = ${it.name}")
+            }
+        } catch (t: Throwable) {
+            Log.w(TAG, "BigFolderExternalTitle: FolderIcon query failed", t)
+        }
+
+        try {
+            val listenerClass = bridge.findMethod {
+                searchPackages("com.android.launcher3.folder")
+                matcher {
+                    name = "onAnimationUpdate"
+                    paramTypes("android.animation.ValueAnimator")
+                    returnType = "void"
+                    addInvoke { name = "setTranslationY" }
+                    addInvoke { name = "setTranslationX" }
+                }
+            }.mapNotNull { it.declaredClass }
+                .distinctBy { it.name }
+                .singleOrNull { cls ->
+                    val pbFieldCount = cls.fields.count {
+                        !Modifier.isStatic(it.modifiers) && it.typeName == PREVIEW_BG_CLASS
+                    }
+                    val fiFieldCount = cls.fields.count {
+                        !Modifier.isStatic(it.modifiers) && it.typeName == FOLDER_ICON_CLASS
+                    }
+                    pbFieldCount == 1 && fiFieldCount == 1
+                }
+            if (listenerClass != null) {
+                out.addProperty(
+                    DexIndexConstants.Keys.BIG_FOLDER_EXT_TITLE_RESIZE_LABEL_LISTENER_CLASS,
+                    listenerClass.name
+                )
+                val pbField = listenerClass.fields.single {
+                    !Modifier.isStatic(it.modifiers) && it.typeName == PREVIEW_BG_CLASS
+                }
+                val fiField = listenerClass.fields.single {
+                    !Modifier.isStatic(it.modifiers) && it.typeName == FOLDER_ICON_CLASS
+                }
+                out.addProperty(
+                    DexIndexConstants.Keys.BIG_FOLDER_EXT_TITLE_RESIZE_LABEL_PB_FIELD,
+                    pbField.name
+                )
+                out.addProperty(
+                    DexIndexConstants.Keys.BIG_FOLDER_EXT_TITLE_RESIZE_LABEL_FI_FIELD,
+                    fiField.name
+                )
+                Log.i(
+                    TAG,
+                    "BigFolderExternalTitle: resizeListener = ${listenerClass.name}(${pbField.name}, ${fiField.name})"
+                )
+            }
+        } catch (t: Throwable) {
+            Log.w(TAG, "BigFolderExternalTitle: resize listener query failed", t)
         }
         return out
     }

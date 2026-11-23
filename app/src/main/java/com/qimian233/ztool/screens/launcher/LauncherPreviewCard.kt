@@ -284,8 +284,17 @@ private fun BigFolderItem(
     val slotH = pitchY * BigFolderSpan
     val icon = grid.iconSize
     val widgetPadding = icon * WidgetPaddingToIcon
+    val externalTitle = config.bigFolderExternalTitle && showLabel
+    val labelGap = pitchY * LabelGapFraction
+    val extLabelHeight = (pitchY * LabelHeightFraction).coerceIn(1.5.dp, 5.dp)
+    val extTop = ((pitchY - (icon + labelGap + extLabelHeight)) / 2).coerceAtLeast(0.dp)
+    val extBottom = (pitchY + extTop + icon).coerceAtMost(slotH - extLabelHeight - labelGap)
     val availW = (slotW - widgetPadding * 2).coerceAtLeast(1.dp)
-    val availH = (slotH - widgetPadding * 2).coerceAtLeast(1.dp)
+    val availH = if (externalTitle) {
+        (extBottom - extTop).coerceAtLeast(1.dp)
+    } else {
+        (slotH - widgetPadding * 2).coerceAtLeast(1.dp)
+    }
 
     val childColumns: Int
     val childRows: Int
@@ -306,10 +315,14 @@ private fun BigFolderItem(
         backgroundWidth = side
         backgroundHeight = side
         backgroundX = (slotW - side) / 2
-        backgroundY = (slotH - side) / 2
+        backgroundY = if (externalTitle) {
+            extTop + (availH - side) / 2
+        } else {
+            (slotH - side) / 2
+        }
 
         val outerPad = side * 0.0475f
-        val headerH = if (showLabel) side * 0.19f else 0.dp
+        val headerH = if (showLabel && !externalTitle) side * 0.19f else 0.dp
         val gridTop = maxOf(outerPad, headerH)
         val availGridH = (side - outerPad - gridTop).coerceAtLeast(side * 0.45f)
         val gap = availGridH * (0.025f / 0.905f)
@@ -325,9 +338,9 @@ private fun BigFolderItem(
         backgroundWidth = availW
         backgroundHeight = availH
         backgroundX = widgetPadding
-        backgroundY = widgetPadding
+        backgroundY = if (externalTitle) extTop else widgetPadding
 
-        val headerH = if (showLabel) backgroundHeight * 0.18f else 0.dp
+        val headerH = if (showLabel && !externalTitle) backgroundHeight * 0.18f else 0.dp
         child = minOf(
             icon * FolderIconToIcon * ChildIconScale,
             (availW / (childColumns + 0.8f)),
@@ -341,8 +354,21 @@ private fun BigFolderItem(
         childTop = backgroundY + headerH + (availH - headerH - gridH) / 2
     }
 
-    val labelWidth = backgroundWidth * 0.46f
-    val labelHeight = (backgroundHeight * 0.06f).coerceIn(1.5.dp, 4.dp)
+    val labelWidth = if (externalTitle) {
+        minOf(icon * 0.9f, backgroundWidth * 0.6f)
+    } else {
+        backgroundWidth * 0.46f
+    }
+    val labelHeight = if (externalTitle) {
+        extLabelHeight
+    } else {
+        (backgroundHeight * 0.06f).coerceIn(1.5.dp, 4.dp)
+    }
+    val labelY = if (externalTitle) {
+        backgroundY + backgroundHeight + labelGap
+    } else {
+        backgroundY + backgroundHeight * 0.05f
+    }
 
     Box(modifier = Modifier.size(slotW, slotH)) {
         Box(
@@ -357,7 +383,7 @@ private fun BigFolderItem(
                 modifier = Modifier
                     .offset(
                         x = backgroundX + (backgroundWidth - labelWidth) / 2,
-                        y = backgroundY + backgroundHeight * 0.05f
+                        y = labelY
                     )
                     .width(labelWidth)
                     .height(labelHeight)
