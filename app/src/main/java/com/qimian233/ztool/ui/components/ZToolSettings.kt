@@ -115,7 +115,7 @@ fun ZListItem(
 ) {
     if (LocalZToolThemeSpec.current.style == FrontendStyle.Miuix) {
         MiuixBasicComponent(
-            modifier = modifier.semantics { if (!enabled) disabled() },
+            modifier = modifier.fillMaxWidth().semantics { if (!enabled) disabled() },
             title = title,
             titleColor = miuixRowTitleColor(enabled),
             summary = summary,
@@ -193,7 +193,7 @@ fun ZToolSwitchRow(
 ) {
     if (LocalZToolThemeSpec.current.style == FrontendStyle.Miuix) {
         MiuixBasicComponent(
-            modifier = modifier.semantics { if (!enabled) disabled() },
+            modifier = modifier.fillMaxWidth().semantics { if (!enabled) disabled() },
             title = title,
             titleColor = miuixRowTitleColor(enabled),
             summary = summary,
@@ -282,7 +282,7 @@ fun ZToolCheckboxRow(
 ) {
     if (LocalZToolThemeSpec.current.style == FrontendStyle.Miuix) {
         MiuixBasicComponent(
-            modifier = modifier.semantics { if (!enabled) disabled() },
+            modifier = modifier.fillMaxWidth().semantics { if (!enabled) disabled() },
             title = title,
             titleColor = miuixRowTitleColor(enabled),
             summary = summary,
@@ -446,7 +446,7 @@ fun <T> ZToolPopupMenuSettingRow(
 
     if (LocalZToolThemeSpec.current.style == FrontendStyle.Miuix) {
         MiuixBasicComponent(
-            modifier = modifier.semantics { if (!enabled) disabled() },
+            modifier = modifier.fillMaxWidth().semantics { if (!enabled) disabled() },
             title = title,
             titleColor = miuixRowTitleColor(enabled),
             summary = summary,
@@ -970,7 +970,7 @@ internal fun ZToolSegmentedSettingContainer(
     content: @Composable () -> Unit
 ) {
     if (LocalZToolThemeSpec.current.style == FrontendStyle.Miuix) {
-        Column(modifier = modifier, content = { content() })
+        Column(modifier = modifier.fillMaxWidth(), content = { content() })
     } else {
         val baseColor = LocalZToolColorScheme.current.surfaceContainerHigh
         SegmentedListItem(

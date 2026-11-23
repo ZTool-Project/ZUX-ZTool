@@ -1,6 +1,7 @@
 package com.qimian233.ztool.ui.components
 
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 import com.qimian233.ztool.ui.theme.FrontendStyle
 import com.qimian233.ztool.ui.theme.ZToolThemeSettings
 import com.qimian233.ztool.ui.theme.buildZToolColorScheme
@@ -53,5 +54,11 @@ class ZToolSurfacesTest {
                 fallbackContentColor = colorScheme.onBackground
             )
         )
+    }
+
+    @Test
+    fun resolveSettingsSectionHorizontalGutter_defaultsToZeroAndPreservesExplicitGutter() {
+        assertEquals(0.dp, resolveSettingsSectionHorizontalGutter(null))
+        assertEquals(8.dp, resolveSettingsSectionHorizontalGutter(8.dp))
     }
 }

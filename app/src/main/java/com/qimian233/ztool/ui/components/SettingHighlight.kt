@@ -7,6 +7,7 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -256,6 +257,7 @@ fun HighlightableSettingRow(
 
     androidx.compose.foundation.layout.Box(
         modifier = modifier
+            .fillMaxWidth()
             .onGloballyPositioned { coords ->
                 if (highlightKey != null && registry != null) {
                     registry.reportRow(highlightKey, coords)

@@ -60,6 +60,7 @@ import com.qimian233.ztool.ui.components.ZToolPageSurface
 import com.qimian233.ztool.ui.components.ZToolScaffold
 import com.qimian233.ztool.ui.components.ZToolSettingLeadingAvatar
 import com.qimian233.ztool.ui.components.ZToolSettingLeadingIcon
+import com.qimian233.ztool.ui.components.ZToolSettingsSectionHeader
 import com.qimian233.ztool.ui.components.ZToolSwitchRow
 import com.qimian233.ztool.ui.components.ZToolTextButton
 import com.qimian233.ztool.ui.firstrun.AgreementContentCard
@@ -391,32 +392,15 @@ private fun AboutSectionContainer(
     title: String? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    val isExpressive = LocalZToolThemeSpec.current.style == FrontendStyle.Material3Expressive
     Column(modifier = Modifier.fillMaxWidth()) {
-        if (!isExpressive && title != null) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodyMedium,
-                color = LocalZToolColorScheme.current.onSurfaceVariant,
-                modifier = Modifier.padding(start = 24.dp, bottom = 8.dp)
-            )
+        if (title != null) {
+            ZToolSettingsSectionHeader(title = title)
         }
         ZToolCard(modifier = Modifier.fillMaxWidth()) {
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(if (isExpressive) 12.dp else 0.dp)
-            ) {
-                if (isExpressive && title != null) {
-                    Text(
-                        text = title,
-                        style = MaterialTheme.typography.titleLarge,
-                        color = LocalZToolColorScheme.current.onSurface,
-                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
-                    )
-                }
-                content()
-            }
+                modifier = Modifier.fillMaxWidth(),
+                content = content
+            )
         }
     }
 }
@@ -429,29 +413,18 @@ internal fun AboutSectionCard(
 ) {
     val isExpressive = LocalZToolThemeSpec.current.style == FrontendStyle.Material3Expressive
     Column(modifier = Modifier.fillMaxWidth()) {
-        if (!isExpressive) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodyMedium,
-                color = LocalZToolColorScheme.current.onSurfaceVariant,
-                modifier = Modifier.padding(start = 24.dp, bottom = 8.dp)
-            )
-        }
-        ZToolCard(modifier = Modifier.fillMaxWidth()) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(if (isExpressive) 12.dp else 0.dp)
-            ) {
-                if (isExpressive) {
-                    Text(
-                        text = title,
-                        style = MaterialTheme.typography.titleLarge,
-                        color = LocalZToolColorScheme.current.onSurface,
-                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
-                    )
+        ZToolSettingsSectionHeader(title = title)
+        if (isExpressive) {
+            ExpressiveSectionItems(count = itemCount, content = content)
+        } else {
+            ZToolCard(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp)
+                ) {
+                    ExpressiveSectionItems(count = itemCount, content = content)
                 }
-                ExpressiveSectionItems(count = itemCount, content = content)
             }
         }
     }
@@ -469,12 +442,12 @@ internal fun AboutActionRow(
     trailingLabel: String? = null,
     highlightKey: String? = null
 ) {
-    HighlightableSettingRow(highlightKey = highlightKey, modifier = modifier) {
+    HighlightableSettingRow(highlightKey = highlightKey, modifier = Modifier.fillMaxWidth()) {
         ZListItem(
             title = title,
             summary = summary,
             onClick = onClick,
-            modifier = Modifier,
+            modifier = modifier,
             leadingContent = if (leadingContent != null) {
                 { leadingContent() }
             } else if (icon != null) {
@@ -515,12 +488,13 @@ private fun AboutSwitchRow(
     icon: ImageVector? = null,
     highlightKey: String? = null
 ) {
-    HighlightableSettingRow(highlightKey = highlightKey, modifier = modifier) {
+    HighlightableSettingRow(highlightKey = highlightKey, modifier = Modifier.fillMaxWidth()) {
         ZToolSwitchRow(
             title = title,
             summary = summary,
             checked = checked,
             onCheckedChange = onCheckedChange,
+            modifier = modifier,
             icon = icon
         )
     }

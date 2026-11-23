@@ -66,6 +66,7 @@ import com.qimian233.ztool.ui.components.ZToolDialog
 import com.qimian233.ztool.ui.components.ZToolPageSurface
 import com.qimian233.ztool.ui.components.ZToolScaffold
 import com.qimian233.ztool.ui.components.ZToolSettingsList
+import com.qimian233.ztool.ui.components.ZToolSettingsSectionHeader
 import com.qimian233.ztool.ui.components.ZToolTextButton
 import com.qimian233.ztool.ui.components.ZToolTextInputRow
 import com.qimian233.ztool.ui.components.ZToolTopAppBar
@@ -495,14 +496,9 @@ private fun FontManagerScreen(
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-                Text(
-                    text = stringResource(R.string.settings_font_manager_list_title),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
+                ZToolSettingsSectionHeader(
+                    title = stringResource(R.string.settings_font_manager_list_title)
                 )
-
-                Spacer(modifier = Modifier.height(6.dp))
 
                 when {
                     state.isLoading -> {
@@ -535,6 +531,7 @@ private fun FontManagerScreen(
                     }
                     else -> {
                         Column(
+                            modifier = Modifier.fillMaxWidth(),
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             state.fonts.forEach { item ->

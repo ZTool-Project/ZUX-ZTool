@@ -243,8 +243,30 @@ fun ZToolSettingsNavigationEventProvider(content: @Composable () -> Unit) {
     )
 }
 
-/** Content inset of a Material Expressive settings section, i.e. its row gutter. */
-private val ExpressiveSectionContentPadding = 12.dp
+internal fun resolveSettingsSectionHorizontalGutter(gutter: Dp?): Dp = gutter ?: 0.dp
+
+@Composable
+fun ZToolSettingsSectionHeader(
+    title: String,
+    modifier: Modifier = Modifier,
+    titlePadding: PaddingValues = PaddingValues(horizontal = 24.dp, vertical = 8.dp)
+) {
+    if (LocalZToolThemeSpec.current.style == FrontendStyle.Material3Expressive) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleLarge,
+            color = LocalZToolColorScheme.current.onSurface,
+            modifier = modifier.padding(titlePadding)
+        )
+    } else {
+        Text(
+            text = title,
+            style = MiuixTheme.textStyles.subtitle,
+            color = LocalZToolColorScheme.current.onSurfaceVariant,
+            modifier = modifier.padding(start = 24.dp, bottom = 8.dp)
+        )
+    }
+}
 
 @Composable
 fun ZToolSettingsSection(
@@ -253,29 +275,25 @@ fun ZToolSettingsSection(
     titlePadding: PaddingValues = PaddingValues(horizontal = 24.dp, vertical = 8.dp),
     gutter: Dp? = null
 ) {
+    val horizontalGutter = resolveSettingsSectionHorizontalGutter(gutter)
+    val sectionModifier = if (horizontalGutter > 0.dp) {
+        modifier.padding(horizontal = horizontalGutter)
+    } else {
+        modifier
+    }
+
     if (LocalZToolThemeSpec.current.style == FrontendStyle.Material3Expressive) {
         MaterialExpressiveSettingsSection(
             section = section,
-            modifier = modifier,
-            titlePadding = titlePadding,
-            contentPadding = gutter ?: ExpressiveSectionContentPadding
+            modifier = sectionModifier,
+            titlePadding = titlePadding
         )
         return
     }
 
-    val sectionModifier = if (gutter != null) {
-        modifier.padding(horizontal = gutter)
-    } else {
-        modifier
-    }
     Column(modifier = sectionModifier.fillMaxWidth()) {
         if (section.title != null) {
-            Text(
-                text = section.title,
-                style = MiuixTheme.textStyles.subtitle,
-                color = LocalZToolColorScheme.current.onSurfaceVariant,
-                modifier = Modifier.padding(start = 24.dp, bottom = 8.dp)
-            )
+            ZToolSettingsSectionHeader(title = section.title)
         }
         ZToolCard(modifier = Modifier.fillMaxWidth()) {
             Column(
@@ -288,8 +306,14 @@ fun ZToolSettingsSection(
                     if (index > 0) {
                         ZToolSettingsDivider()
                     }
-                    HighlightableSettingRow(highlightKey = item.key) {
-                        ZToolSettingItem(item = item)
+                    HighlightableSettingRow(
+                        highlightKey = item.key,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        ZToolSettingItem(
+                            item = item,
+                            modifier = Modifier.fillMaxWidth()
+                        )
                     }
                 }
             }
@@ -301,29 +325,21 @@ fun ZToolSettingsSection(
 private fun MaterialExpressiveSettingsSection(
     section: SettingSection,
     modifier: Modifier = Modifier,
-    titlePadding: PaddingValues,
-    contentPadding: Dp
+    titlePadding: PaddingValues
 ) {
-    ZToolCard(
-        modifier = modifier.fillMaxWidth()
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .animateContentSize()
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .animateContentSize()
-                .padding(contentPadding)
-        ) {
-            if (section.title != null) {
-                Text(
-                    text = section.title,
-                    style = MaterialTheme.typography.titleLarge,
-                    color = LocalZToolColorScheme.current.onSurface,
-                    modifier = Modifier.padding(titlePadding)
-                )
-            }
-
-            ExpressiveSectionItems(items = section.items, itemSpacing = 4.dp)
+        if (section.title != null) {
+            ZToolSettingsSectionHeader(
+                title = section.title,
+                titlePadding = titlePadding
+            )
         }
+
+        ExpressiveSectionItems(items = section.items, itemSpacing = 4.dp)
     }
 }
 
@@ -368,9 +384,13 @@ fun ExpressiveSectionItems(
                 count = items.size,
                 defaultShapes = ListItemDefaults.shapes(shape = shapeForIndex?.invoke(index, items.size))
             )
-            HighlightableSettingRow(highlightKey = item.key, shape = shapes?.shape) {
+            HighlightableSettingRow(
+                highlightKey = item.key,
+                shape = shapes?.shape,
+                modifier = Modifier.fillMaxWidth()
+            ) {
                 CompositionLocalProvider(LocalExpressiveListShapes provides shapes) {
-                    ZToolSettingItem(item = item, modifier = Modifier)
+                    ZToolSettingItem(item = item, modifier = Modifier.fillMaxWidth())
                 }
             }
         }
