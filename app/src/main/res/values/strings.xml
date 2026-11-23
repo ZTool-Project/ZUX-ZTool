@@ -604,10 +604,10 @@
     <string name="settings_import_font_title">导入字体</string>
     <string name="settings_import_font_summary">支持ttf格式，导入字体到系统的字体管理器</string>
     <string name="settings_allow_disable_dolby">允许关闭杜比</string>
-    <string name="settings_allow_disable_dolby_summary">允许关闭杜比全景声，但是可能导致音量变小</string>
+    <string name="settings_allow_disable_dolby_summary">关闭杜比全景声可能导致原厂音量均衡失效。更改开关状态后建议重启一次设备。</string>
     <string name="settings_allow_adding_language">允许在 PRC ROM 添加其他语言</string>
     <string name="settings_native_permission_controller_enable_title">原生权限控制器样式</string>
-    <string name="settings_native_permission_controller_enable_summary">启用原生风格的权限控制器，Android14及以下生效</string>
+    <string name="settings_native_permission_controller_enable_summary">启用原生风格的权限控制器</string>
     <!--应用包安装程序功能页资源值-->
     <string name="package_installer_disable_scan_apk_title">跳过安全扫描</string>
     <string name="package_installer_disable_scan_apk_summary">跳过安全扫描，节省时间</string>

@@ -520,10 +520,10 @@
     <string name="settings_import_font_title">Import font</string>
     <string name="settings_import_font_summary">Supports TTF format. Imports fonts into the system font manager.</string>
     <string name="settings_allow_disable_dolby">Allow disabling Dolby</string>
-    <string name="settings_allow_disable_dolby_summary">Allow disabling Dolby Atmos. This may lower volume.</string>
+    <string name="settings_allow_disable_dolby_summary">Stopping Dolby DAX may affect audio quality. Recommended to reboot the device after toggling this switch.</string>
     <string name="settings_allow_adding_language">Allow adding language in PRC ROM</string>
     <string name="settings_native_permission_controller_enable_title">Native permission controller style</string>
-    <string name="settings_native_permission_controller_enable_summary">Enable native-style permission controller. Effective on Android 14 and below.</string>
+    <string name="settings_native_permission_controller_enable_summary">Enable native-style permission controller</string>
     <string name="package_installer_restart_fail_simple">Restart failed</string>
     <string name="common_sec_title_function">Security</string>
     <string name="package_installer_only_allow_title">Always grant app permissions</string>
