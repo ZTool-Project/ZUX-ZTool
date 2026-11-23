@@ -11,7 +11,6 @@ import com.qimian233.ztool.data.keys.ScopeKeys
 import com.qimian233.ztool.data.sogouime.SogouEnterKeyMode
 import com.qimian233.ztool.hook.base.AppHookModule
 import io.github.libxposed.api.XposedModuleInterface.PackageLoadedParam
-import java.lang.reflect.Field
 import java.lang.reflect.Method
 
 /**
@@ -25,7 +24,6 @@ class SogouEnterKeyHook : AppHookModule() {
 
     private var mfGet: Method? = null
     private var mfInputConnectionGet: Method? = null
-    private var composingCacheField: Field? = null
     private var composingQuery: Method? = null
     private var composingProbeAvailable = false
 
@@ -128,22 +126,17 @@ class SogouEnterKeyHook : AppHookModule() {
 
     private fun resolveComposingProbe(classLoader: ClassLoader) {
         try {
-            val mfClass = classLoader.loadClass("defpackage.MF")
+            // Default-package obfuscated classes have no "defpackage." prefix at runtime.
+            val mfClass = classLoader.loadClass("MF")
             mfGet = mfClass.getMethod("V")
             mfInputConnectionGet = mfClass.getMethod("z")
-            val inputConnectionClass = classLoader.loadClass("defpackage.Cha")
-            composingCacheField = inputConnectionClass.getDeclaredField("e").apply {
-                isAccessible = true
-            }
-            composingQuery = composingCacheField?.type?.getDeclaredMethod("j")?.apply {
-                isAccessible = true
-            }
+            val inputConnectionClass = classLoader.loadClass("Cha")
+            composingQuery = inputConnectionClass.getMethod("j")
             composingProbeAvailable = true
             logger.info("Composing probe resolved")
         } catch (t: Throwable) {
             mfGet = null
             mfInputConnectionGet = null
-            composingCacheField = null
             composingQuery = null
             composingProbeAvailable = false
             logger.warn(
@@ -158,9 +151,12 @@ class SogouEnterKeyHook : AppHookModule() {
         if (composingProbeAvailable) {
             try {
                 val mf = mfGet?.invoke(null)
-                val inputConnection = mfInputConnectionGet?.invoke(mf)
-                val cache = composingCacheField?.get(inputConnection)
-                val composing = composingQuery?.invoke(cache) as? Boolean
+                val inputConnection = if (mf != null) mfInputConnectionGet?.invoke(mf) else null
+                val composing = if (inputConnection != null) {
+                    composingQuery?.invoke(inputConnection) as? Boolean
+                } else {
+                    null
+                }
                 logger.debug("Composing probe: wrapper=$composing")
                 if (composing == true) return true
             } catch (t: Throwable) {
