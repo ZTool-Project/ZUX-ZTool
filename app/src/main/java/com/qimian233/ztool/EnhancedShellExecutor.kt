@@ -120,6 +120,16 @@ class EnhancedShellExecutor private constructor() {
         return result
     }
 
+    /** Execute a shell script under root without splitting arguments on spaces. */
+    fun executeRootScript(script: String, timeoutSeconds: Int = DEFAULT_TIMEOUT): ShellResult {
+        return executeCommandArgs(
+            args = listOf("su", "-c", script),
+            displayCommand = "su -c $script",
+            timeoutSeconds = timeoutSeconds,
+            isRootCommand = true
+        )
+    }
+
     /**
      * Execute shell command (normal privileges)
      */
@@ -131,20 +141,34 @@ class EnhancedShellExecutor private constructor() {
      * Core method for executing shell commands
      */
     private fun executeCommandInternal(command: String, timeoutSeconds: Int, isRootCommand: Boolean): ShellResult {
+        val args = if (command.contains(" ")) {
+            command.split(" ".toRegex())
+        } else {
+            listOf(command)
+        }
+        return executeCommandArgs(args, command, timeoutSeconds, isRootCommand)
+    }
+
+    private fun executeCommandArgs(
+        args: List<String>,
+        displayCommand: String,
+        timeoutSeconds: Int,
+        isRootCommand: Boolean
+    ): ShellResult {
         // Rate limit check
         if (!acquireCommandSlot()) {
-            Log.w(TAG, "Command execution rate limited: $command")
+            Log.w(TAG, "Command execution rate limited: $displayCommand")
             return ShellResult(false, "", "系统繁忙，请稍后重试", -1,
                 RuntimeException("Command rate limited"), 0)
         }
 
         val startTime = System.currentTimeMillis()
-        Log.d(TAG, "Executing command: " + (if (isRootCommand) "[ROOT] " else "") + command)
+        Log.d(TAG, "Executing command: " + (if (isRootCommand) "[ROOT] " else "") + displayCommand)
 
         // Retry mechanism
         for (attempt in 0..RETRY_COUNT) {
             if (attempt > 0) {
-                Log.d(TAG, "Retrying command, attempt " + (attempt + 1) + ": " + command)
+                Log.d(TAG, "Retrying command, attempt " + (attempt + 1) + ": " + displayCommand)
                 try {
                     Thread.sleep(200) // Brief wait before retry
                 } catch (_: InterruptedException) {
@@ -152,7 +176,7 @@ class EnhancedShellExecutor private constructor() {
                 }
             }
 
-            val result = executeSingleCommand(command, timeoutSeconds)
+            val result = executeSingleCommand(args, displayCommand, timeoutSeconds)
 
             // Return immediately on success or non-timeout errors
             if (result.isSuccess || result.exception !is TimeoutException) {
@@ -216,7 +240,11 @@ class EnhancedShellExecutor private constructor() {
     /**
      * Execute a single command
      */
-    private fun executeSingleCommand(command: String, timeoutSeconds: Int): ShellResult {
+    private fun executeSingleCommand(
+        args: List<String>,
+        displayCommand: String,
+        timeoutSeconds: Int
+    ): ShellResult {
         return try {
             // Create a Callable task for timeout control
             val task = Callable {
@@ -224,12 +252,7 @@ class EnhancedShellExecutor private constructor() {
                 var localOutputReader: BufferedReader? = null
                 try {
                     // Use ProcessBuilder for finer control
-                    val processBuilder = ProcessBuilder()
-                    if (command.contains(" ")) {
-                        processBuilder.command(*command.split(" ".toRegex()).toTypedArray())
-                    } else {
-                        processBuilder.command(command)
-                    }
+                    val processBuilder = ProcessBuilder(args)
 
                     // Redirect error stream to standard output
                     processBuilder.redirectErrorStream(true)
@@ -266,7 +289,7 @@ class EnhancedShellExecutor private constructor() {
             val future = executorService.submit(task)
             future.get(timeoutSeconds.toLong(), TimeUnit.SECONDS)
         } catch (e: TimeoutException) {
-            Log.w(TAG, "Command execution timed out: $command")
+            Log.w(TAG, "Command execution timed out: $displayCommand")
             ShellResult(false, "", "命令执行超时", -1, e, 0)
         } catch (e: Exception) {
             Log.e(TAG, "Command execution failed: " + e.message, e)

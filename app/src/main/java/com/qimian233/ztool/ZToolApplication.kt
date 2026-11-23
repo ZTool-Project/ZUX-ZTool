@@ -2,6 +2,7 @@ package com.qimian233.ztool
 
 import android.app.Application
 import android.content.Context
+import android.os.Build
 import com.qimian233.ztool.data.settings.LauncherIconAliasController
 import com.qimian233.ztool.data.theme.ThemePreferencesRepository
 import com.qimian233.ztool.dexindex.base.DexIndexManager
@@ -17,6 +18,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import org.lsposed.hiddenapibypass.HiddenApiBypass
 
 /**
  * Custom Application class.
@@ -82,6 +84,9 @@ class ZToolApplication : Application(), XposedServiceHelper.OnServiceListener {
      */
     override fun onCreate() {
         super.onCreate()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            runCatching { HiddenApiBypass.addHiddenApiExemptions("") }
+        }
         LauncherIconAliasController.install(this)
 
         startupScope.launch(EnhancedShellExecutor.shellWorkDispatcher) {

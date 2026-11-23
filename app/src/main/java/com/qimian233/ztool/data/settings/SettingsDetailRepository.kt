@@ -3,10 +3,8 @@ package com.qimian233.ztool.data.settings
 import android.content.Context
 import android.content.Intent
 import android.util.Log
-import android.database.Cursor
 import android.net.Uri
 import android.os.Build
-import android.provider.OpenableColumns
 import android.provider.Settings
 import androidx.core.content.edit
 import com.qimian233.ztool.EnhancedShellExecutor
@@ -15,20 +13,17 @@ import com.qimian233.ztool.data.features.FeatureDestination
 import com.qimian233.ztool.data.freeform.FreeformEdgeBubbleConfig
 import com.qimian233.ztool.data.keys.PreferenceKeys
 import com.qimian233.ztool.utils.EmbeddingConfigManager
-import com.qimian233.ztool.utils.FontInstallerManager
 import com.qimian233.ztool.utils.MagiskModuleManager
 import com.qimian233.ztool.utils.ModulePreferencesUtils
 import com.qimian233.ztool.utils.OvCommonConfigManager
 import com.qimian233.ztool.utils.ScopeUtils
 import com.qimian233.ztool.viewmodel.SettingsDetailUiState
-import java.io.File
 
 class SettingsDetailRepository(
     val context: Context,
     private val shellExecutor: EnhancedShellExecutor = EnhancedShellExecutor.getInstance(),
     private val magiskManager: MagiskModuleManager = MagiskModuleManager(),
     private val embeddingConfigManager: EmbeddingConfigManager = EmbeddingConfigManager(),
-    private val fontInstallerManager: FontInstallerManager = FontInstallerManager(),
     private val ovConfigManager: OvCommonConfigManager = OvCommonConfigManager()
 ) {
     private val prefsUtils = ModulePreferencesUtils(context)
@@ -201,24 +196,6 @@ class SettingsDetailRepository(
         addFlashedConfigKeys(configs.map { config -> config.toFlashedKey() })
     }
 
-    fun prepareFontImport(uri: Uri): FontImportPreparation {
-        val fontFile = fontInstallerManager.copyFontToTemp(context, uri)
-        return FontImportPreparation(
-            file = fontFile,
-            originalFileName = getFileName(uri)
-        )
-    }
-
-    fun installFont(fontFile: File?, fontName: String, fontDescription: String) {
-        // A null file is rejected via requireNotNull, matching the Java-era NPE behavior (caught and reported by the ViewModel)
-        fontInstallerManager.installFont(
-            context,
-            requireNotNull(fontFile) { "fontFile must be prepared before installing" },
-            fontName,
-            fontDescription
-        )
-    }
-
     fun loadOvConfigSelection(mode: Int): OvConfigSelection {
         val config = ovConfigManager.loadConfig(context)
         return OvConfigSelection(
@@ -252,31 +229,6 @@ class SettingsDetailRepository(
 
     private fun EmbeddingConfigManager.ConfigFileInfo.toFlashedKey(): String {
         return timestamp + "_" + packageName
-    }
-
-    private fun getFileName(uri: Uri): String? {
-        var result: String? = null
-        if (uri.scheme == "content") {
-            try {
-                val cursor: Cursor? = context.contentResolver.query(uri, null, null, null, null)
-                cursor.use {
-                    if (it != null && it.moveToFirst()) {
-                        val index = it.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-                        if (index >= 0) result = it.getString(index)
-                    }
-                }
-            } catch (_: Exception) {
-            }
-        }
-        if (result == null) {
-            result = uri.path
-            val value = result
-            if (value != null) {
-                val cut = value.lastIndexOf('/')
-                if (cut != -1) result = value.substring(cut + 1)
-            }
-        }
-        return result
     }
 
     private fun loadLaunchablePackageNames(): List<String> {
@@ -313,11 +265,6 @@ class SettingsDetailRepository(
         private val KEY_ALLOW_ADDING_LANGUAGE = PreferenceKeys.ALLOW_ADD_LANGUAGE.name
     }
 }
-
-data class FontImportPreparation(
-    val file: File,
-    val originalFileName: String?
-)
 
 data class OvConfigSelection(
     val allPackages: List<String>,

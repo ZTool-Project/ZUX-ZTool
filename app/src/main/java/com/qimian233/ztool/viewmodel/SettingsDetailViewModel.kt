@@ -10,7 +10,6 @@ import com.qimian233.ztool.data.settings.OvConfigSelection
 import com.qimian233.ztool.data.settings.SettingsDetailRepository
 import com.qimian233.ztool.utils.EmbeddingConfigManager
 import com.qimian233.ztool.utils.OvCommonConfigManager
-import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -24,7 +23,6 @@ class SettingsDetailViewModel(
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(SettingsDetailUiState())
     val uiState: StateFlow<SettingsDetailUiState> = _uiState.asStateFlow()
-    private var currentSelectedFontFile: File? = null
 
     fun loadSettings() {
         viewModelScope.launch(Dispatchers.IO) {
@@ -256,48 +254,6 @@ class SettingsDetailViewModel(
         }
     }
 
-    fun prepareFontImport(
-        uri: Uri,
-        onResult: (SettingsDetailFontPreparationResult) -> Unit
-    ) {
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                val preparation = repository.prepareFontImport(uri)
-                currentSelectedFontFile = preparation.file
-                withContext(Dispatchers.Main) {
-                    onResult(SettingsDetailFontPreparationResult.Success(preparation.originalFileName))
-                }
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    onResult(SettingsDetailFontPreparationResult.Failure(e.message.orEmpty()))
-                }
-            }
-        }
-    }
-
-    fun installFont(
-        fontName: String,
-        fontDescription: String,
-        onResult: (SettingsDetailFontInstallResult) -> Unit
-    ) {
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                repository.installFont(
-                    fontFile = currentSelectedFontFile,
-                    fontName = fontName,
-                    fontDescription = fontDescription
-                )
-                withContext(Dispatchers.Main) {
-                    onResult(SettingsDetailFontInstallResult.Success)
-                }
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    onResult(SettingsDetailFontInstallResult.Failure(e.message.orEmpty()))
-                }
-            }
-        }
-    }
-
     fun loadOvConfigSelection(
         mode: Int,
         onResult: (SettingsDetailOvConfigSelectionResult) -> Unit
@@ -345,16 +301,6 @@ sealed interface SettingsDetailRestoreResult {
 sealed interface SettingsDetailConfigFlashResult {
     data object Success : SettingsDetailConfigFlashResult
     data class Failure(val message: String) : SettingsDetailConfigFlashResult
-}
-
-sealed interface SettingsDetailFontPreparationResult {
-    data class Success(val originalFileName: String?) : SettingsDetailFontPreparationResult
-    data class Failure(val message: String) : SettingsDetailFontPreparationResult
-}
-
-sealed interface SettingsDetailFontInstallResult {
-    data object Success : SettingsDetailFontInstallResult
-    data class Failure(val message: String) : SettingsDetailFontInstallResult
 }
 
 sealed interface SettingsDetailOvConfigSelectionResult {

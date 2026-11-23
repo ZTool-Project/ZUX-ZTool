@@ -51,6 +51,7 @@ import com.qimian233.ztool.screens.systemui.controlcenter.ControlCenterSettingsR
 import com.qimian233.ztool.screens.systemui.lockscreen.LockScreenSettingsRoute
 import com.qimian233.ztool.screens.systemui.misc.SystemUiMiscSettingsRoute
 import com.qimian233.ztool.screens.systemui.statusbar.StatusBarSettingsRoute
+import com.qimian233.ztool.screens.zuisetting.FontManagerRoute
 import com.qimian233.ztool.screens.zuisetting.SettingsDetailRoute
 import com.qimian233.ztool.screens.zuisetting.magicwindowsearch.SearchPageRoute
 import com.qimian233.ztool.screens.zuiui.ZuiUiComponentsRoute
@@ -509,6 +510,31 @@ internal fun MainRouteNavHost(
                 onBack = {
                     if (!navController.popBackStack()) {
                         navController.navigate(MainRoute.Features.name) {
+                            launchSingleTop = true
+                        }
+                    }
+                },
+                onOpenFontManager = {
+                    navController.navigate(HiddenRoute.SETTINGS_DETAIL_FONT_MANAGER) {
+                        launchSingleTop = true
+                    }
+                },
+                targetId = backStackEntry.highlightTarget(),
+            )
+        }
+        composable(
+            route = routeWithTarget(HiddenRoute.SETTINGS_DETAIL_FONT_MANAGER),
+            enterTransition = horizontalEnter,
+            exitTransition = horizontalExit,
+            popEnterTransition = horizontalPopEnter,
+            popExitTransition = horizontalPopExit,
+            arguments = highlightTargetArguments
+        ) { backStackEntry ->
+            FontManagerRoute(
+                title = stringResource(R.string.settings_font_manager_title),
+                onBack = {
+                    if (!navController.popBackStack()) {
+                        navController.navigate(FeatureDestination.SettingsDetail.route) {
                             launchSingleTop = true
                         }
                     }
@@ -1045,6 +1071,7 @@ private fun navigationRouteIndex(rawRoute: String?): Int {
         HiddenRoute.SYSTEM_UI_ANIMATION_WALLPAPER -> 3
         HiddenRoute.SYSTEM_UI_MISC -> 3
         HiddenRoute.SETTINGS_DETAIL_MAGIC_WINDOW_SEARCH -> 3
+        HiddenRoute.SETTINGS_DETAIL_FONT_MANAGER -> 3
         FeatureDestination.Launcher.route -> 2
         FeatureDestination.MobileDesktop.route -> 2
         FeatureDestination.Framework.route -> 2

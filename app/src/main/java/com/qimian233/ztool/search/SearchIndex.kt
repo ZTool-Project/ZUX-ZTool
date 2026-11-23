@@ -288,6 +288,13 @@ object SearchIndex {
         requiresPackage = ScopeKeys.SETTINGS.packageName
     )
 
+    private val settingsFontManager = Screen(
+        route = HiddenRoute.SETTINGS_DETAIL_FONT_MANAGER,
+        groupTitleRes = R.string.settings_app_name,
+        groupSuffixRes = R.string.settings_font_manager_title_suffix,
+        requiresPackage = ScopeKeys.SETTINGS.packageName
+    )
+
     private val gameTool = Screen(
         route = FeatureDestination.GameTool.route,
         groupTitleRes = R.string.game_tool_app_name,
@@ -1143,9 +1150,22 @@ object SearchIndex {
             summaryRes = R.string.settings_split_screen_mandatory_summary
         ),
         settingsDetail.item(
-            id = "settings_detail_import_font",
+            id = "settings_detail_font_manager",
+            titleRes = R.string.settings_font_manager_title,
+            summaryRes = R.string.settings_font_manager_summary,
+            keywords = listOf("font", "ttf", "otf", "字体", "导入字体")
+        ),
+        settingsFontManager.item(
+            id = "settings_font_manager_import",
             titleRes = R.string.settings_import_font_title,
-            summaryRes = R.string.settings_import_font_summary
+            summaryRes = R.string.settings_import_font_summary,
+            keywords = listOf("font", "ttf", "otf", "导入")
+        ),
+        settingsFontManager.item(
+            id = "settings_font_manager_restore_default",
+            titleRes = R.string.settings_font_manager_restore_default_title,
+            summaryRes = R.string.settings_font_manager_restore_default_summary,
+            keywords = listOf("default", "restore", "font", "默认字体", "还原")
         ),
         settingsDetail.item(
             id = "settings_detail_about_device_info_master",
