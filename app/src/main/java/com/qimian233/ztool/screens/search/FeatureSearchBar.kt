@@ -69,6 +69,7 @@ import com.qimian233.ztool.ui.components.LocalSearchOverlayState
 import com.qimian233.ztool.ui.theme.FrontendStyle
 import com.qimian233.ztool.ui.theme.LocalZToolColorScheme
 import com.qimian233.ztool.ui.theme.LocalZToolThemeSpec
+import com.qimian233.ztool.ui.theme.ZToolFontFamilyTextStyle
 
 /** Docked feature search bar shared by the Features and Settings tabs. */
 @Composable
@@ -257,7 +258,8 @@ private fun MiuixFeatureSearchBar(
                 onSearch = { onExpandedChange(false) },
                 expanded = expanded,
                 onExpandedChange = onExpandedChange,
-                label = stringResource(R.string.search_hint)
+                label = stringResource(R.string.search_hint),
+                textStyle = ZToolFontFamilyTextStyle
             )
         },
         expanded = expanded,

@@ -75,6 +75,23 @@ Do not change it back to `FontFamily.Default`.
 - Upgrade risk: `emptyCacheFontFamilyResolver` is internal API; re-check after Compose
   `ui-text` upgrades.
 
+## Library styles without a family
+
+Any `TextStyle` whose `fontFamily` is unset falls back to `FontFamily.Default` and thus to
+the stale `Typeface.DEFAULT`. Overriding the theme text styles does not cover components
+that build a raw `TextStyle` internally.
+
+- Scan of `miuix-ui-android 0.9.3` for `TextStyle.<init>` outside `TextStylesKt`:
+  `SearchBarKt.InputField` (label: `TextStyle(fontSize, Medium).merge(textStyle)`),
+  `PullToRefreshDefaults.getRefreshTextStyle`, `SnackbarKt.Snackbar`. Only `InputField`
+  is used by ZTool; its `textStyle` defaults to `null`.
+- Fix: both Miuix `InputField` call sites pass `textStyle = ZToolFontFamilyTextStyle`
+  (`TextStyle(fontFamily = ZToolDefaultFontFamily)`), which the input text and the label
+  both merge.
+- Rejected: wrapping `FontFamily.Resolver` to map `Default` to `SansSerif` globally —
+  the interface is sealed outside `ui-text`.
+- Re-run the scan when adopting `PullToRefresh` or `Snackbar`, or after a Miuix upgrade.
+
 ## Weight note
 
 The tested theme TTF is a static font (`OS/2.usWeightClass = 500`, no `fvar`), so heavier

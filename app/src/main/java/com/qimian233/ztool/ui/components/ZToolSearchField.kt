@@ -22,6 +22,7 @@ import androidx.compose.ui.res.stringResource
 import com.qimian233.ztool.R
 import com.qimian233.ztool.ui.theme.FrontendStyle
 import com.qimian233.ztool.ui.theme.LocalZToolThemeSpec
+import com.qimian233.ztool.ui.theme.ZToolFontFamilyTextStyle
 
 /** A themed search input for content with an inline result list. */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
@@ -46,7 +47,8 @@ fun ZToolSearchField(
             expanded = expanded,
             onExpandedChange = { expanded = it },
             modifier = modifier.fillMaxWidth(),
-            label = placeholder
+            label = placeholder,
+            textStyle = ZToolFontFamilyTextStyle
         )
         return
     }

@@ -7,6 +7,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.InternalTextApi
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.font.emptyCacheFontFamilyResolver
@@ -31,6 +32,10 @@ internal fun rememberThemeFontFamilyResolver(): FontFamily.Resolver {
     }
     return remember(context, themedSansSerif) { emptyCacheFontFamilyResolver(context) }
 }
+
+/** Family-only style for library parameters that otherwise build styles without a family. */
+// The Miuix InputField label is a raw TextStyle merged with its textStyle parameter.
+val ZToolFontFamilyTextStyle: TextStyle = TextStyle(fontFamily = ZToolDefaultFontFamily)
 
 /** Builds Miuix [TextStyles] with [fontFamily] applied across every slot. */
 internal fun buildZToolMiuixTextStyles(
