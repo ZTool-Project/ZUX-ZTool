@@ -123,7 +123,7 @@ class DocumentsUIBypass : AppHookModule() {
                 Uri::class.java
             )
             hookWithId(method, "bypass_preemptive_restriction") {
-                return@hookWithId false
+                false
             }
         } catch (_: Exception) {}
     }
