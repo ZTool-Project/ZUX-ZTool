@@ -1,13 +1,14 @@
 package com.qimian233.ztool.hook.modules.documentsui
 
 import android.annotation.SuppressLint
-import android.os.Build
+import android.net.Uri
 import android.view.View
 import android.widget.Button
 import com.qimian233.ztool.data.keys.PreferenceKeys
 import com.qimian233.ztool.data.keys.ScopeKeys
 import com.qimian233.ztool.hook.base.AppHookModule
 import io.github.libxposed.api.XposedModuleInterface.PackageLoadedParam
+import java.lang.reflect.Method
 
 /**
  * Android file picker (DocumentsUI) restriction bypass module.
@@ -25,6 +26,7 @@ class DocumentsUIBypass : AppHookModule() {
         logger.debug("Loading DocumentsUI restriction bypass module...")
         hookDocumentInfo(classLoader)
         hookPickFragment(classLoader)
+        hookPreemptiveRestriction(classLoader)
     }
 
     /**
@@ -109,5 +111,20 @@ class DocumentsUIBypass : AppHookModule() {
         } catch (t: Throwable) {
             logger.error("Failed to hook PickFragment", t)
         }
+    }
+
+    private fun hookPreemptiveRestriction(classLoader: ClassLoader) {
+        try {
+            val cls: Class<*> =
+                classLoader.loadClass("com.android.documentsui.picker.ActionHandler")
+            val method: Method = findMethod(
+                cls,
+                "shouldPreemptivelyRestrictRequestedInitialUri",
+                Uri::class.java
+            )
+            hookWithId(method, "bypass_preemptive_restriction") {
+                return@hookWithId false
+            }
+        } catch (_: Exception) {}
     }
 }
