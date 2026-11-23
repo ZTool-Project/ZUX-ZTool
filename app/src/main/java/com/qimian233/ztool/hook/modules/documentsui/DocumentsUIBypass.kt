@@ -1,6 +1,7 @@
 package com.qimian233.ztool.hook.modules.documentsui
 
 import android.annotation.SuppressLint
+import android.os.Build
 import android.view.View
 import android.widget.Button
 import com.qimian233.ztool.data.keys.PreferenceKeys
@@ -66,10 +67,13 @@ class DocumentsUIBypass : AppHookModule() {
      * Hook the PickFragment class to force-enable the pick button and hide the overlay.
      */
     private fun hookPickFragment(classLoader: ClassLoader) {
-        val pickFragmentClass = "com.android.documentsui.picker.PickFragment"
 
         try {
-            val pickFragClass = classLoader.loadClass(pickFragmentClass)
+            val pickFragClass = try {
+                classLoader.loadClass("com.android.documentsui.picker.PickDirectoryFragment")
+            } catch (_: ClassNotFoundException) {
+                classLoader.loadClass("com.android.documentsui.picker.PickFragment")
+            }
 
             // Hook the updateView method to force-modify control states after UI update
             val updateViewMethod = pickFragClass.getDeclaredMethod("updateView")
@@ -84,7 +88,7 @@ class DocumentsUIBypass : AppHookModule() {
                     if (mPick is Button) {
                         mPick.isEnabled = true
                     }
-                } catch (_: NoSuchFieldError) {
+                } catch (_: NoSuchFieldException) {
                     // Ignore missing field
                 }
 
@@ -96,7 +100,7 @@ class DocumentsUIBypass : AppHookModule() {
                     if (mPickOverlay is View) {
                         mPickOverlay.visibility = View.GONE // View.GONE = 8
                     }
-                } catch (_: NoSuchFieldError) {
+                } catch (_: NoSuchFieldException) {
                     // Ignore missing field
                 }
                 result
