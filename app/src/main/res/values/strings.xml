@@ -1564,4 +1564,7 @@
     <string name="ztool_app_info_header_summary" tools:ignore="UnusedResources">包名: %1$s\nminSDK %2$d / target %3$d\n首次安装: %4$s\n最后更新: %5$s\n安装自: %6$s</string>
     <string name="ztool_app_info_header_unknown_label" tools:ignore="UnusedResources">未知</string>
     <string name="ztool_app_info_header_copied_message" tools:ignore="UnusedResources">已复制到剪贴板</string>
+    <string name="system_ui_animation_wallpaper_zoom_title">壁纸缩放</string>
+    <string name="system_ui_animation_shade_wallpaper_zoom_title">壁纸跟随下拉进度缩放</string>
+    <string name="system_ui_animation_shade_wallpaper_zoom_summary">控制中心与通知中心下拉时随展开进度实时缩放壁纸。需同时勾选系统框架与系统界面作用域，并重启设备使更改生效。</string>
 </resources>

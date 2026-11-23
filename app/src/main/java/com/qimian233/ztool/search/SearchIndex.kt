@@ -861,6 +861,11 @@ object SearchIndex {
             parentTitleRes = R.string.system_ui_animation_desktop_live_wallpaper_title,
             parentKey = "animation_desktop_live_wallpaper"
         ),
+        systemUiAnimationWallpaper.item(
+            id = "animation_shade_wallpaper_zoom",
+            titleRes = R.string.system_ui_animation_shade_wallpaper_zoom_title,
+            summaryRes = R.string.system_ui_animation_shade_wallpaper_zoom_summary
+        ),
 
         systemUiMisc.item(
             id = "system_ui_misc_disable_guest_user",

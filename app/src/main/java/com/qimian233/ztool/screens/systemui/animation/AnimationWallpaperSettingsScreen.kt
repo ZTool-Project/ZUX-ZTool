@@ -159,6 +159,7 @@ fun AnimationWallpaperSettingsRoute(
             onChargeAnimDurationMsChanged = viewModel::setChargeAnimDurationMs,
             onDesktopLiveWallpaperChanged = viewModel::setDesktopLiveWallpaper,
             onWallpaperScaleModeChanged = viewModel::setWallpaperScaleMode,
+            onShadeWallpaperZoomFollowChanged = viewModel::setShadeWallpaperZoomFollow,
             onRestartScope = viewModel::showRestartDialog,
             onSelectPortraitVideo = { portraitVideoLauncher.launch(arrayOf("video/*")) },
             onSelectLandVideo = { landVideoLauncher.launch(arrayOf("video/*")) },
@@ -210,6 +211,7 @@ private fun AnimationWallpaperSettingsScreen(
     onChargeAnimDurationMsChanged: (Int) -> Unit,
     onDesktopLiveWallpaperChanged: (Boolean) -> Unit,
     onWallpaperScaleModeChanged: (String) -> Unit,
+    onShadeWallpaperZoomFollowChanged: (Boolean) -> Unit,
     onRestartScope: () -> Unit,
     onSelectPortraitVideo: () -> Unit,
     onSelectLandVideo: () -> Unit,
@@ -263,6 +265,7 @@ private fun AnimationWallpaperSettingsScreen(
                         onChargeAnimDurationMsChanged = onChargeAnimDurationMsChanged,
                         onDesktopLiveWallpaperChanged = onDesktopLiveWallpaperChanged,
                         onWallpaperScaleModeChanged = onWallpaperScaleModeChanged,
+                        onShadeWallpaperZoomFollowChanged = onShadeWallpaperZoomFollowChanged,
                         onSelectPortraitVideo = onSelectPortraitVideo,
                         onSelectLandVideo = onSelectLandVideo,
                         onSelectWpPortraitVideo = onSelectWpPortraitVideo,
@@ -286,6 +289,7 @@ private fun animationWallpaperSettingsSections(
     onChargeAnimDurationMsChanged: (Int) -> Unit,
     onDesktopLiveWallpaperChanged: (Boolean) -> Unit,
     onWallpaperScaleModeChanged: (String) -> Unit,
+    onShadeWallpaperZoomFollowChanged: (Boolean) -> Unit,
     onSelectPortraitVideo: () -> Unit,
     onSelectLandVideo: () -> Unit,
     onSelectWpPortraitVideo: () -> Unit,
@@ -434,6 +438,16 @@ private fun animationWallpaperSettingsSections(
         }
     }
 
+    val wallpaperZoomItems = listOf(
+        SettingItem.Switch(
+            title = stringResource(R.string.system_ui_animation_shade_wallpaper_zoom_title),
+            summary = stringResource(R.string.system_ui_animation_shade_wallpaper_zoom_summary),
+            checked = state.shadeWallpaperZoomFollow,
+            onCheckedChange = onShadeWallpaperZoomFollowChanged,
+            key = "animation_shade_wallpaper_zoom"
+        )
+    )
+
     return listOf(
         SettingSection(
             title = stringResource(R.string.system_ui_animation_no_charging_animation_title),
@@ -442,6 +456,10 @@ private fun animationWallpaperSettingsSections(
         SettingSection(
             title = stringResource(R.string.system_ui_animation_desktop_live_wallpaper_title),
             items = desktopWallpaperItems
+        ),
+        SettingSection(
+            title = stringResource(R.string.system_ui_animation_wallpaper_zoom_title),
+            items = wallpaperZoomItems
         )
     )
 }

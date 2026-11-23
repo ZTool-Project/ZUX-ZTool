@@ -99,6 +99,7 @@ import com.qimian233.ztool.hook.modules.systemframework.PackageManagerSharedUser
 import com.qimian233.ztool.hook.modules.systemframework.PackageManagerSignatureBypassHook
 import com.qimian233.ztool.hook.modules.systemframework.PackageManagerVerificationAgentHook
 import com.qimian233.ztool.hook.modules.systemframework.PenHapticWaveformRedirectHook
+import com.qimian233.ztool.hook.modules.systemframework.ShadeWallpaperZoomSystemHook
 import com.qimian233.ztool.hook.modules.systemframework.UnlockOvCommonAppListHook
 import com.qimian233.ztool.hook.modules.systemframework.VolumeKeyNonlinearRamp
 import com.qimian233.ztool.hook.modules.systemframework.WorkModePortrait
@@ -142,6 +143,7 @@ import com.qimian233.ztool.hook.modules.systemui.statusbar.StatusBarClockSeconds
 import com.qimian233.ztool.hook.modules.systemui.statusbar.SystemUIBatteryHook
 import com.qimian233.ztool.hook.modules.systemui.statusbar.SystemUINetworkSpeedHook
 import com.qimian233.ztool.hook.modules.systemui.wallpaper.DesktopLiveWallpaperHook
+import com.qimian233.ztool.hook.modules.systemui.wallpaper.ShadeWallpaperZoomFollowHook
 import com.qimian233.ztool.hook.modules.wallpaper.ChargeAnimationFixModule
 import com.qimian233.ztool.hook.modules.zuiui.ZuiDialogSkinHook
 import com.qimian233.ztool.hook.modules.zuiui.ZuiLoadingIndicatorHook
@@ -219,6 +221,7 @@ object HookManager {
         registerHookModule(DisableGameAudio())
         registerHookModule(HalfWidthPunctHook())
         registerHookModule(AiInputExpand())
+        registerHookModule(ShadeWallpaperZoomSystemHook())
 
         // Package manager core patches
         registerHookModule(PackageManagerDowngradeHook())
@@ -276,6 +279,7 @@ object HookManager {
         registerHookModule(MediaOutputDialogCenterHook())
         registerHookModule(MediaOutputDialogColorHook())
         registerHookModule(DesktopLiveWallpaperHook())
+        registerHookModule(ShadeWallpaperZoomFollowHook())
 
         // Freeform window chrome
         registerHookModule(FreeformFullscreenThresholdHook())

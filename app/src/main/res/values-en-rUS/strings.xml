@@ -1509,4 +1509,7 @@
     <string name="ztool_app_info_header_summary" tools:ignore="UnusedResources">Package Name: %1$s\nminSDK %2$d / target %3$d\nFirst Installed: %4$s\nLast Updated: %5$s\nSource: %6$s</string>
     <string name="ztool_app_info_header_unknown_label" tools:ignore="UnusedResources">Unknown</string>
     <string name="ztool_app_info_header_copied_message" tools:ignore="UnusedResources">Copied to clipboard</string>
+    <string name="system_ui_animation_wallpaper_zoom_title">Wallpaper Zoom</string>
+    <string name="system_ui_animation_shade_wallpaper_zoom_title">Wallpaper Zoom Follows Shade</string>
+    <string name="system_ui_animation_shade_wallpaper_zoom_summary">Scale the wallpaper continuously with the control center and notification shade expansion progress. Requires both System Framework and SystemUI scopes; reboot the device to take effect.</string>
 </resources>

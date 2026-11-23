@@ -25,6 +25,7 @@ class AnimationWallpaperSettingsRepository(private val context: Context) {
             wallpaperScaleMode = prefsUtils.loadStringSetting(
                 KEY_WP_SCALE_MODE, PreferenceKeys.DESKTOP_LIVE_WALLPAPER_SCALE_MODE.default
             ),
+            shadeWallpaperZoomFollow = prefsUtils.loadBooleanSetting(KEY_SHADE_WALLPAPER_ZOOM_FOLLOW, false),
         )
     }
 
@@ -41,6 +42,8 @@ class AnimationWallpaperSettingsRepository(private val context: Context) {
         )
     fun saveDesktopLiveWallpaper(enabled: Boolean) = prefsUtils.saveBooleanSetting(KEY_DESKTOP_LIVE_WP, enabled)
     fun saveWallpaperScaleMode(mode: String) = prefsUtils.saveStringSetting(KEY_WP_SCALE_MODE, mode)
+    fun saveShadeWallpaperZoomFollow(enabled: Boolean) =
+        prefsUtils.saveBooleanSetting(KEY_SHADE_WALLPAPER_ZOOM_FOLLOW, enabled)
 
     fun saveVideo(uri: Uri, fileName: String): Boolean {
         try {
@@ -83,6 +86,7 @@ class AnimationWallpaperSettingsRepository(private val context: Context) {
         const val CHARGE_ANIM_DURATION_MAX_MS = 15000
         private val KEY_DESKTOP_LIVE_WP = PreferenceKeys.DESKTOP_LIVE_WALLPAPER.name
         private val KEY_WP_SCALE_MODE = PreferenceKeys.DESKTOP_LIVE_WALLPAPER_SCALE_MODE.name
+        private val KEY_SHADE_WALLPAPER_ZOOM_FOLLOW = PreferenceKeys.SHADE_WALLPAPER_ZOOM_FOLLOW.name
     }
 }
 
@@ -94,6 +98,7 @@ data class AnimationWallpaperSettingsUiState(
     val chargeAnimDurationMs: Int = 3500,
     val desktopLiveWallpaper: Boolean = false,
     val wallpaperScaleMode: String = "fit",
+    val shadeWallpaperZoomFollow: Boolean = false,
     val isRestartProcessing: Boolean = false,
     val showRestartDialog: Boolean = false
 )
