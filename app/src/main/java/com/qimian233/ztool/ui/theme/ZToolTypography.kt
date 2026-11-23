@@ -1,8 +1,15 @@
 package com.qimian233.ztool.ui.theme
 
+import android.graphics.Typeface
 import androidx.compose.material3.Typography
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.InternalTextApi
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.emptyCacheFontFamilyResolver
 import top.yukonga.miuix.kmp.theme.TextStyles
 import top.yukonga.miuix.kmp.theme.defaultTextStyles
 
@@ -10,6 +17,20 @@ import top.yukonga.miuix.kmp.theme.defaultTextStyles
 // Must stay SansSerif: Default resolves to a stale Typeface.DEFAULT on ZUI theme fonts.
 // See docs/research/zui_theme_font_compose_bridge.md
 val ZToolDefaultFontFamily: FontFamily = FontFamily.SansSerif
+
+/** Returns a font resolver that is replaced whenever the ZUI theme font changes. */
+// Compose's shared resolver caches typefaces process-wide, so a theme font switch would
+// otherwise only show after a restart. See docs/research/zui_theme_font_compose_bridge.md
+@OptIn(InternalTextApi::class)
+@Composable
+internal fun rememberThemeFontFamilyResolver(): FontFamily.Resolver {
+    val context = LocalContext.current
+    val configuration = LocalConfiguration.current
+    val themedSansSerif = remember(configuration) {
+        Typeface.create(FontFamily.SansSerif.name, Typeface.NORMAL)
+    }
+    return remember(context, themedSansSerif) { emptyCacheFontFamilyResolver(context) }
+}
 
 /** Builds Miuix [TextStyles] with [fontFamily] applied across every slot. */
 internal fun buildZToolMiuixTextStyles(

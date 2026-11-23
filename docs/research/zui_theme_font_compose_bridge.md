@@ -51,6 +51,30 @@ The font file is mapped into the ZTool process (`/proc/<pid>/maps` contains
 `ZToolDefaultFontFamily` (`ui/theme/ZToolTypography.kt`) is `FontFamily.SansSerif`.
 Do not change it back to `FontFamily.Default`.
 
+## Runtime font switch (hot switch)
+
+- A ZUI font change is delivered as a configuration change with the ZUI-specific diff bit
+  `0x80000`. `ConfigurationController.handleConfigurationChangedInner` calls
+  `zui.themes.ThemeConfig.handleConfigurationChanged`, which on that bit runs
+  `Canvas.freeCaches()`, `Canvas.freeTextLayoutCaches()` and `Typeface.setThemeFont()`
+  in the app process. `MainActivity` does not declare that bit, so it is relaunched in
+  the same process (`wm_relaunch_resume_activity ... 80000`).
+- Compose's default `FontFamily.Resolver` uses the process-wide
+  `GlobalTypefaceRequestCache` (`LruCache(16)` keyed by family/weight/style/synthesis).
+  The recreated composition therefore still gets the old `Typeface` for
+  `FontFamily.SansSerif`; only a process restart cleared it.
+- Fix: `rememberThemeFontFamilyResolver()` provides `LocalFontFamilyResolver` with
+  `emptyCacheFontFamilyResolver(context)` (own cache, `@InternalTextApi`), re-created when
+  `Typeface.create("sans-serif", NORMAL)` returns a different instance, i.e. after
+  `setThemeFont()` replaced `sSystemFontMap["customize-family"]`. It is keyed on
+  `LocalConfiguration` so the in-place `onConfigurationChanged` path is covered too.
+- Rejected: `FontFamily(Typeface)` (`LoadedFontFamily`) changes the cache key, but
+  `AndroidTypefaceWrapper.getNativeTypeface` ignores the requested weight.
+- Verified 2026-11-24: switching ZukChinese → custom → ZukChinese with ZTool in the
+  foreground updates the UI each time without a process restart.
+- Upgrade risk: `emptyCacheFontFamilyResolver` is internal API; re-check after Compose
+  `ui-text` upgrades.
+
 ## Weight note
 
 The tested theme TTF is a static font (`OS/2.usWeightClass = 500`, no `fvar`), so heavier

@@ -20,6 +20,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFontFamilyResolver
 import com.qimian233.ztool.data.theme.ThemePreferencesRepository
 import top.yukonga.miuix.kmp.theme.Colors
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -143,6 +144,7 @@ fun ZToolTheme(
     }
     // The Miuix Scaffold stretches platform dialog windows; apply only its theme there.
     val useMiuixScaffold = isMiuixStyle && !isPlatformDialog
+    val fontFamilyResolver = rememberThemeFontFamilyResolver()
     val miuixTextStyles = remember { buildZToolMiuixTextStyles() }
     val materialTypography = remember(effectiveSettings.frontendStyle, miuixTextStyles) {
         buildZToolTypography(
@@ -159,7 +161,8 @@ fun ZToolTheme(
         ) {
             CompositionLocalProvider(
                 LocalZToolColorScheme provides colorScheme,
-                LocalContentColor provides colorScheme.onBackground
+                LocalContentColor provides colorScheme.onBackground,
+                LocalFontFamilyResolver provides fontFamilyResolver
             ) {
                 MiuixTheme(
                     colors = miuixColors,
