@@ -7,7 +7,9 @@ import top.yukonga.miuix.kmp.theme.TextStyles
 import top.yukonga.miuix.kmp.theme.defaultTextStyles
 
 /** Shared font family applied across both Material3 Expressive and Miuix themes. */
-val ZToolDefaultFontFamily: FontFamily = FontFamily.Default
+// Must stay SansSerif: Default resolves to a stale Typeface.DEFAULT on ZUI theme fonts.
+// See docs/research/zui_theme_font_compose_bridge.md
+val ZToolDefaultFontFamily: FontFamily = FontFamily.SansSerif
 
 /** Builds Miuix [TextStyles] with [fontFamily] applied across every slot. */
 internal fun buildZToolMiuixTextStyles(
