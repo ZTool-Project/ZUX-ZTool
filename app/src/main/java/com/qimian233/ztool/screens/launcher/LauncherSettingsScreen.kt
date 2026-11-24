@@ -34,6 +34,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import com.qimian233.ztool.R
+import com.qimian233.ztool.data.keys.WallpaperZoomModes
 import com.qimian233.ztool.data.launcher.IconPackInfo
 import com.qimian233.ztool.data.launcher.LauncherPreviewRepository
 import com.qimian233.ztool.data.launcher.LauncherRestartResult
@@ -753,7 +754,8 @@ private fun launcherSettingsSections(
                 wallpaperZoomModeDropdown(
                     selectedMode = state.quickstepWallpaperZoomMode,
                     onModeSelected = onQuickstepWallpaperZoomModeChanged,
-                    key = "launcher_quickstep_wallpaper_zoom_mode"
+                    key = "launcher_quickstep_wallpaper_zoom_mode",
+                    options = WallpaperZoomModes.quickstepEntries
                 )
             )
         }

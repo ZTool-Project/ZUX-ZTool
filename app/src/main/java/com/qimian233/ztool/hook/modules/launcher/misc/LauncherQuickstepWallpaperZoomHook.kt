@@ -10,17 +10,15 @@ import com.qimian233.ztool.data.keys.PreferenceKeys
 import com.qimian233.ztool.data.keys.ScopeKeys
 import com.qimian233.ztool.data.keys.WallpaperZoomModes
 import com.qimian233.ztool.hook.base.AppHookModule
-import com.qimian233.ztool.hook.base.WallpaperZoomSpring
 import io.github.libxposed.api.XposedModuleInterface.PackageLoadedParam
-import java.lang.ref.WeakReference
 import java.lang.reflect.Field
 import java.lang.reflect.Method
 import kotlin.math.abs
 import kotlin.math.max
 
 /**
- * Controls QuickStep Recents wallpaper zoom in ZUX Launcher across four active modes:
- * continuous, continuous with overshoot bounce, gesture-start trigger, or disabled.
+ * Controls QuickStep Recents wallpaper zoom in ZUX Launcher across three active modes:
+ * continuous, gesture-start trigger, or disabled.
  */
 @SuppressLint("PrivateApi")
 class LauncherQuickstepWallpaperZoomHook : AppHookModule() {
@@ -28,34 +26,11 @@ class LauncherQuickstepWallpaperZoomHook : AppHookModule() {
     private var lastSentProgress = 0f
     private var homeDragActive = false
     private var bridgeStartProgress = 0f
-    private var impactTriggered = false
-    private var lastObservedProgress = 0f
-    private var lastObservedTimeNanos = 0L
-    private var instantVelocity = 0f
     private var cachedWallpaperManager: WallpaperManager? = null
     private var setWallpaperZoomOutMethod: Method? = null
-    private var weakLauncherActivity: WeakReference<Activity>? = null
 
     private val suppressZoomDepth = object : ThreadLocal<Int>() {
         override fun initialValue(): Int = 0
-    }
-
-    private val spring = WallpaperZoomSpring { progress ->
-        val activity = weakLauncherActivity?.get()
-        if (activity == null || !isEnabled() || currentMode() != WallpaperZoomModes.CONTINUOUS_BOUNCE) {
-            cancelSpring()
-            return@WallpaperZoomSpring
-        }
-        try {
-            dispatchZoom(activity, progress)
-        } catch (t: Throwable) {
-            cancelSpring()
-            logger.error("Failed to update launcher wallpaper zoom spring", t)
-        }
-    }
-
-    private fun cancelSpring() {
-        spring.cancel()
     }
 
     override fun getModuleName(): String = PreferenceKeys.LAUNCHER_QUICKSTEP_WALLPAPER_ZOOM.name
@@ -169,7 +144,7 @@ class LauncherQuickstepWallpaperZoomHook : AppHookModule() {
                 val method = findMethod(launcherStateClass, "onStateEnabled", statefulActivityClass)
                 hookWithId(method, "launcher_quickstep_suppress_normal") { chain ->
                     val result = withZoomSuppressed { chain.proceed() }
-                    if (isEnabled() && WallpaperZoomModes.isContinuous(currentMode())) {
+                    if (isEnabled() && currentMode() == WallpaperZoomModes.CONTINUOUS) {
                         val state = chain.thisObject
                         val activity = chain.getArg(0) as? Activity
                         val ordinal = if (state != null && ordinalField != null) {
@@ -178,12 +153,8 @@ class LauncherQuickstepWallpaperZoomHook : AppHookModule() {
                             -1
                         }
                         if (ordinal == ORDINAL_NORMAL && activity != null) {
-                            spring.cancel()
                             homeDragActive = false
                             bridgeStartProgress = 0f
-                            impactTriggered = false
-                            instantVelocity = 0f
-                            lastObservedTimeNanos = 0L
                             dispatchZoom(activity, 0f)
                         }
                     }
@@ -240,7 +211,7 @@ class LauncherQuickstepWallpaperZoomHook : AppHookModule() {
             )
             hookWithId(draggingMethod, "launcher_quickstep_suppress_quickswitch") { chain ->
                 val result = withZoomSuppressed { chain.proceed() }
-                if (!isEnabled() || !WallpaperZoomModes.isContinuous(currentMode())) {
+                if (!isEnabled() || currentMode() != WallpaperZoomModes.CONTINUOUS) {
                     return@hookWithId result
                 }
                 val detector = chain.thisObject ?: return@hookWithId result
@@ -249,7 +220,6 @@ class LauncherQuickstepWallpaperZoomHook : AppHookModule() {
                 val launcher = mLauncherField.get(listener) as? Activity ?: return@hookWithId result
                 val xRange = mXRangeField?.getFloat(listener) ?: 0f
                 if (xRange > 0f) {
-                    weakLauncherActivity = WeakReference(launcher)
                     val progress = (max(0f, point.x) / xRange).coerceIn(0f, 1f)
                     dispatchZoom(launcher, progress)
                 }
@@ -271,11 +241,6 @@ class LauncherQuickstepWallpaperZoomHook : AppHookModule() {
             val handlingOverviewMethod = findMethod(ctrlClass, "handlingOverviewAnim")
             val mLauncherField = findField(ctrlClass, "mLauncher")
             val mStartedOverviewField = findField(ctrlClass, "mStartedOverview")
-            val mReachedOverviewField = optionalField(ctrlClass, "mReachedOverview")
-            val mStartDisplacementField = optionalField(ctrlClass, "mStartDisplacement")
-            val mStartYField = optionalField(ctrlClass, "mStartY")
-            val mMotionPauseField = optionalField(ctrlClass, "mMotionPauseDetector")
-            val isPausedMethod = mMotionPauseField?.type?.let { findMethod(it, "isPaused") }
 
             val onDragStartMethod = findMethod(
                 ctrlClass,
@@ -288,7 +253,6 @@ class LauncherQuickstepWallpaperZoomHook : AppHookModule() {
                 if (!isEnabled()) return@hookWithId result
                 val ctrl = chain.thisObject ?: return@hookWithId result
                 val launcher = mLauncherField.get(ctrl) as? Activity ?: return@hookWithId result
-                weakLauncherActivity = WeakReference(launcher)
                 if (!(handlingOverviewMethod.invoke(ctrl) as Boolean)) {
                     return@hookWithId result
                 }
@@ -299,13 +263,9 @@ class LauncherQuickstepWallpaperZoomHook : AppHookModule() {
                             zoomUtilsZoomMethod.invoke(it, true)
                         }
                     }
-                } else if (WallpaperZoomModes.isContinuous(mode)) {
-                    spring.cancel()
+                } else if (mode == WallpaperZoomModes.CONTINUOUS) {
                     homeDragActive = true
                     bridgeStartProgress = 0f
-                    impactTriggered = false
-                    instantVelocity = 0f
-                    lastObservedTimeNanos = 0L
                 }
                 result
             }
@@ -317,7 +277,7 @@ class LauncherQuickstepWallpaperZoomHook : AppHookModule() {
             )
             hookWithId(updateProgressMethod, "launcher_quickstep_home_progress") { chain ->
                 val result = chain.proceed()
-                if (!isEnabled() || !WallpaperZoomModes.isContinuous(currentMode())) {
+                if (!isEnabled() || currentMode() != WallpaperZoomModes.CONTINUOUS) {
                     return@hookWithId result
                 }
                 val ctrl = chain.thisObject ?: return@hookWithId result
@@ -328,40 +288,7 @@ class LauncherQuickstepWallpaperZoomHook : AppHookModule() {
                     val f = chain.getArg(0) as Float
                     val mapped = (f * 3.0f).coerceIn(0f, 0.85f)
                     bridgeStartProgress = mapped
-                    recordObservedProgress(mapped)
                     dispatchZoom(launcher, mapped)
-                }
-                result
-            }
-
-            val onDragMethod = findMethod(
-                ctrlClass,
-                "onDrag",
-                Float::class.javaPrimitiveType,
-                Float::class.javaPrimitiveType,
-                MotionEvent::class.java
-            )
-            hookWithId(onDragMethod, "launcher_quickstep_home_overdrag") { chain ->
-                val result = chain.proceed()
-                if (!isEnabled() || currentMode() != WallpaperZoomModes.CONTINUOUS_BOUNCE) {
-                    return@hookWithId result
-                }
-                val ctrl = chain.thisObject ?: return@hookWithId result
-                if (mStartedOverviewField.getBoolean(ctrl) &&
-                    mReachedOverviewField?.getBoolean(ctrl) == true
-                ) {
-                    val startDisp = mStartDisplacementField?.get(ctrl) as? PointF
-                    val startY = mStartYField?.getFloat(ctrl) ?: 0f
-                    if (startDisp != null) {
-                        val displacementY = chain.getArg(0) as Float
-                        val resist = (startDisp.y - displacementY) / startY.coerceAtLeast(1f)
-                        if (resist > 0f) {
-                            val launcher = mLauncherField.get(ctrl) as? Activity
-                            if (launcher != null) {
-                                dispatchZoom(launcher, 1.0f + resist.coerceIn(0f, 1f) * 0.30f)
-                            }
-                        }
-                    }
                 }
                 result
             }
@@ -373,23 +300,8 @@ class LauncherQuickstepWallpaperZoomHook : AppHookModule() {
             )
             hookWithId(onDragEndMethod, "launcher_quickstep_home_drag_end") { chain ->
                 val result = chain.proceed()
-                if (!isEnabled()) return@hookWithId result
-                homeDragActive = false
-                if (currentMode() != WallpaperZoomModes.CONTINUOUS_BOUNCE) {
-                    return@hookWithId result
-                }
-                val ctrl = chain.thisObject ?: return@hookWithId result
-                val pauseDetector = mMotionPauseField?.get(ctrl)
-                val isPaused = if (pauseDetector != null && isPausedMethod != null) {
-                    isPausedMethod.invoke(pauseDetector) as Boolean
-                } else {
-                    false
-                }
-                if (mStartedOverviewField.getBoolean(ctrl) && isPaused) {
-                    val launcher = mLauncherField.get(ctrl) as? Activity ?: return@hookWithId result
-                    weakLauncherActivity = WeakReference(launcher)
-                    val velocity = chain.getArg(0) as Float
-                    maybeStartImpactSpring(launcher, velocity)
+                if (isEnabled()) {
+                    homeDragActive = false
                 }
                 result
             }
@@ -414,14 +326,12 @@ class LauncherQuickstepWallpaperZoomHook : AppHookModule() {
 
             hookWithId(setDepthMethod, "launcher_quickstep_depth_follow") { chain ->
                 val result = chain.proceed()
-                val mode = currentMode()
-                if (!isEnabled() || !WallpaperZoomModes.isContinuous(mode)) {
+                if (!isEnabled() || currentMode() != WallpaperZoomModes.CONTINUOUS) {
                     return@hookWithId result
                 }
                 val ctrl = chain.thisObject ?: return@hookWithId result
                 val activity = mContainerField.get(ctrl) as? Activity ?: return@hookWithId result
-                weakLauncherActivity = WeakReference(activity)
-                if (homeDragActive || spring.isRunning) {
+                if (homeDragActive) {
                     return@hookWithId result
                 }
 
@@ -455,7 +365,7 @@ class LauncherQuickstepWallpaperZoomHook : AppHookModule() {
                 if (depth >= 0.99f || depth <= 0.01f) {
                     bridgeStartProgress = 0f
                 }
-                dispatchContinuousWithImpact(activity, progress, mode)
+                dispatchZoom(activity, progress)
                 result
             }
         } catch (t: Throwable) {
@@ -475,7 +385,6 @@ class LauncherQuickstepWallpaperZoomHook : AppHookModule() {
             val mCurrentShiftField = findField(logicClass, "mCurrentShift")
             val mValueField = findField(mCurrentShiftField.type, "value")
             val mContainerField = findField(absHandlerClass, "mContainer")
-            val mIsMotionPausedField = optionalField(absHandlerClass, "mIsMotionPaused")
 
             val gestureStartedMethod = findMethod(
                 absHandlerClass,
@@ -484,22 +393,15 @@ class LauncherQuickstepWallpaperZoomHook : AppHookModule() {
             )
             hookWithId(gestureStartedMethod, "launcher_quickstep_app_gesture_start") { chain ->
                 val result = chain.proceed()
-                if (!isEnabled()) return@hookWithId result
+                if (!isEnabled() || currentMode() != WallpaperZoomModes.GESTURE_START) {
+                    return@hookWithId result
+                }
                 val handler = chain.thisObject ?: return@hookWithId result
                 val container = mContainerField.get(handler)
-                (container as? Activity)?.let { weakLauncherActivity = WeakReference(it) }
-                val mode = currentMode()
-                if (mode == WallpaperZoomModes.GESTURE_START) {
-                    if (container != null && statefulActivityClass.isInstance(container)) {
-                        getZoomUtilsMethod.invoke(container)?.let {
-                            zoomUtilsZoomMethod.invoke(it, true)
-                        }
+                if (container != null && statefulActivityClass.isInstance(container)) {
+                    getZoomUtilsMethod.invoke(container)?.let {
+                        zoomUtilsZoomMethod.invoke(it, true)
                     }
-                } else if (WallpaperZoomModes.isContinuous(mode)) {
-                    spring.cancel()
-                    impactTriggered = false
-                    instantVelocity = 0f
-                    lastObservedTimeNanos = 0L
                 }
                 result
             }
@@ -511,49 +413,16 @@ class LauncherQuickstepWallpaperZoomHook : AppHookModule() {
             )
             hookWithId(updateDispMethod, "launcher_quickstep_app_swipe_shift") { chain ->
                 val result = chain.proceed()
-                val mode = currentMode()
-                if (!isEnabled() || !WallpaperZoomModes.isContinuous(mode)) {
+                if (!isEnabled() || currentMode() != WallpaperZoomModes.CONTINUOUS) {
                     return@hookWithId result
                 }
                 val logic = chain.thisObject ?: return@hookWithId result
                 if (!absHandlerClass.isInstance(logic)) return@hookWithId result
                 val activity = mContainerField.get(logic) as? Activity ?: return@hookWithId result
-                weakLauncherActivity = WeakReference(activity)
                 val shiftObj = mCurrentShiftField.get(logic) ?: return@hookWithId result
                 val shift = mValueField.getFloat(shiftObj)
                 if (shift.isNaN()) return@hookWithId result
-                val target = if (mode == WallpaperZoomModes.CONTINUOUS_BOUNCE) {
-                    if (shift <= 1f) {
-                        shift.coerceAtLeast(0f)
-                    } else {
-                        (1f + (shift - 1f) * 0.35f).coerceAtMost(1.35f)
-                    }
-                } else {
-                    shift.coerceIn(0f, 1f)
-                }
-                dispatchContinuousWithImpact(activity, target, mode)
-                result
-            }
-
-            val gestureEndedMethod = findMethod(
-                absHandlerClass,
-                "onGestureEnded",
-                Float::class.javaPrimitiveType,
-                PointF::class.java,
-                Boolean::class.javaPrimitiveType
-            )
-            hookWithId(gestureEndedMethod, "launcher_quickstep_app_gesture_end") { chain ->
-                val result = chain.proceed()
-                if (!isEnabled() || currentMode() != WallpaperZoomModes.CONTINUOUS_BOUNCE) {
-                    return@hookWithId result
-                }
-                val handler = chain.thisObject ?: return@hookWithId result
-                if (mIsMotionPausedField?.getBoolean(handler) == true) {
-                    val activity = mContainerField.get(handler) as? Activity ?: return@hookWithId result
-                    weakLauncherActivity = WeakReference(activity)
-                    val velocity = chain.getArg(0) as Float
-                    maybeStartImpactSpring(activity, velocity)
-                }
+                dispatchZoom(activity, shift.coerceIn(0f, 1f))
                 result
             }
         } catch (t: Throwable) {
@@ -571,60 +440,6 @@ class LauncherQuickstepWallpaperZoomHook : AppHookModule() {
             block()
         } finally {
             suppressZoomDepth.set(prev)
-        }
-    }
-
-    private fun recordObservedProgress(progress: Float) {
-        val clamped = progress.coerceAtLeast(0f)
-        if (clamped < 0.85f) {
-            impactTriggered = false
-        }
-        val now = System.nanoTime()
-        if (lastObservedTimeNanos > 0L) {
-            val dt = (now - lastObservedTimeNanos) / 1e9f
-            if (dt in 0.002f..0.1f) {
-                instantVelocity = ((clamped - lastObservedProgress) / dt).coerceAtLeast(0f)
-            }
-        }
-        lastObservedProgress = clamped
-        lastObservedTimeNanos = now
-    }
-
-    private fun dispatchContinuousWithImpact(activity: Activity, target: Float, mode: String) {
-        recordObservedProgress(target)
-        if (mode == WallpaperZoomModes.CONTINUOUS_BOUNCE && spring.isRunning) {
-            return
-        }
-        if (mode == WallpaperZoomModes.CONTINUOUS_BOUNCE &&
-            !impactTriggered &&
-            target >= IMPACT_THRESHOLD &&
-            instantVelocity >= MIN_BOUNCE_VELOCITY
-        ) {
-            impactTriggered = true
-            val impactFrom = max(target, 1.0f)
-            dispatchZoom(activity, impactFrom)
-            spring.start(
-                from = impactFrom,
-                target = 1.0f,
-                velocity = instantVelocity.coerceIn(0f, MAX_NORM_VELOCITY) * VELOCITY_TO_SPRING_SCALE
-            )
-            return
-        }
-        dispatchZoom(activity, target)
-    }
-
-    private fun maybeStartImpactSpring(activity: Activity, velocityPxPerMs: Float) {
-        val screenHeight =
-            (activity.window?.decorView?.height?.takeIf { it > 0 } ?: DEFAULT_SCREEN_HEIGHT).toFloat()
-        // Launcher swipe controllers report velocity in px/ms, so scale to px/s.
-        val normVel = ((abs(velocityPxPerMs) * 1000f) / screenHeight).coerceIn(0f, MAX_NORM_VELOCITY)
-        if (!impactTriggered && (normVel >= MIN_BOUNCE_VELOCITY || lastSentProgress > 1.005f)) {
-            impactTriggered = true
-            spring.start(
-                from = lastSentProgress,
-                target = 1.0f,
-                velocity = normVel * VELOCITY_TO_SPRING_SCALE
-            )
         }
     }
 
@@ -647,7 +462,7 @@ class LauncherQuickstepWallpaperZoomHook : AppHookModule() {
     }
 
     private fun currentMode(): String = try {
-        WallpaperZoomModes.normalize(
+        WallpaperZoomModes.normalizeQuickstep(
             remotePreferences.getString(
                 PreferenceKeys.LAUNCHER_QUICKSTEP_WALLPAPER_ZOOM_MODE.name,
                 PreferenceKeys.LAUNCHER_QUICKSTEP_WALLPAPER_ZOOM_MODE.default
@@ -691,12 +506,7 @@ class LauncherQuickstepWallpaperZoomHook : AppHookModule() {
         private const val ORDINAL_ALL_APPS = 5
         private val OVERVIEW_FAMILY_ORDINALS = setOf(2, 3, 4, 6, 9)
         private val OVERVIEW_BRIDGE_ORDINALS = setOf(2, 3, 4, 9)
-        private const val DEFAULT_SCREEN_HEIGHT = 1800
-        private const val MAX_PROGRESS = 1.55f
+        private const val MAX_PROGRESS = 1.0f
         private const val PROGRESS_DELTA_THRESHOLD = 0.0005f
-        private const val IMPACT_THRESHOLD = 0.995f
-        private const val MIN_BOUNCE_VELOCITY = 0.35f
-        private const val MAX_NORM_VELOCITY = 6.0f
-        private const val VELOCITY_TO_SPRING_SCALE = 2.6f
     }
 }

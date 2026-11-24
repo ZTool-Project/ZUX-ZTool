@@ -83,7 +83,7 @@ class LauncherSettingsRepository(
                 KEY_LAUNCHER_QUICKSTEP_WALLPAPER_ZOOM,
                 false
             ),
-            quickstepWallpaperZoomMode = WallpaperZoomModes.normalize(
+            quickstepWallpaperZoomMode = WallpaperZoomModes.normalizeQuickstep(
                 prefsUtils.loadStringSetting(
                     KEY_LAUNCHER_QUICKSTEP_WALLPAPER_ZOOM_MODE,
                     PreferenceKeys.LAUNCHER_QUICKSTEP_WALLPAPER_ZOOM_MODE.default
@@ -261,7 +261,7 @@ class LauncherSettingsRepository(
     fun saveQuickstepWallpaperZoomMode(mode: String) {
         prefsUtils.saveStringSetting(
             KEY_LAUNCHER_QUICKSTEP_WALLPAPER_ZOOM_MODE,
-            WallpaperZoomModes.normalize(mode)
+            WallpaperZoomModes.normalizeQuickstep(mode)
         )
     }
 

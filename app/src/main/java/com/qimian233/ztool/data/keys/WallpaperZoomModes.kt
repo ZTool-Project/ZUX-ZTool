@@ -9,8 +9,12 @@ object WallpaperZoomModes {
     const val OVERSHOOT_ENCODING_SCALE = 2.0f
 
     val entries: List<String> = listOf(CONTINUOUS, CONTINUOUS_BOUNCE, GESTURE_START, DISABLE)
+    val quickstepEntries: List<String> = listOf(CONTINUOUS, GESTURE_START, DISABLE)
 
     fun normalize(raw: String?): String = if (raw in entries) raw!! else CONTINUOUS
+
+    fun normalizeQuickstep(raw: String?): String =
+        if (raw in quickstepEntries) raw!! else CONTINUOUS
 
     fun isContinuous(mode: String?): Boolean = mode == CONTINUOUS || mode == CONTINUOUS_BOUNCE
 

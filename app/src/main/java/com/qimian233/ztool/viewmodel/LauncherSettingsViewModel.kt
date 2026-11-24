@@ -274,7 +274,7 @@ class LauncherSettingsViewModel(
     }
 
     fun setQuickstepWallpaperZoomMode(mode: String) {
-        val normalized = WallpaperZoomModes.normalize(mode)
+        val normalized = WallpaperZoomModes.normalizeQuickstep(mode)
         _uiState.value = _uiState.value.copy(quickstepWallpaperZoomMode = normalized)
         repository.saveQuickstepWallpaperZoomMode(normalized)
     }
