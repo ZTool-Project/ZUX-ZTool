@@ -13,6 +13,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.HandlerThread
 import android.os.SystemClock
+import com.qimian233.ztool.data.freeform.FreeformAnimContract
 import com.qimian233.ztool.data.freeform.FreeformEdgeBubbleConfig
 import com.qimian233.ztool.data.keys.PreferenceKeys
 import com.qimian233.ztool.data.keys.ScopeKeys
@@ -75,6 +76,7 @@ class FreeformEdgeBubbleHook : SystemHookModule() {
         private val internalMove = ThreadLocal.withInitial { false }
 
         @Volatile private var ztoolUid = -1
+        @Volatile private var systemUiUid = -1
         @Volatile private var atmsHandlesCache: AtmsHandles? = null
         @Volatile private var probeLogEnabled = false
         @Volatile private var hideShowControllerCache: Triple<Any?, Method?, Method?>? = null
@@ -206,9 +208,25 @@ class FreeformEdgeBubbleHook : SystemHookModule() {
             var extras: Bundle? = null
             when (intent.getIntExtra("cmd", -1)) {
                 CMD_MINIMIZE_TASK -> {
-                    val taskId = intent.getIntExtra("task_id", -1)
-                    val side = intent.getIntExtra("side", 0)
-                    result = if (withTaskHandles(classLoader) { doMinimize(it, taskId, side) } == true) 1 else 0
+                    val taskId = intent.getIntExtra(FreeformAnimContract.EXTRA_TASK_ID, -1)
+                    val side = intent.getIntExtra(FreeformAnimContract.EXTRA_SIDE, 0)
+                    val rl = intent.getIntExtra(FreeformAnimContract.EXTRA_RESTORE_LEFT, 0)
+                    val rt = intent.getIntExtra(FreeformAnimContract.EXTRA_RESTORE_TOP, 0)
+                    val rr = intent.getIntExtra(FreeformAnimContract.EXTRA_RESTORE_RIGHT, 0)
+                    val rb = intent.getIntExtra(FreeformAnimContract.EXTRA_RESTORE_BOTTOM, 0)
+                    val restoreBounds = if (rr > rl && rb > rt) Rect(rl, rt, rr, rb) else null
+                    val centerYRatio = intent.getFloatExtra(
+                        FreeformAnimContract.EXTRA_CENTER_Y_RATIO,
+                        Float.NaN
+                    )
+                    val notifyBubble = intent.getBooleanExtra(
+                        FreeformAnimContract.EXTRA_NOTIFY_BUBBLE,
+                        false
+                    )
+                    result = if (withTaskHandles(classLoader) {
+                            doMinimize(it, taskId, side, restoreBounds, centerYRatio, notifyBubble)
+                        } == true
+                    ) 1 else 0
                 }
                 CMD_RESTORE_TASK -> {
                     val taskId = intent.getIntExtra("task_id", -1)
@@ -256,13 +274,21 @@ class FreeformEdgeBubbleHook : SystemHookModule() {
 
         private fun isAllowedCaller(uid: Int, classLoader: ClassLoader): Boolean {
             if (uid == 0 || uid == ADB_SHELL_UID) return true
-            if (uid == ztoolUid) return true
+            if (ztoolUid > 0 && uid == ztoolUid) return true
+            if (systemUiUid > 0 && uid == systemUiUid) return true
             if (uid <= 0) return false
             return try {
                 val context = resolveSystemContext(classLoader) ?: return false
-                val uidResolved = context.packageManager.getPackageUid(ZTOOL_PACKAGE, 0)
-                ztoolUid = uidResolved
-                uid == uidResolved
+                val pm = context.packageManager
+                if (ztoolUid <= 0) {
+                    runCatching { ztoolUid = pm.getPackageUid(ZTOOL_PACKAGE, 0) }
+                }
+                if (systemUiUid <= 0) {
+                    runCatching {
+                        systemUiUid = pm.getPackageUid(ScopeKeys.SYSTEM_UI.packageName, 0)
+                    }
+                }
+                uid == ztoolUid || uid == systemUiUid
             } catch (_: Throwable) {
                 false
             }
@@ -607,13 +633,25 @@ class FreeformEdgeBubbleHook : SystemHookModule() {
         }
     }
 
-    private fun doMinimize(handles: AtmsHandles, taskId: Int, side: Int): Boolean {
+    private fun doMinimize(
+        handles: AtmsHandles,
+        taskId: Int,
+        side: Int,
+        restoreBounds: Rect? = null,
+        centerYRatio: Float = Float.NaN,
+        notifyBubble: Boolean = false
+    ): Boolean {
         val task = findTask(handles, taskId) ?: run {
             logger.warn("minimize: task $taskId not found")
             return false
         }
-        val bounds = getEffectiveBounds(handles, task) ?: return false
-        if (bounds.isEmpty) return false
+        val bounds = if (restoreBounds != null && !restoreBounds.isEmpty) {
+            Rect(restoreBounds)
+        } else {
+            val effective = getEffectiveBounds(handles, task) ?: return false
+            if (effective.isEmpty) return false
+            Rect(effective)
+        }
         restoreRects[taskId] = Rect(bounds)
         minimizedSides[taskId] = side
         if (!isScaledTask(handles, task)) {
@@ -624,6 +662,9 @@ class FreeformEdgeBubbleHook : SystemHookModule() {
             }
         }
         if (dockTaskBehindHome(handles, task)) {
+            if (notifyBubble) {
+                notifyBubbleAdded(task, handles.taskClass, side, centerYRatio)
+            }
             logger.info("minimize task=$taskId side=$side via dockToBack, bounds=$bounds")
             return true
         }
@@ -681,15 +722,6 @@ class FreeformEdgeBubbleHook : SystemHookModule() {
         }
         if (handles.hideShowController != null && handles.bringToFront != null) {
             try {
-                handles.bringToFront.invoke(
-                    handles.hideShowController, task, "ztool_freeform_bubble", null, null
-                )
-            } catch (t: Throwable) {
-                logger.warn(
-                    "bringToFront failed: " + ((t as? InvocationTargetException)?.cause ?: t)
-                )
-            }
-            try {
                 internalMove.set(true)
                 moveTaskBounds(handles, task, target)
             } catch (t: Throwable) {
@@ -698,6 +730,15 @@ class FreeformEdgeBubbleHook : SystemHookModule() {
                 )
             } finally {
                 internalMove.set(false)
+            }
+            try {
+                handles.bringToFront.invoke(
+                    handles.hideShowController, task, "ztool_freeform_bubble", null, null
+                )
+            } catch (t: Throwable) {
+                logger.warn(
+                    "bringToFront failed: " + ((t as? InvocationTargetException)?.cause ?: t)
+                )
             }
             notifyBubbleRemoved(taskId)
             logger.info("restore task=$taskId via bringToFront -> $target")
@@ -929,7 +970,12 @@ class FreeformEdgeBubbleHook : SystemHookModule() {
         }
     }
 
-    private fun notifyBubbleAdded(task: Any, taskClass: Class<*>, side: Int) {
+    private fun notifyBubbleAdded(
+        task: Any,
+        taskClass: Class<*>,
+        side: Int,
+        centerYRatio: Float = Float.NaN
+    ) {
         val taskId = task.taskIdCompat()
         val pkg = try {
             val intent = taskClass.getMethod("getBaseIntent").invoke(task) as? Intent
@@ -940,9 +986,12 @@ class FreeformEdgeBubbleHook : SystemHookModule() {
         if (pkg != null) taskPackages[taskId] = pkg
         minimizedSides[taskId] = side
         sendEvent(EVENT_BUBBLE_ADDED) { intent ->
-            intent.putExtra("task_id", taskId)
-            intent.putExtra("side", side)
+            intent.putExtra(FreeformAnimContract.EXTRA_TASK_ID, taskId)
+            intent.putExtra(FreeformAnimContract.EXTRA_SIDE, side)
             intent.putExtra("pkg", pkg)
+            if (!centerYRatio.isNaN()) {
+                intent.putExtra(FreeformAnimContract.EXTRA_CENTER_Y_RATIO, centerYRatio)
+            }
         }
         logger.info("bubble add task=$taskId side=$side pkg=$pkg")
     }

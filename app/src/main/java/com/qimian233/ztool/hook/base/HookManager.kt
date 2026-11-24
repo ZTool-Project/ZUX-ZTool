@@ -15,6 +15,7 @@ import com.qimian233.ztool.hook.modules.systemui.FreeformBottomEdgeResizeHook
 import com.qimian233.ztool.hook.modules.systemui.FreeformCornerHandleIndicatorHook
 import com.qimian233.ztool.hook.modules.systemui.FreeformEdgeBubbleDragLimitHook
 import com.qimian233.ztool.hook.modules.systemui.FreeformForeheadOverlayHook
+import com.qimian233.ztool.hook.modules.systemui.FreeformNonlinearAnimationHook
 import com.qimian233.ztool.hook.modules.launcher.dockbar.DisableDockBar
 import com.qimian233.ztool.hook.modules.launcher.dockbar.DisableDockBackground
 import com.qimian233.ztool.hook.modules.launcher.dockbar.DisableRecentAppsDisplay
@@ -290,6 +291,7 @@ object HookManager {
         registerHookModule(FreeformCornerHandleIndicatorHook())
         registerHookModule(FreeformEdgeBubbleDragLimitHook())
         registerHookModule(FreeformForeheadOverlayHook())
+        registerHookModule(FreeformNonlinearAnimationHook())
         registerHookModule(PcTaskbarCompactControls())
     }
 

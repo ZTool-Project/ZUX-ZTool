@@ -83,6 +83,11 @@ class SystemUiMiscSettingsViewModel(
         repository.saveFreeformNoForehead(enabled)
     }
 
+    fun setFreeformNonlinearAnim(enabled: Boolean) {
+        _uiState.value = _uiState.value.copy(freeformNonlinearAnim = enabled)
+        repository.saveFreeformNonlinearAnim(enabled)
+    }
+
     fun showRestartDialog() {
         _uiState.value = _uiState.value.copy(showRestartDialog = true)
     }

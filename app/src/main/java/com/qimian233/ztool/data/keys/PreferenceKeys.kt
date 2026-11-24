@@ -63,6 +63,9 @@ object PreferenceKeys {
     // window top and only the 50 dp handle stays touchable
     val SYSTEM_UI_FREEFORM_NO_FOREHEAD =
         BoolKey("system_ui_freeform_no_forehead", false)
+    // Nonlinear spring/easing scale animations for freeform open, close, edge-dock and bubble-restore
+    val SYSTEM_UI_FREEFORM_NONLINEAR_ANIM =
+        BoolKey("system_ui_freeform_nonlinear_anim", false)
     // Sidebar (com.zui.freeform.sidebar) drawer: lifts the host's hard-coded 5-slot
     // limit and switches the drawer to a user-editable order. Module name of
     // SidebarDrawerHook.
@@ -469,6 +472,7 @@ object PreferenceKeys {
         SYSTEM_UI_FREEFORM_BOTTOM_EDGE_RESIZE,
         SYSTEM_UI_CORNER_HANDLE_AUTO_HIDE,
         SYSTEM_UI_FREEFORM_NO_FOREHEAD,
+        SYSTEM_UI_FREEFORM_NONLINEAR_ANIM,
         SIDEBAR_DRAWER_ENHANCE,
         SIDEBAR_DRAWER_EDITABLE,
         SIDEBAR_ALLAPPS_SECTIONS,

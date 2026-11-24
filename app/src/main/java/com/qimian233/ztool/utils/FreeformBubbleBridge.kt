@@ -5,10 +5,13 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.graphics.Rect
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import com.qimian233.ztool.data.freeform.FreeformAnimContract
+import com.qimian233.ztool.data.keys.ScopeKeys
 
 /**
  * App-side client for the freeform edge-bubble bridge inside system_server.
@@ -89,6 +92,46 @@ object FreeformBubbleBridge {
         ) { code, _ -> onResult(code == 1) }
     }
 
+    /** Sends the bubble's screen rect to SystemUI before restoring the task. */
+    fun notifySystemUiRestoreHint(
+        taskId: Int,
+        bubbleRect: Rect,
+        side: Int,
+        onDone: () -> Unit
+    ) {
+        val context = appContext
+        if (context == null) {
+            onDone()
+            return
+        }
+        val intent = Intent(FreeformAnimContract.ACTION_SYSTEMUI_ANIM_CMD)
+            .setPackage(ScopeKeys.SYSTEM_UI.packageName)
+            .apply {
+                putExtra(FreeformAnimContract.EXTRA_CMD, FreeformAnimContract.CMD_PREPARE_RESTORE)
+                putExtra(FreeformAnimContract.EXTRA_TASK_ID, taskId)
+                putExtra(FreeformAnimContract.EXTRA_SIDE, side)
+                putExtra(FreeformAnimContract.EXTRA_BUBBLE_LEFT, bubbleRect.left)
+                putExtra(FreeformAnimContract.EXTRA_BUBBLE_TOP, bubbleRect.top)
+                putExtra(FreeformAnimContract.EXTRA_BUBBLE_RIGHT, bubbleRect.right)
+                putExtra(FreeformAnimContract.EXTRA_BUBBLE_BOTTOM, bubbleRect.bottom)
+            }
+        try {
+            context.sendOrderedBroadcast(
+                intent,
+                null,
+                object : BroadcastReceiver() {
+                    override fun onReceive(ctx: Context, received: Intent) {
+                        onDone()
+                    }
+                },
+                mainHandler, Activity.RESULT_CANCELED, null, null
+            )
+        } catch (t: Throwable) {
+            Log.w(TAG, "notifySystemUiRestoreHint failed: ${t.message}")
+            onDone()
+        }
+    }
+
     fun listMinimized(onResult: (List<MinimizedTask>) -> Unit = {}) {
         sendCommand({ it.putExtra("cmd", 3) }) { code, extras ->
             if (code != 1 || extras == null) {
@@ -156,17 +199,21 @@ object FreeformBubbleBridge {
      */
     fun registerEventReceiver(
         context: Context,
-        onBubbleAdded: (taskId: Int, side: Int, pkg: String?) -> Unit,
+        onBubbleAdded: (taskId: Int, side: Int, pkg: String?, centerYRatio: Float) -> Unit,
         onBubbleRemoved: (taskId: Int) -> Unit
     ): BroadcastReceiver {
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(ctx: Context, intent: Intent) {
                 when (intent.getIntExtra("event", -1)) {
                     EVENT_BUBBLE_ADDED -> onBubbleAdded(
-                        intent.getIntExtra("task_id", -1),
-                        intent.getIntExtra("side", 0),
-                        intent.getStringExtra("pkg"))
-                    EVENT_BUBBLE_REMOVED -> onBubbleRemoved(intent.getIntExtra("task_id", -1))
+                        intent.getIntExtra(FreeformAnimContract.EXTRA_TASK_ID, -1),
+                        intent.getIntExtra(FreeformAnimContract.EXTRA_SIDE, 0),
+                        intent.getStringExtra("pkg"),
+                        intent.getFloatExtra(FreeformAnimContract.EXTRA_CENTER_Y_RATIO, Float.NaN)
+                    )
+                    EVENT_BUBBLE_REMOVED -> onBubbleRemoved(
+                        intent.getIntExtra(FreeformAnimContract.EXTRA_TASK_ID, -1)
+                    )
                 }
             }
         }

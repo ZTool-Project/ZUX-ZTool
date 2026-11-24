@@ -1019,6 +1019,12 @@ object SearchIndex {
             summaryRes = R.string.system_ui_misc_freeform_no_forehead_summary
         ),
         freeformHub.item(
+            id = "system_ui_misc_freeform_nonlinear_anim",
+            titleRes = R.string.system_ui_misc_freeform_nonlinear_anim_title,
+            summaryRes = R.string.system_ui_misc_freeform_nonlinear_anim_summary,
+            keywords = listOf("非线性动画", "物理动画", "弹簧", "贴边", "气泡", "nonlinear", "spring", "animation", "bubble")
+        ),
+        freeformHub.item(
             id = "system_ui_misc_freeform_fullscreen_width",
             titleRes = R.string.system_ui_misc_freeform_fullscreen_width_title,
             summaryRes = R.string.system_ui_misc_freeform_fullscreen_width_summary,

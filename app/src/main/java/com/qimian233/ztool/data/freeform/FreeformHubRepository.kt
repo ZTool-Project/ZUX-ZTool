@@ -50,6 +50,7 @@ class FreeformHubRepository(
             freeformBottomEdgeResize = misc.freeformBottomEdgeResize,
             cornerHandleAutoHide = misc.cornerHandleAutoHide,
             freeformNoForehead = misc.freeformNoForehead,
+            freeformNonlinearAnim = misc.freeformNonlinearAnim,
             forceFreeformEntry = launcher.forceFreeformEntry,
             forceRelativeAppFreeform = framework.forceRelativeAppFreeform
         )
@@ -119,6 +120,9 @@ class FreeformHubRepository(
 
     fun saveFreeformNoForehead(enabled: Boolean) =
         systemUiMiscSettingsRepository.saveFreeformNoForehead(enabled)
+
+    fun saveFreeformNonlinearAnim(enabled: Boolean) =
+        systemUiMiscSettingsRepository.saveFreeformNonlinearAnim(enabled)
 
     fun saveForceFreeformEntry(enabled: Boolean) =
         launcherSettingsRepository.saveForceFreeformEntry(enabled)

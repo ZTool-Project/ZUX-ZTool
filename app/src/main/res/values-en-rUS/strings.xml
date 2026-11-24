@@ -1435,6 +1435,8 @@
     <string name="system_ui_misc_corner_handle_auto_hide_summary">Show the bottom-left and bottom-right handles for 5 seconds after creating a small window or resizing from a corner, then hide them; turn off to keep them always visible</string>
     <string name="system_ui_misc_freeform_no_forehead_title">Remove the small-window forehead</string>
     <string name="system_ui_misc_freeform_no_forehead_summary">Stop reserving a solid strip for the top handle: app content fills the window top and the three-dot handle floats above it; PC mode keeps its title-bar buttons and only drops the reserved space</string>
+    <string name="system_ui_misc_freeform_nonlinear_anim_title">Nonlinear small-window animations</string>
+    <string name="system_ui_misc_freeform_nonlinear_anim_summary">Enable spring and nonlinear scaling transitions for opening, closing, edge-docking, and restoring small windows from edge bubbles, with bounce-back when released below the dock threshold</string>
     <string name="system_ui_misc_freeform_fullscreen_width_title">Width threshold</string>
     <string name="system_ui_misc_freeform_fullscreen_width_summary">Fullscreen when the small window reaches this percentage of the screen width; 100% disables the width direction</string>
     <string name="system_ui_misc_freeform_fullscreen_height_title">Height threshold</string>

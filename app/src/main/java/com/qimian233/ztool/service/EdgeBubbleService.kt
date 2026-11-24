@@ -8,6 +8,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Rect
 import android.graphics.drawable.Drawable
 import android.os.Handler
 import android.os.IBinder
@@ -80,8 +81,8 @@ class EdgeBubbleService : Service() {
         FreeformBubbleBridge.init(this)
         eventReceiver = FreeformBubbleBridge.registerEventReceiver(
             this,
-            onBubbleAdded = { taskId, side, pkg ->
-                mainHandler.post { addBubble(taskId, side, pkg) }
+            onBubbleAdded = { taskId, side, pkg, centerYRatio ->
+                mainHandler.post { addBubble(taskId, side, pkg, centerYRatio) }
             },
             onBubbleRemoved = { taskId ->
                 mainHandler.post { removeBubble(taskId) }
@@ -208,9 +209,21 @@ class EdgeBubbleService : Service() {
         }
     }
 
-    private fun addBubble(taskId: Int, side: Int, pkg: String?) {
+    private fun addBubble(
+        taskId: Int,
+        side: Int,
+        pkg: String?,
+        centerYRatioOverride: Float = Float.NaN
+    ) {
         if (bubbles.containsKey(taskId)) return
-        val remembered = storedCenterYRatio(taskId)
+        if (!centerYRatioOverride.isNaN()) {
+            bubblePrefs.edit().putFloat("cy_$taskId", centerYRatioOverride).apply()
+        }
+        val remembered = if (!centerYRatioOverride.isNaN()) {
+            centerYRatioOverride
+        } else {
+            storedCenterYRatio(taskId)
+        }
         val centerYRatio = if (remembered.isNaN())
             BASE_CENTER_Y_RATIO + (bubbles.size % 3) * CENTER_Y_STAGGER_RATIO
         else remembered
@@ -219,9 +232,26 @@ class EdgeBubbleService : Service() {
                 this, taskId, side,
                 centerYRatio,
                 listener = object : EdgeBubbleView.Listener {
-                    override fun onBubbleRestore(taskId: Int) {
+                    override fun onBubbleRestore(taskId: Int, bubbleRect: Rect, side: Int) {
                         restoredAt[taskId] = SystemClock.elapsedRealtime()
-                        FreeformBubbleBridge.restoreTask(taskId)
+                        val nonlinearEnabled = prefsUtils.loadBooleanSetting(
+                            PreferenceKeys.SYSTEM_UI_FREEFORM_NONLINEAR_ANIM.name,
+                            PreferenceKeys.SYSTEM_UI_FREEFORM_NONLINEAR_ANIM.default
+                        )
+                        if (nonlinearEnabled) {
+                            FreeformBubbleBridge.notifySystemUiRestoreHint(
+                                taskId,
+                                bubbleRect,
+                                side
+                            ) {
+                                FreeformBubbleBridge.restoreTask(taskId)
+                            }
+                            bubbles[taskId]?.playRestoreExitAnimation {
+                                removeBubble(taskId)
+                            }
+                        } else {
+                            FreeformBubbleBridge.restoreTask(taskId)
+                        }
                     }
 
                     override fun onBubbleSettled(taskId: Int, side: Int, centerYRatio: Float) {

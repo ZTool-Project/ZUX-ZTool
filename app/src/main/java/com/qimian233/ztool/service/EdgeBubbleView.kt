@@ -1,11 +1,14 @@
 package com.qimian233.ztool.service
 
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Outline
 import android.graphics.Paint
 import android.graphics.Path
+import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.drawable.Drawable
 import android.os.Build
@@ -50,7 +53,7 @@ class EdgeBubbleView(
 
     interface Listener {
         /** Restore the task (tap or qualifying fling). */
-        fun onBubbleRestore(taskId: Int)
+        fun onBubbleRestore(taskId: Int, bubbleRect: Rect, side: Int)
         /** The bubble settled at `side` (0 left / 1 right) with remembered y ratio. */
         fun onBubbleSettled(taskId: Int, side: Int, centerYRatio: Float)
     }
@@ -83,6 +86,8 @@ class EdgeBubbleView(
         private const val HALF_HIDE_DELAY_MS = 50L
         private const val APPEAR_FULL_MS = 600L
         private const val MODE_ANIM_MS = 200L
+        private const val RESTORE_EXIT_ANIM_MS = 130L
+        private const val RESTORE_EXIT_SHIFT_DP = 18f
         // Fling thresholds (spec): fast branch and slow-long-distance branch.
         private const val FLING_VELOCITY_PX = 1000f
         private const val FLING_DISTANCE_PX = 100f
@@ -124,6 +129,7 @@ class EdgeBubbleView(
     private var downWinX = 0
     private var downWinY = 0
     private var dragging = false
+    private var exiting = false
     private var removed = false
     private var modeAnimator: ValueAnimator? = null
     private var snapAnimator: ValueAnimator? = null
@@ -149,20 +155,22 @@ class EdgeBubbleView(
         context,
         object : GestureDetector.SimpleOnGestureListener() {
             override fun onSingleTapUp(e: MotionEvent): Boolean {
-                listener.onBubbleRestore(taskId)
+                if (exiting || removed) return false
+                listener.onBubbleRestore(taskId, currentBubbleScreenRect(), side)
                 return true
             }
 
             override fun onFling(
                 e1: MotionEvent?, e2: MotionEvent, velocityX: Float, velocityY: Float
             ): Boolean {
+                if (exiting || removed) return false
                 val distance = abs(e2.rawX - (e1?.rawX ?: e2.rawX))
                 val velocity = abs(velocityX)
                 val fast = velocity > FLING_VELOCITY_PX && distance > FLING_DISTANCE_PX
                 val slow = velocity > (FLING_VELOCITY_PX + 0.5f) / 5f &&
                     distance > FLING_DISTANCE_PX * 5
                 if (fast || slow) {
-                    listener.onBubbleRestore(taskId)
+                    listener.onBubbleRestore(taskId, currentBubbleScreenRect(), side)
                     return true
                 }
                 return false
@@ -279,10 +287,52 @@ class EdgeBubbleView(
         }, delay)
     }
 
-    fun release() {
-        removed = true
+    fun currentBubbleScreenRect(): Rect {
+        val left = (layoutParams.x + containerOriginX() + translationX).toInt()
+        val top = layoutParams.y
+        return Rect(left, top, left + containerWpx, top + containerHpx)
+    }
+
+    fun playRestoreExitAnimation(onEnd: () -> Unit) {
+        if (exiting || removed) {
+            onEnd()
+            return
+        }
+        exiting = true
+        mainHandler.removeCallbacksAndMessages(null)
         modeAnimator?.cancel()
         snapAnimator?.cancel()
+        animate().cancel()
+        val inwardShift = if (side == SIDE_LEFT) dip(RESTORE_EXIT_SHIFT_DP) else -dip(RESTORE_EXIT_SHIFT_DP)
+        var finished = false
+        animate()
+            .alpha(0f)
+            .translationX(translationX + inwardShift)
+            .setDuration(RESTORE_EXIT_ANIM_MS)
+            .setListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    if (!finished) {
+                        finished = true
+                        onEnd()
+                    }
+                }
+
+                override fun onAnimationCancel(animation: Animator) {
+                    if (!finished) {
+                        finished = true
+                        onEnd()
+                    }
+                }
+            })
+            .start()
+    }
+
+    fun release() {
+        removed = true
+        mainHandler.removeCallbacksAndMessages(null)
+        modeAnimator?.cancel()
+        snapAnimator?.cancel()
+        animate().setListener(null).cancel()
     }
 
     // endregion
@@ -290,6 +340,7 @@ class EdgeBubbleView(
     // region touch handling
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
+        if (exiting || removed) return false
         gestureDetector.onTouchEvent(event)
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
