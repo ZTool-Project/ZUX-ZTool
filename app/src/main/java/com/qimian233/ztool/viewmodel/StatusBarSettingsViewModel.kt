@@ -126,6 +126,61 @@ class StatusBarSettingsViewModel(
         repository.saveHideNotificationOverflowDot(enabled)
     }
 
+    fun setChipsFilterEnabled(enabled: Boolean) {
+        _uiState.value = _uiState.value.copy(chipsFilterEnabled = enabled)
+        repository.saveChipsFilterEnabled(enabled)
+    }
+
+    fun setChipsHideNotification(enabled: Boolean) {
+        _uiState.value = _uiState.value.copy(chipsHideNotification = enabled)
+        repository.saveChipsHideNotification(enabled)
+    }
+
+    fun setChipsHideMedia(enabled: Boolean) {
+        _uiState.value = _uiState.value.copy(chipsHideMedia = enabled)
+        repository.saveChipsHideMedia(enabled)
+    }
+
+    fun setChipsHideCharging(enabled: Boolean) {
+        _uiState.value = _uiState.value.copy(chipsHideCharging = enabled)
+        repository.saveChipsHideCharging(enabled)
+    }
+
+    fun setChipsHideFlashlight(enabled: Boolean) {
+        _uiState.value = _uiState.value.copy(chipsHideFlashlight = enabled)
+        repository.saveChipsHideFlashlight(enabled)
+    }
+
+    fun setChipsHideBluetoothHeadset(enabled: Boolean) {
+        _uiState.value = _uiState.value.copy(chipsHideBluetoothHeadset = enabled)
+        repository.saveChipsHideBluetoothHeadset(enabled)
+    }
+
+    fun setChipsHideWelcomeBack(enabled: Boolean) {
+        _uiState.value = _uiState.value.copy(chipsHideWelcomeBack = enabled)
+        repository.saveChipsHideWelcomeBack(enabled)
+    }
+
+    fun setChipsHideCall(enabled: Boolean) {
+        _uiState.value = _uiState.value.copy(chipsHideCall = enabled)
+        repository.saveChipsHideCall(enabled)
+    }
+
+    fun setChipsHideScreenRecord(enabled: Boolean) {
+        _uiState.value = _uiState.value.copy(chipsHideScreenRecord = enabled)
+        repository.saveChipsHideScreenRecord(enabled)
+    }
+
+    fun setChipsHideShareToApp(enabled: Boolean) {
+        _uiState.value = _uiState.value.copy(chipsHideShareToApp = enabled)
+        repository.saveChipsHideShareToApp(enabled)
+    }
+
+    fun setChipsHideCastToOtherDevice(enabled: Boolean) {
+        _uiState.value = _uiState.value.copy(chipsHideCastToOtherDevice = enabled)
+        repository.saveChipsHideCastToOtherDevice(enabled)
+    }
+
     fun setNetworkSpeedSize(enabled: Boolean) {
         _uiState.value = _uiState.value.copy(networkSpeedSize = enabled)
         repository.saveNetworkSpeedSize(enabled)
@@ -265,6 +320,17 @@ data class StatusBarSettingsUiState(
     val textBold: Boolean = false,
     val notificationIconLimitOption: String = "",
     val hideNotificationOverflowDot: Boolean = false,
+    val chipsFilterEnabled: Boolean = false,
+    val chipsHideNotification: Boolean = false,
+    val chipsHideMedia: Boolean = false,
+    val chipsHideCharging: Boolean = false,
+    val chipsHideFlashlight: Boolean = false,
+    val chipsHideBluetoothHeadset: Boolean = false,
+    val chipsHideWelcomeBack: Boolean = false,
+    val chipsHideCall: Boolean = false,
+    val chipsHideScreenRecord: Boolean = false,
+    val chipsHideShareToApp: Boolean = false,
+    val chipsHideCastToOtherDevice: Boolean = false,
     val nativeNotificationIcon: Boolean = false,
     val networkSpeedSize: Boolean = false,
     val networkSpeedDoubleLayer: Boolean = false,

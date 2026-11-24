@@ -111,6 +111,20 @@ object PreferenceKeys {
     val NOTIFICATION_ICON_LIMIT = BoolKey("notification_icon_limit", false)
     // Hides the dot placeholder drawn when the status bar runs out of notification-icon slots
     val HIDE_NOTIFICATION_OVERFLOW_DOT = BoolKey("hide_notification_overflow_dot", false)
+    // Status bar ongoing activity chips (DynamicBar L2 & L3) fine-grained filter
+    val STATUSBAR_CHIPS_FILTER = BoolKey("statusbar_chips_filter", false)
+    val STATUSBAR_CHIPS_HIDE_NOTIFICATION = BoolKey("statusbar_chips_hide_notification", false)
+    val STATUSBAR_CHIPS_HIDE_MEDIA = BoolKey("statusbar_chips_hide_media", false)
+    val STATUSBAR_CHIPS_HIDE_CHARGING = BoolKey("statusbar_chips_hide_charging", false)
+    val STATUSBAR_CHIPS_HIDE_FLASHLIGHT = BoolKey("statusbar_chips_hide_flashlight", false)
+    val STATUSBAR_CHIPS_HIDE_BLUETOOTH_HEADSET =
+        BoolKey("statusbar_chips_hide_bluetooth_headset", false)
+    val STATUSBAR_CHIPS_HIDE_WELCOME_BACK = BoolKey("statusbar_chips_hide_welcome_back", false)
+    val STATUSBAR_CHIPS_HIDE_CALL = BoolKey("statusbar_chips_hide_call", false)
+    val STATUSBAR_CHIPS_HIDE_SCREEN_RECORD = BoolKey("statusbar_chips_hide_screen_record", false)
+    val STATUSBAR_CHIPS_HIDE_SHARE_TO_APP = BoolKey("statusbar_chips_hide_share_to_app", false)
+    val STATUSBAR_CHIPS_HIDE_CAST_TO_OTHER_DEVICE =
+        BoolKey("statusbar_chips_hide_cast_to_other_device", false)
     val CUSTOM_CONTROL_CENTER_DATE = BoolKey("Custom_ControlCenterDate", false)
     val CONTROL_CENTER_NO_TILE_LABELS = BoolKey("control_center_no_tile_labels", false)
     val MEDIA_OUTPUT_DIALOG_CENTER = BoolKey("media_output_dialog_center", false)
@@ -471,6 +485,11 @@ object PreferenceKeys {
         STATUSBAR_DISPLAY_SECONDS, CUSTOM_STATUSBAR_CLOCK, STATUSBAR_CLOCK_RED_ONE,
         SYSTEMUI_CHARGE_WATTS,
         SYSTEMUI_REAL_WATTS, NOTIFICATION_ICON_LIMIT, HIDE_NOTIFICATION_OVERFLOW_DOT,
+        STATUSBAR_CHIPS_FILTER, STATUSBAR_CHIPS_HIDE_NOTIFICATION, STATUSBAR_CHIPS_HIDE_MEDIA,
+        STATUSBAR_CHIPS_HIDE_CHARGING, STATUSBAR_CHIPS_HIDE_FLASHLIGHT,
+        STATUSBAR_CHIPS_HIDE_BLUETOOTH_HEADSET, STATUSBAR_CHIPS_HIDE_WELCOME_BACK,
+        STATUSBAR_CHIPS_HIDE_CALL, STATUSBAR_CHIPS_HIDE_SCREEN_RECORD,
+        STATUSBAR_CHIPS_HIDE_SHARE_TO_APP, STATUSBAR_CHIPS_HIDE_CAST_TO_OTHER_DEVICE,
         CUSTOM_CONTROL_CENTER_DATE,
         CONTROL_CENTER_NO_TILE_LABELS, NO_CHARGE_ANIMATION, NATIVE_NOTIFICATION_ICON,
         MEDIA_OUTPUT_DIALOG_CENTER,

@@ -139,6 +139,7 @@ import com.qimian233.ztool.hook.modules.systemui.qs.VolumeSliderPercentageHook
 import com.qimian233.ztool.hook.modules.systemui.statusbar.NativeNotificationIcon
 import com.qimian233.ztool.hook.modules.systemui.statusbar.NotificationIconHook
 import com.qimian233.ztool.hook.modules.systemui.statusbar.NotificationOverflowDotHook
+import com.qimian233.ztool.hook.modules.systemui.statusbar.StatusBarChipsFilterHook
 import com.qimian233.ztool.hook.modules.systemui.statusbar.SystemUIBatteryHook
 import com.qimian233.ztool.hook.modules.systemui.statusbar.SystemUIClockHook
 import com.qimian233.ztool.hook.modules.systemui.statusbar.SystemUINetworkSpeedHook
@@ -247,6 +248,7 @@ object HookManager {
         registerHookModule(SystemUIRealWatts())
         registerHookModule(NotificationIconHook())
         registerHookModule(NotificationOverflowDotHook())
+        registerHookModule(StatusBarChipsFilterHook())
         registerHookModule(CustomControlCenterDate())
         registerHookModule(ControlCenterNoTileLabelsHook())
         registerHookModule(NoChargeAnimation())

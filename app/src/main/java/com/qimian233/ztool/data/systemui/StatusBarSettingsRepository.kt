@@ -6,6 +6,7 @@ import com.qimian233.ztool.data.features.FeatureDestination
 import com.qimian233.ztool.R
 import com.qimian233.ztool.utils.ModulePreferencesUtils
 import com.qimian233.ztool.utils.ScopeUtils
+import com.qimian233.ztool.data.keys.BoolKey
 import com.qimian233.ztool.data.keys.PreferenceKeys
 import com.qimian233.ztool.hook.modules.systemui.misc.CustomDateFormatter
 import com.qimian233.ztool.hook.modules.systemui.statusbar.BatteryIndicatorPolicy
@@ -93,7 +94,18 @@ class StatusBarSettingsRepository(
             textColorEnabled = prefsUtils.loadBooleanSetting(KEY_CLOCK_TEXT_COLOR_ENABLED, false),
             textBold = prefsUtils.loadBooleanSetting(KEY_CLOCK_TEXT_BOLD, false),
             notificationIconLimitOption = notifyNumSizeToOption(prefsUtils.loadIntegerSetting(KEY_NOTIFY_NUM_SIZE, 4)),
-            hideNotificationOverflowDot = prefsUtils.loadBooleanSetting(KEY_HIDE_NOTIFICATION_OVERFLOW_DOT, false)
+            hideNotificationOverflowDot = prefsUtils.loadBooleanSetting(KEY_HIDE_NOTIFICATION_OVERFLOW_DOT, false),
+            chipsFilterEnabled = loadBool(PreferenceKeys.STATUSBAR_CHIPS_FILTER),
+            chipsHideNotification = loadBool(PreferenceKeys.STATUSBAR_CHIPS_HIDE_NOTIFICATION),
+            chipsHideMedia = loadBool(PreferenceKeys.STATUSBAR_CHIPS_HIDE_MEDIA),
+            chipsHideCharging = loadBool(PreferenceKeys.STATUSBAR_CHIPS_HIDE_CHARGING),
+            chipsHideFlashlight = loadBool(PreferenceKeys.STATUSBAR_CHIPS_HIDE_FLASHLIGHT),
+            chipsHideBluetoothHeadset = loadBool(PreferenceKeys.STATUSBAR_CHIPS_HIDE_BLUETOOTH_HEADSET),
+            chipsHideWelcomeBack = loadBool(PreferenceKeys.STATUSBAR_CHIPS_HIDE_WELCOME_BACK),
+            chipsHideCall = loadBool(PreferenceKeys.STATUSBAR_CHIPS_HIDE_CALL),
+            chipsHideScreenRecord = loadBool(PreferenceKeys.STATUSBAR_CHIPS_HIDE_SCREEN_RECORD),
+            chipsHideShareToApp = loadBool(PreferenceKeys.STATUSBAR_CHIPS_HIDE_SHARE_TO_APP),
+            chipsHideCastToOtherDevice = loadBool(PreferenceKeys.STATUSBAR_CHIPS_HIDE_CAST_TO_OTHER_DEVICE)
         )
     }
 
@@ -163,6 +175,46 @@ class StatusBarSettingsRepository(
 
     fun saveHideNotificationOverflowDot(enabled: Boolean) {
         prefsUtils.saveBooleanSetting(KEY_HIDE_NOTIFICATION_OVERFLOW_DOT, enabled)
+    }
+
+    fun saveChipsFilterEnabled(enabled: Boolean) =
+        saveBool(PreferenceKeys.STATUSBAR_CHIPS_FILTER, enabled)
+
+    fun saveChipsHideNotification(enabled: Boolean) =
+        saveBool(PreferenceKeys.STATUSBAR_CHIPS_HIDE_NOTIFICATION, enabled)
+
+    fun saveChipsHideMedia(enabled: Boolean) =
+        saveBool(PreferenceKeys.STATUSBAR_CHIPS_HIDE_MEDIA, enabled)
+
+    fun saveChipsHideCharging(enabled: Boolean) =
+        saveBool(PreferenceKeys.STATUSBAR_CHIPS_HIDE_CHARGING, enabled)
+
+    fun saveChipsHideFlashlight(enabled: Boolean) =
+        saveBool(PreferenceKeys.STATUSBAR_CHIPS_HIDE_FLASHLIGHT, enabled)
+
+    fun saveChipsHideBluetoothHeadset(enabled: Boolean) =
+        saveBool(PreferenceKeys.STATUSBAR_CHIPS_HIDE_BLUETOOTH_HEADSET, enabled)
+
+    fun saveChipsHideWelcomeBack(enabled: Boolean) =
+        saveBool(PreferenceKeys.STATUSBAR_CHIPS_HIDE_WELCOME_BACK, enabled)
+
+    fun saveChipsHideCall(enabled: Boolean) =
+        saveBool(PreferenceKeys.STATUSBAR_CHIPS_HIDE_CALL, enabled)
+
+    fun saveChipsHideScreenRecord(enabled: Boolean) =
+        saveBool(PreferenceKeys.STATUSBAR_CHIPS_HIDE_SCREEN_RECORD, enabled)
+
+    fun saveChipsHideShareToApp(enabled: Boolean) =
+        saveBool(PreferenceKeys.STATUSBAR_CHIPS_HIDE_SHARE_TO_APP, enabled)
+
+    fun saveChipsHideCastToOtherDevice(enabled: Boolean) =
+        saveBool(PreferenceKeys.STATUSBAR_CHIPS_HIDE_CAST_TO_OTHER_DEVICE, enabled)
+
+    private fun loadBool(key: BoolKey): Boolean =
+        prefsUtils.loadBooleanSetting(key.name, key.default)
+
+    private fun saveBool(key: BoolKey, enabled: Boolean) {
+        prefsUtils.saveBooleanSetting(key.name, enabled)
     }
 
     fun saveNetworkSpeedSize(enabled: Boolean) {

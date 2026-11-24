@@ -711,6 +711,30 @@
     <string name="system_ui_status_bar_notification_overflow_dot_summary">通知图标放不下时不再显示圆点占位</string>
     <string name="system_ui_status_bar_notification_icon_native_title">使用原生通知图标</string>
     <string name="system_ui_status_bar_notification_icon_native_summary">对未适配APP无效</string>
+    <!--系统界面 状态栏实况通知胶囊资源值-->
+    <string name="system_ui_status_bar_chips_title">实况通知胶囊</string>
+    <string name="system_ui_status_bar_chips_filter_title">自定义隐藏状态栏胶囊</string>
+    <string name="system_ui_status_bar_chips_filter_summary">按种类隐藏状态栏实况通知胶囊，并同步禁用对应种类的展开悬浮卡片</string>
+    <string name="system_ui_status_bar_chips_hide_notification_title">隐藏通知胶囊</string>
+    <string name="system_ui_status_bar_chips_hide_notification_summary">隐藏实况通知胶囊并禁用通知展开卡片</string>
+    <string name="system_ui_status_bar_chips_hide_media_title">隐藏媒体胶囊</string>
+    <string name="system_ui_status_bar_chips_hide_media_summary">隐藏媒体播放胶囊并禁用媒体展开卡片</string>
+    <string name="system_ui_status_bar_chips_hide_charging_title">隐藏充电胶囊</string>
+    <string name="system_ui_status_bar_chips_hide_charging_summary">隐藏状态栏充电状态胶囊</string>
+    <string name="system_ui_status_bar_chips_hide_flashlight_title">隐藏手电筒胶囊</string>
+    <string name="system_ui_status_bar_chips_hide_flashlight_summary">隐藏手电筒状态胶囊并禁用手电筒展开卡片</string>
+    <string name="system_ui_status_bar_chips_hide_bluetooth_headset_title">隐藏蓝牙耳机胶囊</string>
+    <string name="system_ui_status_bar_chips_hide_bluetooth_headset_summary">隐藏蓝牙耳机状态胶囊（当前系统版本若未启用则预留生效）</string>
+    <string name="system_ui_status_bar_chips_hide_welcome_back_title">隐藏欢迎回来胶囊</string>
+    <string name="system_ui_status_bar_chips_hide_welcome_back_summary">隐藏“欢迎回来”提示胶囊</string>
+    <string name="system_ui_status_bar_chips_hide_call_title">隐藏通话胶囊</string>
+    <string name="system_ui_status_bar_chips_hide_call_summary">隐藏正在通话胶囊并禁用通话展开卡片</string>
+    <string name="system_ui_status_bar_chips_hide_screen_record_title">隐藏录屏胶囊</string>
+    <string name="system_ui_status_bar_chips_hide_screen_record_summary">隐藏原生屏幕录制胶囊</string>
+    <string name="system_ui_status_bar_chips_hide_share_to_app_title">隐藏应用共享胶囊</string>
+    <string name="system_ui_status_bar_chips_hide_share_to_app_summary">隐藏向应用共享屏幕时的状态胶囊</string>
+    <string name="system_ui_status_bar_chips_hide_cast_to_other_device_title">隐藏投屏胶囊</string>
+    <string name="system_ui_status_bar_chips_hide_cast_to_other_device_summary">隐藏向其他设备投屏时的状态胶囊</string>
     <string name="system_ui_status_bar_title_suffix">\ - 状态栏设置</string>
     <string-array name="notify_num_size_options">
         <item>0</item>

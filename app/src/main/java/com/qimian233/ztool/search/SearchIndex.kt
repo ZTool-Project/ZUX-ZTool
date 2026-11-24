@@ -481,6 +481,92 @@ object SearchIndex {
             summaryRes = R.string.system_ui_status_bar_notification_icon_native_summary
         ),
         systemUiStatusBar.item(
+            id = "status_bar_chips_filter",
+            titleRes = R.string.system_ui_status_bar_chips_filter_title,
+            summaryRes = R.string.system_ui_status_bar_chips_filter_summary,
+            keywords = listOf("实况通知", "灵动岛", "胶囊", "活动胶囊", "悬浮卡片", "DynamicBar", "island", "chip", "L3")
+        ),
+        systemUiStatusBar.item(
+            id = "status_bar_chips_hide_notification",
+            titleRes = R.string.system_ui_status_bar_chips_hide_notification_title,
+            summaryRes = R.string.system_ui_status_bar_chips_hide_notification_summary,
+            parentTitleRes = R.string.system_ui_status_bar_chips_filter_title,
+            parentKey = "status_bar_chips_filter",
+            keywords = listOf("实况通知", "灵动岛", "胶囊", "DynamicBar", "L3")
+        ),
+        systemUiStatusBar.item(
+            id = "status_bar_chips_hide_media",
+            titleRes = R.string.system_ui_status_bar_chips_hide_media_title,
+            summaryRes = R.string.system_ui_status_bar_chips_hide_media_summary,
+            parentTitleRes = R.string.system_ui_status_bar_chips_filter_title,
+            parentKey = "status_bar_chips_filter",
+            keywords = listOf("媒体", "音乐", "实况通知", "灵动岛", "胶囊", "Media", "L3")
+        ),
+        systemUiStatusBar.item(
+            id = "status_bar_chips_hide_charging",
+            titleRes = R.string.system_ui_status_bar_chips_hide_charging_title,
+            summaryRes = R.string.system_ui_status_bar_chips_hide_charging_summary,
+            parentTitleRes = R.string.system_ui_status_bar_chips_filter_title,
+            parentKey = "status_bar_chips_filter",
+            keywords = listOf("充电", "快充", "实况通知", "胶囊", "Charging")
+        ),
+        systemUiStatusBar.item(
+            id = "status_bar_chips_hide_flashlight",
+            titleRes = R.string.system_ui_status_bar_chips_hide_flashlight_title,
+            summaryRes = R.string.system_ui_status_bar_chips_hide_flashlight_summary,
+            parentTitleRes = R.string.system_ui_status_bar_chips_filter_title,
+            parentKey = "status_bar_chips_filter",
+            keywords = listOf("手电筒", "闪光灯", "实况通知", "胶囊", "Flashlight", "L3")
+        ),
+        systemUiStatusBar.item(
+            id = "status_bar_chips_hide_bluetooth_headset",
+            titleRes = R.string.system_ui_status_bar_chips_hide_bluetooth_headset_title,
+            summaryRes = R.string.system_ui_status_bar_chips_hide_bluetooth_headset_summary,
+            parentTitleRes = R.string.system_ui_status_bar_chips_filter_title,
+            parentKey = "status_bar_chips_filter",
+            keywords = listOf("蓝牙", "耳机", "实况通知", "胶囊", "Bluetooth", "Headset")
+        ),
+        systemUiStatusBar.item(
+            id = "status_bar_chips_hide_welcome_back",
+            titleRes = R.string.system_ui_status_bar_chips_hide_welcome_back_title,
+            summaryRes = R.string.system_ui_status_bar_chips_hide_welcome_back_summary,
+            parentTitleRes = R.string.system_ui_status_bar_chips_filter_title,
+            parentKey = "status_bar_chips_filter",
+            keywords = listOf("欢迎回来", "实况通知", "胶囊", "Welcome")
+        ),
+        systemUiStatusBar.item(
+            id = "status_bar_chips_hide_call",
+            titleRes = R.string.system_ui_status_bar_chips_hide_call_title,
+            summaryRes = R.string.system_ui_status_bar_chips_hide_call_summary,
+            parentTitleRes = R.string.system_ui_status_bar_chips_filter_title,
+            parentKey = "status_bar_chips_filter",
+            keywords = listOf("通话", "电话", "实况通知", "胶囊", "Call", "L3")
+        ),
+        systemUiStatusBar.item(
+            id = "status_bar_chips_hide_screen_record",
+            titleRes = R.string.system_ui_status_bar_chips_hide_screen_record_title,
+            summaryRes = R.string.system_ui_status_bar_chips_hide_screen_record_summary,
+            parentTitleRes = R.string.system_ui_status_bar_chips_filter_title,
+            parentKey = "status_bar_chips_filter",
+            keywords = listOf("录屏", "屏幕录制", "实况通知", "胶囊", "ScreenRecord")
+        ),
+        systemUiStatusBar.item(
+            id = "status_bar_chips_hide_share_to_app",
+            titleRes = R.string.system_ui_status_bar_chips_hide_share_to_app_title,
+            summaryRes = R.string.system_ui_status_bar_chips_hide_share_to_app_summary,
+            parentTitleRes = R.string.system_ui_status_bar_chips_filter_title,
+            parentKey = "status_bar_chips_filter",
+            keywords = listOf("应用共享", "共享", "实况通知", "胶囊", "ShareToApp")
+        ),
+        systemUiStatusBar.item(
+            id = "status_bar_chips_hide_cast_to_other_device",
+            titleRes = R.string.system_ui_status_bar_chips_hide_cast_to_other_device_title,
+            summaryRes = R.string.system_ui_status_bar_chips_hide_cast_to_other_device_summary,
+            parentTitleRes = R.string.system_ui_status_bar_chips_filter_title,
+            parentKey = "status_bar_chips_filter",
+            keywords = listOf("投屏", "实况通知", "胶囊", "Cast")
+        ),
+        systemUiStatusBar.item(
             id = "status_bar_network_size",
             titleRes = R.string.system_ui_status_bar_network_size_title,
             summaryRes = R.string.system_ui_status_bar_network_size_summary

@@ -4,6 +4,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.os.Build
 import android.widget.Toast
+import androidx.annotation.StringRes
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.Box
@@ -148,6 +149,17 @@ fun StatusBarSettingsRoute(
             },
             onNativeNotificationIconChanged = viewModel::setNativeNotificationIcon,
             onNotificationOverflowDotChanged = viewModel::setHideNotificationOverflowDot,
+            onChipsFilterEnabledChanged = viewModel::setChipsFilterEnabled,
+            onChipsHideNotificationChanged = viewModel::setChipsHideNotification,
+            onChipsHideMediaChanged = viewModel::setChipsHideMedia,
+            onChipsHideChargingChanged = viewModel::setChipsHideCharging,
+            onChipsHideFlashlightChanged = viewModel::setChipsHideFlashlight,
+            onChipsHideBluetoothHeadsetChanged = viewModel::setChipsHideBluetoothHeadset,
+            onChipsHideWelcomeBackChanged = viewModel::setChipsHideWelcomeBack,
+            onChipsHideCallChanged = viewModel::setChipsHideCall,
+            onChipsHideScreenRecordChanged = viewModel::setChipsHideScreenRecord,
+            onChipsHideShareToAppChanged = viewModel::setChipsHideShareToApp,
+            onChipsHideCastToOtherDeviceChanged = viewModel::setChipsHideCastToOtherDevice,
             onNetworkSpeedSizeChanged = viewModel::setNetworkSpeedSize,
             onNetworkSpeedDoubleLayerChanged = viewModel::setNetworkSpeedDoubleLayer,
             onNetworkSpeedRefreshEnabledChanged = viewModel::setNetworkSpeedRefreshEnabled,
@@ -242,6 +254,17 @@ private fun StatusBarSettingsScreen(
     onNotificationIconLimitChanged: (String) -> Unit,
     onNativeNotificationIconChanged: (Boolean) -> Unit,
     onNotificationOverflowDotChanged: (Boolean) -> Unit,
+    onChipsFilterEnabledChanged: (Boolean) -> Unit,
+    onChipsHideNotificationChanged: (Boolean) -> Unit,
+    onChipsHideMediaChanged: (Boolean) -> Unit,
+    onChipsHideChargingChanged: (Boolean) -> Unit,
+    onChipsHideFlashlightChanged: (Boolean) -> Unit,
+    onChipsHideBluetoothHeadsetChanged: (Boolean) -> Unit,
+    onChipsHideWelcomeBackChanged: (Boolean) -> Unit,
+    onChipsHideCallChanged: (Boolean) -> Unit,
+    onChipsHideScreenRecordChanged: (Boolean) -> Unit,
+    onChipsHideShareToAppChanged: (Boolean) -> Unit,
+    onChipsHideCastToOtherDeviceChanged: (Boolean) -> Unit,
     onNetworkSpeedSizeChanged: (Boolean) -> Unit,
     onNetworkSpeedDoubleLayerChanged: (Boolean) -> Unit,
     onNetworkSpeedRefreshEnabledChanged: (Boolean) -> Unit,
@@ -316,6 +339,17 @@ private fun StatusBarSettingsScreen(
                         onNotificationIconLimitChanged = onNotificationIconLimitChanged,
                         onNativeNotificationIconChanged = onNativeNotificationIconChanged,
                         onNotificationOverflowDotChanged = onNotificationOverflowDotChanged,
+                        onChipsFilterEnabledChanged = onChipsFilterEnabledChanged,
+                        onChipsHideNotificationChanged = onChipsHideNotificationChanged,
+                        onChipsHideMediaChanged = onChipsHideMediaChanged,
+                        onChipsHideChargingChanged = onChipsHideChargingChanged,
+                        onChipsHideFlashlightChanged = onChipsHideFlashlightChanged,
+                        onChipsHideBluetoothHeadsetChanged = onChipsHideBluetoothHeadsetChanged,
+                        onChipsHideWelcomeBackChanged = onChipsHideWelcomeBackChanged,
+                        onChipsHideCallChanged = onChipsHideCallChanged,
+                        onChipsHideScreenRecordChanged = onChipsHideScreenRecordChanged,
+                        onChipsHideShareToAppChanged = onChipsHideShareToAppChanged,
+                        onChipsHideCastToOtherDeviceChanged = onChipsHideCastToOtherDeviceChanged,
                         onNetworkSpeedSizeChanged = onNetworkSpeedSizeChanged,
                         onNetworkSpeedDoubleLayerChanged = onNetworkSpeedDoubleLayerChanged,
                         onNetworkSpeedRefreshEnabledChanged = onNetworkSpeedRefreshEnabledChanged,
@@ -360,6 +394,17 @@ private fun statusBarSettingsSections(
     onNotificationIconLimitChanged: (String) -> Unit,
     onNativeNotificationIconChanged: (Boolean) -> Unit,
     onNotificationOverflowDotChanged: (Boolean) -> Unit,
+    onChipsFilterEnabledChanged: (Boolean) -> Unit,
+    onChipsHideNotificationChanged: (Boolean) -> Unit,
+    onChipsHideMediaChanged: (Boolean) -> Unit,
+    onChipsHideChargingChanged: (Boolean) -> Unit,
+    onChipsHideFlashlightChanged: (Boolean) -> Unit,
+    onChipsHideBluetoothHeadsetChanged: (Boolean) -> Unit,
+    onChipsHideWelcomeBackChanged: (Boolean) -> Unit,
+    onChipsHideCallChanged: (Boolean) -> Unit,
+    onChipsHideScreenRecordChanged: (Boolean) -> Unit,
+    onChipsHideShareToAppChanged: (Boolean) -> Unit,
+    onChipsHideCastToOtherDeviceChanged: (Boolean) -> Unit,
     onNetworkSpeedSizeChanged: (Boolean) -> Unit,
     onNetworkSpeedDoubleLayerChanged: (Boolean) -> Unit,
     onNetworkSpeedRefreshEnabledChanged: (Boolean) -> Unit,
@@ -559,6 +604,20 @@ private fun statusBarSettingsSections(
                 )
             )
         ),
+        chipsFilterSection(
+            state = state,
+            onChipsFilterEnabledChanged = onChipsFilterEnabledChanged,
+            onChipsHideNotificationChanged = onChipsHideNotificationChanged,
+            onChipsHideMediaChanged = onChipsHideMediaChanged,
+            onChipsHideChargingChanged = onChipsHideChargingChanged,
+            onChipsHideFlashlightChanged = onChipsHideFlashlightChanged,
+            onChipsHideBluetoothHeadsetChanged = onChipsHideBluetoothHeadsetChanged,
+            onChipsHideWelcomeBackChanged = onChipsHideWelcomeBackChanged,
+            onChipsHideCallChanged = onChipsHideCallChanged,
+            onChipsHideScreenRecordChanged = onChipsHideScreenRecordChanged,
+            onChipsHideShareToAppChanged = onChipsHideShareToAppChanged,
+            onChipsHideCastToOtherDeviceChanged = onChipsHideCastToOtherDeviceChanged
+        ),
         SettingSection(
             title = stringResource(R.string.system_ui_status_bar_network_title),
             items = buildList {
@@ -753,6 +812,142 @@ private fun statusBarSettingsSections(
         )
     )
 }
+
+@Composable
+private fun chipsFilterSection(
+    state: StatusBarSettingsUiState,
+    onChipsFilterEnabledChanged: (Boolean) -> Unit,
+    onChipsHideNotificationChanged: (Boolean) -> Unit,
+    onChipsHideMediaChanged: (Boolean) -> Unit,
+    onChipsHideChargingChanged: (Boolean) -> Unit,
+    onChipsHideFlashlightChanged: (Boolean) -> Unit,
+    onChipsHideBluetoothHeadsetChanged: (Boolean) -> Unit,
+    onChipsHideWelcomeBackChanged: (Boolean) -> Unit,
+    onChipsHideCallChanged: (Boolean) -> Unit,
+    onChipsHideScreenRecordChanged: (Boolean) -> Unit,
+    onChipsHideShareToAppChanged: (Boolean) -> Unit,
+    onChipsHideCastToOtherDeviceChanged: (Boolean) -> Unit
+): SettingSection = SettingSection(
+    title = stringResource(R.string.system_ui_status_bar_chips_title),
+    items = buildList {
+        add(
+            SettingItem.Switch(
+                title = stringResource(R.string.system_ui_status_bar_chips_filter_title),
+                summary = stringResource(R.string.system_ui_status_bar_chips_filter_summary),
+                checked = state.chipsFilterEnabled,
+                onCheckedChange = onChipsFilterEnabledChanged,
+                key = "status_bar_chips_filter"
+            )
+        )
+        if (state.chipsFilterEnabled) {
+            add(
+                chipFilterSwitch(
+                    titleRes = R.string.system_ui_status_bar_chips_hide_notification_title,
+                    summaryRes = R.string.system_ui_status_bar_chips_hide_notification_summary,
+                    checked = state.chipsHideNotification,
+                    onCheckedChange = onChipsHideNotificationChanged,
+                    key = "status_bar_chips_hide_notification"
+                )
+            )
+            add(
+                chipFilterSwitch(
+                    titleRes = R.string.system_ui_status_bar_chips_hide_media_title,
+                    summaryRes = R.string.system_ui_status_bar_chips_hide_media_summary,
+                    checked = state.chipsHideMedia,
+                    onCheckedChange = onChipsHideMediaChanged,
+                    key = "status_bar_chips_hide_media"
+                )
+            )
+            add(
+                chipFilterSwitch(
+                    titleRes = R.string.system_ui_status_bar_chips_hide_charging_title,
+                    summaryRes = R.string.system_ui_status_bar_chips_hide_charging_summary,
+                    checked = state.chipsHideCharging,
+                    onCheckedChange = onChipsHideChargingChanged,
+                    key = "status_bar_chips_hide_charging"
+                )
+            )
+            add(
+                chipFilterSwitch(
+                    titleRes = R.string.system_ui_status_bar_chips_hide_flashlight_title,
+                    summaryRes = R.string.system_ui_status_bar_chips_hide_flashlight_summary,
+                    checked = state.chipsHideFlashlight,
+                    onCheckedChange = onChipsHideFlashlightChanged,
+                    key = "status_bar_chips_hide_flashlight"
+                )
+            )
+            add(
+                chipFilterSwitch(
+                    titleRes = R.string.system_ui_status_bar_chips_hide_bluetooth_headset_title,
+                    summaryRes = R.string.system_ui_status_bar_chips_hide_bluetooth_headset_summary,
+                    checked = state.chipsHideBluetoothHeadset,
+                    onCheckedChange = onChipsHideBluetoothHeadsetChanged,
+                    key = "status_bar_chips_hide_bluetooth_headset"
+                )
+            )
+            add(
+                chipFilterSwitch(
+                    titleRes = R.string.system_ui_status_bar_chips_hide_welcome_back_title,
+                    summaryRes = R.string.system_ui_status_bar_chips_hide_welcome_back_summary,
+                    checked = state.chipsHideWelcomeBack,
+                    onCheckedChange = onChipsHideWelcomeBackChanged,
+                    key = "status_bar_chips_hide_welcome_back"
+                )
+            )
+            add(
+                chipFilterSwitch(
+                    titleRes = R.string.system_ui_status_bar_chips_hide_call_title,
+                    summaryRes = R.string.system_ui_status_bar_chips_hide_call_summary,
+                    checked = state.chipsHideCall,
+                    onCheckedChange = onChipsHideCallChanged,
+                    key = "status_bar_chips_hide_call"
+                )
+            )
+            add(
+                chipFilterSwitch(
+                    titleRes = R.string.system_ui_status_bar_chips_hide_screen_record_title,
+                    summaryRes = R.string.system_ui_status_bar_chips_hide_screen_record_summary,
+                    checked = state.chipsHideScreenRecord,
+                    onCheckedChange = onChipsHideScreenRecordChanged,
+                    key = "status_bar_chips_hide_screen_record"
+                )
+            )
+            add(
+                chipFilterSwitch(
+                    titleRes = R.string.system_ui_status_bar_chips_hide_share_to_app_title,
+                    summaryRes = R.string.system_ui_status_bar_chips_hide_share_to_app_summary,
+                    checked = state.chipsHideShareToApp,
+                    onCheckedChange = onChipsHideShareToAppChanged,
+                    key = "status_bar_chips_hide_share_to_app"
+                )
+            )
+            add(
+                chipFilterSwitch(
+                    titleRes = R.string.system_ui_status_bar_chips_hide_cast_to_other_device_title,
+                    summaryRes = R.string.system_ui_status_bar_chips_hide_cast_to_other_device_summary,
+                    checked = state.chipsHideCastToOtherDevice,
+                    onCheckedChange = onChipsHideCastToOtherDeviceChanged,
+                    key = "status_bar_chips_hide_cast_to_other_device"
+                )
+            )
+        }
+    }
+)
+
+@Composable
+private fun chipFilterSwitch(
+    @StringRes titleRes: Int,
+    @StringRes summaryRes: Int,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    key: String
+): SettingItem.Switch = SettingItem.Switch(
+    title = stringResource(titleRes),
+    summary = stringResource(summaryRes),
+    checked = checked,
+    onCheckedChange = onCheckedChange,
+    key = key
+)
 
 @Composable
 private fun batteryStyleLabel(style: BatteryIndicatorStyle): String = when (style) {
