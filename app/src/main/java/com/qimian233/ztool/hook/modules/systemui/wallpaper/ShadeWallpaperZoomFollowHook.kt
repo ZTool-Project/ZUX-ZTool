@@ -14,6 +14,7 @@ import java.lang.ref.WeakReference
 import java.lang.reflect.Field
 import java.lang.reflect.Method
 import kotlin.math.abs
+import kotlin.math.max
 
 /**
  * Controls SystemUI shade wallpaper zoom across four active modes:
@@ -23,6 +24,11 @@ import kotlin.math.abs
 class ShadeWallpaperZoomFollowHook : AppHookModule() {
 
     private var lastSentProgress = 0f
+    private var pendingImpactVelocity = 0f
+    private var impactTriggered = false
+    private var lastObservedFraction = 0f
+    private var lastObservedTimeNanos = 0L
+    private var instantVelocity = 0f
     private var cachedWallpaperManager: WallpaperManager? = null
     private var setWallpaperZoomOutMethod: Method? = null
     private var latestNpvcRef: WeakReference<Any>? = null
@@ -152,6 +158,10 @@ class ShadeWallpaperZoomFollowHook : AppHookModule() {
                     val result = chain.proceed()
                     if (isEnabled() && currentMode() == WallpaperZoomModes.CONTINUOUS_BOUNCE) {
                         spring.cancel()
+                        pendingImpactVelocity = 0f
+                        impactTriggered = false
+                        instantVelocity = 0f
+                        lastObservedTimeNanos = 0L
                     }
                     result
                 }
@@ -193,11 +203,35 @@ class ShadeWallpaperZoomFollowHook : AppHookModule() {
                             if (expand) {
                                 val view = viewField.get(npvc) as? View ?: return@hookWithId result
                                 latestNpvcRef = WeakReference(npvc)
-                                val panelHeight = (view.height.takeIf { it > 0 } ?: DEFAULT_PANEL_HEIGHT).toFloat()
-                                val normVel = (vel / panelHeight).coerceIn(0.6f, 5.5f) * 0.9f
-                                spring.start(from = lastSentProgress, target = 1.0f, velocity = normVel)
+                                val panelHeight =
+                                    (view.height.takeIf { it > 0 } ?: DEFAULT_PANEL_HEIGHT).toFloat()
+                                val normVel = (vel / panelHeight).coerceIn(0f, MAX_NORM_VELOCITY)
+                                if (normVel <= 0.01f &&
+                                    (spring.isRunning || impactTriggered || pendingImpactVelocity > 0f)
+                                ) {
+                                    return@hookWithId result
+                                }
+                                val effectiveVel =
+                                    max(normVel, instantVelocity.coerceIn(0f, MAX_NORM_VELOCITY))
+                                if (lastSentProgress >= IMPACT_THRESHOLD) {
+                                    if (!impactTriggered &&
+                                        (effectiveVel >= MIN_BOUNCE_VELOCITY || lastSentProgress > 1.005f)
+                                    ) {
+                                        impactTriggered = true
+                                        pendingImpactVelocity = 0f
+                                        spring.start(
+                                            from = lastSentProgress,
+                                            target = 1.0f,
+                                            velocity = effectiveVel * VELOCITY_TO_SPRING_SCALE
+                                        )
+                                    }
+                                } else {
+                                    pendingImpactVelocity = max(pendingImpactVelocity, effectiveVel)
+                                }
                             } else {
                                 spring.cancel()
+                                pendingImpactVelocity = 0f
+                                impactTriggered = false
                             }
                         }
                     } catch (t: Throwable) {
@@ -221,14 +255,32 @@ class ShadeWallpaperZoomFollowHook : AppHookModule() {
                     val barState = barStateField.getInt(npvc)
                     if (barState != SHADE_BAR_STATE) {
                         spring.cancel()
+                        pendingImpactVelocity = 0f
+                        impactTriggered = false
                         dispatchZoom(view, 0f)
                         return@hookWithId result
                     }
+                    val rawFraction = expandedFractionField.getFloat(npvc)
+                    val clampedFraction =
+                        if (!rawFraction.isNaN()) rawFraction.coerceIn(0f, 1f) else 0f
+                    if (clampedFraction < 0.90f) {
+                        impactTriggered = false
+                    }
+                    val now = System.nanoTime()
+                    if (lastObservedTimeNanos > 0L) {
+                        val dt = (now - lastObservedTimeNanos) / 1e9f
+                        if (dt in 0.002f..0.1f) {
+                            instantVelocity =
+                                ((clampedFraction - lastObservedFraction) / dt).coerceAtLeast(0f)
+                        }
+                    }
+                    lastObservedFraction = clampedFraction
+                    lastObservedTimeNanos = now
+
                     if (mode == WallpaperZoomModes.CONTINUOUS_BOUNCE && spring.isRunning) {
                         return@hookWithId result
                     }
-                    val rawFraction = expandedFractionField.getFloat(npvc)
-                    var target = if (!rawFraction.isNaN()) rawFraction.coerceIn(0f, 1f) else 0f
+                    var target = clampedFraction
                     if (mode == WallpaperZoomModes.CONTINUOUS_BOUNCE &&
                         overExpansionField != null &&
                         overshootAmountField != null
@@ -237,6 +289,27 @@ class ShadeWallpaperZoomFollowHook : AppHookModule() {
                         val overshootPx = overshootAmountField.getFloat(npvc)
                         if (!overExp.isNaN() && !overshootPx.isNaN() && overExp > 0f && overshootPx > 0f) {
                             target += (overExp / overshootPx).coerceIn(0f, 1f) * 0.25f
+                        }
+                    }
+                    if (mode == WallpaperZoomModes.CONTINUOUS_BOUNCE &&
+                        !impactTriggered &&
+                        clampedFraction >= IMPACT_THRESHOLD
+                    ) {
+                        val impactVel = max(
+                            pendingImpactVelocity,
+                            instantVelocity.coerceIn(0f, MAX_NORM_VELOCITY)
+                        )
+                        if (impactVel >= MIN_BOUNCE_VELOCITY) {
+                            impactTriggered = true
+                            pendingImpactVelocity = 0f
+                            val impactFrom = max(target, 1.0f)
+                            dispatchZoom(view, impactFrom)
+                            spring.start(
+                                from = impactFrom,
+                                target = 1.0f,
+                                velocity = impactVel * VELOCITY_TO_SPRING_SCALE
+                            )
+                            return@hookWithId result
                         }
                     }
                     dispatchZoom(view, target)
@@ -293,5 +366,9 @@ class ShadeWallpaperZoomFollowHook : AppHookModule() {
         private const val DEFAULT_PANEL_HEIGHT = 1500
         private const val MAX_PROGRESS = 1.55f
         private const val PROGRESS_DELTA_THRESHOLD = 0.0005f
+        private const val IMPACT_THRESHOLD = 0.995f
+        private const val MIN_BOUNCE_VELOCITY = 0.35f
+        private const val MAX_NORM_VELOCITY = 6.0f
+        private const val VELOCITY_TO_SPRING_SCALE = 2.6f
     }
 }

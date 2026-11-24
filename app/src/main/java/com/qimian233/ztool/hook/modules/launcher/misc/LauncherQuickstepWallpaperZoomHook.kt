@@ -28,6 +28,10 @@ class LauncherQuickstepWallpaperZoomHook : AppHookModule() {
     private var lastSentProgress = 0f
     private var homeDragActive = false
     private var bridgeStartProgress = 0f
+    private var impactTriggered = false
+    private var lastObservedProgress = 0f
+    private var lastObservedTimeNanos = 0L
+    private var instantVelocity = 0f
     private var cachedWallpaperManager: WallpaperManager? = null
     private var setWallpaperZoomOutMethod: Method? = null
     private var weakLauncherActivity: WeakReference<Activity>? = null
@@ -177,6 +181,9 @@ class LauncherQuickstepWallpaperZoomHook : AppHookModule() {
                             spring.cancel()
                             homeDragActive = false
                             bridgeStartProgress = 0f
+                            impactTriggered = false
+                            instantVelocity = 0f
+                            lastObservedTimeNanos = 0L
                             dispatchZoom(activity, 0f)
                         }
                     }
@@ -296,6 +303,9 @@ class LauncherQuickstepWallpaperZoomHook : AppHookModule() {
                     spring.cancel()
                     homeDragActive = true
                     bridgeStartProgress = 0f
+                    impactTriggered = false
+                    instantVelocity = 0f
+                    lastObservedTimeNanos = 0L
                 }
                 result
             }
@@ -318,6 +328,7 @@ class LauncherQuickstepWallpaperZoomHook : AppHookModule() {
                     val f = chain.getArg(0) as Float
                     val mapped = (f * 3.0f).coerceIn(0f, 0.85f)
                     bridgeStartProgress = mapped
+                    recordObservedProgress(mapped)
                     dispatchZoom(launcher, mapped)
                 }
                 result
@@ -378,10 +389,7 @@ class LauncherQuickstepWallpaperZoomHook : AppHookModule() {
                     val launcher = mLauncherField.get(ctrl) as? Activity ?: return@hookWithId result
                     weakLauncherActivity = WeakReference(launcher)
                     val velocity = chain.getArg(0) as Float
-                    val screenHeight =
-                        (launcher.window?.decorView?.height?.takeIf { it > 0 } ?: DEFAULT_SCREEN_HEIGHT).toFloat()
-                    val normVel = (abs(velocity) / screenHeight).coerceIn(0.6f, 5.0f) * 0.85f
-                    spring.start(from = lastSentProgress, target = 1.0f, velocity = normVel)
+                    maybeStartImpactSpring(launcher, velocity)
                 }
                 result
             }
@@ -406,7 +414,8 @@ class LauncherQuickstepWallpaperZoomHook : AppHookModule() {
 
             hookWithId(setDepthMethod, "launcher_quickstep_depth_follow") { chain ->
                 val result = chain.proceed()
-                if (!isEnabled() || !WallpaperZoomModes.isContinuous(currentMode())) {
+                val mode = currentMode()
+                if (!isEnabled() || !WallpaperZoomModes.isContinuous(mode)) {
                     return@hookWithId result
                 }
                 val ctrl = chain.thisObject ?: return@hookWithId result
@@ -446,7 +455,7 @@ class LauncherQuickstepWallpaperZoomHook : AppHookModule() {
                 if (depth >= 0.99f || depth <= 0.01f) {
                     bridgeStartProgress = 0f
                 }
-                dispatchZoom(activity, progress)
+                dispatchContinuousWithImpact(activity, progress, mode)
                 result
             }
         } catch (t: Throwable) {
@@ -488,6 +497,9 @@ class LauncherQuickstepWallpaperZoomHook : AppHookModule() {
                     }
                 } else if (WallpaperZoomModes.isContinuous(mode)) {
                     spring.cancel()
+                    impactTriggered = false
+                    instantVelocity = 0f
+                    lastObservedTimeNanos = 0L
                 }
                 result
             }
@@ -519,7 +531,7 @@ class LauncherQuickstepWallpaperZoomHook : AppHookModule() {
                 } else {
                     shift.coerceIn(0f, 1f)
                 }
-                dispatchZoom(activity, target)
+                dispatchContinuousWithImpact(activity, target, mode)
                 result
             }
 
@@ -540,10 +552,7 @@ class LauncherQuickstepWallpaperZoomHook : AppHookModule() {
                     val activity = mContainerField.get(handler) as? Activity ?: return@hookWithId result
                     weakLauncherActivity = WeakReference(activity)
                     val velocity = chain.getArg(0) as Float
-                    val screenHeight =
-                        (activity.window?.decorView?.height?.takeIf { it > 0 } ?: DEFAULT_SCREEN_HEIGHT).toFloat()
-                    val normVel = (abs(velocity) / screenHeight).coerceIn(0.6f, 5.0f) * 0.8f
-                    spring.start(from = lastSentProgress, target = 1.0f, velocity = normVel)
+                    maybeStartImpactSpring(activity, velocity)
                 }
                 result
             }
@@ -562,6 +571,60 @@ class LauncherQuickstepWallpaperZoomHook : AppHookModule() {
             block()
         } finally {
             suppressZoomDepth.set(prev)
+        }
+    }
+
+    private fun recordObservedProgress(progress: Float) {
+        val clamped = progress.coerceAtLeast(0f)
+        if (clamped < 0.85f) {
+            impactTriggered = false
+        }
+        val now = System.nanoTime()
+        if (lastObservedTimeNanos > 0L) {
+            val dt = (now - lastObservedTimeNanos) / 1e9f
+            if (dt in 0.002f..0.1f) {
+                instantVelocity = ((clamped - lastObservedProgress) / dt).coerceAtLeast(0f)
+            }
+        }
+        lastObservedProgress = clamped
+        lastObservedTimeNanos = now
+    }
+
+    private fun dispatchContinuousWithImpact(activity: Activity, target: Float, mode: String) {
+        recordObservedProgress(target)
+        if (mode == WallpaperZoomModes.CONTINUOUS_BOUNCE && spring.isRunning) {
+            return
+        }
+        if (mode == WallpaperZoomModes.CONTINUOUS_BOUNCE &&
+            !impactTriggered &&
+            target >= IMPACT_THRESHOLD &&
+            instantVelocity >= MIN_BOUNCE_VELOCITY
+        ) {
+            impactTriggered = true
+            val impactFrom = max(target, 1.0f)
+            dispatchZoom(activity, impactFrom)
+            spring.start(
+                from = impactFrom,
+                target = 1.0f,
+                velocity = instantVelocity.coerceIn(0f, MAX_NORM_VELOCITY) * VELOCITY_TO_SPRING_SCALE
+            )
+            return
+        }
+        dispatchZoom(activity, target)
+    }
+
+    private fun maybeStartImpactSpring(activity: Activity, velocityPxPerMs: Float) {
+        val screenHeight =
+            (activity.window?.decorView?.height?.takeIf { it > 0 } ?: DEFAULT_SCREEN_HEIGHT).toFloat()
+        // Launcher swipe controllers report velocity in px/ms, so scale to px/s.
+        val normVel = ((abs(velocityPxPerMs) * 1000f) / screenHeight).coerceIn(0f, MAX_NORM_VELOCITY)
+        if (!impactTriggered && (normVel >= MIN_BOUNCE_VELOCITY || lastSentProgress > 1.005f)) {
+            impactTriggered = true
+            spring.start(
+                from = lastSentProgress,
+                target = 1.0f,
+                velocity = normVel * VELOCITY_TO_SPRING_SCALE
+            )
         }
     }
 
@@ -631,5 +694,9 @@ class LauncherQuickstepWallpaperZoomHook : AppHookModule() {
         private const val DEFAULT_SCREEN_HEIGHT = 1800
         private const val MAX_PROGRESS = 1.55f
         private const val PROGRESS_DELTA_THRESHOLD = 0.0005f
+        private const val IMPACT_THRESHOLD = 0.995f
+        private const val MIN_BOUNCE_VELOCITY = 0.35f
+        private const val MAX_NORM_VELOCITY = 6.0f
+        private const val VELOCITY_TO_SPRING_SCALE = 2.6f
     }
 }

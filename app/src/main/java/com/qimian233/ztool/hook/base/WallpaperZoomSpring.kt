@@ -6,8 +6,8 @@ import kotlin.math.sqrt
 
 /** Choreographer-driven damped spring for main-thread wallpaper zoom overshoot bounce. */
 class WallpaperZoomSpring(
-    private val stiffness: Float = 220f,
-    private val dampingRatio: Float = 0.62f,
+    private val stiffness: Float = 420f,
+    private val dampingRatio: Float = 0.80f,
     private val minValue: Float = 0f,
     private val maxValue: Float = 1.55f,
     private val onUpdate: (Float) -> Unit
@@ -54,7 +54,7 @@ class WallpaperZoomSpring(
         position = from.coerceIn(minValue, maxValue)
         this.target = target.coerceIn(minValue, maxValue)
         this.velocity = velocity
-        lastFrameNanos = 0L
+        lastFrameNanos = System.nanoTime()
         isRunning = true
         Choreographer.getInstance().postFrameCallback(frameCallback)
     }
