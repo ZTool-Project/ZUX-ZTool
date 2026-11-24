@@ -1,11 +1,13 @@
 package com.qimian233.ztool.utils
 
 import android.app.Activity
+import android.app.BroadcastOptions
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.graphics.Rect
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -43,6 +45,38 @@ object FreeformBubbleBridge {
 
     private val mainHandler = Handler(Looper.getMainLooper())
 
+    private fun sendOrderedWithIdentity(
+        context: Context,
+        intent: Intent,
+        resultReceiver: BroadcastReceiver
+    ) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            val options = BroadcastOptions.makeBasic()
+                .setShareIdentityEnabled(true)
+                .toBundle()
+            context.sendOrderedBroadcast(
+                intent,
+                null,
+                options,
+                resultReceiver,
+                mainHandler,
+                Activity.RESULT_CANCELED,
+                null,
+                null
+            )
+        } else {
+            context.sendOrderedBroadcast(
+                intent,
+                null,
+                resultReceiver,
+                mainHandler,
+                Activity.RESULT_CANCELED,
+                null,
+                null
+            )
+        }
+    }
+
     /**
      * Sends a command and delivers the hook's resultCode/resultExtras to [onResult]
      * on the main thread. Returns false immediately when the ordered broadcast has no
@@ -56,15 +90,14 @@ object FreeformBubbleBridge {
         build(intent)
         return try {
             val context = appContext ?: return false
-            context.sendOrderedBroadcast(
+            sendOrderedWithIdentity(
+                context,
                 intent,
-                null,
                 object : BroadcastReceiver() {
                     override fun onReceive(ctx: Context, received: Intent) {
                         onResult(resultCode, getResultExtras(true))
                     }
-                },
-                mainHandler, Activity.RESULT_CANCELED, null, null
+                }
             )
             true
         } catch (t: Throwable) {
@@ -116,15 +149,14 @@ object FreeformBubbleBridge {
                 putExtra(FreeformAnimContract.EXTRA_BUBBLE_BOTTOM, bubbleRect.bottom)
             }
         try {
-            context.sendOrderedBroadcast(
+            sendOrderedWithIdentity(
+                context,
                 intent,
-                null,
                 object : BroadcastReceiver() {
                     override fun onReceive(ctx: Context, received: Intent) {
                         onDone()
                     }
-                },
-                mainHandler, Activity.RESULT_CANCELED, null, null
+                }
             )
         } catch (t: Throwable) {
             Log.w(TAG, "notifySystemUiRestoreHint failed: ${t.message}")

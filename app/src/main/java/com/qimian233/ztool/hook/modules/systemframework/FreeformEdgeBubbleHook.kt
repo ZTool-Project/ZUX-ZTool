@@ -169,14 +169,19 @@ class FreeformEdgeBubbleHook : SystemHookModule() {
     private inner class CommandReceiver(private val classLoader: ClassLoader) : BroadcastReceiver() {
 
         override fun onReceive(context: Context, intent: Intent) {
-            val uid = try {
-                javaClass.getMethod("getSentFromUid").invoke(this) as Int
-            } catch (_: Throwable) {
-                -1
+            val ordered = isOrderedBroadcast
+            val uid = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                try {
+                    javaClass.getMethod("getSentFromUid").invoke(this) as Int
+                } catch (_: Throwable) {
+                    -1
+                }
+            } else {
+                0
             }
             if (!isAllowedCaller(uid, classLoader)) {
                 logger.warn("bridge command from untrusted uid=$uid")
-                resultCode = 0
+                if (ordered) resultCode = 0
                 return
             }
             val pending = goAsync()
@@ -184,19 +189,23 @@ class FreeformEdgeBubbleHook : SystemHookModule() {
             val handler = eventPostHandler
             if (handler == null) {
                 val (code, extras) = executeCommand(intent, startedAt)
-                pending.resultCode = code
-                if (extras != null) pending.setResultExtras(extras)
+                if (ordered) {
+                    pending.resultCode = code
+                    if (extras != null) pending.setResultExtras(extras)
+                }
                 pending.finish()
                 return
             }
             handler.post {
                 try {
                     val (code, extras) = executeCommand(intent, startedAt)
-                    pending.resultCode = code
-                    if (extras != null) pending.setResultExtras(extras)
+                    if (ordered) {
+                        pending.resultCode = code
+                        if (extras != null) pending.setResultExtras(extras)
+                    }
                 } catch (t: Throwable) {
                     logger.error("bridge command crashed", t)
-                    pending.resultCode = 0
+                    if (ordered) pending.resultCode = 0
                 } finally {
                     pending.finish()
                 }

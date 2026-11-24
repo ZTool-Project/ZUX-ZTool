@@ -14,14 +14,51 @@ object FreeformAnimCurves {
     const val CLOSE_END_SCALE = 0.72f
     const val EDGE_DOCK_END_SCALE = 0.16f
 
-    const val OPEN_ANIM_DURATION_MS = 380L
-    const val OPEN_ALPHA_DURATION_MS = 180L
-    const val CLOSE_SCALE_DURATION_MS = 260L
-    const val CLOSE_ALPHA_DURATION_MS = 210L
-    const val ICON_EXPAND_DURATION_MS = 350L
-    const val EDGE_DOCK_DURATION_MS = 240L
-    const val SNAP_BACK_DURATION_MS = 260L
-    const val RESTORE_DURATION_MS = 380L
+    const val OPEN_ANIM_DURATION_MS = 680L
+    const val OPEN_ALPHA_DURATION_MS = 480L
+    const val CLOSE_SCALE_DURATION_MS = 560L
+    const val CLOSE_ALPHA_DURATION_MS = 510L
+    const val ICON_EXPAND_DURATION_MS = 650L
+    const val EDGE_DOCK_DURATION_MS = 540L
+    const val SNAP_BACK_DURATION_MS = 560L
+    const val RESTORE_DURATION_MS = 680L
+
+    const val OPEN_SPRING_DAMPING = 0.78f
+    const val OPEN_SPRING_OMEGA = 15.5f
+    const val RESTORE_SPRING_DAMPING = 0.78f
+    const val RESTORE_SPRING_OMEGA = 15.0f
+    const val SNAP_BACK_SPRING_DAMPING = 0.88f
+    const val SNAP_BACK_SPRING_OMEGA = 17.5f
+
+    const val CLOSE_SCALE_CTRL_X1 = 0.35f
+    const val CLOSE_SCALE_CTRL_Y1 = 0.0f
+    const val CLOSE_SCALE_CTRL_X2 = 0.22f
+    const val CLOSE_SCALE_CTRL_Y2 = 1.0f
+
+    const val CLOSE_ALPHA_CTRL_X1 = 0.40f
+    const val CLOSE_ALPHA_CTRL_Y1 = 0.0f
+    const val CLOSE_ALPHA_CTRL_X2 = 1.0f
+    const val CLOSE_ALPHA_CTRL_Y2 = 1.0f
+
+    const val OPEN_ALPHA_CTRL_X1 = 0.0f
+    const val OPEN_ALPHA_CTRL_Y1 = 0.0f
+    const val OPEN_ALPHA_CTRL_X2 = 0.20f
+    const val OPEN_ALPHA_CTRL_Y2 = 1.0f
+
+    const val ICON_EXPAND_CTRL_X1 = 0.18f
+    const val ICON_EXPAND_CTRL_Y1 = 0.90f
+    const val ICON_EXPAND_CTRL_X2 = 0.16f
+    const val ICON_EXPAND_CTRL_Y2 = 1.0f
+
+    const val EDGE_DOCK_CTRL_X1 = 0.32f
+    const val EDGE_DOCK_CTRL_Y1 = 0.0f
+    const val EDGE_DOCK_CTRL_X2 = 0.20f
+    const val EDGE_DOCK_CTRL_Y2 = 1.0f
+
+    const val EDGE_TOUCH_ZONE_DP = 32f
+    const val EDGE_ZONE_MIN_OVERHANG_RATIO = 0.25f
+    const val EDGE_FLING_VELOCITY_DP = 550f
+    const val EDGE_FLING_MIN_OVERHANG_RATIO = 0.15f
 
     data class TransformFrame(
         val posX: Float,
@@ -60,21 +97,49 @@ object FreeformAnimCurves {
         return (raw(t.toDouble()) / endValue).toFloat()
     }
 
-    fun openSpringInterpolator(): Interpolator = SpringInterpolator(0.78f, 15.5f)
+    fun openSpringInterpolator(): Interpolator =
+        SpringInterpolator(OPEN_SPRING_DAMPING, OPEN_SPRING_OMEGA)
 
-    fun restoreSpringInterpolator(): Interpolator = SpringInterpolator(0.78f, 15.0f)
+    fun restoreSpringInterpolator(): Interpolator =
+        SpringInterpolator(RESTORE_SPRING_DAMPING, RESTORE_SPRING_OMEGA)
 
-    fun snapBackSpringInterpolator(): Interpolator = SpringInterpolator(0.88f, 17.5f)
+    fun snapBackSpringInterpolator(): Interpolator =
+        SpringInterpolator(SNAP_BACK_SPRING_DAMPING, SNAP_BACK_SPRING_OMEGA)
 
-    fun closeScaleInterpolator(): Interpolator = PathInterpolator(0.35f, 0.0f, 0.22f, 1.0f)
+    fun closeScaleInterpolator(): Interpolator = PathInterpolator(
+        CLOSE_SCALE_CTRL_X1,
+        CLOSE_SCALE_CTRL_Y1,
+        CLOSE_SCALE_CTRL_X2,
+        CLOSE_SCALE_CTRL_Y2
+    )
 
-    fun closeAlphaInterpolator(): Interpolator = PathInterpolator(0.40f, 0.0f, 1.0f, 1.0f)
+    fun closeAlphaInterpolator(): Interpolator = PathInterpolator(
+        CLOSE_ALPHA_CTRL_X1,
+        CLOSE_ALPHA_CTRL_Y1,
+        CLOSE_ALPHA_CTRL_X2,
+        CLOSE_ALPHA_CTRL_Y2
+    )
 
-    fun openAlphaInterpolator(): Interpolator = PathInterpolator(0.0f, 0.0f, 0.20f, 1.0f)
+    fun openAlphaInterpolator(): Interpolator = PathInterpolator(
+        OPEN_ALPHA_CTRL_X1,
+        OPEN_ALPHA_CTRL_Y1,
+        OPEN_ALPHA_CTRL_X2,
+        OPEN_ALPHA_CTRL_Y2
+    )
 
-    fun iconExpandInterpolator(): Interpolator = PathInterpolator(0.18f, 0.90f, 0.16f, 1.0f)
+    fun iconExpandInterpolator(): Interpolator = PathInterpolator(
+        ICON_EXPAND_CTRL_X1,
+        ICON_EXPAND_CTRL_Y1,
+        ICON_EXPAND_CTRL_X2,
+        ICON_EXPAND_CTRL_Y2
+    )
 
-    fun edgeDockInterpolator(): Interpolator = PathInterpolator(0.32f, 0.0f, 0.20f, 1.0f)
+    fun edgeDockInterpolator(): Interpolator = PathInterpolator(
+        EDGE_DOCK_CTRL_X1,
+        EDGE_DOCK_CTRL_Y1,
+        EDGE_DOCK_CTRL_X2,
+        EDGE_DOCK_CTRL_Y2
+    )
 
     /**
      * Interpolates a surface transform shrinking from its visual bounds toward a dock center.
@@ -170,5 +235,36 @@ object FreeformAnimCurves {
             right > displayRight -> displayRight - right
             else -> 0
         }
+    }
+
+    /** Returns dock side (0 left, 1 right) or -1 when the window should snap back onscreen. */
+    fun resolveEdgeDockSide(
+        offLeft: Int,
+        offRight: Int,
+        windowWidth: Int,
+        triggerPercent: Int,
+        pointerRawX: Float,
+        displayWidth: Int,
+        velocityXPxPerSec: Float,
+        density: Float
+    ): Int {
+        if (offLeft <= 0 && offRight <= 0) return -1
+        val safeWidth = windowWidth.coerceAtLeast(1).toFloat()
+        val triggerWidth = safeWidth * triggerPercent / 100f
+        if (offLeft >= triggerWidth) return 0
+        if (offRight >= triggerWidth) return 1
+
+        val safeDensity = density.coerceAtLeast(0.5f)
+        val edgeZonePx = EDGE_TOUCH_ZONE_DP * safeDensity
+        val minZoneOverhang = minOf(triggerWidth, safeWidth * EDGE_ZONE_MIN_OVERHANG_RATIO)
+        if (offLeft >= minZoneOverhang && pointerRawX <= edgeZonePx) return 0
+        if (offRight >= minZoneOverhang && pointerRawX >= displayWidth - edgeZonePx) return 1
+
+        val minFlingSpeed = EDGE_FLING_VELOCITY_DP * safeDensity
+        val minFlingOverhang = minOf(triggerWidth, safeWidth * EDGE_FLING_MIN_OVERHANG_RATIO)
+        if (offLeft >= minFlingOverhang && velocityXPxPerSec <= -minFlingSpeed) return 0
+        if (offRight >= minFlingOverhang && velocityXPxPerSec >= minFlingSpeed) return 1
+
+        return -1
     }
 }

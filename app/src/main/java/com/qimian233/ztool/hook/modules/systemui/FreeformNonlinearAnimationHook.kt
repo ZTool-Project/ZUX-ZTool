@@ -5,6 +5,7 @@ import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.app.ActivityManager
+import android.app.BroadcastOptions
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -49,6 +50,13 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
         val bubbleRect: Rect,
         val side: Int,
         val createdAtMs: Long
+    )
+
+    private data class DragVelocityState(
+        val lastX: Float,
+        val lastTimeMs: Long,
+        val vx: Float,
+        val samples: Int
     )
 
     private class TaskInfoReflect(
@@ -263,6 +271,7 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
     private val activeAnimators = ConcurrentHashMap<Int, ValueAnimator>()
     private val activelyRestoringTasks = ConcurrentHashMap.newKeySet<Int>()
     private val lastVisibleByTaskId = ConcurrentHashMap<Int, Boolean>()
+    private val dragVelocityByTask = ConcurrentHashMap<Int, DragVelocityState>()
 
     @Volatile
     private var ztoolUid = -1
@@ -631,15 +640,26 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
         hookWithId(handleMethod, "freeform_nonlinear_edge_drag") { chain ->
             try {
                 val event = chain.args.firstOrNull { it is MotionEvent } as? MotionEvent
-                if (event == null || event.actionMasked != MotionEvent.ACTION_UP) {
-                    return@hookWithId chain.proceed()
-                }
-                if (!readEdgeBubbleEnabled()) {
-                    return@hookWithId chain.proceed()
-                }
+                    ?: return@hookWithId chain.proceed()
                 val listener = chain.thisObject ?: return@hookWithId chain.proceed()
-                if (handleDragUp(listener, event, taskReflect, dragReflect)) {
-                    return@hookWithId true
+                when (event.actionMasked) {
+                    MotionEvent.ACTION_DOWN -> recordDragDown(listener, event, dragReflect)
+                    MotionEvent.ACTION_MOVE -> recordDragMove(listener, event, dragReflect)
+                    MotionEvent.ACTION_CANCEL -> {
+                        resolveListenerTaskId(listener, dragReflect)?.let {
+                            dragVelocityByTask.remove(it)
+                        }
+                    }
+                    MotionEvent.ACTION_UP -> {
+                        if (readEdgeBubbleEnabled() &&
+                            handleDragUp(listener, event, taskReflect, dragReflect)
+                        ) {
+                            return@hookWithId true
+                        }
+                        resolveListenerTaskId(listener, dragReflect)?.let {
+                            dragVelocityByTask.remove(it)
+                        }
+                    }
                 }
             } catch (t: Throwable) {
                 logger.warn("Part B edge-drag handler failed: ${t.message}")
@@ -649,12 +669,74 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
         logger.info("Part B edge-dock/snap-back installed on ${listenerClass.simpleName}")
     }
 
+    private fun resolveListenerTaskId(listener: Any, drag: DragReflect): Int? =
+        runCatching { drag.listenerTaskId?.getInt(listener) }.getOrNull()
+
+    private fun resolvePointerRawX(
+        listener: Any,
+        event: MotionEvent,
+        drag: DragReflect
+    ): Float {
+        val ptrId = runCatching { drag.listenerDragPointerId?.getInt(listener) }.getOrNull()
+        val ptrIdx = if (ptrId != null) {
+            event.findPointerIndex(ptrId).let { if (it >= 0) it else 0 }
+        } else {
+            0
+        }
+        return runCatching { event.getRawX(ptrIdx) }.getOrDefault(event.rawX)
+    }
+
+    private fun recordDragDown(listener: Any, event: MotionEvent, drag: DragReflect) {
+        val taskId = resolveListenerTaskId(listener, drag) ?: return
+        val rawX = runCatching { event.getRawX(0) }.getOrDefault(event.rawX)
+        dragVelocityByTask[taskId] = DragVelocityState(
+            lastX = rawX,
+            lastTimeMs = event.eventTime,
+            vx = 0f,
+            samples = 0
+        )
+    }
+
+    private fun recordDragMove(listener: Any, event: MotionEvent, drag: DragReflect) {
+        val taskId = resolveListenerTaskId(listener, drag) ?: return
+        val rawX = resolvePointerRawX(listener, event, drag)
+        val now = event.eventTime
+        val prev = dragVelocityByTask[taskId]
+        if (prev == null) {
+            dragVelocityByTask[taskId] = DragVelocityState(rawX, now, 0f, 0)
+            return
+        }
+        val dtMs = now - prev.lastTimeMs
+        if (dtMs <= 0L) return
+        if (dtMs > VELOCITY_STALE_MS * 2L) {
+            dragVelocityByTask[taskId] = DragVelocityState(rawX, now, 0f, 0)
+            return
+        }
+        val instVx = (rawX - prev.lastX) * 1000f / dtMs.toFloat()
+        val smoothedVx = if (prev.samples == 0) instVx else prev.vx * 0.4f + instVx * 0.6f
+        dragVelocityByTask[taskId] = DragVelocityState(
+            lastX = rawX,
+            lastTimeMs = now,
+            vx = smoothedVx,
+            samples = prev.samples + 1
+        )
+    }
+
     private fun handleDragUp(
         listener: Any,
         event: MotionEvent,
         taskReflect: TaskInfoReflect,
         drag: DragReflect
     ): Boolean {
+        val taskId = resolveListenerTaskId(listener, drag)
+        val velocityState = taskId?.let { dragVelocityByTask.remove(it) }
+        val velocityX = if (velocityState != null &&
+            event.eventTime - velocityState.lastTimeMs <= VELOCITY_STALE_MS
+        ) {
+            velocityState.vx
+        } else {
+            0f
+        }
         val isDragging = runCatching { drag.listenerIsDragging?.getBoolean(listener) == true }
             .getOrDefault(false)
         if (!isDragging) return false
@@ -720,21 +802,36 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
         if (!leash.isValid) return false
 
         val triggerPercent = readTriggerPercent()
-        val triggerWidth = dropBounds.width().coerceAtLeast(1) * triggerPercent / 100f
-        val taskId = taskInfo.taskId
-
-        cleanupDragState(listener, decoration, positioner, controller, taskId, drag)
-        activeAnimators.remove(taskId)?.cancel()
-
+        val pointerRawX = resolvePointerRawX(listener, event, drag)
         val density = Resources.getSystem().displayMetrics.density
+        val dockSide = FreeformAnimCurves.resolveEdgeDockSide(
+            offLeft = offLeft,
+            offRight = offRight,
+            windowWidth = dropBounds.width(),
+            triggerPercent = triggerPercent,
+            pointerRawX = pointerRawX,
+            displayWidth = displayWidth,
+            velocityXPxPerSec = velocityX,
+            density = density
+        )
+        val resolvedTaskId = taskInfo.taskId
+
+        cleanupDragState(listener, decoration, positioner, controller, resolvedTaskId, drag)
+        activeAnimators.remove(resolvedTaskId)?.cancel()
+
         val windowCornerRadius = resolveWindowCornerRadius(decoration, drag, density)
         val (baseScaleX, baseScaleY) = resolveBaseScales(taskInfo, taskReflect, preferHanging = false)
 
-        if (offLeft >= triggerWidth || offRight >= triggerWidth) {
-            val side = if (offLeft >= triggerWidth) 0 else 1
+        if (dockSide >= 0) {
             startEdgeDockAnimation(
-                taskId = taskId,
-                side = side,
+                listener = listener,
+                decoration = decoration,
+                positioner = positioner,
+                controller = controller,
+                taskInfo = taskInfo,
+                drag = drag,
+                taskId = resolvedTaskId,
+                side = dockSide,
                 dropBounds = dropBounds,
                 displayWidth = displayWidth,
                 displayHeight = displayHeight,
@@ -765,6 +862,12 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
     }
 
     private fun startEdgeDockAnimation(
+        listener: Any,
+        decoration: Any,
+        positioner: Any?,
+        controller: Any?,
+        taskInfo: ActivityManager.RunningTaskInfo,
+        drag: DragReflect,
         taskId: Int,
         side: Int,
         dropBounds: Rect,
@@ -827,20 +930,51 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
                 override fun onAnimationEnd(animation: Animator) {
                     activeAnimators.remove(taskId, animation)
                     if (cancelled) return
-                    sendMinimizeCommand(taskId, side, dropBounds, centerYRatio)
-                    mainHandler.postDelayed({
-                        if (!activelyRestoringTasks.contains(taskId) &&
-                            !pendingRestoreHints.containsKey(taskId) &&
-                            leash.isValid
-                        ) {
-                            SurfaceControl.Transaction().apply {
-                                setAlpha(leash, 1f)
-                                setScale(leash, baseScaleX, baseScaleY)
-                                taskReflect.setCornerRadius(this, leash, windowCornerRadius)
-                                apply()
+                    sendMinimizeCommand(taskId, side, dropBounds, centerYRatio) { succeeded ->
+                        if (succeeded) {
+                            mainHandler.postDelayed({
+                                if (!activelyRestoringTasks.contains(taskId) &&
+                                    !pendingRestoreHints.containsKey(taskId) &&
+                                    leash.isValid
+                                ) {
+                                    SurfaceControl.Transaction().apply {
+                                        setAlpha(leash, 1f)
+                                        setScale(leash, baseScaleX, baseScaleY)
+                                        taskReflect.setCornerRadius(this, leash, windowCornerRadius)
+                                        apply()
+                                    }
+                                }
+                            }, DOCK_CLEANUP_DELAY_MS)
+                        } else {
+                            logger.warn("Minimize command rejected or unhandled for task=$taskId; snapping back")
+                            if (leash.isValid) {
+                                SurfaceControl.Transaction().apply {
+                                    setAlpha(leash, 1f)
+                                    setScale(leash, baseScaleX, baseScaleY)
+                                    taskReflect.setCornerRadius(this, leash, windowCornerRadius)
+                                    setPosition(
+                                        leash,
+                                        dropBounds.left.toFloat(),
+                                        dropBounds.top.toFloat()
+                                    )
+                                    apply()
+                                }
+                                startSnapBackAnimation(
+                                    listener = listener,
+                                    decoration = decoration,
+                                    positioner = positioner,
+                                    controller = controller,
+                                    taskInfo = taskInfo,
+                                    taskReflect = taskReflect,
+                                    drag = drag,
+                                    dropBounds = dropBounds,
+                                    displayWidth = displayWidth,
+                                    baseScaleX = baseScaleX,
+                                    leash = leash
+                                )
                             }
                         }
-                    }, DOCK_CLEANUP_DELAY_MS)
+                    }
                 }
             })
         }
@@ -1005,9 +1139,14 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
         taskId: Int,
         side: Int,
         restoreBounds: Rect,
-        centerYRatio: Float
+        centerYRatio: Float,
+        onResult: (Boolean) -> Unit
     ) {
-        val context = sysUiContext ?: return
+        val context = sysUiContext ?: run {
+            logger.warn("SystemUI context unavailable; minimize command not sent")
+            onResult(false)
+            return
+        }
         val intent = Intent(ACTION_BUBBLE_COMMAND).setPackage(PACKAGE_ANDROID).apply {
             putExtra(FreeformAnimContract.EXTRA_CMD, CMD_MINIMIZE_TASK)
             putExtra(FreeformAnimContract.EXTRA_TASK_ID, taskId)
@@ -1019,10 +1158,40 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
             putExtra(FreeformAnimContract.EXTRA_CENTER_Y_RATIO, centerYRatio)
             putExtra(FreeformAnimContract.EXTRA_NOTIFY_BUBBLE, true)
         }
+        val resultReceiver = object : BroadcastReceiver() {
+            override fun onReceive(ctx: Context, received: Intent) {
+                onResult(resultCode == 1)
+            }
+        }
         runCatching {
-            context.sendBroadcast(intent)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                val options = BroadcastOptions.makeBasic()
+                    .setShareIdentityEnabled(true)
+                    .toBundle()
+                context.sendOrderedBroadcast(
+                    intent,
+                    null,
+                    options,
+                    resultReceiver,
+                    mainHandler,
+                    0,
+                    null,
+                    null
+                )
+            } else {
+                context.sendOrderedBroadcast(
+                    intent,
+                    null,
+                    resultReceiver,
+                    mainHandler,
+                    0,
+                    null,
+                    null
+                )
+            }
         }.onFailure {
             logger.warn("Failed to send minimize broadcast: ${it.message}")
+            onResult(false)
         }
     }
 
@@ -1059,6 +1228,7 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
             val filter = IntentFilter(FreeformAnimContract.ACTION_SYSTEMUI_ANIM_CMD)
             val receiver = object : BroadcastReceiver() {
                 override fun onReceive(context: Context, intent: Intent) {
+                    val ordered = isOrderedBroadcast
                     val uid = if (getSentFromUid != null) {
                         runCatching { getSentFromUid.invoke(this) as Int }.getOrDefault(-1)
                     } else {
@@ -1066,7 +1236,7 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
                     }
                     if (!isAllowedRestoreCaller(context, uid)) {
                         logger.warn("Rejected anim command from untrusted uid=$uid")
-                        resultCode = 0
+                        if (ordered) resultCode = 0
                         return
                     }
                     val cmd = intent.getIntExtra(FreeformAnimContract.EXTRA_CMD, -1)
@@ -1083,12 +1253,12 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
                                 side = side,
                                 createdAtMs = SystemClock.elapsedRealtime()
                             )
-                            resultCode = 1
+                            if (ordered) resultCode = 1
                         } else {
-                            resultCode = 0
+                            if (ordered) resultCode = 0
                         }
                     } else {
-                        resultCode = 0
+                        if (ordered) resultCode = 0
                     }
                 }
             }
@@ -1986,13 +2156,7 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
                 ?: drag.controllerVisualIndicatorField?.get(controller)
         }.getOrNull() ?: return false
         val calc = drag.indicatorCalcType ?: return true
-        val ptrId = runCatching { drag.listenerDragPointerId?.getInt(listener) }.getOrNull()
-        val ptrIdx = if (ptrId != null) {
-            event.findPointerIndex(ptrId).let { if (it >= 0) it else 0 }
-        } else {
-            0
-        }
-        val rawX = runCatching { event.getRawX(ptrIdx) }.getOrDefault(event.rawX)
+        val rawX = resolvePointerRawX(listener, event, drag)
         val point = PointF(rawX, dropBounds.top.toFloat())
         val paramTypes = calc.parameterTypes
         val indicatorType = runCatching {
@@ -2199,6 +2363,7 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
         const val DOCK_CLEANUP_DELAY_MS = 350L
         const val LISTENER_FALLBACK_DELAY_MS = 24L
         const val RESTORE_HINT_TTL_MS = 3000L
+        const val VELOCITY_STALE_MS = 120L
         const val RESTORE_START_ALPHA = 0.2f
         const val BUBBLE_CORNER_RADIUS_DP = 18f
         const val DEFAULT_WINDOW_CORNER_RADIUS_DP = 24f

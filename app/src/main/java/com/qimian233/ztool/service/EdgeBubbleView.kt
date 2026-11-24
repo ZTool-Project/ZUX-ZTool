@@ -86,7 +86,7 @@ class EdgeBubbleView(
         private const val HALF_HIDE_DELAY_MS = 50L
         private const val APPEAR_FULL_MS = 600L
         private const val MODE_ANIM_MS = 200L
-        private const val RESTORE_EXIT_ANIM_MS = 130L
+        private const val RESTORE_EXIT_ANIM_MS = 430L
         private const val RESTORE_EXIT_SHIFT_DP = 18f
         // Fling thresholds (spec): fast branch and slow-long-distance branch.
         private const val FLING_VELOCITY_PX = 1000f

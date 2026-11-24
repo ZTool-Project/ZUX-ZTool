@@ -172,4 +172,131 @@ class FreeformAnimCurvesTest {
         // Oversized window shifted off left leaving right gap
         assertEquals(50, FreeformAnimCurves.computeOnscreenSnapOffset(-250, 1150, 0, 1200))
     }
+
+    @Test
+    fun resolveEdgeDockSide_handlesDirectThresholdEdgeZoneAndFling() {
+        // Direct threshold reach on left and right
+        assertEquals(
+            0,
+            FreeformAnimCurves.resolveEdgeDockSide(
+                offLeft = 500,
+                offRight = 0,
+                windowWidth = 988,
+                triggerPercent = 50,
+                pointerRawX = 300f,
+                displayWidth = 3200,
+                velocityXPxPerSec = 0f,
+                density = 2.5f
+            )
+        )
+        assertEquals(
+            1,
+            FreeformAnimCurves.resolveEdgeDockSide(
+                offLeft = 0,
+                offRight = 494,
+                windowWidth = 988,
+                triggerPercent = 50,
+                pointerRawX = 2900f,
+                displayWidth = 3200,
+                velocityXPxPerSec = 0f,
+                density = 2.5f
+            )
+        )
+        // Exact tablet bezel case: centered handle hits right bezel at 491px overhang (< 494px)
+        assertEquals(
+            1,
+            FreeformAnimCurves.resolveEdgeDockSide(
+                offLeft = 0,
+                offRight = 491,
+                windowWidth = 988,
+                triggerPercent = 50,
+                pointerRawX = 3197f,
+                displayWidth = 3200,
+                velocityXPxPerSec = 0f,
+                density = 2.5f
+            )
+        )
+        // Tiny overhang inside edge zone must NOT accidentally dock
+        assertEquals(
+            -1,
+            FreeformAnimCurves.resolveEdgeDockSide(
+                offLeft = 0,
+                offRight = 50,
+                windowWidth = 988,
+                triggerPercent = 50,
+                pointerRawX = 3190f,
+                displayWidth = 3200,
+                velocityXPxPerSec = 0f,
+                density = 2.5f
+            )
+        )
+        // Edge-directed fling triggers with >= 15% overhang
+        assertEquals(
+            1,
+            FreeformAnimCurves.resolveEdgeDockSide(
+                offLeft = 0,
+                offRight = 180,
+                windowWidth = 988,
+                triggerPercent = 50,
+                pointerRawX = 2880f,
+                displayWidth = 3200,
+                velocityXPxPerSec = 1800f,
+                density = 2.5f
+            )
+        )
+        // Fling away from edge does not dock
+        assertEquals(
+            -1,
+            FreeformAnimCurves.resolveEdgeDockSide(
+                offLeft = 0,
+                offRight = 180,
+                windowWidth = 988,
+                triggerPercent = 50,
+                pointerRawX = 2880f,
+                displayWidth = 3200,
+                velocityXPxPerSec = -1800f,
+                density = 2.5f
+            )
+        )
+        // Release short of bezel without fling snaps back
+        assertEquals(
+            -1,
+            FreeformAnimCurves.resolveEdgeDockSide(
+                offLeft = 0,
+                offRight = 150,
+                windowWidth = 988,
+                triggerPercent = 50,
+                pointerRawX = 2856f,
+                displayWidth = 3200,
+                velocityXPxPerSec = 0f,
+                density = 2.5f
+            )
+        )
+        // Fully onscreen never docks
+        assertEquals(
+            -1,
+            FreeformAnimCurves.resolveEdgeDockSide(
+                offLeft = 0,
+                offRight = 0,
+                windowWidth = 988,
+                triggerPercent = 50,
+                pointerRawX = 3198f,
+                displayWidth = 3200,
+                velocityXPxPerSec = 2500f,
+                density = 2.5f
+            )
+        )
+    }
+
+    @Test
+    fun animDurations_reflect300msExtension() {
+        assertEquals(680L, FreeformAnimCurves.OPEN_ANIM_DURATION_MS)
+        assertEquals(480L, FreeformAnimCurves.OPEN_ALPHA_DURATION_MS)
+        assertEquals(560L, FreeformAnimCurves.CLOSE_SCALE_DURATION_MS)
+        assertEquals(510L, FreeformAnimCurves.CLOSE_ALPHA_DURATION_MS)
+        assertEquals(650L, FreeformAnimCurves.ICON_EXPAND_DURATION_MS)
+        assertEquals(540L, FreeformAnimCurves.EDGE_DOCK_DURATION_MS)
+        assertEquals(560L, FreeformAnimCurves.SNAP_BACK_DURATION_MS)
+        assertEquals(680L, FreeformAnimCurves.RESTORE_DURATION_MS)
+    }
 }
