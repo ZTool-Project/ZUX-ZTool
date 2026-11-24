@@ -433,6 +433,13 @@ object SearchIndex {
             titleRes = R.string.system_ui_status_bar_display_seconds_title,
         ),
         systemUiStatusBar.item(
+            id = "status_bar_display_seconds_long_press_toggle",
+            titleRes = R.string.system_ui_status_bar_display_seconds_long_press_title,
+            summaryRes = R.string.system_ui_status_bar_display_seconds_long_press_summary,
+            parentTitleRes = R.string.system_ui_status_bar_display_seconds_title,
+            parentKey = "status_bar_display_seconds"
+        ),
+        systemUiStatusBar.item(
             id = "status_bar_clock_red_one",
             titleRes = R.string.system_ui_status_bar_clock_red_one_title,
             summaryRes = R.string.system_ui_status_bar_clock_red_one_summary,

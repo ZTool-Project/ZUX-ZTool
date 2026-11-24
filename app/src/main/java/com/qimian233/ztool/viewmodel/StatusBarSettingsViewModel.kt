@@ -39,6 +39,11 @@ class StatusBarSettingsViewModel(
         repository.saveDisplaySeconds(enabled)
     }
 
+    fun setDisplaySecondsLongPressToggle(enabled: Boolean) {
+        _uiState.value = _uiState.value.copy(displaySecondsLongPressToggle = enabled)
+        repository.saveDisplaySecondsLongPressToggle(enabled)
+    }
+
     fun setClockRedOneHour(enabled: Boolean) {
         _uiState.value = _uiState.value.copy(clockRedOneHour = enabled)
         repository.saveClockRedOneHour(enabled)
@@ -306,6 +311,7 @@ private fun Int.toArgbText(): String {
 
 data class StatusBarSettingsUiState(
     val displaySeconds: Boolean = false,
+    val displaySecondsLongPressToggle: Boolean = false,
     val clockRedOneHour: Boolean = false,
     val customClock: Boolean = false,
     val clockFormat: String = "",

@@ -62,6 +62,10 @@ class StatusBarSettingsRepository(
         )
         return StatusBarSettingsUiState(
             displaySeconds = prefsUtils.loadBooleanSetting(KEY_DISPLAY_SECONDS, false),
+            displaySecondsLongPressToggle = prefsUtils.loadBooleanSetting(
+                KEY_DISPLAY_SECONDS_LONG_PRESS_TOGGLE,
+                PreferenceKeys.STATUSBAR_DISPLAY_SECONDS_LONG_PRESS_TOGGLE.default
+            ),
             clockRedOneHour = prefsUtils.loadBooleanSetting(
                 KEY_CLOCK_RED_ONE,
                 PreferenceKeys.STATUSBAR_CLOCK_RED_ONE.default
@@ -130,6 +134,10 @@ class StatusBarSettingsRepository(
 
     fun saveDisplaySeconds(enabled: Boolean) {
         prefsUtils.saveBooleanSetting(KEY_DISPLAY_SECONDS, enabled)
+    }
+
+    fun saveDisplaySecondsLongPressToggle(enabled: Boolean) {
+        prefsUtils.saveBooleanSetting(KEY_DISPLAY_SECONDS_LONG_PRESS_TOGGLE, enabled)
     }
 
     fun saveClockRedOneHour(enabled: Boolean) {
@@ -355,6 +363,8 @@ class StatusBarSettingsRepository(
         private const val TAG = "StatusBarSettingsRepository"
         private val KEY_NOTIFY_NUM_SIZE = PreferenceKeys.NOTIFY_NUM_SIZE.name
         private val KEY_DISPLAY_SECONDS = PreferenceKeys.STATUSBAR_DISPLAY_SECONDS.name
+        private val KEY_DISPLAY_SECONDS_LONG_PRESS_TOGGLE =
+            PreferenceKeys.STATUSBAR_DISPLAY_SECONDS_LONG_PRESS_TOGGLE.name
         private val KEY_CLOCK_RED_ONE = PreferenceKeys.STATUSBAR_CLOCK_RED_ONE.name
         private val KEY_CUSTOM_CLOCK = PreferenceKeys.CUSTOM_STATUSBAR_CLOCK.name
         private val KEY_CUSTOM_CLOCK_FORMAT = PreferenceKeys.CUSTOM_STATUSBAR_CLOCK_FORMAT.name

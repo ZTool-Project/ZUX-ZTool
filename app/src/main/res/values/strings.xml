@@ -699,6 +699,8 @@
     <!--系统界面 状态栏时钟页资源值-->
     <string name="system_ui_status_bar_clock_settings_title">状态栏时钟</string>
     <string name="system_ui_status_bar_display_seconds_title">显示秒数</string>
+    <string name="system_ui_status_bar_display_seconds_long_press_title">长按时钟切换显秒</string>
+    <string name="system_ui_status_bar_display_seconds_long_press_summary">长按状态栏或通知中心时钟 3 秒临时切换秒数显示，并屏蔽原有短按操作</string>
     <string name="system_ui_status_bar_clock_red_one_title">小时红 1</string>
     <string name="system_ui_status_bar_clock_red_one_summary">将状态栏与通知中心时钟小时位置的数字 1 显示为一加红</string>
     <string name="system_ui_status_bar_custom_clock_title">自定义时钟</string>

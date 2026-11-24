@@ -210,6 +210,32 @@ class StatusBarClockPolicyTest {
         assertEquals("HH:mm", StatusBarClockOptions(customFormat = "   ").effectiveCustomFormat)
     }
 
+    @Test
+    fun longPressToggleSecondsRequiresDisplaySecondsWithoutCustomClock() {
+        for (displaySeconds in listOf(false, true)) {
+            for (customClock in listOf(false, true)) {
+                for (longPressToggle in listOf(false, true)) {
+                    val options = StatusBarClockOptions(
+                        displaySeconds = displaySeconds,
+                        displaySecondsLongPressToggle = longPressToggle,
+                        customClock = customClock,
+                        customFormat = "HH:mm:ss"
+                    )
+                    val expectedEnabled = displaySeconds && !customClock && longPressToggle
+                    assertEquals(expectedEnabled, options.effectiveLongPressToggleSeconds)
+                    assertEquals(
+                        if (expectedEnabled) true else options.effectiveShowSeconds,
+                        options.effectiveShowSeconds(runtimeSecondsHidden = false)
+                    )
+                    assertEquals(
+                        if (expectedEnabled) false else options.effectiveShowSeconds,
+                        options.effectiveShowSeconds(runtimeSecondsHidden = true)
+                    )
+                }
+            }
+        }
+    }
+
     private fun stockRedOneIndices(text: CharSequence): List<Int> =
         StatusBarClockPolicy.findRedOneIndices(text, StatusBarClockPolicy.findStockHourRanges(text))
 

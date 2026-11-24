@@ -129,6 +129,7 @@ fun StatusBarSettingsRoute(
             state = uiState,
             onBack = onBack,
             onDisplaySecondsChanged = viewModel::setDisplaySeconds,
+            onDisplaySecondsLongPressToggleChanged = viewModel::setDisplaySecondsLongPressToggle,
             onClockRedOneHourChanged = viewModel::setClockRedOneHour,
             onCustomClockChanged = viewModel::setCustomClock,
             onClockFormatChanged = viewModel::setClockFormat,
@@ -238,6 +239,7 @@ private fun StatusBarSettingsScreen(
     state: StatusBarSettingsUiState,
     onBack: () -> Unit,
     onDisplaySecondsChanged: (Boolean) -> Unit,
+    onDisplaySecondsLongPressToggleChanged: (Boolean) -> Unit,
     onClockRedOneHourChanged: (Boolean) -> Unit,
     onCustomClockChanged: (Boolean) -> Unit,
     onClockFormatChanged: (String) -> Unit,
@@ -323,6 +325,7 @@ private fun StatusBarSettingsScreen(
                     sections = statusBarSettingsSections(
                         state = state,
                         onDisplaySecondsChanged = onDisplaySecondsChanged,
+                        onDisplaySecondsLongPressToggleChanged = onDisplaySecondsLongPressToggleChanged,
                         onClockRedOneHourChanged = onClockRedOneHourChanged,
                         onCustomClockChanged = onCustomClockChanged,
                         onClockFormatChanged = onClockFormatChanged,
@@ -378,6 +381,7 @@ private fun StatusBarSettingsScreen(
 private fun statusBarSettingsSections(
     state: StatusBarSettingsUiState,
     onDisplaySecondsChanged: (Boolean) -> Unit,
+    onDisplaySecondsLongPressToggleChanged: (Boolean) -> Unit,
     onClockRedOneHourChanged: (Boolean) -> Unit,
     onCustomClockChanged: (Boolean) -> Unit,
     onClockFormatChanged: (String) -> Unit,
@@ -433,6 +437,17 @@ private fun statusBarSettingsSections(
                         key = "status_bar_display_seconds"
                     )
                 )
+                if (state.displaySeconds && !state.customClock) {
+                    add(
+                        SettingItem.Switch(
+                            title = stringResource(R.string.system_ui_status_bar_display_seconds_long_press_title),
+                            summary = stringResource(R.string.system_ui_status_bar_display_seconds_long_press_summary),
+                            checked = state.displaySecondsLongPressToggle,
+                            onCheckedChange = onDisplaySecondsLongPressToggleChanged,
+                            key = "status_bar_display_seconds_long_press_toggle"
+                        )
+                    )
+                }
                 add(
                     SettingItem.Switch(
                         title = stringResource(R.string.system_ui_status_bar_clock_red_one_title),

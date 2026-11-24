@@ -609,6 +609,8 @@
     <string name="system_ui_misc_shade_rebound_fix_fixed_summary">ZUXOS 2.0 has fixed this issue; this switch is no longer needed.</string>
     <string name="system_ui_status_bar_clock_settings_title">Status bar clock</string>
     <string name="system_ui_status_bar_display_seconds_title">Show seconds</string>
+    <string name="system_ui_status_bar_display_seconds_long_press_title">Long press clock to toggle seconds</string>
+    <string name="system_ui_status_bar_display_seconds_long_press_summary">Long press the status bar or shade clock for 3 seconds to temporarily toggle seconds; disables the default tap action</string>
     <string name="system_ui_status_bar_clock_red_one_title">Red 1 in hour</string>
     <string name="system_ui_status_bar_clock_red_one_summary">Highlight the digit 1 in the status bar and shade clock hour with OnePlus red</string>
     <string name="system_ui_status_bar_custom_clock_title">Custom clock</string>

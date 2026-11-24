@@ -3,6 +3,7 @@ package com.qimian233.ztool.hook.modules.systemui.statusbar
 /** User-configured options for the unified status bar and shade clock hook. */
 internal data class StatusBarClockOptions(
     val displaySeconds: Boolean = false,
+    val displaySecondsLongPressToggle: Boolean = false,
     val redOneHour: Boolean = false,
     val customClock: Boolean = false,
     val customFormat: String = "",
@@ -25,6 +26,12 @@ internal data class StatusBarClockOptions(
         get() = displaySeconds ||
             (customClock && StatusBarClockPolicy.containsSecondsPattern(effectiveCustomFormat))
 
+    val effectiveLongPressToggleSeconds: Boolean
+        get() = displaySeconds && !customClock && displaySecondsLongPressToggle
+
+    fun effectiveShowSeconds(runtimeSecondsHidden: Boolean): Boolean =
+        if (effectiveLongPressToggleSeconds) !runtimeSecondsHidden else effectiveShowSeconds
+
     val needsTextHook: Boolean
         get() = customClock || redOneHour
 
@@ -43,6 +50,7 @@ internal object StatusBarClockPolicy {
     // Official OnePlus brand / OxygenOS clock red ("Never Settle" red).
     const val ONEPLUS_RED_COLOR: Int = 0xFFEB0028.toInt()
     const val DEFAULT_CUSTOM_CLOCK_FORMAT: String = "HH:mm"
+    const val LONG_PRESS_TOGGLE_DURATION_MS: Long = 3_000L
 
     /** Returns true if [pattern] contains an unescaped SimpleDateFormat seconds token (`s` or `S`). */
     fun containsSecondsPattern(pattern: String): Boolean {

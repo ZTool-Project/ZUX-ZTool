@@ -6,12 +6,18 @@ import android.graphics.Typeface
 import android.os.Build
 import android.text.SpannableStringBuilder
 import android.text.Spanned
+import android.text.TextUtils
 import android.text.style.AbsoluteSizeSpan
 import android.text.style.ForegroundColorSpan
 import android.text.style.ScaleXSpan
 import android.text.style.StyleSpan
 import android.util.TypedValue
+import android.view.HapticFeedbackConstants
+import android.view.InputDevice
+import android.view.MotionEvent
 import android.view.View
+import android.view.ViewConfiguration
+import android.widget.TextView
 import com.qimian233.ztool.data.keys.PreferenceKeys
 import com.qimian233.ztool.data.keys.ScopeKeys
 import com.qimian233.ztool.hook.base.AppHookModule
@@ -19,9 +25,13 @@ import com.qimian233.ztool.hook.base.ModuleResources
 import com.qimian233.ztool.hook.modules.systemui.misc.CustomDateFormatter
 import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.api.XposedModuleInterface.PackageLoadedParam
+import java.lang.ref.WeakReference
 import java.lang.reflect.Field
+import java.lang.reflect.Method
 import java.util.Calendar
 import java.util.Date
+import java.util.WeakHashMap
+import kotlin.math.hypot
 
 /** Shares the SystemUI Clock pipeline across seconds, Red 1 hour, and custom clock features. */
 @SuppressLint("PrivateApi")
@@ -30,8 +40,14 @@ class SystemUIClockHook : AppHookModule() {
     private data class Host(
         val clockClass: Class<*>,
         val showSecondsField: Field,
-        val calendarField: Field?
+        val calendarField: Field?,
+        val updateShowSecondsMethod: Method,
+        val getSmallTimeMethod: Method
     )
+
+    @Volatile
+    private var runtimeSecondsHidden: Boolean = false
+    private val attachedClocks = WeakHashMap<View, ClockLongPressToggleListener?>()
 
     override fun getModuleName(): String = PreferenceKeys.CUSTOM_STATUSBAR_CLOCK.name
 
@@ -64,7 +80,9 @@ class SystemUIClockHook : AppHookModule() {
         return Host(
             clockClass = clockClass,
             showSecondsField = findField(clockClass, "mShowSeconds"),
-            calendarField = runCatching { findField(clockClass, "mCalendar") }.getOrNull()
+            calendarField = runCatching { findField(clockClass, "mCalendar") }.getOrNull(),
+            updateShowSecondsMethod = clockClass.getDeclaredMethod("updateShowSeconds"),
+            getSmallTimeMethod = clockClass.getDeclaredMethod("getSmallTime")
         )
     }
 
@@ -84,24 +102,38 @@ class SystemUIClockHook : AppHookModule() {
     }
 
     private fun installSeconds(host: Host, handles: MutableList<XposedInterface.HookHandle>) {
-        val updateShowSeconds = host.clockClass.getDeclaredMethod("updateShowSeconds")
-
         // Set mShowSeconds before proceeding so the host creates mSecondsHandler once itself.
         val onAttached = host.clockClass.getDeclaredMethod("onAttachedToWindow")
         handles += hookWithId(onAttached, "clock_on_attached") { chain ->
-            if (readOptions().effectiveShowSeconds) {
-                host.showSecondsField.setBoolean(chain.thisObject, true)
+            val options = readOptions()
+            val showSeconds = options.effectiveShowSeconds(runtimeSecondsHidden)
+            if (options.effectiveShowSeconds) {
+                host.showSecondsField.setBoolean(chain.thisObject, showSeconds)
             }
             val result = chain.proceed()
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.CINNAMON_BUN &&
-                readOptions().effectiveShowSeconds
-            ) {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.CINNAMON_BUN && showSeconds) {
                 try {
-                    updateShowSeconds.invoke(chain.thisObject)
+                    host.updateShowSecondsMethod.invoke(chain.thisObject)
                 } catch (_: Throwable) {
                 }
             }
+            (chain.thisObject as? View)?.let { clockView ->
+                registerAttachedClock(clockView, host, options.effectiveLongPressToggleSeconds)
+            }
             result
+        }
+
+        try {
+            val onDetached = host.clockClass.getDeclaredMethod("onDetachedFromWindow")
+            handles += hookWithId(onDetached, "clock_on_detached") { chain ->
+                (chain.thisObject as? View)?.let { clockView ->
+                    synchronized(attachedClocks) {
+                        attachedClocks.remove(clockView)
+                    }?.cancel(clockView)
+                }
+                chain.proceed()
+            }
+        } catch (_: NoSuchMethodException) {
         }
 
         val onTuning = host.clockClass.getDeclaredMethod(
@@ -111,12 +143,14 @@ class SystemUIClockHook : AppHookModule() {
         )
         handles += hookWithId(onTuning, "clock_on_tuning") { chain ->
             val key = chain.args[0] as? String
-            if ("clock_seconds" == key && readOptions().effectiveShowSeconds) {
-                host.showSecondsField.setBoolean(chain.thisObject, true)
-                val result = chain.proceed(arrayOf(key, "1"))
+            val options = readOptions()
+            if ("clock_seconds" == key && options.effectiveShowSeconds) {
+                val showSeconds = options.effectiveShowSeconds(runtimeSecondsHidden)
+                host.showSecondsField.setBoolean(chain.thisObject, showSeconds)
+                val result = chain.proceed(arrayOf(key, if (showSeconds) "1" else "0"))
                 if (Build.VERSION.SDK_INT < Build.VERSION_CODES.CINNAMON_BUN) {
                     try {
-                        updateShowSeconds.invoke(chain.thisObject)
+                        host.updateShowSecondsMethod.invoke(chain.thisObject)
                     } catch (_: Throwable) {
                     }
                 }
@@ -126,11 +160,125 @@ class SystemUIClockHook : AppHookModule() {
             }
         }
 
-        handles += hookWithId(updateShowSeconds, "clock_update_show_seconds") { chain ->
-            if (readOptions().effectiveShowSeconds) {
-                host.showSecondsField.setBoolean(chain.thisObject, true)
+        handles += hookWithId(host.updateShowSecondsMethod, "clock_update_show_seconds") { chain ->
+            val options = readOptions()
+            if (options.effectiveShowSeconds) {
+                host.showSecondsField.setBoolean(
+                    chain.thisObject,
+                    options.effectiveShowSeconds(runtimeSecondsHidden)
+                )
             }
             chain.proceed()
+        }
+    }
+
+    private fun registerAttachedClock(
+        clockView: View,
+        host: Host,
+        attachLongPressListener: Boolean
+    ) {
+        val listener = synchronized(attachedClocks) {
+            val existing = attachedClocks[clockView]
+            if (attachLongPressListener) {
+                val resolved = existing ?: ClockLongPressToggleListener(host, clockView)
+                attachedClocks[clockView] = resolved
+                resolved
+            } else {
+                attachedClocks.putIfAbsent(clockView, existing)
+                null
+            }
+        }
+        if (listener != null) {
+            clockView.setOnTouchListener(listener)
+        }
+    }
+
+    private fun toggleRuntimeSeconds(host: Host) {
+        val hidden = !runtimeSecondsHidden
+        runtimeSecondsHidden = hidden
+        val showSeconds = !hidden
+        val targets = synchronized(attachedClocks) { attachedClocks.keys.toList() }
+        for (clockView in targets) {
+            if (!clockView.isAttachedToWindow) continue
+            try {
+                host.showSecondsField.setBoolean(clockView, showSeconds)
+                host.updateShowSecondsMethod.invoke(clockView)
+                refreshClockText(host, clockView)
+            } catch (failure: Throwable) {
+                logger.error("Failed to toggle clock seconds on ${clockView.javaClass.simpleName}", failure)
+            }
+        }
+    }
+
+    private fun refreshClockText(host: Host, clockView: View) {
+        val calendar = host.calendarField?.get(clockView) as? Calendar ?: return
+        calendar.timeInMillis = System.currentTimeMillis()
+        val smallTime = host.getSmallTimeMethod.invoke(clockView) as? CharSequence ?: return
+        if (clockView is TextView && !TextUtils.equals(smallTime, clockView.text)) {
+            clockView.text = smallTime
+        }
+        clockView.contentDescription = smallTime.toString()
+    }
+
+    private inner class ClockLongPressToggleListener(
+        private val host: Host,
+        sampleView: View
+    ) : View.OnTouchListener {
+        private val touchSlop = ViewConfiguration.get(sampleView.context).scaledTouchSlop.toDouble()
+        private var downX = 0f
+        private var downY = 0f
+        private var active = false
+        private var viewRef: WeakReference<View>? = null
+
+        private val triggerRunnable = Runnable {
+            val view = viewRef?.get() ?: return@Runnable
+            if (!active) return@Runnable
+            active = false
+            viewRef = null
+            if (!view.isAttachedToWindow || !readOptions().effectiveLongPressToggleSeconds) {
+                return@Runnable
+            }
+            view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+            toggleRuntimeSeconds(host)
+        }
+
+        fun cancel(view: View?) {
+            active = false
+            viewRef = null
+            view?.removeCallbacks(triggerRunnable)
+        }
+
+        @SuppressLint("ClickableViewAccessibility")
+        override fun onTouch(view: View, event: MotionEvent): Boolean {
+            if (event.isFromSource(InputDevice.SOURCE_MOUSE)) {
+                return false
+            }
+            if (!readOptions().effectiveLongPressToggleSeconds) {
+                if (active) cancel(view)
+                return false
+            }
+            return when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    cancel(view)
+                    downX = event.rawX
+                    downY = event.rawY
+                    active = true
+                    viewRef = WeakReference(view)
+                    view.postDelayed(triggerRunnable, StatusBarClockPolicy.LONG_PRESS_TOGGLE_DURATION_MS)
+                    true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    if (active && hypot((event.rawX - downX).toDouble(), (event.rawY - downY).toDouble()) > touchSlop) {
+                        cancel(view)
+                    }
+                    true
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    cancel(view)
+                    true
+                }
+                else -> false
+            }
         }
     }
 
@@ -350,6 +498,10 @@ class SystemUIClockHook : AppHookModule() {
             displaySeconds = prefs.getBoolean(
                 PreferenceKeys.STATUSBAR_DISPLAY_SECONDS.name,
                 PreferenceKeys.STATUSBAR_DISPLAY_SECONDS.default
+            ),
+            displaySecondsLongPressToggle = prefs.getBoolean(
+                PreferenceKeys.STATUSBAR_DISPLAY_SECONDS_LONG_PRESS_TOGGLE.name,
+                PreferenceKeys.STATUSBAR_DISPLAY_SECONDS_LONG_PRESS_TOGGLE.default
             ),
             redOneHour = prefs.getBoolean(
                 PreferenceKeys.STATUSBAR_CLOCK_RED_ONE.name,
