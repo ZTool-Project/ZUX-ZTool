@@ -122,9 +122,10 @@ fun ZListItem(
             summaryColor = miuixRowSummaryColor(enabled),
             startAction = leadingContent?.let {
                 {
-                    Row {
-                        it()
-                    }
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        content = it
+                    )
                 }
             },
             endActions = trailingContent,
@@ -142,8 +143,12 @@ fun ZListItem(
         enabled = enabled,
         rippleOnly = rippleOnly,
         onClick = onClick,
-        leadingContent = leadingContent?.let { { Row(content = it) } },
-        trailingContent = trailingContent?.let { { Row(content = it) } }
+        leadingContent = leadingContent?.let {
+            { Row(verticalAlignment = Alignment.CenterVertically, content = it) }
+        },
+        trailingContent = trailingContent?.let {
+            { Row(verticalAlignment = Alignment.CenterVertically, content = it) }
+        }
     )
 }
 

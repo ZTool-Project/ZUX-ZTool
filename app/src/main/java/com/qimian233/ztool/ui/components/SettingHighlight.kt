@@ -212,7 +212,11 @@ fun HighlightController(
         onConsumed()
     }
 
-    CompositionLocalProvider(LocalHighlightActiveId provides activeId, content = content)
+    CompositionLocalProvider(
+        LocalHighlightRegistry provides registry,
+        LocalHighlightActiveId provides activeId,
+        content = content
+    )
 }
 
 @Composable

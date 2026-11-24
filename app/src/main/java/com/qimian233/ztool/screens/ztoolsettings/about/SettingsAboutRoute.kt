@@ -31,6 +31,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.imageResource
@@ -65,6 +66,7 @@ import com.qimian233.ztool.ui.components.ZToolSwitchRow
 import com.qimian233.ztool.ui.components.ZToolTextButton
 import com.qimian233.ztool.ui.firstrun.AgreementContentCard
 import com.qimian233.ztool.ui.components.ZToolTopAppBar
+import com.qimian233.ztool.ui.components.expressiveListShapes
 import com.qimian233.ztool.ui.theme.FrontendStyle
 import com.qimian233.ztool.ui.theme.LocalZToolColorScheme
 import com.qimian233.ztool.ui.theme.LocalUseAlternativeIcon
@@ -431,6 +433,14 @@ internal fun AboutSectionCard(
 }
 
 @Composable
+private fun resolveAboutHighlightShape(modifier: Modifier): Shape? =
+    if (LocalZToolThemeSpec.current.style == FrontendStyle.Material3Expressive) {
+        expressiveListShapes(modifier).shape
+    } else {
+        null
+    }
+
+@Composable
 internal fun AboutActionRow(
     title: String,
     summary: String?,
@@ -442,7 +452,11 @@ internal fun AboutActionRow(
     trailingLabel: String? = null,
     highlightKey: String? = null
 ) {
-    HighlightableSettingRow(highlightKey = highlightKey, modifier = Modifier.fillMaxWidth()) {
+    HighlightableSettingRow(
+        highlightKey = highlightKey,
+        shape = resolveAboutHighlightShape(modifier),
+        modifier = Modifier.fillMaxWidth()
+    ) {
         ZListItem(
             title = title,
             summary = summary,
@@ -463,7 +477,9 @@ internal fun AboutActionRow(
                             style = MaterialTheme.typography.labelMedium,
                             color = LocalZToolColorScheme.current.onSurfaceVariant
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
+                        if (showTrailingArrow) {
+                            Spacer(modifier = Modifier.width(8.dp))
+                        }
                     }
                     if (showTrailingArrow) {
                         Icon(
@@ -488,7 +504,11 @@ private fun AboutSwitchRow(
     icon: ImageVector? = null,
     highlightKey: String? = null
 ) {
-    HighlightableSettingRow(highlightKey = highlightKey, modifier = Modifier.fillMaxWidth()) {
+    HighlightableSettingRow(
+        highlightKey = highlightKey,
+        shape = resolveAboutHighlightShape(modifier),
+        modifier = Modifier.fillMaxWidth()
+    ) {
         ZToolSwitchRow(
             title = title,
             summary = summary,
