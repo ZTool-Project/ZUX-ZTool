@@ -1,6 +1,7 @@
 package com.qimian233.ztool.hook.modules.systemui.misc
 
 import android.annotation.SuppressLint
+import android.content.Context
 import android.content.SharedPreferences
 import android.content.res.Resources
 import android.graphics.Typeface
@@ -16,6 +17,7 @@ import android.widget.TextView
 import com.qimian233.ztool.data.keys.PreferenceKeys
 import com.qimian233.ztool.data.keys.ScopeKeys
 import com.qimian233.ztool.hook.base.AppHookModule
+import com.qimian233.ztool.hook.base.ModuleResources
 import io.github.libxposed.api.XposedModuleInterface.PackageLoadedParam
 import java.lang.reflect.Method
 import java.util.Date
@@ -70,8 +72,7 @@ class CustomControlCenterDate : AppHookModule() {
                     if (!isEnabled()) return@hookWithId chain.proceed()
                     if (!isTargetVariableDateView(chain.thisObject)) return@hookWithId chain.proceed()
 
-                    // Generate new date text using the custom formatter
-                    val styledText = createStyledCustomDateText()
+                    val styledText = createStyledCustomDateText((chain.thisObject as? View)?.context)
                     logger.debug("VariableDateView text replaced: $styledText")
                     return@hookWithId chain.proceed(arrayOf(styledText))
                 } catch (e: Exception) {
@@ -164,7 +165,7 @@ class CustomControlCenterDate : AppHookModule() {
         }
 
         val setTextMethod: Method = findMethod(dateView.javaClass, "setText", CharSequence::class.java)
-        setTextMethod.invoke(dateView, createStyledCustomDateText())
+        setTextMethod.invoke(dateView, createStyledCustomDateText((dateView as? View)?.context))
         return true
     }
 
@@ -207,22 +208,25 @@ class CustomControlCenterDate : AppHookModule() {
         }
     }
 
-    private fun createStyledCustomDateText(): CharSequence {
-        return applyAllStyles(getCustomFormattedDate())
+    private fun createStyledCustomDateText(context: Context?): CharSequence {
+        return applyAllStyles(getCustomFormattedDate(context))
     }
 
-    /**
-     * Get the custom formatted date
-     */
-    private fun getCustomFormattedDate(): String {
+    private fun getCustomFormattedDate(context: Context?): String {
+        val moduleResources = context?.let { ModuleResources.load(it, xposed, logger) }
+        val defaultFormat = ModuleResources.getString(
+            moduleResources,
+            STRING_DEFAULT_DATE_FORMAT,
+            FALLBACK_DEFAULT_DATE_FORMAT,
+            logger
+        )
         return try {
-            val format = getCustomDateFormat()
+            val format = getCustomDateFormat(defaultFormat)
             logger.debug("Loaded format config: $format")
-            CustomDateFormatter.format(format, Date())
+            CustomDateFormatter.format(format, Date(), moduleResources)
         } catch (e: Exception) {
             logger.error("Custom date formatting failed", e)
-            // Return the default format on error
-            CustomDateFormatter.format("yyyy年MM月dd日 EEEE", Date())
+            CustomDateFormatter.format(defaultFormat, Date(), moduleResources)
         }
     }
 
@@ -323,31 +327,24 @@ class CustomControlCenterDate : AppHookModule() {
         }
     }
 
-    /**
-     * Get the custom date format
-     */
-    private fun getCustomDateFormat(): String {
+    private fun getCustomDateFormat(defaultFormat: String): String {
         return try {
-            val format = getCustomDateSetting()
+            val format = getCustomDateSetting(defaultFormat)
             logger.debug("Initial format config: $format")
             format
         } catch (e: Exception) {
             logger.error("Failed to get date format", e)
-            "yyyy年MM月dd日 EEEE"
+            defaultFormat
         }
     }
 
-    /**
-     * Get SharedPreferences
-     */
     private val prefs: SharedPreferences
         get() = xposed.getRemotePreferences(PREFS_NAME)
 
-    /**
-     * Read a config value from SharedPreferences
-     */
-    private fun getCustomDateSetting(): String {
-        return prefs.getString(PreferenceKeys.CUSTOM_CONTROL_CENTER_DATE_FORMAT.name, "yyyy年MM月dd日 EEEE")!!
+    private fun getCustomDateSetting(defaultFormat: String): String {
+        return prefs.getString(PreferenceKeys.CUSTOM_CONTROL_CENTER_DATE_FORMAT.name, null)
+            ?.takeIf { it.isNotEmpty() }
+            ?: defaultFormat
     }
 
     /**
@@ -431,5 +428,7 @@ class CustomControlCenterDate : AppHookModule() {
         private val SYSTEMUI_PACKAGE = ScopeKeys.SYSTEM_UI.packageName
         private const val VARIABLE_DATE_VIEW_CLASS = "com.android.systemui.statusbar.policy.VariableDateView"
         private const val VARIABLE_DATE_CONTROLLER_CLASS = "com.android.systemui.statusbar.policy.VariableDateViewController"
+        private const val STRING_DEFAULT_DATE_FORMAT = "ztool_control_center_default_date_example"
+        private const val FALLBACK_DEFAULT_DATE_FORMAT = "yyyy年MM月dd日 EEEE"
     }
 }

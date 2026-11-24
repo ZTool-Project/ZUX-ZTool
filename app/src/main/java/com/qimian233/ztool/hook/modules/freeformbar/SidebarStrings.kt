@@ -1,6 +1,7 @@
 package com.qimian233.ztool.hook.modules.freeformbar
 
 import android.content.Context
+import com.qimian233.ztool.hook.base.ModuleResources
 
 /**
  * Resolves this module's own user-visible strings inside the host process.
@@ -9,8 +10,6 @@ import android.content.Context
  * character-for-character identical to the matching resource.
  */
 internal object SidebarStrings {
-
-    private const val MODULE_PACKAGE = "com.qimian233.ztool"
 
     const val STRING_EDIT = "ztool_sidebar_drawer_edit"
     const val STRING_DONE = "ztool_sidebar_drawer_done"
@@ -30,14 +29,6 @@ internal object SidebarStrings {
     const val FALLBACK_SEARCH_HINT = "搜索应用"
     const val FALLBACK_EMPTY = "没有匹配的应用"
 
-    fun get(hostContext: Context, resourceName: String, fallback: String): String = try {
-        val moduleContext = hostContext.createPackageContext(
-            MODULE_PACKAGE,
-            Context.CONTEXT_IGNORE_SECURITY
-        )
-        val id = moduleContext.resources.getIdentifier(resourceName, "string", MODULE_PACKAGE)
-        if (id != 0) moduleContext.resources.getString(id) else fallback
-    } catch (_: Throwable) {
-        fallback
-    }
+    fun get(hostContext: Context, resourceName: String, fallback: String): String =
+        ModuleResources.getString(hostContext, resourceName, fallback)
 }

@@ -1601,4 +1601,139 @@
     <string name="common_wallpaper_zoom_mode_disable">不缩放</string>
     <string name="launcher_quickstep_wallpaper_zoom_title">最近任务壁纸缩放</string>
     <string name="launcher_quickstep_wallpaper_zoom_summary">自定义上滑进入最近任务（QuickStep）时的壁纸缩放行为。无极缩放模式需勾选系统框架作用域并重启设备生效。</string>
+    <!-- Hook 侧读取（CustomDateFormatter / CustomControlCenterDate）；经 getIdentifier 按名加载，勿改名勿删 -->
+    <string name="ztool_date_lunar_label" tools:ignore="UnusedResources">%1$s%2$s</string>
+    <string name="ztool_date_lunar_leap_label" tools:ignore="UnusedResources">闰%1$s%2$s</string>
+    <string name="ztool_control_center_default_date_example" tools:ignore="UnusedResources">yyyy年MM月dd日 EEEE</string>
+    <string-array name="ztool_date_chinese_hour_label" tools:ignore="UnusedResources">
+        <item>子时</item>
+        <item>丑时</item>
+        <item>寅时</item>
+        <item>卯时</item>
+        <item>辰时</item>
+        <item>巳时</item>
+        <item>午时</item>
+        <item>未时</item>
+        <item>申时</item>
+        <item>酉时</item>
+        <item>戌时</item>
+        <item>亥时</item>
+    </string-array>
+    <string-array name="ztool_date_constellation_name" tools:ignore="UnusedResources">
+        <item>水瓶座</item>
+        <item>双鱼座</item>
+        <item>白羊座</item>
+        <item>金牛座</item>
+        <item>双子座</item>
+        <item>巨蟹座</item>
+        <item>狮子座</item>
+        <item>处女座</item>
+        <item>天秤座</item>
+        <item>天蝎座</item>
+        <item>射手座</item>
+        <item>摩羯座</item>
+    </string-array>
+    <string-array name="ztool_date_weekday_label" tools:ignore="UnusedResources">
+        <item>周日</item>
+        <item>周一</item>
+        <item>周二</item>
+        <item>周三</item>
+        <item>周四</item>
+        <item>周五</item>
+        <item>周六</item>
+    </string-array>
+    <string-array name="ztool_date_time_period_label" tools:ignore="UnusedResources">
+        <item>凌晨</item>
+        <item>早上</item>
+        <item>上午</item>
+        <item>中午</item>
+        <item>下午</item>
+        <item>晚上</item>
+    </string-array>
+    <string-array name="ztool_date_zodiac_animal_name" tools:ignore="UnusedResources">
+        <item>鼠</item>
+        <item>牛</item>
+        <item>虎</item>
+        <item>兔</item>
+        <item>龙</item>
+        <item>蛇</item>
+        <item>马</item>
+        <item>羊</item>
+        <item>猴</item>
+        <item>鸡</item>
+        <item>狗</item>
+        <item>猪</item>
+    </string-array>
+    <string-array name="ztool_date_solar_term_name" tools:ignore="UnusedResources">
+        <item>立春</item>
+        <item>雨水</item>
+        <item>惊蛰</item>
+        <item>春分</item>
+        <item>清明</item>
+        <item>谷雨</item>
+        <item>立夏</item>
+        <item>小满</item>
+        <item>芒种</item>
+        <item>夏至</item>
+        <item>小暑</item>
+        <item>大暑</item>
+        <item>立秋</item>
+        <item>处暑</item>
+        <item>白露</item>
+        <item>秋分</item>
+        <item>寒露</item>
+        <item>霜降</item>
+        <item>立冬</item>
+        <item>小雪</item>
+        <item>大雪</item>
+        <item>冬至</item>
+        <item>小寒</item>
+        <item>大寒</item>
+    </string-array>
+    <string-array name="ztool_date_lunar_month_name" tools:ignore="UnusedResources">
+        <item>正月</item>
+        <item>二月</item>
+        <item>三月</item>
+        <item>四月</item>
+        <item>五月</item>
+        <item>六月</item>
+        <item>七月</item>
+        <item>八月</item>
+        <item>九月</item>
+        <item>十月</item>
+        <item>冬月</item>
+        <item>腊月</item>
+    </string-array>
+    <string-array name="ztool_date_lunar_day_name" tools:ignore="UnusedResources">
+        <item>初一</item>
+        <item>初二</item>
+        <item>初三</item>
+        <item>初四</item>
+        <item>初五</item>
+        <item>初六</item>
+        <item>初七</item>
+        <item>初八</item>
+        <item>初九</item>
+        <item>初十</item>
+        <item>十一</item>
+        <item>十二</item>
+        <item>十三</item>
+        <item>十四</item>
+        <item>十五</item>
+        <item>十六</item>
+        <item>十七</item>
+        <item>十八</item>
+        <item>十九</item>
+        <item>二十</item>
+        <item>廿一</item>
+        <item>廿二</item>
+        <item>廿三</item>
+        <item>廿四</item>
+        <item>廿五</item>
+        <item>廿六</item>
+        <item>廿七</item>
+        <item>廿八</item>
+        <item>廿九</item>
+        <item>三十</item>
+    </string-array>
 </resources>

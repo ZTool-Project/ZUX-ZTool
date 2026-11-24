@@ -38,6 +38,7 @@ import androidx.core.graphics.drawable.toDrawable
 import com.qimian233.ztool.data.keys.PreferenceKeys
 import com.qimian233.ztool.data.keys.ScopeKeys
 import com.qimian233.ztool.hook.base.AppHookModule
+import com.qimian233.ztool.hook.base.ModuleResources
 import io.github.libxposed.api.XposedModuleInterface.PackageLoadedParam
 import java.lang.reflect.Method
 import java.util.Locale
@@ -226,7 +227,8 @@ class VolumeSliderLongPressHook : AppHookModule() {
         private const val BASE_PERCENT_COLOR = 0xffd8d8d8.toInt()
         private const val ICON_BASE_COLOR = 0x4Dffffff
         private const val SYSTEMUI_PACKAGE = "com.android.systemui"
-        private const val MODULE_PACKAGE = "com.qimian233.ztool"
+        private const val STRING_MEDIA_OUTPUT_LABEL = "ztool_media_output_label"
+        private const val FALLBACK_MEDIA_OUTPUT_LABEL = "媒体输出"
         private const val MEDIA_OUTPUT_RECEIVER_CLASS =
             "com.android.systemui.media.dialog.MediaOutputDialogReceiver"
         // Public AOSP SystemUI action consumed by MediaOutputDialogReceiver.
@@ -1557,25 +1559,14 @@ class VolumeSliderLongPressHook : AppHookModule() {
         }
     }
 
-    /**
-     * Reads a string from ZTool's own package resources, so tile labels get
-     * proper i18n from the app's strings.xml instead of literals baked into
-     * the hook code (same cross-package read as RecentTaskMemoryViewHook).
-     */
-    private fun moduleString(hostContext: Context): String {
-        return try {
-            val moduleContext = hostContext.createPackageContext(
-                MODULE_PACKAGE, Context.CONTEXT_IGNORE_SECURITY
-            )
-            val resId = moduleContext.resources.getIdentifier(
-                "ztool_media_output_label", "string", MODULE_PACKAGE
-            )
-            if (resId != 0) moduleContext.resources.getString(resId) else "媒体输出"
-        } catch (t: Throwable) {
-            logger.warn("volume panel: module string ztool_media_output_label failed: ${t.message}")
-            "媒体输出"
-        }
-    }
+    /** Reads the media output tile label from ZTool's package resources with Chinese fallback. */
+    private fun moduleString(hostContext: Context): String = ModuleResources.getString(
+        hostContext,
+        STRING_MEDIA_OUTPUT_LABEL,
+        FALLBACK_MEDIA_OUTPUT_LABEL,
+        xposed,
+        logger
+    )
 
     /**
      * Binds a real QSTile to a stock CustomizeTileView, mirroring the native

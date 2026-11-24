@@ -8,7 +8,6 @@ import android.content.pm.ApplicationInfo
 import android.content.pm.InstallSourceInfo
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
-import android.content.res.Resources
 import android.os.Build
 import android.text.TextUtils
 import android.view.View
@@ -17,6 +16,7 @@ import android.widget.Toast
 import com.qimian233.ztool.data.keys.PreferenceKeys
 import com.qimian233.ztool.data.keys.ScopeKeys
 import com.qimian233.ztool.hook.base.AppHookModule
+import com.qimian233.ztool.hook.base.ModuleResources
 import io.github.libxposed.api.XposedModuleInterface.PackageLoadedParam
 import java.lang.reflect.Field
 import java.lang.reflect.Method
@@ -119,34 +119,14 @@ class AppInfoHeaderDetailsHook : AppHookModule() {
         return null
     }
 
-    private fun loadModuleResources(hostContext: Context): Resources? = try {
-        hostContext.createPackageContext(
-            MODULE_PACKAGE,
-            Context.CONTEXT_IGNORE_SECURITY
-        ).resources
-    } catch (t: Throwable) {
-        logger.warn("Failed to load ZTool resources: ${t.message}")
-        null
-    }
-
-    private fun moduleString(
-        moduleResources: Resources?,
-        resourceName: String,
-        fallback: String
-    ): String {
-        if (moduleResources == null) return fallback
-        return try {
-            val resId = moduleResources.getIdentifier(resourceName, "string", MODULE_PACKAGE)
-            if (resId != 0) moduleResources.getString(resId) else fallback
-        } catch (_: Throwable) {
-            fallback
-        }
-    }
-
     private fun buildAppInfo(context: Context, pkgInfo: PackageInfo): String {
-        val moduleResources = loadModuleResources(context)
-        val unknownLabel = moduleString(moduleResources, STRING_UNKNOWN_LABEL, FALLBACK_UNKNOWN_LABEL)
-        val summaryTemplate = moduleString(moduleResources, STRING_SUMMARY, FALLBACK_SUMMARY)
+        val moduleResources = ModuleResources.load(context, xposed, logger)
+        val unknownLabel = ModuleResources.getString(
+            moduleResources, STRING_UNKNOWN_LABEL, FALLBACK_UNKNOWN_LABEL, logger
+        )
+        val summaryTemplate = ModuleResources.getString(
+            moduleResources, STRING_SUMMARY, FALLBACK_SUMMARY, logger
+        )
         val isFallback = moduleResources == null || summaryTemplate == FALLBACK_SUMMARY
         val appInfo: ApplicationInfo = pkgInfo.applicationInfo!!
         return String.format(
@@ -242,17 +222,18 @@ class AppInfoHeaderDetailsHook : AppHookModule() {
         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager?
         if (clipboard != null) {
             clipboard.setPrimaryClip(ClipData.newPlainText("app_info", text))
-            val message = moduleString(
-                loadModuleResources(context),
+            val message = ModuleResources.getString(
+                context,
                 STRING_COPIED_MESSAGE,
-                FALLBACK_COPIED_MESSAGE
+                FALLBACK_COPIED_MESSAGE,
+                xposed,
+                logger
             )
             Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
         }
     }
 
     companion object {
-        private const val MODULE_PACKAGE = "com.qimian233.ztool"
         private val TARGET_PACKAGE = ScopeKeys.SETTINGS.packageName
         private const val CONTROLLER_CLASS =
             "com.android.settings.applications.appinfo.AppHeaderViewPreferenceController"

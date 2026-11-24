@@ -1545,4 +1545,139 @@
     <string name="common_wallpaper_zoom_mode_disable">Disable zoom</string>
     <string name="launcher_quickstep_wallpaper_zoom_title">Recents wallpaper zoom</string>
     <string name="launcher_quickstep_wallpaper_zoom_summary">Customize wallpaper scaling when swiping up to Recents (QuickStep). Continuous zoom modes require enabling the System Framework scope and rebooting the device to take effect.</string>
+    <!-- Read by the hook (CustomDateFormatter / CustomControlCenterDate) via getIdentifier; do not rename or remove -->
+    <string name="ztool_date_lunar_label" tools:ignore="UnusedResources">Lunar %1$s/%2$s</string>
+    <string name="ztool_date_lunar_leap_label" tools:ignore="UnusedResources">Lunar Leap %1$s/%2$s</string>
+    <string name="ztool_control_center_default_date_example" tools:ignore="UnusedResources">yyyy-MM-dd EEEE</string>
+    <string-array name="ztool_date_chinese_hour_label" tools:ignore="UnusedResources">
+        <item>Zi</item>
+        <item>Chou</item>
+        <item>Yin</item>
+        <item>Mao</item>
+        <item>Chen</item>
+        <item>Si</item>
+        <item>Wu</item>
+        <item>Wei</item>
+        <item>Shen</item>
+        <item>You</item>
+        <item>Xu</item>
+        <item>Hai</item>
+    </string-array>
+    <string-array name="ztool_date_constellation_name" tools:ignore="UnusedResources">
+        <item>Aquarius</item>
+        <item>Pisces</item>
+        <item>Aries</item>
+        <item>Taurus</item>
+        <item>Gemini</item>
+        <item>Cancer</item>
+        <item>Leo</item>
+        <item>Virgo</item>
+        <item>Libra</item>
+        <item>Scorpio</item>
+        <item>Sagittarius</item>
+        <item>Capricorn</item>
+    </string-array>
+    <string-array name="ztool_date_weekday_label" tools:ignore="UnusedResources">
+        <item>Sun</item>
+        <item>Mon</item>
+        <item>Tue</item>
+        <item>Wed</item>
+        <item>Thu</item>
+        <item>Fri</item>
+        <item>Sat</item>
+    </string-array>
+    <string-array name="ztool_date_time_period_label" tools:ignore="UnusedResources">
+        <item>Late Night</item>
+        <item>Early Morning</item>
+        <item>Morning</item>
+        <item>Noon</item>
+        <item>Afternoon</item>
+        <item>Evening</item>
+    </string-array>
+    <string-array name="ztool_date_zodiac_animal_name" tools:ignore="UnusedResources">
+        <item>Rat</item>
+        <item>Ox</item>
+        <item>Tiger</item>
+        <item>Rabbit</item>
+        <item>Dragon</item>
+        <item>Snake</item>
+        <item>Horse</item>
+        <item>Goat</item>
+        <item>Monkey</item>
+        <item>Rooster</item>
+        <item>Dog</item>
+        <item>Pig</item>
+    </string-array>
+    <string-array name="ztool_date_solar_term_name" tools:ignore="UnusedResources">
+        <item>Beginning of Spring</item>
+        <item>Rain Water</item>
+        <item>Awakening of Insects</item>
+        <item>Spring Equinox</item>
+        <item>Pure Brightness</item>
+        <item>Grain Rain</item>
+        <item>Beginning of Summer</item>
+        <item>Grain Buds</item>
+        <item>Grain in Ear</item>
+        <item>Summer Solstice</item>
+        <item>Minor Heat</item>
+        <item>Major Heat</item>
+        <item>Beginning of Autumn</item>
+        <item>End of Heat</item>
+        <item>White Dew</item>
+        <item>Autumn Equinox</item>
+        <item>Cold Dew</item>
+        <item>Frost\'s Descent</item>
+        <item>Beginning of Winter</item>
+        <item>Minor Snow</item>
+        <item>Major Snow</item>
+        <item>Winter Solstice</item>
+        <item>Minor Cold</item>
+        <item>Major Cold</item>
+    </string-array>
+    <string-array name="ztool_date_lunar_month_name" tools:ignore="UnusedResources">
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+        <item>4</item>
+        <item>5</item>
+        <item>6</item>
+        <item>7</item>
+        <item>8</item>
+        <item>9</item>
+        <item>10</item>
+        <item>11</item>
+        <item>12</item>
+    </string-array>
+    <string-array name="ztool_date_lunar_day_name" tools:ignore="UnusedResources">
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+        <item>4</item>
+        <item>5</item>
+        <item>6</item>
+        <item>7</item>
+        <item>8</item>
+        <item>9</item>
+        <item>10</item>
+        <item>11</item>
+        <item>12</item>
+        <item>13</item>
+        <item>14</item>
+        <item>15</item>
+        <item>16</item>
+        <item>17</item>
+        <item>18</item>
+        <item>19</item>
+        <item>20</item>
+        <item>21</item>
+        <item>22</item>
+        <item>23</item>
+        <item>24</item>
+        <item>25</item>
+        <item>26</item>
+        <item>27</item>
+        <item>28</item>
+        <item>29</item>
+        <item>30</item>
+    </string-array>
 </resources>

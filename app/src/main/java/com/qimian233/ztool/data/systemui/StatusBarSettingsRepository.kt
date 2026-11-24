@@ -114,7 +114,10 @@ class StatusBarSettingsRepository(
             context.getString(R.string.system_ui_preview_default)
         } else {
             try {
-                context.getString(R.string.system_ui_preview_display, CustomDateFormatter.format(format, Date()))
+                context.getString(
+                    R.string.system_ui_preview_display,
+                    CustomDateFormatter.format(format, Date(), context.resources)
+                )
             } catch (e: Exception) {
                 Log.e(TAG, "Error formatting date: $format", e)
                 context.getString(R.string.system_ui_preview_invalid) +

@@ -4,10 +4,8 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.qimian233.ztool.data.systemui.ControlCenterSettingsRepository
-import com.qimian233.ztool.hook.modules.systemui.misc.CustomDateFormatter
 import com.qimian233.ztool.ui.components.normalizeArgbColorTextOrNull
 import com.qimian233.ztool.ui.components.sanitizeArgbColorText
-import java.util.Date
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -46,14 +44,16 @@ class ControlCenterSettingsViewModel(
         _uiState.value = current.copy(
             customDate = enabled,
             dateFormat = nextDateFormat,
-            datePreview = repository.buildDatePreview(nextDateFormat)
+            datePreview = repository.buildDatePreview(nextDateFormat),
+            dateSample = repository.formatDateSample(nextDateFormat)
         )
     }
 
     fun setDateFormat(format: String) {
         _uiState.value = _uiState.value.copy(
             dateFormat = format,
-            datePreview = repository.buildDatePreview(format)
+            datePreview = repository.buildDatePreview(format),
+            dateSample = repository.formatDateSample(format)
         )
     }
 
@@ -369,6 +369,7 @@ data class ControlCenterSettingsUiState(
     val customDate: Boolean = false,
     val dateFormat: String = "",
     val datePreview: String = "",
+    val dateSample: String = "",
     val textSizeEnabled: Boolean = false,
     val textSize: Float = 16.0f,
     val letterSpacingEnabled: Boolean = false,
@@ -419,7 +420,7 @@ data class ControlCenterSettingsUiState(
             tileCornerRadiusPx = qsTileRoundCornerRadius,
             headUpCornerRadiusPx = qsHeadUpRoundCornerRadius,
             cornerRadiusEnabled = qsRoundCorner,
-            dateSample = formatDateSample(dateFormat),
+            dateSample = dateSample,
             customDate = customDate,
             brightnessPercentVisible = brightnessSliderPercentageEnabled,
             volumePercentVisible = volumeSliderPercentageEnabled,
@@ -451,7 +452,3 @@ data class ControlCenterPreviewConfig(
     val sliderStyleVertical: Boolean,
     val detailIndicatorHidden: Boolean
 )
-
-/** Formats [format] against the current time; an invalid pattern falls back to the raw text. */
-private fun formatDateSample(format: String): String =
-    runCatching { CustomDateFormatter.format(format, Date()) }.getOrDefault(format)

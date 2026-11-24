@@ -28,6 +28,7 @@ import com.qimian233.ztool.data.keys.ScopeKeys
 import com.qimian233.ztool.dexindex.base.DexIndexConstants
 import com.qimian233.ztool.hook.base.AppHookModule
 import com.qimian233.ztool.hook.base.DexIndexStore
+import com.qimian233.ztool.hook.base.ModuleResources
 import io.github.libxposed.api.XposedModuleInterface.PackageLoadedParam
 import java.lang.reflect.Array as JvmArray
 import java.lang.reflect.Field
@@ -899,19 +900,8 @@ class BatchUninstall : AppHookModule() {
         }
     }
 
-    private fun moduleString(hostContext: Context, resourceName: String, fallback: String): String {
-        return try {
-            val moduleContext = hostContext.createPackageContext(
-                MODULE_PACKAGE,
-                Context.CONTEXT_IGNORE_SECURITY
-            )
-            val resId = moduleContext.resources.getIdentifier(resourceName, "string", MODULE_PACKAGE)
-            if (resId != 0) moduleContext.resources.getString(resId) else fallback
-        } catch (t: Throwable) {
-            logger.warn("BatchUninstall: failed to load module string $resourceName: " + t.message)
-            fallback
-        }
-    }
+    private fun moduleString(hostContext: Context, resourceName: String, fallback: String): String =
+        ModuleResources.getString(hostContext, resourceName, fallback, xposed, logger)
 
     private fun tryDeclaredMethod(owner: Class<*>, name: String, vararg params: Class<*>): Method? =
         runCatching { owner.getDeclaredMethod(name, *params).apply { isAccessible = true } }.getOrNull()

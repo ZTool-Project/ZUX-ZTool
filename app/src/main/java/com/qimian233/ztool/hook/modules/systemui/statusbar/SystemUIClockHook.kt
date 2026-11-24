@@ -15,6 +15,7 @@ import android.view.View
 import com.qimian233.ztool.data.keys.PreferenceKeys
 import com.qimian233.ztool.data.keys.ScopeKeys
 import com.qimian233.ztool.hook.base.AppHookModule
+import com.qimian233.ztool.hook.base.ModuleResources
 import com.qimian233.ztool.hook.modules.systemui.misc.CustomDateFormatter
 import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.api.XposedModuleInterface.PackageLoadedParam
@@ -141,9 +142,13 @@ class SystemUIClockHook : AppHookModule() {
                 return@hookWithId chain.proceed()
             }
             if (options.customClock) {
+                val moduleResources = (chain.thisObject as? View)?.context?.let {
+                    ModuleResources.load(it, xposed, logger)
+                }
                 val formatted = CustomDateFormatter.formatWithFields(
-                    options.effectiveCustomFormat,
-                    resolveClockDate(host, chain.thisObject)
+                    pattern = options.effectiveCustomFormat,
+                    date = resolveClockDate(host, chain.thisObject),
+                    resources = moduleResources
                 )
                 return@hookWithId buildCustomClockText(chain.thisObject, formatted, options)
             }
@@ -168,9 +173,13 @@ class SystemUIClockHook : AppHookModule() {
                     val options = readOptions()
                     if (options.customClock) {
                         val clockInstance = chain.thisObject
+                        val moduleResources = (clockInstance as? View)?.context?.let {
+                            ModuleResources.load(it, xposed, logger)
+                        }
                         val customTime = CustomDateFormatter.format(
                             options.effectiveCustomFormat,
-                            resolveClockDate(host, clockInstance)
+                            resolveClockDate(host, clockInstance),
+                            moduleResources
                         )
                         (clockInstance as? View)?.contentDescription = customTime
                         applyLegacyDirectStyles(clockInstance, options)

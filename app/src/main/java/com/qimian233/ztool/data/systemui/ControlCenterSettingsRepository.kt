@@ -26,6 +26,7 @@ class ControlCenterSettingsRepository(
             customDate = prefsUtils.loadBooleanSetting(KEY_CUSTOM_DATE, false),
             dateFormat = loadedDateFormat,
             datePreview = buildDatePreview(loadedDateFormat),
+            dateSample = formatDateSample(loadedDateFormat),
             textSize = prefsUtils.loadFloatSetting(KEY_TEXT_SIZE, 16.0f),
             textSizeEnabled = prefsUtils.loadBooleanSetting(KEY_TEXT_SIZE_ENABLED, false),
             letterSpacing = prefsUtils.loadFloatSetting(KEY_LETTER_SPACING, 0.1f),
@@ -79,7 +80,10 @@ class ControlCenterSettingsRepository(
             context.getString(R.string.system_ui_preview_default)
         } else {
             try {
-                context.getString(R.string.system_ui_preview_display, CustomDateFormatter.format(format, Date()))
+                context.getString(
+                    R.string.system_ui_preview_display,
+                    CustomDateFormatter.format(format, Date(), context.resources)
+                )
             } catch (e: Exception) {
                 Log.e(TAG, "Error formatting date: $format", e)
                 context.getString(R.string.system_ui_preview_invalid) +
@@ -89,6 +93,10 @@ class ControlCenterSettingsRepository(
             }
         }
     }
+
+    /** Formats [format] against the current time; an invalid pattern falls back to the raw text. */
+    fun formatDateSample(format: String): String =
+        runCatching { CustomDateFormatter.format(format, Date(), context.resources) }.getOrDefault(format)
 
     fun saveCustomDate(enabled: Boolean) {
         prefsUtils.saveBooleanSetting(KEY_CUSTOM_DATE, enabled)

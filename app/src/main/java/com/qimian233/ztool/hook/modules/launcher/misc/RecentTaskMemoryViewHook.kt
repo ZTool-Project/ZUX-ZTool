@@ -3,7 +3,6 @@ package com.qimian233.ztool.hook.modules.launcher.misc
 import android.annotation.SuppressLint
 import android.app.ActivityManager
 import android.content.Context
-import android.content.res.Resources
 import android.graphics.Color
 import android.graphics.Typeface
 import android.util.TypedValue
@@ -16,6 +15,7 @@ import androidx.core.view.isVisible
 import com.qimian233.ztool.data.keys.PreferenceKeys
 import com.qimian233.ztool.data.keys.ScopeKeys
 import com.qimian233.ztool.hook.base.AppHookModule
+import com.qimian233.ztool.hook.base.ModuleResources
 import io.github.libxposed.api.XposedModuleInterface.PackageLoadedParam
 import java.lang.reflect.Field
 import java.lang.reflect.Method
@@ -26,12 +26,17 @@ import kotlin.math.roundToInt
 @SuppressLint("PrivateApi")
 class RecentTaskMemoryViewHook : AppHookModule() {
 
+    private class CachedText(
+        val localeTag: String,
+        val value: String
+    )
+
     private val updateRunnables = WeakHashMap<TextView, Runnable>()
     private val overviewEnabledStates = WeakHashMap<View, Boolean>()
     @Volatile
-    private var cachedRamFormatter: String? = null
+    private var cachedRamFormatter: CachedText? = null
     @Volatile
-    private var cachedRamUnavailable: String? = null
+    private var cachedRamUnavailable: CachedText? = null
     @Volatile
     private var systemPropertiesGetWithDefaultMethod: Method? = null
     @Volatile
@@ -373,51 +378,39 @@ class RecentTaskMemoryViewHook : AppHookModule() {
     }
 
     private fun getRamFormatterText(context: Context, vararg args: Any): String {
-        var template = cachedRamFormatter
+        val localeTag = localeTagOf(context)
+        var template = cachedRamFormatter?.takeIf { it.localeTag == localeTag }?.value
         if (template == null) {
-            template = getModuleString(context, STRING_RAM_FORMATTER, FALLBACK_RAM_FORMATTER)
-            cachedRamFormatter = template
+            template = ModuleResources.getString(
+                context,
+                STRING_RAM_FORMATTER,
+                FALLBACK_RAM_FORMATTER,
+                xposed,
+                logger
+            )
+            cachedRamFormatter = CachedText(localeTag, template)
         }
         return String.format(Locale.getDefault(), template, *args)
     }
 
     private fun getRamUnavailableText(context: Context): String {
-        var value = cachedRamUnavailable
+        val localeTag = localeTagOf(context)
+        var value = cachedRamUnavailable?.takeIf { it.localeTag == localeTag }?.value
         if (value == null) {
-            value = getModuleString(context, STRING_RAM_UNAVAILABLE, FALLBACK_RAM_UNAVAILABLE)
-            cachedRamUnavailable = value
+            value = ModuleResources.getString(
+                context,
+                STRING_RAM_UNAVAILABLE,
+                FALLBACK_RAM_UNAVAILABLE,
+                xposed,
+                logger
+            )
+            cachedRamUnavailable = CachedText(localeTag, value)
         }
         return value
     }
 
-    private fun getModuleString(hostContext: Context, resourceName: String, fallback: String): String {
-        try {
-            val resources = getModuleResources(hostContext) ?: return fallback
-
-            @SuppressLint("DiscouragedApi")
-            val resId = resources.getIdentifier(resourceName, "string", MODULE_PACKAGE)
-            if (resId == 0) {
-                return fallback
-            }
-            return resources.getString(resId)
-        } catch (t: Throwable) {
-            logger.error("Failed to load module string: $resourceName", t)
-            return fallback
-        }
-    }
-
-    private fun getModuleResources(hostContext: Context): Resources? {
-        return try {
-            val moduleContext = hostContext.createPackageContext(
-                MODULE_PACKAGE,
-                Context.CONTEXT_IGNORE_SECURITY
-            )
-            moduleContext.resources
-        } catch (t: Throwable) {
-            logger.error("Failed to create module context for resources", t)
-            null
-        }
-    }
+    private fun localeTagOf(context: Context): String =
+        runCatching { context.resources.configuration.locales.toLanguageTags() }.getOrDefault("")
 
     private fun getTotalRamInfo(availableMem: Long): String {
         val beautifyRamInfo = try {
@@ -522,7 +515,6 @@ class RecentTaskMemoryViewHook : AppHookModule() {
     }
 
     companion object {
-        private const val MODULE_PACKAGE = "com.qimian233.ztool"
         private val LAUNCHER_PACKAGE = ScopeKeys.LAUNCHER.packageName
         private const val RECENTS_VIEW_CLASS = "com.android.quickstep.views.RecentsView"
         private const val MEMORY_VIEW_TAG = "ztool_recent_task_memory_view"
