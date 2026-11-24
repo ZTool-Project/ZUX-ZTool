@@ -609,6 +609,8 @@
     <string name="system_ui_misc_shade_rebound_fix_fixed_summary">ZUXOS 2.0 has fixed this issue; this switch is no longer needed.</string>
     <string name="system_ui_status_bar_clock_settings_title">Status bar clock</string>
     <string name="system_ui_status_bar_display_seconds_title">Show seconds</string>
+    <string name="system_ui_status_bar_clock_red_one_title">Red 1 in hour</string>
+    <string name="system_ui_status_bar_clock_red_one_summary">Highlight the digit 1 in the status bar and shade clock hour with OnePlus red</string>
     <string name="system_ui_status_bar_custom_clock_title">Custom clock</string>
     <string name="system_ui_status_bar_clock_format_hint">Enter clock format</string>
     <string name="system_ui_status_bar_notification_settings_title">Status bar notification</string>
@@ -722,6 +724,7 @@
     <string name="system_ui_status_bar_text_size_title">Modify text size</string>
     <string name="system_ui_status_bar_letter_spacing_title">Modify letter spacing</string>
     <string name="system_ui_status_bar_text_color_title">Modify text color</string>
+    <string name="system_ui_status_bar_text_color_disabled_by_red_one_summary">Disabled while Red 1 in hour is enabled</string>
     <string name="system_ui_status_bar_text_bold_title">Use bold fonts</string>
     <string name="system_ui_common_save_success_title">Success</string>
     <string name="system_ui_status_bar_clock_format_saved_message">Custom clock format saved</string>

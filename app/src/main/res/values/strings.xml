@@ -699,6 +699,8 @@
     <!--系统界面 状态栏时钟页资源值-->
     <string name="system_ui_status_bar_clock_settings_title">状态栏时钟</string>
     <string name="system_ui_status_bar_display_seconds_title">显示秒数</string>
+    <string name="system_ui_status_bar_clock_red_one_title">小时红 1</string>
+    <string name="system_ui_status_bar_clock_red_one_summary">将状态栏与通知中心时钟小时位置的数字 1 显示为一加红</string>
     <string name="system_ui_status_bar_custom_clock_title">自定义时钟</string>
     <string name="system_ui_status_bar_clock_format_hint">输入时钟格式</string>
     <!--系统界面 状态栏通知资源值-->
@@ -843,6 +845,7 @@
     <string name="system_ui_status_bar_text_size_title">修改字体大小</string>
     <string name="system_ui_status_bar_letter_spacing_title">修改字间距</string>
     <string name="system_ui_status_bar_text_color_title">修改字体颜色</string>
+    <string name="system_ui_status_bar_text_color_disabled_by_red_one_summary">已开启小时红 1，颜色自定义暂不生效</string>
     <string name="system_ui_status_bar_text_bold_title">启用粗体显示</string>
     <string name="system_ui_common_save_success_title">成功</string>
     <string name="system_ui_status_bar_clock_format_saved_message">自定义时钟格式已保存</string>

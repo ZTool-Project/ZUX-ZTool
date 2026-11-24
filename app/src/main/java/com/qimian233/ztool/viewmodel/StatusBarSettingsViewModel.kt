@@ -39,6 +39,11 @@ class StatusBarSettingsViewModel(
         repository.saveDisplaySeconds(enabled)
     }
 
+    fun setClockRedOneHour(enabled: Boolean) {
+        _uiState.value = _uiState.value.copy(clockRedOneHour = enabled)
+        repository.saveClockRedOneHour(enabled)
+    }
+
     fun setCustomClock(enabled: Boolean) {
         val current = _uiState.value
         _uiState.value = current.copy(
@@ -246,6 +251,7 @@ private fun Int.toArgbText(): String {
 
 data class StatusBarSettingsUiState(
     val displaySeconds: Boolean = false,
+    val clockRedOneHour: Boolean = false,
     val customClock: Boolean = false,
     val clockFormat: String = "",
     val clockPreview: String = "",

@@ -61,6 +61,10 @@ class StatusBarSettingsRepository(
         )
         return StatusBarSettingsUiState(
             displaySeconds = prefsUtils.loadBooleanSetting(KEY_DISPLAY_SECONDS, false),
+            clockRedOneHour = prefsUtils.loadBooleanSetting(
+                KEY_CLOCK_RED_ONE,
+                PreferenceKeys.STATUSBAR_CLOCK_RED_ONE.default
+            ),
             customClock = prefsUtils.loadBooleanSetting(KEY_CUSTOM_CLOCK, false),
             nativeNotificationIcon = prefsUtils.loadBooleanSetting(KEY_NATIVE_NOTIFICATION_ICON, false),
             networkSpeedSize = prefsUtils.loadBooleanSetting(KEY_NETWORK_SPEED_SIZE, false),
@@ -111,6 +115,10 @@ class StatusBarSettingsRepository(
 
     fun saveDisplaySeconds(enabled: Boolean) {
         prefsUtils.saveBooleanSetting(KEY_DISPLAY_SECONDS, enabled)
+    }
+
+    fun saveClockRedOneHour(enabled: Boolean) {
+        prefsUtils.saveBooleanSetting(KEY_CLOCK_RED_ONE, enabled)
     }
 
     fun saveCustomClock(enabled: Boolean) {
@@ -292,6 +300,7 @@ class StatusBarSettingsRepository(
         private const val TAG = "StatusBarSettingsRepository"
         private val KEY_NOTIFY_NUM_SIZE = PreferenceKeys.NOTIFY_NUM_SIZE.name
         private val KEY_DISPLAY_SECONDS = PreferenceKeys.STATUSBAR_DISPLAY_SECONDS.name
+        private val KEY_CLOCK_RED_ONE = PreferenceKeys.STATUSBAR_CLOCK_RED_ONE.name
         private val KEY_CUSTOM_CLOCK = PreferenceKeys.CUSTOM_STATUSBAR_CLOCK.name
         private val KEY_CUSTOM_CLOCK_FORMAT = PreferenceKeys.CUSTOM_STATUSBAR_CLOCK_FORMAT.name
         private val KEY_CLOCK_TEXT_SIZE = PreferenceKeys.CUSTOM_STATUSBAR_CLOCK_TEXT_SIZE.name

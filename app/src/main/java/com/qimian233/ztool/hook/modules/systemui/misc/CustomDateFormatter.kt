@@ -3,126 +3,158 @@ package com.qimian233.ztool.hook.modules.systemui.misc
 import android.util.Log
 import com.nlf.calendar.Lunar
 import com.nlf.calendar.Solar
+import java.text.AttributedCharacterIterator
+import java.text.CharacterIterator
+import java.text.DateFormat
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import java.util.regex.Pattern
 
-/**
- * Custom date formatter utility.
- * Supports special formats such as lunar calendar, solar terms, Chinese hours, and time periods.
- */
+/** Custom date formatter supporting lunar calendar, solar terms, and traditional tokens. */
 object CustomDateFormatter {
+
+    /** Formatted text together with 0-based character ranges belonging to hour fields. */
+    data class FormattedDateText(
+        val text: String,
+        val hourRanges: List<IntRange>
+    )
 
     private const val TAG = "CustomDateFormatter"
 
-    // Chinese traditional hour (shichen) lookup table
     private val CHINESE_HOURS = arrayOf(
         "子时", "丑时", "寅时", "卯时", "辰时", "巳时",
         "午时", "未时", "申时", "酉时", "戌时", "亥时"
     )
 
-    // Custom format pattern mapping
     private val CUSTOM_PATTERNS = mapOf(
-        "N" to "lunar",           // lunar date
-        "J" to "solarTerm",       // solar term
-        "T" to "chineseHour",     // Chinese hour (shichen)
-        "C" to "constellation",   // constellation
-        "A" to "animal",          // zodiac animal
-        "W" to "week",            // week
-        "a" to "timePeriod"       // time period
+        "N" to "lunar",
+        "J" to "solarTerm",
+        "T" to "chineseHour",
+        "C" to "constellation",
+        "A" to "animal",
+        "W" to "week",
+        "a" to "timePeriod"
+    )
+
+    private val HOUR_FIELDS: Set<AttributedCharacterIterator.Attribute> = setOf(
+        DateFormat.Field.HOUR_OF_DAY0,
+        DateFormat.Field.HOUR_OF_DAY1,
+        DateFormat.Field.HOUR0,
+        DateFormat.Field.HOUR1
     )
 
     /**
-     * Format the date, supporting custom lunar calendar, solar term, etc. formats.
-     *
-     * @param pattern format pattern; supports the following custom placeholders:
-     *                N - lunar date (e.g.: 腊月廿三)
-     *                J - solar term (e.g.: 立春)
-     *                T - Chinese hour (e.g.: 子时)
-     *                C - constellation (e.g.: 水瓶座)
-     *                A - zodiac animal (e.g.: 龙)
-     *                W - week (e.g.: 星期一)
-     *                a - time period (e.g.: 凌晨、上午、中午、下午、晚上)
-     *                Standard SimpleDateFormat patterns are also supported.
-     *
-     * @param date the date to format
-     * @return the formatted string
+     * Formats [date] using [pattern], supporting N/J/T/C/A/W/a and standard tokens.
      */
-    fun format(pattern: String?, date: Date?): String {
-        if (pattern == null || date == null) {
-            return ""
+    fun format(pattern: String?, date: Date?): String = formatWithFields(pattern, date).text
+
+    /**
+     * Formats [date] using [pattern] and returns the formatted string with hour field ranges.
+     */
+    fun formatWithFields(
+        pattern: String?,
+        date: Date?,
+        locale: Locale = Locale.getDefault()
+    ): FormattedDateText {
+        if (pattern.isNullOrEmpty() || date == null) {
+            return FormattedDateText("", emptyList())
         }
 
         return try {
-            // Process custom patterns
-            var result = processCustomPatterns(pattern, date)
-
-            // Process standard SimpleDateFormat patterns
-            result = processStandardPatterns(result, date)
-
-            result
+            val expanded = expandCustomPatterns(pattern, date)
+            formatStandardWithHourRanges(expanded, date, locale)
         } catch (e: Exception) {
-            Log.e(TAG, "Error formatting date: " + e.message, e)
-            // Return the default format on error
-            SimpleDateFormat("HH:mm", Locale.getDefault()).format(date)
+            runCatching { Log.e(TAG, "Error formatting date: ${e.message}", e) }
+            formatStandardWithHourRanges("HH:mm", date, locale)
         }
     }
 
-    /**
-     * Process custom patterns (lunar calendar, solar terms, Chinese hours, etc.)
-     */
-    private fun processCustomPatterns(pattern: String, date: Date): String {
-        var result = pattern
-        val lunar = Lunar.fromDate(date)
+    private fun expandCustomPatterns(pattern: String, date: Date): String {
+        val out = StringBuilder(pattern.length)
+        var lunar: Lunar? = null
+        var inQuote = false
+        var justClosedQuote = false
+        var i = 0
 
-        // Process custom placeholders one by one
-        for ((placeholder, type) in CUSTOM_PATTERNS) {
-            if (result.contains(placeholder)) {
-                val replacement = getCustomReplacement(type, lunar, date)
-                result = result.replace(placeholder, replacement)
+        while (i < pattern.length) {
+            val ch = pattern[i]
+            if (ch == '\'') {
+                if (i + 1 < pattern.length && pattern[i + 1] == '\'') {
+                    out.append("''")
+                    justClosedQuote = false
+                    i += 2
+                    continue
+                }
+                if (!inQuote && justClosedQuote && out.isNotEmpty() && out[out.length - 1] == '\'') {
+                    // Merge adjacent quote blocks so closing + opening quotes do not form ''.
+                    out.deleteCharAt(out.length - 1)
+                    inQuote = true
+                    justClosedQuote = false
+                } else {
+                    inQuote = !inQuote
+                    justClosedQuote = !inQuote
+                    out.append('\'')
+                }
+                i++
+                continue
+            }
+
+            if (inQuote) {
+                justClosedQuote = false
+                out.append(ch)
+                i++
+                continue
+            }
+
+            val tokenType = CUSTOM_PATTERNS[ch.toString()]
+            if (tokenType != null) {
+                val resolvedLunar = lunar ?: Lunar.fromDate(date).also { lunar = it }
+                val replacement = getCustomReplacement(tokenType, resolvedLunar, date)
+                if (replacement.isNotEmpty()) {
+                    val escaped = replacement.replace("'", "''")
+                    if (justClosedQuote && out.isNotEmpty() && out[out.length - 1] == '\'') {
+                        out.deleteCharAt(out.length - 1)
+                        out.append(escaped).append('\'')
+                    } else {
+                        out.append('\'').append(escaped).append('\'')
+                    }
+                    justClosedQuote = true
+                }
+            } else {
+                justClosedQuote = false
+                out.append(ch)
+            }
+            i++
+        }
+
+        return out.toString()
+    }
+
+    private fun formatStandardWithHourRanges(
+        pattern: String,
+        date: Date,
+        locale: Locale
+    ): FormattedDateText {
+        val iterator = SimpleDateFormat(pattern, locale).formatToCharacterIterator(date)
+        val text = StringBuilder()
+        val hourRanges = mutableListOf<IntRange>()
+        var ch = iterator.first()
+        while (ch != CharacterIterator.DONE) {
+            val start = iterator.index
+            val runLimit = iterator.getRunLimit(HOUR_FIELDS)
+            if (runLimit <= start) break
+            val isHour = HOUR_FIELDS.any { iterator.getAttribute(it) != null }
+            while (iterator.index < runLimit && ch != CharacterIterator.DONE) {
+                text.append(ch)
+                ch = iterator.next()
+            }
+            if (isHour) {
+                hourRanges += start until runLimit
             }
         }
-
-        return result
+        return FormattedDateText(text.toString(), hourRanges)
     }
 
-    /**
-     * Process standard SimpleDateFormat patterns
-     */
-    private fun processStandardPatterns(pattern: String, date: Date): String {
-        // If no custom placeholders remain, format directly
-        if (!containsCustomPatterns(pattern)) {
-            return SimpleDateFormat(pattern, Locale.getDefault()).format(date)
-        }
-
-        // Match and replace standard format segments using regex
-        val result = StringBuilder()
-        val stdPattern = Pattern.compile("([^a-zA-Z]|^)([yMdHhmsSEDFwWkKzZ]+)([^a-zA-Z]|$)")
-        val matcher = stdPattern.matcher(pattern)
-
-        var lastEnd = 0
-        while (matcher.find()) {
-            // Append non-format segments
-            result.append(pattern, lastEnd, matcher.start(2))
-
-            // Format the standard segment
-            val stdFormat = matcher.group(2)
-            val formatted = SimpleDateFormat(stdFormat, Locale.getDefault()).format(date)
-            result.append(formatted)
-
-            lastEnd = matcher.end(2)
-        }
-
-        // Append the remaining part
-        result.append(pattern.substring(lastEnd))
-
-        return result.toString()
-    }
-
-    /**
-     * Get the replacement content for a custom placeholder
-     */
     private fun getCustomReplacement(type: String, lunar: Lunar, date: Date): String {
         return when (type) {
             "lunar" -> getLunarDate(lunar)
@@ -136,68 +168,46 @@ object CustomDateFormatter {
         }
     }
 
-    /**
-     * Get the lunar date
-     */
     private fun getLunarDate(lunar: Lunar): String {
         return try {
-            // Format: 腊月廿三
             lunar.monthInChinese + "月" + lunar.dayInChinese
         } catch (e: Exception) {
-            Log.e(TAG, "Error getting lunar date", e)
+            runCatching { Log.e(TAG, "Error getting lunar date", e) }
             ""
         }
     }
 
-    /**
-     * Get the solar term
-     */
     private fun getSolarTerm(lunar: Lunar): String {
         return try {
-            val solarTerm = lunar.jieQi
-            solarTerm ?: ""
+            lunar.jieQi ?: ""
         } catch (e: Exception) {
-            Log.e(TAG, "Error getting solar term", e)
+            runCatching { Log.e(TAG, "Error getting solar term", e) }
             ""
         }
     }
 
-    /**
-     * Get the Chinese hour (shichen)
-     */
     private fun getChineseHour(date: Date): String {
         return try {
             val hourFormat = SimpleDateFormat("HH", Locale.getDefault())
             val hour = hourFormat.format(date).toInt()
-
-            // Compute the shichen (one shichen per 2 hours)
             val hourIndex = (hour + 1) / 2 % 12
             CHINESE_HOURS[hourIndex]
         } catch (e: Exception) {
-            Log.e(TAG, "Error getting Chinese hour", e)
+            runCatching { Log.e(TAG, "Error getting Chinese hour", e) }
             ""
         }
     }
 
-    /**
-     * Get the constellation
-     */
     private fun getConstellation(lunar: Lunar): String {
         return try {
             val solar: Solar = lunar.solar
-            val month = solar.month
-            val day = solar.day
-
-            getConstellationBySolarDate(month, day)
+            getConstellationBySolarDate(solar.month, solar.day)
         } catch (e: Exception) {
-            Log.e(TAG, "Error getting constellation", e)
+            runCatching { Log.e(TAG, "Error getting constellation", e) }
             ""
         }
     }
 
-    /**
-     * Get the constellation from a Gregorian date
-     */
     private fun getConstellationBySolarDate(month: Int, day: Int): String {
         if (month == 1 && day >= 20 || month == 2 && day <= 18) return "水瓶座"
         if (month == 2 || month == 3 && day <= 20) return "双鱼座"
@@ -214,28 +224,21 @@ object CustomDateFormatter {
         return ""
     }
 
-    /**
-     * Get the Chinese week name
-     */
     private fun getChineseWeek(date: Date): String {
         return try {
             val weekFormat = SimpleDateFormat("E", Locale.CHINA)
             val week = weekFormat.format(date)
-            week.replace("星期", "周") // Normalize to "周一" style
+            week.replace("星期", "周")
         } catch (e: Exception) {
-            Log.e(TAG, "Error getting Chinese week", e)
+            runCatching { Log.e(TAG, "Error getting Chinese week", e) }
             ""
         }
     }
 
-    /**
-     * Get the current time period (early morning, morning, afternoon, etc.)
-     */
     private fun getTimePeriod(date: Date): String {
         return try {
             val hourFormat = SimpleDateFormat("H", Locale.getDefault())
             val hour = hourFormat.format(date).toInt()
-
             when (hour) {
                 in 0..<6 -> "凌晨"
                 in 6..<9 -> "早上"
@@ -246,20 +249,8 @@ object CustomDateFormatter {
                 else -> ""
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error getting time period", e)
+            runCatching { Log.e(TAG, "Error getting time period", e) }
             ""
         }
-    }
-
-    /**
-     * Check whether the pattern contains custom patterns
-     */
-    private fun containsCustomPatterns(pattern: String): Boolean {
-        for (placeholder in CUSTOM_PATTERNS.keys) {
-            if (pattern.contains(placeholder)) {
-                return true
-            }
-        }
-        return false
     }
 }

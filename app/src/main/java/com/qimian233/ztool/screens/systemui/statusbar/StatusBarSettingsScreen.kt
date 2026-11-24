@@ -128,6 +128,7 @@ fun StatusBarSettingsRoute(
             state = uiState,
             onBack = onBack,
             onDisplaySecondsChanged = viewModel::setDisplaySeconds,
+            onClockRedOneHourChanged = viewModel::setClockRedOneHour,
             onCustomClockChanged = viewModel::setCustomClock,
             onClockFormatChanged = viewModel::setClockFormat,
             onSaveClockFormat = viewModel::saveClockFormat,
@@ -225,6 +226,7 @@ private fun StatusBarSettingsScreen(
     state: StatusBarSettingsUiState,
     onBack: () -> Unit,
     onDisplaySecondsChanged: (Boolean) -> Unit,
+    onClockRedOneHourChanged: (Boolean) -> Unit,
     onCustomClockChanged: (Boolean) -> Unit,
     onClockFormatChanged: (String) -> Unit,
     onSaveClockFormat: () -> Unit,
@@ -298,6 +300,7 @@ private fun StatusBarSettingsScreen(
                     sections = statusBarSettingsSections(
                         state = state,
                         onDisplaySecondsChanged = onDisplaySecondsChanged,
+                        onClockRedOneHourChanged = onClockRedOneHourChanged,
                         onCustomClockChanged = onCustomClockChanged,
                         onClockFormatChanged = onClockFormatChanged,
                         onSaveClockFormat = onSaveClockFormat,
@@ -341,6 +344,7 @@ private fun StatusBarSettingsScreen(
 private fun statusBarSettingsSections(
     state: StatusBarSettingsUiState,
     onDisplaySecondsChanged: (Boolean) -> Unit,
+    onClockRedOneHourChanged: (Boolean) -> Unit,
     onCustomClockChanged: (Boolean) -> Unit,
     onClockFormatChanged: (String) -> Unit,
     onSaveClockFormat: () -> Unit,
@@ -382,6 +386,15 @@ private fun statusBarSettingsSections(
                         checked = state.displaySeconds,
                         onCheckedChange = onDisplaySecondsChanged,
                         key = "status_bar_display_seconds"
+                    )
+                )
+                add(
+                    SettingItem.Switch(
+                        title = stringResource(R.string.system_ui_status_bar_clock_red_one_title),
+                        summary = stringResource(R.string.system_ui_status_bar_clock_red_one_summary),
+                        checked = state.clockRedOneHour,
+                        onCheckedChange = onClockRedOneHourChanged,
+                        key = "status_bar_clock_red_one"
                     )
                 )
                 add(
@@ -486,9 +499,14 @@ private fun statusBarSettingsSections(
                             content = {
                                 ZToolSwitchRow(
                                     title = stringResource(R.string.system_ui_status_bar_text_color_title),
-                                    summary = "#%08X".format(state.textColor),
+                                    summary = if (state.clockRedOneHour) {
+                                        stringResource(R.string.system_ui_status_bar_text_color_disabled_by_red_one_summary)
+                                    } else {
+                                        "#%08X".format(state.textColor)
+                                    },
                                     checked = state.textColorEnabled,
-                                    onCheckedChange = onTextColorEnabledChanged
+                                    onCheckedChange = onTextColorEnabledChanged,
+                                    enabled = !state.clockRedOneHour
                                 )
                                 if (state.textColorEnabled) {
                                     ZToolArgbColorTextFieldRow(
@@ -498,6 +516,7 @@ private fun statusBarSettingsSections(
                                         defaultText = "FFFFFFFF",
                                         summary = stringResource(R.string.system_ui_common_custom_qs_active_color_summary),
                                         errorText = stringResource(R.string.system_ui_common_argb_color_input_error),
+                                        enabled = !state.clockRedOneHour,
                                         onEditingFinished = onClockTextColorEditingFinished
                                     )
                                 }

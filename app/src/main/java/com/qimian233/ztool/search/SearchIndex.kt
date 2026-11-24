@@ -433,6 +433,11 @@ object SearchIndex {
             titleRes = R.string.system_ui_status_bar_display_seconds_title,
         ),
         systemUiStatusBar.item(
+            id = "status_bar_clock_red_one",
+            titleRes = R.string.system_ui_status_bar_clock_red_one_title,
+            summaryRes = R.string.system_ui_status_bar_clock_red_one_summary,
+        ),
+        systemUiStatusBar.item(
             id = "status_bar_custom_clock",
             titleRes = R.string.system_ui_status_bar_custom_clock_title,
         ),

@@ -136,12 +136,11 @@ import com.qimian233.ztool.hook.modules.systemui.qs.SliderStyleHook
 import com.qimian233.ztool.hook.modules.systemui.qs.VolumeSliderFidelityHook
 import com.qimian233.ztool.hook.modules.systemui.qs.VolumeSliderLongPressHook
 import com.qimian233.ztool.hook.modules.systemui.qs.VolumeSliderPercentageHook
-import com.qimian233.ztool.hook.modules.systemui.statusbar.CustomStatusBarClock
 import com.qimian233.ztool.hook.modules.systemui.statusbar.NativeNotificationIcon
 import com.qimian233.ztool.hook.modules.systemui.statusbar.NotificationIconHook
 import com.qimian233.ztool.hook.modules.systemui.statusbar.NotificationOverflowDotHook
-import com.qimian233.ztool.hook.modules.systemui.statusbar.StatusBarClockSecondsHook
 import com.qimian233.ztool.hook.modules.systemui.statusbar.SystemUIBatteryHook
+import com.qimian233.ztool.hook.modules.systemui.statusbar.SystemUIClockHook
 import com.qimian233.ztool.hook.modules.systemui.statusbar.SystemUINetworkSpeedHook
 import com.qimian233.ztool.hook.modules.systemui.wallpaper.DesktopLiveWallpaperHook
 import com.qimian233.ztool.hook.modules.systemui.wallpaper.ShadeWallpaperZoomFollowHook
@@ -243,8 +242,7 @@ object HookManager {
 
     private fun registerSystemUIModules() {
         registerHookModule(OwnerInfoSystemUiHook())
-        registerHookModule(StatusBarClockSecondsHook())
-        registerHookModule(CustomStatusBarClock())
+        registerHookModule(SystemUIClockHook())
         registerHookModule(SystemUIChargeWattsHook())
         registerHookModule(SystemUIRealWatts())
         registerHookModule(NotificationIconHook())
