@@ -5,6 +5,7 @@ object FreeformAnimContract {
     const val ACTION_SYSTEMUI_ANIM_CMD = "com.qimian233.ztool.action.FREEFORM_ANIM_COMMAND"
     const val ACTION_BUBBLE_EVENT = "com.qimian233.ztool.action.FREEFORM_BUBBLE_EVENT"
     const val CMD_PREPARE_RESTORE = 1
+    const val CMD_DOCK_OVERLAY_DONE = 2
     const val EVENT_BUBBLE_HIDE_HANDOFF = 13
 
     const val EXTRA_CMD = "cmd"

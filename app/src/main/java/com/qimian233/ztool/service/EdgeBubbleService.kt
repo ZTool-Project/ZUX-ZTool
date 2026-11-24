@@ -66,6 +66,8 @@ class EdgeBubbleService : Service() {
 
     private val bubbles = HashMap<Int, EdgeBubbleView>()
     private val restoreHandoffTimers = HashMap<Int, Runnable>()
+    private val iconCache = HashMap<String, Drawable>()
+    private val pendingBubbleAdds = HashSet<Int>()
     private var eventReceiver: BroadcastReceiver? = null
     private val mainHandler = Handler(Looper.getMainLooper())
     private val restoredAt = HashMap<Int, Long>()
@@ -111,6 +113,8 @@ class EdgeBubbleService : Service() {
         polling = false
         mainHandler.removeCallbacksAndMessages(null)
         restoreHandoffTimers.clear()
+        pendingBubbleAdds.clear()
+        iconCache.clear()
         eventReceiver?.let { FreeformBubbleBridge.unregisterEventReceiver(this, it) }
         eventReceiver = null
         mainHandler.post { removeAllBubbles() }
@@ -176,7 +180,11 @@ class EdgeBubbleService : Service() {
                 else -> -1
             }
             val cooledDown = now - (restoredAt[task.taskId] ?: 0L) >= RESTORE_COOLDOWN_MS
-            if (side >= 0 && !bubbles.containsKey(task.taskId) && cooledDown) {
+            if (side >= 0 &&
+                !bubbles.containsKey(task.taskId) &&
+                !pendingBubbleAdds.contains(task.taskId) &&
+                cooledDown
+            ) {
                 Log.i(TAG, "edge detected task=${task.taskId} side=$side bounds=${task.bounds}")
                 // Refresh the remembered bubble height from the window's vertical
                 // center just before it docks, on every bubble-ization.
@@ -188,7 +196,7 @@ class EdgeBubbleService : Service() {
             }
         }
         // A tracked task that left freeform (e.g. exited via launcher) loses its bubble.
-        for (taskId in bubbles.keys.toList()) {
+        for (taskId in (bubbles.keys + pendingBubbleAdds).toList()) {
             if (taskId !in presentIds) {
                 restoredAt.remove(taskId)
                 removeBubble(taskId)
@@ -227,7 +235,7 @@ class EdgeBubbleService : Service() {
         pkg: String?,
         centerYRatioOverride: Float = Float.NaN
     ) {
-        if (bubbles.containsKey(taskId)) return
+        if (bubbles.containsKey(taskId) || pendingBubbleAdds.contains(taskId)) return
         if (!centerYRatioOverride.isNaN()) {
             bubblePrefs.edit().putFloat("cy_$taskId", centerYRatioOverride).apply()
         }
@@ -239,6 +247,40 @@ class EdgeBubbleService : Service() {
         val centerYRatio = if (remembered.isNaN())
             BASE_CENTER_Y_RATIO + (bubbles.size % 3) * CENTER_Y_STAGGER_RATIO
         else remembered
+        if (pkg == null) {
+            attachBubbleView(taskId, side, null, centerYRatio, null)
+            return
+        }
+        val cached = iconCache[pkg]
+        if (cached != null) {
+            val iconCopy = cached.constantState?.newDrawable(resources)?.mutate() ?: cached.mutate()
+            attachBubbleView(taskId, side, pkg, centerYRatio, iconCopy)
+            return
+        }
+        pendingBubbleAdds.add(taskId)
+        Thread {
+            val icon: Drawable? = try {
+                packageManager.getApplicationIcon(pkg)
+            } catch (_: PackageManager.NameNotFoundException) {
+                null
+            }
+            mainHandler.post {
+                if (!pendingBubbleAdds.remove(taskId)) return@post
+                icon?.let { iconCache[pkg] = it }
+                val instance = icon?.constantState?.newDrawable(resources)?.mutate() ?: icon
+                attachBubbleView(taskId, side, pkg, centerYRatio, instance)
+            }
+        }.start()
+    }
+
+    private fun attachBubbleView(
+        taskId: Int,
+        side: Int,
+        pkg: String?,
+        centerYRatio: Float,
+        icon: Drawable?
+    ) {
+        if (bubbles.containsKey(taskId)) return
         val view = try {
             EdgeBubbleView(
                 this, taskId, side,
@@ -251,9 +293,9 @@ class EdgeBubbleService : Service() {
                             PreferenceKeys.SYSTEM_UI_FREEFORM_NONLINEAR_ANIM.default
                         )
                         if (nonlinearEnabled) {
-                            val view = bubbles[taskId]
-                            view?.markRestoring()
-                            val frozenRect = view?.currentBubbleScreenRect() ?: bubbleRect
+                            val currentView = bubbles[taskId]
+                            currentView?.markRestoring()
+                            val frozenRect = currentView?.currentBubbleScreenRect() ?: bubbleRect
                             scheduleRestoreHandoffFallback(
                                 taskId,
                                 RESTORE_HANDOFF_TIMEOUT_MS + RESTORE_HINT_IPC_BUFFER_MS
@@ -287,6 +329,7 @@ class EdgeBubbleService : Service() {
             Log.e(TAG, "create bubble view failed", t)
             return
         }
+        view.setAppIcon(icon)
         try {
             windowManager.addView(view, view.layoutParams)
         } catch (t: Throwable) {
@@ -294,21 +337,16 @@ class EdgeBubbleService : Service() {
             return
         }
         bubbles[taskId] = view
-        pkg?.let { loadIconAsync(taskId, it) }
+        if (prefsUtils.loadBooleanSetting(
+                PreferenceKeys.SYSTEM_UI_FREEFORM_NONLINEAR_ANIM.name,
+                PreferenceKeys.SYSTEM_UI_FREEFORM_NONLINEAR_ANIM.default
+            )
+        ) {
+            view.postOnAnimation {
+                FreeformBubbleBridge.notifySystemUiDockOverlayDone(taskId)
+            }
+        }
         Log.i(TAG, "bubble added task=$taskId side=$side pkg=$pkg count=${bubbles.size}")
-    }
-
-    private fun loadIconAsync(taskId: Int, pkg: String) {
-        Thread {
-            val icon: Drawable? = try {
-                packageManager.getApplicationIcon(pkg)
-            } catch (_: PackageManager.NameNotFoundException) {
-                null
-            }
-            mainHandler.post {
-                bubbles[taskId]?.setAppIcon(icon)
-            }
-        }.start()
     }
 
     private fun scheduleRestoreHandoffFallback(taskId: Int, delayMs: Long) {
@@ -325,6 +363,7 @@ class EdgeBubbleService : Service() {
     }
 
     private fun removeBubble(taskId: Int) {
+        pendingBubbleAdds.remove(taskId)
         restoreHandoffTimers.remove(taskId)?.let { mainHandler.removeCallbacks(it) }
         val view = bubbles.remove(taskId) ?: return
         view.release()

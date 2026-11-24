@@ -160,6 +160,31 @@ object FreeformBubbleBridge {
         }
     }
 
+    /** Asks SystemUI to dismiss its dock morph overlay once EdgeBubbleView renders. */
+    fun notifySystemUiDockOverlayDone(taskId: Int) {
+        val context = appContext ?: return
+        val intent = Intent(FreeformAnimContract.ACTION_SYSTEMUI_ANIM_CMD)
+            .setPackage(ScopeKeys.SYSTEM_UI.packageName)
+            .apply {
+                putExtra(
+                    FreeformAnimContract.EXTRA_CMD,
+                    FreeformAnimContract.CMD_DOCK_OVERLAY_DONE
+                )
+                putExtra(FreeformAnimContract.EXTRA_TASK_ID, taskId)
+            }
+        try {
+            sendOrderedWithIdentity(
+                context,
+                intent,
+                object : BroadcastReceiver() {
+                    override fun onReceive(ctx: Context, received: Intent) = Unit
+                }
+            )
+        } catch (t: Throwable) {
+            Log.w(TAG, "notifySystemUiDockOverlayDone failed: ${t.message}")
+        }
+    }
+
     fun listMinimized(onResult: (List<MinimizedTask>) -> Unit = {}) {
         sendCommand({ it.putExtra("cmd", 3) }) { code, extras ->
             if (code != 1 || extras == null) {

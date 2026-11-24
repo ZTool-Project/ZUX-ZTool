@@ -20,7 +20,7 @@ import android.view.ViewConfiguration
 import android.view.ViewOutlineProvider
 import android.view.WindowManager
 import android.view.animation.OvershootInterpolator
-import androidx.core.graphics.toColorInt
+import com.qimian233.ztool.data.freeform.EdgeBubbleGeometry
 import kotlin.math.abs
 import kotlin.math.min
 
@@ -45,29 +45,24 @@ class EdgeBubbleView(
     }
 
     companion object {
-        private const val SIDE_LEFT = 0
-        private const val SIDE_RIGHT = 1
+        private const val SIDE_LEFT = EdgeBubbleGeometry.SIDE_LEFT
+        private const val SIDE_RIGHT = EdgeBubbleGeometry.SIDE_RIGHT
         private const val MODE_FULL = 2
         private const val MODE_HALF = 4
 
-        // Oplus values (oplus-framework-res + FloatHandleView/FloatHandleUIParams).
-        private const val ICON_SIZE_DP = 48f
-        private const val INNER_MARGIN_DP = 8f
-        private const val SCREEN_MARGIN_DP = 30f
-        // How much of the container hangs offscreen in FULL. Oplus reuses
-        // screen_margin here, but that retracts the bubble 30dp when pressed and
-        // breaks the "attached to the edge" look — keep the FULL hang small.
-        private const val FULL_HANG_DP = 24f
-        private const val CONTAINER_RADIUS_DP = 18f
-        private const val COLLAPSE_DP = 16f
-        private const val SQUIRCLE_WEIGHT = 3f
-        private const val ELEVATION_DP = 3.33f
-        /** Whole-bubble alpha in the collapsed state. */
-        private const val HALF_ALPHA = 0.45f
-        private const val SHADOW_COLOR_INT = 0x38000000
+        private const val ICON_SIZE_DP = EdgeBubbleGeometry.ICON_SIZE_DP
+        private const val INNER_MARGIN_DP = EdgeBubbleGeometry.INNER_MARGIN_DP
+        private const val SCREEN_MARGIN_DP = EdgeBubbleGeometry.SCREEN_MARGIN_DP
+        private const val FULL_HANG_DP = EdgeBubbleGeometry.FULL_HANG_DP
+        private const val CONTAINER_RADIUS_DP = EdgeBubbleGeometry.CONTAINER_RADIUS_DP
+        private const val COLLAPSE_DP = EdgeBubbleGeometry.COLLAPSE_DP
+        private const val SQUIRCLE_WEIGHT = EdgeBubbleGeometry.SQUIRCLE_WEIGHT
+        private const val ELEVATION_DP = EdgeBubbleGeometry.ELEVATION_DP
+        private const val HALF_ALPHA = EdgeBubbleGeometry.HALF_ALPHA
+        private const val SHADOW_COLOR_INT = EdgeBubbleGeometry.SHADOW_COLOR_INT
 
-        val BG_LIGHT = "#f0f0f0".toColorInt()
-        val BG_DARK = "#444444".toColorInt()
+        val BG_LIGHT = EdgeBubbleGeometry.BG_LIGHT_INT
+        val BG_DARK = EdgeBubbleGeometry.BG_DARK_INT
 
         private const val HALF_HIDE_DELAY_MS = 50L
         private const val APPEAR_FULL_MS = 600L
@@ -222,7 +217,7 @@ class EdgeBubbleView(
         if (side == SIDE_LEFT) modeShiftPx.toFloat() else 0f
 
     private fun clampY(top: Int): Int {
-        val limit = dip(8f).toInt()
+        val limit = dip(EdgeBubbleGeometry.VERTICAL_CLAMP_MARGIN_DP).toInt()
         return top.coerceIn(limit, screenHeight - containerHpx - limit)
     }
 

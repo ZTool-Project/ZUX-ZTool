@@ -14,6 +14,8 @@ import android.content.res.Configuration
 import android.content.res.Resources
 import android.graphics.PointF
 import android.graphics.Rect
+import android.graphics.drawable.Drawable
+import android.hardware.display.DisplayManager
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
@@ -27,6 +29,7 @@ import android.view.animation.Animation
 import android.view.animation.AnimationSet
 import android.view.animation.Interpolator
 import android.view.animation.ScaleAnimation
+import com.qimian233.ztool.data.freeform.EdgeBubbleGeometry
 import com.qimian233.ztool.data.freeform.FreeformAnimContract
 import com.qimian233.ztool.data.freeform.FreeformEdgeBubbleConfig
 import com.qimian233.ztool.data.keys.PreferenceKeys
@@ -292,6 +295,8 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
     private val pendingRestoreHints = ConcurrentHashMap<Int, RestoreHint>()
     private val recentlyDockedTasks = ConcurrentHashMap<Int, DockedTaskMeta>()
     private val activeAnimators = ConcurrentHashMap<Int, ValueAnimator>()
+    private val activeDockOverlays = ConcurrentHashMap<Int, EdgeDockMorphOverlay>()
+    private val dockOverlayTimeouts = ConcurrentHashMap<Int, Runnable>()
     private val activelyRestoringTasks = ConcurrentHashMap.newKeySet<Int>()
     private val lastVisibleByTaskId = ConcurrentHashMap<Int, Boolean>()
     private val dragVelocityByTask = ConcurrentHashMap<Int, DragVelocityState>()
@@ -926,118 +931,219 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
         leash: SurfaceControl,
         taskReflect: TaskInfoReflect
     ) {
-        val edgeX = if (side == 0) 0f else displayWidth.toFloat()
         val marginY = 32f * density
         val maxY = (displayHeight - marginY).coerceAtLeast(marginY)
         val bubbleCenterY = dropBounds.centerY().toFloat().coerceIn(marginY, maxY)
         val centerYRatio = (bubbleCenterY / displayHeight.toFloat()).coerceIn(0.05f, 0.95f)
-        val startCorner = 24f * density
-        val endCorner = 48f * density
-        val tx = SurfaceControl.Transaction()
+        val fullLayout = EdgeBubbleGeometry.computeFullLayout(
+            side = side,
+            centerYRatio = centerYRatio,
+            displayWidth = displayWidth,
+            displayHeight = displayHeight,
+            density = density
+        )
+        val iconRect = fullLayout.iconRect
+        val startCenterX = dropBounds.exactCenterX()
+        val startCenterY = dropBounds.exactCenterY()
+        val targetCenterX = iconRect.exactCenterX
+        val targetCenterY = iconRect.exactCenterY
+        val logicalW = (dropBounds.width().coerceAtLeast(1) / baseScaleX.coerceAtLeast(0.05f))
+        val logicalH = (dropBounds.height().coerceAtLeast(1) / baseScaleY.coerceAtLeast(0.05f))
+        val endVisualCorner = EdgeBubbleGeometry.CONTAINER_RADIUS_DP * density
+        val overlayContext = resolveOverlayContext(taskReflect.displayId(taskInfo))
+        val appIcon = overlayContext?.let { loadTaskAppIcon(it, taskInfo) }
 
-        var cancelled = false
-        val animator = ValueAnimator.ofFloat(0f, 1f).apply {
-            duration = FreeformAnimCurves.EDGE_DOCK_DURATION_MS
-            interpolator = FreeformAnimCurves.edgeDockInterpolator()
-            addUpdateListener { anim ->
-                if (!leash.isValid) return@addUpdateListener
-                val p = anim.animatedValue as Float
-                val frame = FreeformAnimCurves.computeShrinkFrame(
-                    startLeft = dropBounds.left.toFloat(),
-                    startTop = dropBounds.top.toFloat(),
-                    startWidth = dropBounds.width().toFloat(),
-                    startHeight = dropBounds.height().toFloat(),
-                    baseScaleX = baseScaleX,
-                    baseScaleY = baseScaleY,
-                    targetCenterX = edgeX,
-                    targetCenterY = bubbleCenterY,
-                    endScaleRatio = FreeformAnimCurves.EDGE_DOCK_END_SCALE,
-                    progress = p
-                )
-                val alpha = if (p <= 0.30f) {
-                    1f
-                } else {
-                    val alphaT = ((p - 0.30f) / 0.70f).coerceIn(0f, 1f)
-                    1f - alphaT
-                }
-                val radius = startCorner + (endCorner - startCorner) * p.coerceIn(0f, 1f)
-                tx.setScale(leash, frame.scaleX, frame.scaleY)
-                tx.setPosition(leash, frame.posX, frame.posY)
-                tx.setAlpha(leash, alpha)
-                taskReflect.setCornerRadius(tx, leash, radius)
-                tx.apply()
+        val runnable = Runnable {
+            activeAnimators.remove(taskId)?.cancel()
+            dismissDockMorphOverlay(taskId)
+            val overlay = if (overlayContext != null) {
+                EdgeDockMorphOverlay(
+                    context = overlayContext,
+                    fullLayout = fullLayout,
+                    appIcon = appIcon,
+                    startCenterX = startCenterX,
+                    startCenterY = startCenterY,
+                    density = density
+                ).takeIf { it.show() }
+            } else {
+                null
             }
-            addListener(object : AnimatorListenerAdapter() {
-                override fun onAnimationCancel(animation: Animator) {
-                    cancelled = true
-                    activeAnimators.remove(taskId, animation)
-                }
+            if (overlay != null) {
+                activeDockOverlays[taskId] = overlay
+            }
 
-                override fun onAnimationEnd(animation: Animator) {
-                    activeAnimators.remove(taskId, animation)
-                    if (cancelled) return
-                    val dockMeta = DockedTaskMeta(
-                        dockedAtMs = SystemClock.elapsedRealtime(),
+            val tx = SurfaceControl.Transaction()
+            var cancelled = false
+            val animator = ValueAnimator.ofFloat(0f, 1f).apply {
+                duration = FreeformAnimCurves.EDGE_DOCK_DURATION_MS
+                interpolator = FreeformAnimCurves.edgeDockInterpolator()
+                addUpdateListener { anim ->
+                    if (!leash.isValid) return@addUpdateListener
+                    val p = anim.animatedValue as Float
+                    val frame = FreeformAnimCurves.computeShrinkToRectFrame(
+                        startLeft = dropBounds.left.toFloat(),
+                        startTop = dropBounds.top.toFloat(),
+                        startWidth = dropBounds.width().toFloat(),
+                        startHeight = dropBounds.height().toFloat(),
                         baseScaleX = baseScaleX,
                         baseScaleY = baseScaleY,
-                        windowCornerRadius = windowCornerRadius
+                        targetLeft = iconRect.left.toFloat(),
+                        targetTop = iconRect.top.toFloat(),
+                        targetWidth = iconRect.width.toFloat(),
+                        targetHeight = iconRect.height.toFloat(),
+                        progress = p
                     )
-                    recentlyDockedTasks[taskId] = dockMeta
-                    sendMinimizeCommand(taskId, side, dropBounds, centerYRatio) { succeeded ->
-                        if (succeeded) {
-                            mainHandler.postDelayed({
-                                if (!dockMeta.cleanedUp &&
-                                    !activelyRestoringTasks.contains(taskId) &&
-                                    !pendingRestoreHints.containsKey(taskId) &&
-                                    lastVisibleByTaskId[taskId] != true &&
-                                    leash.isValid
-                                ) {
+                    val morph = FreeformAnimCurves.computeDockMorphFrame(p)
+                    val visualRadius = windowCornerRadius +
+                        (endVisualCorner - windowCornerRadius) * p.coerceIn(0f, 1f)
+                    val minScale = minOf(frame.scaleX, frame.scaleY).coerceAtLeast(0.05f)
+                    val bufferRadius = (visualRadius / minScale)
+                        .coerceAtMost(minOf(logicalW, logicalH) * 0.45f)
+                    tx.setScale(leash, frame.scaleX, frame.scaleY)
+                    tx.setPosition(leash, frame.posX, frame.posY)
+                    tx.setAlpha(leash, morph.windowAlpha)
+                    taskReflect.setCornerRadius(tx, leash, bufferRadius)
+                    tx.apply()
+
+                    val curCx = startCenterX + (targetCenterX - startCenterX) * p
+                    val curCy = startCenterY + (targetCenterY - startCenterY) * p
+                    overlay?.update(curCx, curCy, morph)
+                }
+                addListener(object : AnimatorListenerAdapter() {
+                    override fun onAnimationCancel(animation: Animator) {
+                        cancelled = true
+                        activeAnimators.remove(taskId, animation)
+                        dismissDockMorphOverlay(taskId)
+                    }
+
+                    override fun onAnimationEnd(animation: Animator) {
+                        activeAnimators.remove(taskId, animation)
+                        if (cancelled) return
+                        overlay?.update(
+                            targetCenterX,
+                            targetCenterY,
+                            FreeformAnimCurves.computeDockMorphFrame(1f)
+                        )
+                        dockOverlayTimeouts.remove(taskId)?.let { mainHandler.removeCallbacks(it) }
+                        if (overlay != null) {
+                            val timeout = Runnable { dismissDockMorphOverlay(taskId) }
+                            dockOverlayTimeouts[taskId] = timeout
+                            mainHandler.postDelayed(timeout, DOCK_OVERLAY_HANDOFF_TIMEOUT_MS)
+                        }
+                        val dockMeta = DockedTaskMeta(
+                            dockedAtMs = SystemClock.elapsedRealtime(),
+                            baseScaleX = baseScaleX,
+                            baseScaleY = baseScaleY,
+                            windowCornerRadius = windowCornerRadius
+                        )
+                        recentlyDockedTasks[taskId] = dockMeta
+                        sendMinimizeCommand(taskId, side, dropBounds, centerYRatio) { succeeded ->
+                            if (succeeded) {
+                                mainHandler.postDelayed({
+                                    if (!dockMeta.cleanedUp &&
+                                        !activelyRestoringTasks.contains(taskId) &&
+                                        !pendingRestoreHints.containsKey(taskId) &&
+                                        lastVisibleByTaskId[taskId] != true &&
+                                        leash.isValid
+                                    ) {
+                                        SurfaceControl.Transaction().apply {
+                                            setAlpha(leash, 1f)
+                                            setScale(leash, baseScaleX, baseScaleY)
+                                            taskReflect.setCornerRadius(
+                                                this,
+                                                leash,
+                                                windowCornerRadius
+                                            )
+                                            apply()
+                                        }
+                                        dockMeta.cleanedUp = true
+                                    }
+                                }, DOCK_CLEANUP_DELAY_MS)
+                            } else {
+                                recentlyDockedTasks.remove(taskId)
+                                dismissDockMorphOverlay(taskId)
+                                logger.warn(
+                                    "Minimize command rejected or unhandled for task=$taskId; " +
+                                        "snapping back"
+                                )
+                                if (leash.isValid) {
                                     SurfaceControl.Transaction().apply {
                                         setAlpha(leash, 1f)
                                         setScale(leash, baseScaleX, baseScaleY)
-                                        taskReflect.setCornerRadius(this, leash, windowCornerRadius)
+                                        taskReflect.setCornerRadius(
+                                            this,
+                                            leash,
+                                            windowCornerRadius
+                                        )
+                                        taskReflect.showSurface(this, leash)
+                                        setPosition(
+                                            leash,
+                                            dropBounds.left.toFloat(),
+                                            dropBounds.top.toFloat()
+                                        )
                                         apply()
                                     }
-                                    dockMeta.cleanedUp = true
-                                }
-                            }, DOCK_CLEANUP_DELAY_MS)
-                        } else {
-                            recentlyDockedTasks.remove(taskId)
-                            logger.warn("Minimize command rejected or unhandled for task=$taskId; snapping back")
-                            if (leash.isValid) {
-                                SurfaceControl.Transaction().apply {
-                                    setAlpha(leash, 1f)
-                                    setScale(leash, baseScaleX, baseScaleY)
-                                    taskReflect.setCornerRadius(this, leash, windowCornerRadius)
-                                    taskReflect.showSurface(this, leash)
-                                    setPosition(
-                                        leash,
-                                        dropBounds.left.toFloat(),
-                                        dropBounds.top.toFloat()
+                                    startSnapBackAnimation(
+                                        listener = listener,
+                                        decoration = decoration,
+                                        positioner = positioner,
+                                        controller = controller,
+                                        taskInfo = taskInfo,
+                                        taskReflect = taskReflect,
+                                        drag = drag,
+                                        dropBounds = dropBounds,
+                                        displayWidth = displayWidth,
+                                        baseScaleX = baseScaleX,
+                                        leash = leash
                                     )
-                                    apply()
                                 }
-                                startSnapBackAnimation(
-                                    listener = listener,
-                                    decoration = decoration,
-                                    positioner = positioner,
-                                    controller = controller,
-                                    taskInfo = taskInfo,
-                                    taskReflect = taskReflect,
-                                    drag = drag,
-                                    dropBounds = dropBounds,
-                                    displayWidth = displayWidth,
-                                    baseScaleX = baseScaleX,
-                                    leash = leash
-                                )
                             }
                         }
                     }
-                }
-            })
+                })
+            }
+            activeAnimators[taskId] = animator
+            animator.start()
         }
-        activeAnimators[taskId] = animator
-        animator.start()
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            runnable.run()
+        } else {
+            mainHandler.post(runnable)
+        }
+    }
+
+    private fun dismissDockMorphOverlay(taskId: Int) {
+        val dismissBlock = Runnable {
+            dockOverlayTimeouts.remove(taskId)?.let { mainHandler.removeCallbacks(it) }
+            activeDockOverlays.remove(taskId)?.dismiss()
+        }
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            dismissBlock.run()
+        } else {
+            mainHandler.post(dismissBlock)
+        }
+    }
+
+    private fun resolveOverlayContext(displayId: Int): Context? {
+        val ctx = sysUiContext ?: return null
+        if (displayId == 0) return ctx
+        return runCatching {
+            ctx.getSystemService(DisplayManager::class.java)
+                ?.getDisplay(displayId)
+                ?.let { ctx.createDisplayContext(it) }
+        }.getOrNull() ?: ctx
+    }
+
+    private fun loadTaskAppIcon(
+        context: Context,
+        taskInfo: ActivityManager.RunningTaskInfo
+    ): Drawable? {
+        val pkg = taskInfo.topActivity?.packageName
+            ?: taskInfo.baseActivity?.packageName
+            ?: taskInfo.baseIntent.component?.packageName
+            ?: taskInfo.baseIntent.`package`
+            ?: return null
+        return runCatching { context.packageManager.getApplicationIcon(pkg) }.getOrNull()
     }
 
     private fun startSnapBackAnimation(
@@ -1302,29 +1408,43 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
                         return
                     }
                     val cmd = intent.getIntExtra(FreeformAnimContract.EXTRA_CMD, -1)
-                    if (cmd == FreeformAnimContract.CMD_PREPARE_RESTORE) {
-                        val taskId = intent.getIntExtra(FreeformAnimContract.EXTRA_TASK_ID, -1)
-                        val side = intent.getIntExtra(FreeformAnimContract.EXTRA_SIDE, 0)
-                        val l = intent.getIntExtra(FreeformAnimContract.EXTRA_BUBBLE_LEFT, 0)
-                        val t = intent.getIntExtra(FreeformAnimContract.EXTRA_BUBBLE_TOP, 0)
-                        val r = intent.getIntExtra(FreeformAnimContract.EXTRA_BUBBLE_RIGHT, 0)
-                        val b = intent.getIntExtra(FreeformAnimContract.EXTRA_BUBBLE_BOTTOM, 0)
-                        if (taskId > 0 && r > l && b > t) {
-                            recentlyDockedTasks.remove(taskId)
-                            val hint = RestoreHint(
-                                bubbleRect = Rect(l, t, r, b),
-                                side = side,
-                                createdAtMs = SystemClock.elapsedRealtime()
-                            )
-                            pendingRestoreHints[taskId] = hint
-                            preBlankTaskLeash(taskId, hint)
-                            logger.info("Restore hint queued task=$taskId rect=${hint.bubbleRect} side=$side")
-                            if (ordered) resultCode = 1
-                        } else {
-                            if (ordered) resultCode = 0
+                    when (cmd) {
+                        FreeformAnimContract.CMD_PREPARE_RESTORE -> {
+                            val taskId = intent.getIntExtra(FreeformAnimContract.EXTRA_TASK_ID, -1)
+                            val side = intent.getIntExtra(FreeformAnimContract.EXTRA_SIDE, 0)
+                            val l = intent.getIntExtra(FreeformAnimContract.EXTRA_BUBBLE_LEFT, 0)
+                            val t = intent.getIntExtra(FreeformAnimContract.EXTRA_BUBBLE_TOP, 0)
+                            val r = intent.getIntExtra(FreeformAnimContract.EXTRA_BUBBLE_RIGHT, 0)
+                            val b = intent.getIntExtra(FreeformAnimContract.EXTRA_BUBBLE_BOTTOM, 0)
+                            if (taskId > 0 && r > l && b > t) {
+                                dismissDockMorphOverlay(taskId)
+                                recentlyDockedTasks.remove(taskId)
+                                val hint = RestoreHint(
+                                    bubbleRect = Rect(l, t, r, b),
+                                    side = side,
+                                    createdAtMs = SystemClock.elapsedRealtime()
+                                )
+                                pendingRestoreHints[taskId] = hint
+                                preBlankTaskLeash(taskId, hint)
+                                logger.info(
+                                    "Restore hint queued task=$taskId rect=${hint.bubbleRect} " +
+                                        "side=$side"
+                                )
+                                if (ordered) resultCode = 1
+                            } else {
+                                if (ordered) resultCode = 0
+                            }
                         }
-                    } else {
-                        if (ordered) resultCode = 0
+                        FreeformAnimContract.CMD_DOCK_OVERLAY_DONE -> {
+                            val taskId = intent.getIntExtra(FreeformAnimContract.EXTRA_TASK_ID, -1)
+                            if (taskId > 0) {
+                                dismissDockMorphOverlay(taskId)
+                                if (ordered) resultCode = 1
+                            } else {
+                                if (ordered) resultCode = 0
+                            }
+                        }
+                        else -> if (ordered) resultCode = 0
                     }
                 }
             }
@@ -2670,6 +2790,7 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
         const val RECEIVER_RETRY_MAX_ATTEMPTS = 30
         const val RECEIVER_RETRY_DELAY_MS = 300L
         const val DOCK_CLEANUP_DELAY_MS = 350L
+        const val DOCK_OVERLAY_HANDOFF_TIMEOUT_MS = 350L
         const val DOCK_SUPPRESS_TTL_MS = 2500L
         const val RESTORE_HINT_TTL_MS = 3000L
         const val VELOCITY_STALE_MS = 120L

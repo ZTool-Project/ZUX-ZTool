@@ -61,11 +61,26 @@ object FreeformAnimCurves {
     const val EDGE_FLING_MIN_OVERHANG_RATIO = 0.15f
     const val RESTORE_BUBBLE_HIDE_PROGRESS = 0.30f
 
+    const val EDGE_DOCK_WINDOW_FADE_START = 0.25f
+    const val EDGE_DOCK_WINDOW_FADE_END = 0.72f
+    const val EDGE_DOCK_OVERLAY_FADE_START = 0.20f
+    const val EDGE_DOCK_OVERLAY_FADE_END = 0.68f
+    const val EDGE_DOCK_OVERLAY_START_SCALE = 1.85f
+    const val EDGE_DOCK_PAD_EXTEND_START = 0.55f
+    const val EDGE_DOCK_PAD_EXTEND_END = 1.00f
+
     data class TransformFrame(
         val posX: Float,
         val posY: Float,
         val scaleX: Float,
         val scaleY: Float
+    )
+
+    data class DockMorphFrame(
+        val windowAlpha: Float,
+        val overlayAlpha: Float,
+        val overlayScale: Float,
+        val padExtension: Float
     )
 
     class SpringInterpolator(
@@ -173,6 +188,69 @@ object FreeformAnimCurves {
             scaleX = sx,
             scaleY = sy
         )
+    }
+
+    /**
+     * Interpolates a surface transform shrinking from its visual bounds onto a fixed screen rect.
+     * [startWidth] and [startHeight] are visual dimensions (logical size * baseScale).
+     */
+    fun computeShrinkToRectFrame(
+        startLeft: Float,
+        startTop: Float,
+        startWidth: Float,
+        startHeight: Float,
+        baseScaleX: Float,
+        baseScaleY: Float,
+        targetLeft: Float,
+        targetTop: Float,
+        targetWidth: Float,
+        targetHeight: Float,
+        progress: Float
+    ): TransformFrame {
+        val safeStartW = startWidth.coerceAtLeast(1f)
+        val safeStartH = startHeight.coerceAtLeast(1f)
+        val endRatioX = (targetWidth / safeStartW).coerceAtLeast(0.001f)
+        val endRatioY = (targetHeight / safeStartH).coerceAtLeast(0.001f)
+        val ratioX = 1f + (endRatioX - 1f) * progress
+        val ratioY = 1f + (endRatioY - 1f) * progress
+        val sx = (baseScaleX * ratioX).coerceAtLeast(0.001f)
+        val sy = (baseScaleY * ratioY).coerceAtLeast(0.001f)
+        val startCx = startLeft + safeStartW / 2f
+        val startCy = startTop + safeStartH / 2f
+        val targetCx = targetLeft + targetWidth / 2f
+        val targetCy = targetTop + targetHeight / 2f
+        val cx = startCx + (targetCx - startCx) * progress
+        val cy = startCy + (targetCy - startCy) * progress
+        val curW = safeStartW * ratioX
+        val curH = safeStartH * ratioY
+        return TransformFrame(
+            posX = cx - curW / 2f,
+            posY = cy - curH / 2f,
+            scaleX = sx,
+            scaleY = sy
+        )
+    }
+
+    /** Computes window fade-out, icon capsule fade-in/scale, and edge pad extension at [progress]. */
+    fun computeDockMorphFrame(progress: Float): DockMorphFrame {
+        val p = progress.coerceIn(0f, 1f)
+        val windowAlpha = 1f - smoothstep(EDGE_DOCK_WINDOW_FADE_START, EDGE_DOCK_WINDOW_FADE_END, p)
+        val overlayAlpha = smoothstep(EDGE_DOCK_OVERLAY_FADE_START, EDGE_DOCK_OVERLAY_FADE_END, p)
+        val scaleT = ((p - EDGE_DOCK_OVERLAY_FADE_START) / (1f - EDGE_DOCK_OVERLAY_FADE_START))
+            .coerceIn(0f, 1f)
+        val overlayScale = EDGE_DOCK_OVERLAY_START_SCALE + (1f - EDGE_DOCK_OVERLAY_START_SCALE) * scaleT
+        val padExtension = smoothstep(EDGE_DOCK_PAD_EXTEND_START, EDGE_DOCK_PAD_EXTEND_END, p)
+        return DockMorphFrame(
+            windowAlpha = windowAlpha,
+            overlayAlpha = overlayAlpha,
+            overlayScale = overlayScale,
+            padExtension = padExtension
+        )
+    }
+
+    private fun smoothstep(edge0: Float, edge1: Float, x: Float): Float {
+        val t = ((x - edge0) / (edge1 - edge0)).coerceIn(0f, 1f)
+        return t * t * (3f - 2f * t)
     }
 
     /**

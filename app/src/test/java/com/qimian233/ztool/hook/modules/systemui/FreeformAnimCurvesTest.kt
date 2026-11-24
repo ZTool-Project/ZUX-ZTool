@@ -1,5 +1,6 @@
 package com.qimian233.ztool.hook.modules.systemui
 
+import com.qimian233.ztool.data.freeform.EdgeBubbleGeometry
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -313,5 +314,144 @@ class FreeformAnimCurvesTest {
             "Expected restore spring to cross $threshold before t=0.25f, got $atQuarter",
             atQuarter >= threshold
         )
+    }
+
+    @Test
+    fun computeFullLayout_leftRightAndClampingMatchEdgeBubbleView() {
+        val density = 2.5f
+        val left = EdgeBubbleGeometry.computeFullLayout(
+            side = EdgeBubbleGeometry.SIDE_LEFT,
+            centerYRatio = 0.5f,
+            displayWidth = 3200,
+            displayHeight = 2000,
+            density = density
+        )
+        assertEquals(235, left.containerRect.width)
+        assertEquals(160, left.containerRect.height)
+        assertEquals(-60, left.containerRect.left)
+        assertEquals(920, left.containerRect.top)
+        assertEquals(35, left.iconRect.left)
+        assertEquals(155, left.iconRect.right)
+        assertEquals(940, left.iconRect.top)
+        assertEquals(1060, left.iconRect.bottom)
+
+        val right = EdgeBubbleGeometry.computeFullLayout(
+            side = EdgeBubbleGeometry.SIDE_RIGHT,
+            centerYRatio = 0.5f,
+            displayWidth = 3200,
+            displayHeight = 2000,
+            density = density
+        )
+        assertEquals(235, right.containerRect.width)
+        assertEquals(3025, right.containerRect.left)
+        assertEquals(3260, right.containerRect.right)
+        assertEquals(3045, right.iconRect.left)
+        assertEquals(3165, right.iconRect.right)
+        assertEquals(940, right.iconRect.top)
+        assertEquals(1060, right.iconRect.bottom)
+
+        val clampedTop = EdgeBubbleGeometry.computeFullLayout(
+            side = EdgeBubbleGeometry.SIDE_LEFT,
+            centerYRatio = 0f,
+            displayWidth = 3200,
+            displayHeight = 2000,
+            density = density
+        )
+        assertEquals(20, clampedTop.containerRect.top)
+
+        val clampedBottom = EdgeBubbleGeometry.computeFullLayout(
+            side = EdgeBubbleGeometry.SIDE_RIGHT,
+            centerYRatio = 1f,
+            displayWidth = 3200,
+            displayHeight = 2000,
+            density = density
+        )
+        assertEquals(1820, clampedBottom.containerRect.top)
+    }
+
+    @Test
+    fun computeShrinkToRectFrame_normalAndScaledTasksLandOnIconRect() {
+        val start = FreeformAnimCurves.computeShrinkToRectFrame(
+            startLeft = 200f,
+            startTop = 300f,
+            startWidth = 600f,
+            startHeight = 900f,
+            baseScaleX = 1.0f,
+            baseScaleY = 1.0f,
+            targetLeft = 35f,
+            targetTop = 940f,
+            targetWidth = 120f,
+            targetHeight = 120f,
+            progress = 0f
+        )
+        assertEquals(200f, start.posX, 1e-3f)
+        assertEquals(300f, start.posY, 1e-3f)
+        assertEquals(1.0f, start.scaleX, 1e-4f)
+        assertEquals(1.0f, start.scaleY, 1e-4f)
+
+        val end = FreeformAnimCurves.computeShrinkToRectFrame(
+            startLeft = 200f,
+            startTop = 300f,
+            startWidth = 600f,
+            startHeight = 900f,
+            baseScaleX = 1.0f,
+            baseScaleY = 1.0f,
+            targetLeft = 35f,
+            targetTop = 940f,
+            targetWidth = 120f,
+            targetHeight = 120f,
+            progress = 1f
+        )
+        assertEquals(35f, end.posX, 1e-3f)
+        assertEquals(940f, end.posY, 1e-3f)
+        assertEquals(120f / 600f, end.scaleX, 1e-4f)
+        assertEquals(120f / 900f, end.scaleY, 1e-4f)
+
+        val scaledEnd = FreeformAnimCurves.computeShrinkToRectFrame(
+            startLeft = 2500f,
+            startTop = 200f,
+            startWidth = 600f,
+            startHeight = 900f,
+            baseScaleX = 0.75f,
+            baseScaleY = 0.75f,
+            targetLeft = 3045f,
+            targetTop = 940f,
+            targetWidth = 120f,
+            targetHeight = 120f,
+            progress = 1f
+        )
+        assertEquals(3045f, scaledEnd.posX, 1e-3f)
+        assertEquals(940f, scaledEnd.posY, 1e-3f)
+        assertEquals(0.75f * (120f / 600f), scaledEnd.scaleX, 1e-4f)
+        assertEquals(0.75f * (120f / 900f), scaledEnd.scaleY, 1e-4f)
+    }
+
+    @Test
+    fun computeDockMorphFrame_crossfadesAndExtendsPadSmoothly() {
+        val start = FreeformAnimCurves.computeDockMorphFrame(0f)
+        assertEquals(1f, start.windowAlpha, 1e-5f)
+        assertEquals(0f, start.overlayAlpha, 1e-5f)
+        assertEquals(0f, start.padExtension, 1e-5f)
+        assertEquals(FreeformAnimCurves.EDGE_DOCK_OVERLAY_START_SCALE, start.overlayScale, 1e-4f)
+
+        val mid = FreeformAnimCurves.computeDockMorphFrame(0.45f)
+        assertTrue("Expected window alpha in (0, 1), got ${mid.windowAlpha}", mid.windowAlpha in 0.01f..0.99f)
+        assertTrue("Expected overlay alpha in (0, 1), got ${mid.overlayAlpha}", mid.overlayAlpha in 0.01f..0.99f)
+        assertTrue(
+            "Expected shrinking overlay scale < startScale, got ${mid.overlayScale}",
+            mid.overlayScale < FreeformAnimCurves.EDGE_DOCK_OVERLAY_START_SCALE && mid.overlayScale > 1f
+        )
+        assertEquals(0f, mid.padExtension, 1e-5f)
+
+        val late = FreeformAnimCurves.computeDockMorphFrame(0.80f)
+        assertEquals(0f, late.windowAlpha, 1e-5f)
+        assertEquals(1f, late.overlayAlpha, 1e-5f)
+        assertTrue("Expected padExtension in (0, 1), got ${late.padExtension}", late.padExtension in 0.01f..0.99f)
+
+        val end = FreeformAnimCurves.computeDockMorphFrame(1f)
+        assertEquals(0f, end.windowAlpha, 1e-5f)
+        assertEquals(1f, end.overlayAlpha, 1e-5f)
+        assertEquals(1f, end.overlayScale, 1e-5f)
+        assertEquals(1f, end.padExtension, 1e-5f)
     }
 }
