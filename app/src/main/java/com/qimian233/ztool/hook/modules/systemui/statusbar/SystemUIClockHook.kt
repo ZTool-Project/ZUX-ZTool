@@ -3,6 +3,7 @@ package com.qimian233.ztool.hook.modules.systemui.statusbar
 import android.annotation.SuppressLint
 import android.content.res.Resources
 import android.graphics.Typeface
+import android.os.Build
 import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.style.AbsoluteSizeSpan
@@ -82,13 +83,24 @@ class SystemUIClockHook : AppHookModule() {
     }
 
     private fun installSeconds(host: Host, handles: MutableList<XposedInterface.HookHandle>) {
+        val updateShowSeconds = host.clockClass.getDeclaredMethod("updateShowSeconds")
+
         // Set mShowSeconds before proceeding so the host creates mSecondsHandler once itself.
         val onAttached = host.clockClass.getDeclaredMethod("onAttachedToWindow")
         handles += hookWithId(onAttached, "clock_on_attached") { chain ->
             if (readOptions().effectiveShowSeconds) {
                 host.showSecondsField.setBoolean(chain.thisObject, true)
             }
-            chain.proceed()
+            val result = chain.proceed()
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.CINNAMON_BUN &&
+                readOptions().effectiveShowSeconds
+            ) {
+                try {
+                    updateShowSeconds.invoke(chain.thisObject)
+                } catch (_: Throwable) {
+                }
+            }
+            result
         }
 
         val onTuning = host.clockClass.getDeclaredMethod(
@@ -100,13 +112,19 @@ class SystemUIClockHook : AppHookModule() {
             val key = chain.args[0] as? String
             if ("clock_seconds" == key && readOptions().effectiveShowSeconds) {
                 host.showSecondsField.setBoolean(chain.thisObject, true)
-                chain.proceed(arrayOf(key, "1"))
+                val result = chain.proceed(arrayOf(key, "1"))
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.CINNAMON_BUN) {
+                    try {
+                        updateShowSeconds.invoke(chain.thisObject)
+                    } catch (_: Throwable) {
+                    }
+                }
+                result
             } else {
                 chain.proceed()
             }
         }
 
-        val updateShowSeconds = host.clockClass.getDeclaredMethod("updateShowSeconds")
         handles += hookWithId(updateShowSeconds, "clock_update_show_seconds") { chain ->
             if (readOptions().effectiveShowSeconds) {
                 host.showSecondsField.setBoolean(chain.thisObject, true)
@@ -123,17 +141,116 @@ class SystemUIClockHook : AppHookModule() {
                 return@hookWithId chain.proceed()
             }
             if (options.customClock) {
-                val date = runCatching {
-                    (host.calendarField?.get(chain.thisObject) as? Calendar)?.time
-                }.getOrNull() ?: Date()
                 val formatted = CustomDateFormatter.formatWithFields(
                     options.effectiveCustomFormat,
-                    date
+                    resolveClockDate(host, chain.thisObject)
                 )
                 return@hookWithId buildCustomClockText(chain.thisObject, formatted, options)
             }
             val original = chain.proceed() as? CharSequence ?: return@hookWithId null
             applyRedOneToStockClock(original)
+        }
+
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.CINNAMON_BUN) {
+            installLegacyCustomClockHooks(host, handles)
+        }
+    }
+
+    private fun installLegacyCustomClockHooks(
+        host: Host,
+        handles: MutableList<XposedInterface.HookHandle>
+    ) {
+        try {
+            val updateClock = host.clockClass.getDeclaredMethod("updateClock")
+            handles += hookWithId(updateClock, "clock_legacy_update_clock") { chain ->
+                val result = chain.proceed()
+                try {
+                    val options = readOptions()
+                    if (options.customClock) {
+                        val clockInstance = chain.thisObject
+                        val customTime = CustomDateFormatter.format(
+                            options.effectiveCustomFormat,
+                            resolveClockDate(host, clockInstance)
+                        )
+                        (clockInstance as? View)?.contentDescription = customTime
+                        applyLegacyDirectStyles(clockInstance, options)
+                    }
+                } catch (_: Throwable) {
+                }
+                result
+            }
+        } catch (_: Throwable) {
+        }
+
+        try {
+            // Keep getDeclaredMethod so SystemUI never hooks View.onFinishInflate globally.
+            val onFinishInflate = host.clockClass.getDeclaredMethod("onFinishInflate")
+            handles += hookWithId(onFinishInflate, "clock_legacy_on_finish_inflate") { chain ->
+                val result = chain.proceed()
+                try {
+                    val options = readOptions()
+                    if (options.customClock) {
+                        applyLegacyDirectStyles(chain.thisObject, options)
+                    }
+                } catch (_: Throwable) {
+                }
+                result
+            }
+        } catch (_: Throwable) {
+        }
+    }
+
+    private fun resolveClockDate(host: Host, clockInstance: Any): Date =
+        runCatching { (host.calendarField?.get(clockInstance) as? Calendar)?.time }.getOrNull()
+            ?: Date()
+
+    private fun applyLegacyDirectStyles(clockInstance: Any, options: StatusBarClockOptions) {
+        val clockClass = clockInstance.javaClass
+
+        if (options.letterSpacingEnabled) {
+            val spacing = options.effectiveLetterSpacing
+            try {
+                clockClass.getDeclaredMethod("setLetterSpacing", Float::class.javaPrimitiveType)
+                    .invoke(clockInstance, spacing)
+            } catch (_: NoSuchMethodError) {
+                applyLegacyAlternativeLetterSpacing(clockInstance, spacing)
+            } catch (_: Throwable) {
+            }
+        }
+
+        if (options.effectiveCustomTextColorEnabled) {
+            try {
+                clockClass.getDeclaredMethod("setTextColor", Int::class.javaPrimitiveType)
+                    .invoke(clockInstance, options.textColor)
+            } catch (_: Throwable) {
+            }
+        }
+
+        if (options.textBold) {
+            try {
+                clockClass.getDeclaredMethod("setTypeface", Typeface::class.java)
+                    .invoke(clockInstance, Typeface.create(Typeface.DEFAULT, Typeface.BOLD))
+            } catch (_: Throwable) {
+            }
+        }
+    }
+
+    private fun applyLegacyAlternativeLetterSpacing(clockInstance: Any, letterSpacing: Float) {
+        val clockClass = clockInstance.javaClass
+        try {
+            val scaleX = 1.0f + letterSpacing * 0.1f
+            clockClass.getDeclaredMethod("setScaleX", Float::class.javaPrimitiveType)
+                .invoke(clockInstance, scaleX)
+
+            val paddingHorizontal = (letterSpacing * 10).toInt()
+            clockClass.getDeclaredMethod(
+                "setPadding",
+                Int::class.javaPrimitiveType,
+                Int::class.javaPrimitiveType,
+                Int::class.javaPrimitiveType,
+                Int::class.javaPrimitiveType
+            ).invoke(clockInstance, paddingHorizontal, 0, paddingHorizontal, 0)
+        } catch (_: Throwable) {
         }
     }
 
