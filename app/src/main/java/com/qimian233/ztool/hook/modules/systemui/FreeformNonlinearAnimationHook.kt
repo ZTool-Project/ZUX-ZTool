@@ -179,11 +179,23 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
         val getTaskInfo: Method
     )
 
+    private class PositionerFields(
+        val ownerClass: Class<*>,
+        val ctrlType: Field?,
+        val startPoint: Field?,
+        val startBounds: Field?,
+        val repositionBounds: Field?,
+        val jankMonitor: Field?
+    )
+
     private class DragReflect(
         val listenerIsDragging: Field?,
         val listenerSameMode: Field?,
         val listenerStartDisplayId: Field?,
         val listenerIsPinned: Field?,
+        val listenerTaskId: Field?,
+        val listenerDecorationFinder: Field?,
+        val finderApply: Method?,
         val listenerDecoration: Field?,
         val listenerPositioner: Field?,
         val listenerDesktopController: Field?,
@@ -191,6 +203,18 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
         val listenerOrganizer: Field?,
         val listenerTransitions: Field?,
         val listenerDragHandler: Field?,
+        val listenerCurrentBounds: Field?,
+        val listenerDragPointerId: Field?,
+        val listenerDragInterrupted: Field?,
+        val listenerCaptionTouchStatus: Field?,
+        val captionIsPressed: Field?,
+        val listenerPinnedController: Field?,
+        val pinnedIsPinned: Method?,
+        val listenerSetIsDragging: Method?,
+        val listenerMultiDisplayIndicator: Field?,
+        val multiDisplayOnDragEnd: Method?,
+        val listenerTransactionFactory: Field?,
+        val supplierGet: Method?,
         val decorGetTaskInfo: Method?,
         val decorTaskInfoField: Field?,
         val decorIsHandlingResize: Method?,
@@ -202,7 +226,10 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
         val decorIsDraggingField: Field?,
         val decorCornerRadiusField: Field?,
         val decorCornerRadiusGetter: Method?,
+        val controllerDisplayControllerField: Field?,
         val controllerOrganizerField: Field?,
+        val controllerTransitionsField: Field?,
+        val controllerDragHandlerField: Field?,
         val controllerGetVisualIndicator: Method?,
         val controllerVisualIndicatorField: Field?,
         val controllerReleaseVisualIndicator: Method?,
@@ -211,10 +238,8 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
         val displayLayoutWidth: Field,
         val displayLayoutHeight: Field,
         val setTaskDragging: Method?,
-        val posCtrlType: Field?,
-        val posStartPoint: Field?,
-        val posStartBounds: Field?,
-        val posRepositionBounds: Field?,
+        val posFields: List<PositionerFields>,
+        val jankMonitorEnd: Method?,
         val posDragExecutor: Field?,
         val posDragSession: Field?,
         val posDelegate: Field?,
@@ -360,8 +385,8 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
 
         boundsChangeMethod?.let { m ->
             hookWithId(m, "freeform_nonlinear_bounds_change") { chain ->
-                val startRect = chain.args.getOrNull(0) as? Rect
-                val endRect = chain.args.getOrNull(1) as? Rect
+                val startRect = chain.args.getOrNull(1) as? Rect
+                val endRect = chain.args.getOrNull(2) as? Rect
                 val result = chain.proceed()
                 val animator = result as? ValueAnimator ?: return@hookWithId result
                 if (startRect != null && endRect != null) {
@@ -634,8 +659,7 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
             .getOrDefault(false)
         if (!isDragging) return false
 
-        val decoration = runCatching { drag.listenerDecoration?.get(listener) }.getOrNull()
-            ?: return false
+        val decoration = resolveDecoration(listener, drag) ?: return false
         if (runCatching { drag.decorIsHandlingResize?.invoke(decoration) as? Boolean == true }
                 .getOrDefault(false)
         ) {
@@ -648,9 +672,7 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
         if (taskReflect.windowingMode(taskInfo) != WINDOWING_MODE_FREEFORM) return false
         if (taskReflect.isHangingMode(taskInfo)) return false
         if (taskReflect.isDesktopOrPcMode(taskInfo)) return false
-        if (runCatching { drag.listenerIsPinned?.getBoolean(listener) == true }.getOrDefault(false)) {
-            return false
-        }
+        if (isTaskPinned(listener, taskInfo.taskId, drag)) return false
 
         val eventDisplayId = taskReflect.eventDisplayId(event)
         val startDisplayId = runCatching {
@@ -659,12 +681,14 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
         if (startDisplayId != eventDisplayId) return false
 
         val positioner = runCatching { drag.listenerPositioner?.get(listener) }.getOrNull()
-        val dropBounds = resolveDropBounds(positioner, taskInfo, taskReflect, drag)
+        val dropBounds = resolveDropBounds(listener, positioner, taskInfo, taskReflect, drag)
         if (dropBounds == null || dropBounds.isEmpty) return false
 
         val controller = runCatching { drag.listenerDesktopController?.get(listener) }.getOrNull()
-        val displayController = runCatching { drag.listenerDisplayController?.get(listener) }
-            .getOrNull() ?: return false
+        val displayController = runCatching {
+            drag.listenerDisplayController?.get(listener)
+                ?: controller?.let { drag.controllerDisplayControllerField?.get(it) }
+        }.getOrNull() ?: return false
         val displayLayout = runCatching {
             drag.displayControllerGetLayout.invoke(displayController, startDisplayId)
         }.getOrNull() ?: return false
@@ -674,7 +698,17 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
             .getOrDefault(0)
         if (displayWidth <= 0 || displayHeight <= 0) return false
 
-        if (hasActiveVisualIndicator(controller, displayLayout, taskInfo, event, drag)) {
+        if (hasActiveVisualIndicator(
+                listener = listener,
+                controller = controller,
+                displayLayout = displayLayout,
+                displayId = startDisplayId,
+                taskInfo = taskInfo,
+                dropBounds = dropBounds,
+                event = event,
+                drag = drag
+            )
+        ) {
             return false
         }
 
@@ -795,7 +829,10 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
                     if (cancelled) return
                     sendMinimizeCommand(taskId, side, dropBounds, centerYRatio)
                     mainHandler.postDelayed({
-                        if (!activelyRestoringTasks.contains(taskId) && leash.isValid) {
+                        if (!activelyRestoringTasks.contains(taskId) &&
+                            !pendingRestoreHints.containsKey(taskId) &&
+                            leash.isValid
+                        ) {
                             SurfaceControl.Transaction().apply {
                                 setAlpha(leash, 1f)
                                 setScale(leash, baseScaleX, baseScaleY)
@@ -874,6 +911,7 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
                         snapped = snapped,
                         scaleX = taskReflect.scaleX(taskInfo).takeIf { it > 0f } ?: baseScaleX,
                         isScaled = taskReflect.scaleX(taskInfo) > 0f,
+                        leash = leash,
                         taskReflect = taskReflect,
                         drag = drag
                     )
@@ -892,6 +930,7 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
         snapped: Rect,
         scaleX: Float,
         isScaled: Boolean,
+        leash: SurfaceControl,
         taskReflect: TaskInfoReflect,
         drag: DragReflect
     ) {
@@ -900,12 +939,22 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
                 ?: controller?.let { drag.controllerOrganizerField?.get(it) }
         }.getOrNull()
 
+        runCatching { (drag.listenerCurrentBounds?.get(listener) as? Rect)?.set(snapped) }
+        updatePositionerBounds(positioner, snapped, drag)
+
         if (isScaled && organizer != null && drag.organizerScaleTaskSurface != null) {
+            if (leash.isValid) {
+                SurfaceControl.Transaction().apply {
+                    setPosition(leash, snapped.left.toFloat(), snapped.top.toFloat())
+                    apply()
+                }
+            }
             val executor = resolveDragExecutor(positioner, drag)
             val initBounds = runCatching {
                 executor?.let { drag.execInitBounds?.get(it) as? Rect }
             }.getOrNull() ?: taskReflect.logicalBounds(taskInfo) ?: snapped
             runCatching {
+                (executor?.let { drag.execRescaleBounds?.get(it) as? Rect })?.set(snapped)
                 drag.organizerScaleTaskSurface.invoke(
                     organizer,
                     taskInfo.taskId,
@@ -914,7 +963,6 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
                     scaleX,
                     scaleX
                 )
-                (executor?.let { drag.execRescaleBounds?.get(it) as? Rect })?.set(snapped)
             }.onFailure {
                 logger.warn("scaleTaskSurface snap commit failed: ${it.message}")
             }
@@ -928,8 +976,14 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
             txObj
         }.getOrNull() ?: return
 
-        val transitions = runCatching { drag.listenerTransitions?.get(listener) }.getOrNull()
-        val handler = runCatching { drag.listenerDragHandler?.get(listener) }.getOrNull()
+        val transitions = runCatching {
+            drag.listenerTransitions?.get(listener)
+                ?: controller?.let { drag.controllerTransitionsField?.get(it) }
+        }.getOrNull()
+        val handler = runCatching {
+            drag.listenerDragHandler?.get(listener)
+                ?: controller?.let { drag.controllerDragHandlerField?.get(it) }
+        }.getOrNull()
         if (transitions != null && drag.transitionsStartTransition != null) {
             runCatching {
                 drag.transitionsStartTransition.invoke(transitions, TRANSIT_CHANGE, wct, handler)
@@ -1254,10 +1308,17 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
         val (baseScaleX, baseScaleY) = resolveBaseScales(taskInfo, taskReflect, preferHanging = false)
         val isScaled = taskReflect.scaleX(taskInfo) > 0f
         val scaleBounds = taskReflect.scaleSurfaceBounds(taskInfo)
-        val logicalBounds = targetRectOverride?.takeUnless { it.isEmpty }
-            ?: taskReflect.logicalBounds(taskInfo)
-            ?: scaleBounds
-            ?: Rect(hint.bubbleRect)
+        val logicalBounds = if (isScaled) {
+            taskReflect.logicalBounds(taskInfo)?.takeUnless { it.isEmpty }
+                ?: targetRectOverride?.takeUnless { it.isEmpty }
+                ?: scaleBounds
+                ?: Rect(hint.bubbleRect)
+        } else {
+            targetRectOverride?.takeUnless { it.isEmpty }
+                ?: taskReflect.logicalBounds(taskInfo)?.takeUnless { it.isEmpty }
+                ?: scaleBounds
+                ?: Rect(hint.bubbleRect)
+        }
         val targetRect = if (isScaled && scaleBounds != null && !scaleBounds.isEmpty) {
             Rect(scaleBounds)
         } else {
@@ -1438,30 +1499,6 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
     }
 
     private fun resolveDragReflect(loader: ClassLoader, listenerClass: Class<*>): DragReflect? {
-        val displayControllerField = optionalFieldAny(
-            listenerClass,
-            "mDisplayController",
-            "displayController"
-        ) ?: return null
-        val displayControllerClass = displayControllerField.type
-        val getDisplayLayout = findMethodOptional(
-            displayControllerClass,
-            "getDisplayLayout",
-            Int::class.javaPrimitiveType
-        ) ?: return null
-        val displayLayoutClass = getDisplayLayout.returnType
-        val displayLayoutWidth = optionalField(displayLayoutClass, "mWidth") ?: return null
-        val displayLayoutHeight = optionalField(displayLayoutClass, "mHeight") ?: return null
-
-        val decorField = optionalFieldAny(
-            listenerClass,
-            "mWindowDecoration",
-            "windowDecoration",
-            "mDesktopWindowDecoration",
-            "desktopWindowDecoration"
-        ) ?: return null
-        val decorClass = decorField.type
-
         val controllerField = optionalFieldAny(
             listenerClass,
             "mDesktopTasksController",
@@ -1469,6 +1506,76 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
         )
         val controllerClass = controllerField?.type
             ?: loadClassOptional(loader, DESKTOP_TASKS_CONTROLLER_CLASS)
+        val controllerDisplayControllerField = controllerClass?.let {
+            optionalFieldAny(it, "displayController", "mDisplayController")
+        }
+        val displayControllerField = optionalFieldAny(
+            listenerClass,
+            "mDisplayController",
+            "displayController"
+        )
+        if (displayControllerField == null && controllerDisplayControllerField == null) {
+            logger.warn("Part B drag reflect failed: DisplayController field missing on listener & controller")
+            return null
+        }
+        val displayControllerClass = displayControllerField?.type
+            ?: controllerDisplayControllerField?.type
+            ?: loadClassOptional(loader, DISPLAY_CONTROLLER_CLASS)
+        if (displayControllerClass == null) {
+            logger.warn("Part B drag reflect failed: DisplayController class unavailable")
+            return null
+        }
+        val getDisplayLayout = findMethodOptional(
+            displayControllerClass,
+            "getDisplayLayout",
+            Int::class.javaPrimitiveType
+        ) ?: run {
+            logger.warn("Part B drag reflect failed: DisplayController.getDisplayLayout(int) missing")
+            return null
+        }
+        val displayLayoutClass = getDisplayLayout.returnType
+        val displayLayoutWidth = optionalField(displayLayoutClass, "mWidth") ?: run {
+            logger.warn("Part B drag reflect failed: DisplayLayout.mWidth missing")
+            return null
+        }
+        val displayLayoutHeight = optionalField(displayLayoutClass, "mHeight") ?: run {
+            logger.warn("Part B drag reflect failed: DisplayLayout.mHeight missing")
+            return null
+        }
+
+        val listenerTaskId = optionalFieldAny(listenerClass, "mTaskId", "taskId")
+        val listenerDecorationFinder = optionalFieldAny(
+            listenerClass,
+            "mWindowDecorationFinder",
+            "windowDecorationFinder"
+        )
+        val finderApply = listenerDecorationFinder?.type?.let { finderClass ->
+            findMethodOptional(finderClass, "apply", Any::class.java)
+                ?: findMethodOptional(java.util.function.Function::class.java, "apply", Any::class.java)
+        }
+        val decorField = optionalFieldAny(
+            listenerClass,
+            "mWindowDecoration",
+            "windowDecoration",
+            "mDesktopWindowDecoration",
+            "desktopWindowDecoration"
+        )
+        if (decorField == null &&
+            (listenerTaskId == null || listenerDecorationFinder == null || finderApply == null)
+        ) {
+            logger.warn(
+                "Part B drag reflect failed: neither mWindowDecoration nor " +
+                    "(mTaskId + mWindowDecorationFinder.apply) available"
+            )
+            return null
+        }
+        val decorClass = decorField?.type
+            ?: loadClassOptional(loader, WINDOW_DECORATION_WRAPPER_CLASS)
+            ?: run {
+                logger.warn("Part B drag reflect failed: WindowDecoration class unavailable")
+                return null
+            }
+
         val getVisualIndicator = controllerClass?.let {
             findMethodOptional(it, "getVisualIndicator")
         }
@@ -1499,19 +1606,91 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
         val wctClass = loadClassOptional(loader, WCT_CLASS)
         val tokenClass = loadClassOptional(loader, WCT_TOKEN_CLASS)
         val transitionsField = optionalFieldAny(listenerClass, "mTransitions", "transitions")
-        val transitionsClass = transitionsField?.type ?: loadClassOptional(loader, TRANSITIONS_CLASS)
+        val controllerTransitionsField = controllerClass?.let {
+            optionalFieldAny(it, "transitions", "mTransitions")
+        }
+        val transitionsClass = transitionsField?.type
+            ?: controllerTransitionsField?.type
+            ?: loadClassOptional(loader, TRANSITIONS_CLASS)
+        val controllerDragHandlerField = controllerClass?.let {
+            optionalFieldAny(it, "windowDragTransitionHandler", "mWindowDragTransitionHandler")
+        }
 
-        val posField = optionalFieldAny(listenerClass, "mTaskPositioner", "taskPositioner")
+        val posField = optionalFieldAny(
+            listenerClass,
+            "mDragPositioningCallback",
+            "dragPositioningCallback",
+            "mTaskPositioner",
+            "taskPositioner"
+        )
         val posClass = posField?.type
         val veiledPosClass = loadClassOptional(loader, MULTI_DISPLAY_POSITIONER_CLASS)
             ?: loadClassOptional(loader, LEGACY_VEILED_POSITIONER_CLASS)
         val scalePosClass = loadClassOptional(loader, SCALE_POSITIONER_CLASS)
-        val executorClass = loadClassOptional(loader, UNIFORM_SCALE_EXECUTOR_CLASS)
+        val resizePosClass = loadClassOptional(loader, RESIZE_POSITIONER_CLASS)
+        val executorClass = loadClassOptional(loader, BASE_SCALE_EXECUTOR_CLASS)
+            ?: loadClassOptional(loader, UNIFORM_SCALE_EXECUTOR_CLASS)
         val sessionClass = loadClassOptional(loader, DRAG_SESSION_CLASS)
         val ovcMenuClass = loadClassOptional(loader, OVC_MENU_ANIMATION_CLASS)
             ?: loadClassOptional(loader, OVC_MENU_ANIMATION_ALT_CLASS)
 
-        val posLookupClass = scalePosClass ?: veiledPosClass ?: posClass
+        val posFields = listOfNotNull(scalePosClass, veiledPosClass, resizePosClass, posClass)
+            .distinct()
+            .map { cls ->
+                PositionerFields(
+                    ownerClass = cls,
+                    ctrlType = optionalFieldAny(cls, "ctrlType", "mCtrlType"),
+                    startPoint = optionalFieldAny(cls, "repositionStartPoint", "mRepositionStartPoint"),
+                    startBounds = optionalFieldAny(cls, "taskBoundsAtDragStart", "mTaskBoundsAtDragStart"),
+                    repositionBounds = optionalFieldAny(cls, "repositionTaskBounds", "mRepositionTaskBounds"),
+                    jankMonitor = optionalFieldAny(cls, "mInteractionJankMonitor", "interactionJankMonitor")
+                )
+            }
+        val jankMonitorClass = posFields.firstNotNullOfOrNull { it.jankMonitor?.type }
+            ?: loadClassOptional(loader, INTERACTION_JANK_MONITOR_CLASS)
+        val jankMonitorEnd = jankMonitorClass?.let {
+            findMethodOptional(it, "end", Int::class.javaPrimitiveType)
+        }
+
+        val listenerCaptionTouchStatus = optionalFieldAny(
+            listenerClass,
+            "mCaptionTouchStatusListener",
+            "captionTouchStatusListener"
+        )
+        val captionIsPressed = listenerCaptionTouchStatus?.type?.let {
+            optionalFieldAny(it, "isCaptionPressed", "mIsCaptionPressed")
+        }
+        val listenerPinnedController = optionalFieldAny(
+            listenerClass,
+            "mPinnedLayerController",
+            "pinnedLayerController"
+        )
+        val pinnedIsPinned = listenerPinnedController?.type?.let {
+            findMethodOptional(it, "isPinned", Int::class.javaPrimitiveType)
+        }
+        val listenerMultiDisplayIndicator = optionalFieldAny(
+            listenerClass,
+            "mMultiDisplayDragMoveIndicatorController",
+            "multiDisplayDragMoveIndicatorController"
+        )
+        val multiDisplayOnDragEnd = listenerMultiDisplayIndicator?.type?.let {
+            findMethodOptional(
+                it,
+                "onDragEnd",
+                Int::class.javaPrimitiveType,
+                SurfaceControl.Transaction::class.java
+            )
+        }
+        val listenerTransactionFactory = optionalFieldAny(
+            listenerClass,
+            "mTransactionFactory",
+            "transactionFactory"
+        )
+        val supplierGet = listenerTransactionFactory?.type?.let {
+            findMethodOptional(it, "get")
+                ?: findMethodOptional(java.util.function.Supplier::class.java, "get")
+        }
+
         return DragReflect(
             listenerIsDragging = optionalFieldAny(listenerClass, "mIsDragging", "isDragging"),
             listenerSameMode = optionalFieldAny(
@@ -1527,6 +1706,9 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
                 "startDisplayId"
             ),
             listenerIsPinned = optionalFieldAny(listenerClass, "mIsPinned", "isPinned"),
+            listenerTaskId = listenerTaskId,
+            listenerDecorationFinder = listenerDecorationFinder,
+            finderApply = finderApply,
             listenerDecoration = decorField,
             listenerPositioner = posField,
             listenerDesktopController = controllerField,
@@ -1538,6 +1720,23 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
                 "mWindowDragTransitionHandler",
                 "windowDragTransitionHandler"
             ),
+            listenerCurrentBounds = optionalFieldAny(listenerClass, "mCurrentBounds", "currentBounds"),
+            listenerDragPointerId = optionalFieldAny(listenerClass, "mDragPointerId", "dragPointerId"),
+            listenerDragInterrupted = optionalFieldAny(listenerClass, "mDragInterrupted", "dragInterrupted"),
+            listenerCaptionTouchStatus = listenerCaptionTouchStatus,
+            captionIsPressed = captionIsPressed,
+            listenerPinnedController = listenerPinnedController,
+            pinnedIsPinned = pinnedIsPinned,
+            listenerSetIsDragging = findMethodOptional(
+                listenerClass,
+                "setIsDragging",
+                decorClass,
+                Boolean::class.javaPrimitiveType
+            ),
+            listenerMultiDisplayIndicator = listenerMultiDisplayIndicator,
+            multiDisplayOnDragEnd = multiDisplayOnDragEnd,
+            listenerTransactionFactory = listenerTransactionFactory,
+            supplierGet = supplierGet,
             decorGetTaskInfo = findMethodOptional(decorClass, "getTaskInfo"),
             decorTaskInfoField = optionalFieldAny(decorClass, "taskInfo", "mTaskInfo"),
             decorIsHandlingResize = findMethodOptional(decorClass, "isHandlingDragResize"),
@@ -1569,7 +1768,10 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
                 "windowCornerRadius"
             ),
             decorCornerRadiusGetter = findMethodOptional(decorClass, "getCornerRadius"),
+            controllerDisplayControllerField = controllerDisplayControllerField,
             controllerOrganizerField = controllerOrganizerField,
+            controllerTransitionsField = controllerTransitionsField,
+            controllerDragHandlerField = controllerDragHandlerField,
             controllerGetVisualIndicator = getVisualIndicator,
             controllerVisualIndicatorField = visualIndicatorField,
             controllerReleaseVisualIndicator = controllerClass?.declaredMethods?.firstOrNull {
@@ -1587,27 +1789,13 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
                     Boolean::class.javaPrimitiveType
                 )
             },
-            posCtrlType = posLookupClass?.let { optionalFieldAny(it, "ctrlType", "mCtrlType") }
-                ?: veiledPosClass?.let { optionalFieldAny(it, "ctrlType", "mCtrlType") },
-            posStartPoint = posLookupClass?.let {
-                optionalFieldAny(it, "repositionStartPoint", "mRepositionStartPoint")
-            } ?: veiledPosClass?.let {
-                optionalFieldAny(it, "repositionStartPoint", "mRepositionStartPoint")
-            },
-            posStartBounds = posLookupClass?.let {
-                optionalFieldAny(it, "taskBoundsAtDragStart", "mTaskBoundsAtDragStart")
-            } ?: veiledPosClass?.let {
-                optionalFieldAny(it, "taskBoundsAtDragStart", "mTaskBoundsAtDragStart")
-            },
-            posRepositionBounds = posLookupClass?.let {
-                optionalFieldAny(it, "repositionTaskBounds", "mRepositionTaskBounds")
-            } ?: veiledPosClass?.let {
-                optionalFieldAny(it, "repositionTaskBounds", "mRepositionTaskBounds")
-            },
+            posFields = posFields,
+            jankMonitorEnd = jankMonitorEnd,
             posDragExecutor = scalePosClass?.let {
                 optionalFieldAny(it, "mDragExecutor", "dragExecutor")
             },
-            posDragSession = posClass?.let { optionalFieldAny(it, "dragSession", "mDragSession") },
+            posDragSession = posClass?.let { optionalFieldAny(it, "dragSession", "mDragSession") }
+                ?: resizePosClass?.let { optionalFieldAny(it, "dragSession", "mDragSession") },
             posDelegate = scalePosClass?.let {
                 optionalFieldAny(it, "mTaskPositioner", "taskPositioner")
             },
@@ -1655,6 +1843,42 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
         )
     }
 
+    private fun resolveDecoration(listener: Any, drag: DragReflect): Any? {
+        runCatching { drag.listenerDecoration?.get(listener) }.getOrNull()?.let { return it }
+        val taskId = runCatching { drag.listenerTaskId?.getInt(listener) }.getOrNull() ?: return null
+        val finder = runCatching { drag.listenerDecorationFinder?.get(listener) }.getOrNull()
+            ?: return null
+        return runCatching { drag.finderApply?.invoke(finder, taskId) }.getOrNull()
+    }
+
+    private fun isTaskPinned(listener: Any, taskId: Int, drag: DragReflect): Boolean {
+        val pinnedByCtrl = runCatching {
+            val ctrl = drag.listenerPinnedController?.get(listener) ?: return@runCatching false
+            drag.pinnedIsPinned?.invoke(ctrl, taskId) as? Boolean == true
+        }.getOrDefault(false)
+        if (pinnedByCtrl) return true
+        return runCatching { drag.listenerIsPinned?.getBoolean(listener) == true }.getOrDefault(false)
+    }
+
+    private fun positionerFieldsFor(target: Any, drag: DragReflect): PositionerFields? =
+        drag.posFields.firstOrNull { it.ownerClass.isInstance(target) }
+
+    private fun updatePositionerBounds(positioner: Any?, snapped: Rect, drag: DragReflect) {
+        if (positioner == null) return
+        positionerFieldsFor(positioner, drag)?.let { fields ->
+            runCatching { (fields.repositionBounds?.get(positioner) as? Rect)?.set(snapped) }
+        }
+        val session = runCatching { drag.posDragSession?.get(positioner) }.getOrNull()
+        if (session != null) {
+            runCatching { (drag.sessionRepositionBounds?.get(session) as? Rect)?.set(snapped) }
+        }
+        runCatching { drag.posDelegate?.get(positioner) }.getOrNull()?.let { delegate ->
+            positionerFieldsFor(delegate, drag)?.let { fields ->
+                runCatching { (fields.repositionBounds?.get(delegate) as? Rect)?.set(snapped) }
+            }
+        }
+    }
+
     private fun resolveBaseScales(
         taskInfo: ActivityManager.RunningTaskInfo?,
         taskReflect: TaskInfoReflect,
@@ -1682,18 +1906,23 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
     }
 
     private fun resolveDropBounds(
+        listener: Any,
         positioner: Any?,
         taskInfo: ActivityManager.RunningTaskInfo,
         taskReflect: TaskInfoReflect,
         drag: DragReflect
     ): Rect? {
+        val currentBounds = runCatching {
+            drag.listenerCurrentBounds?.get(listener) as? Rect
+        }.getOrNull()
+        if (currentBounds != null && !currentBounds.isEmpty) {
+            return Rect(currentBounds)
+        }
         if (positioner != null) {
-            val exec = resolveDragExecutor(positioner, drag)
-            if (exec != null) {
-                val tmp = runCatching { drag.execTmpRescaleBounds?.get(exec) as? Rect }.getOrNull()
-                if (tmp != null && !tmp.isEmpty) return Rect(tmp)
-                val rescaled = runCatching { drag.execRescaleBounds?.get(exec) as? Rect }.getOrNull()
-                if (rescaled != null && !rescaled.isEmpty) return Rect(rescaled)
+            positionerFieldsFor(positioner, drag)?.let { fields ->
+                val pb = runCatching { fields.repositionBounds?.get(positioner) as? Rect }
+                    .getOrNull()
+                if (pb != null && !pb.isEmpty) return Rect(pb)
             }
             val session = runCatching { drag.posDragSession?.get(positioner) }.getOrNull()
             if (session != null) {
@@ -1701,13 +1930,13 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
                     .getOrNull()
                 if (sb != null && !sb.isEmpty) return Rect(sb)
             }
-            val pb = runCatching { drag.posRepositionBounds?.get(positioner) as? Rect }.getOrNull()
-            if (pb != null && !pb.isEmpty) return Rect(pb)
             val delegate = runCatching { drag.posDelegate?.get(positioner) }.getOrNull()
             if (delegate != null) {
-                val db = runCatching { drag.posRepositionBounds?.get(delegate) as? Rect }
-                    .getOrNull()
-                if (db != null && !db.isEmpty) return Rect(db)
+                positionerFieldsFor(delegate, drag)?.let { fields ->
+                    val db = runCatching { fields.repositionBounds?.get(delegate) as? Rect }
+                        .getOrNull()
+                    if (db != null && !db.isEmpty) return Rect(db)
+                }
             }
         }
         if (taskReflect.scaleX(taskInfo) > 0f) {
@@ -1742,9 +1971,12 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
     }
 
     private fun hasActiveVisualIndicator(
+        listener: Any,
         controller: Any?,
         displayLayout: Any,
+        displayId: Int,
         taskInfo: ActivityManager.RunningTaskInfo,
+        dropBounds: Rect,
         event: MotionEvent,
         drag: DragReflect
     ): Boolean {
@@ -1754,15 +1986,34 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
                 ?: drag.controllerVisualIndicatorField?.get(controller)
         }.getOrNull() ?: return false
         val calc = drag.indicatorCalcType ?: return true
+        val ptrId = runCatching { drag.listenerDragPointerId?.getInt(listener) }.getOrNull()
+        val ptrIdx = if (ptrId != null) {
+            event.findPointerIndex(ptrId).let { if (it >= 0) it else 0 }
+        } else {
+            0
+        }
+        val rawX = runCatching { event.getRawX(ptrIdx) }.getOrDefault(event.rawX)
+        val point = PointF(rawX, dropBounds.top.toFloat())
+        val paramTypes = calc.parameterTypes
         val indicatorType = runCatching {
-            val point = PointF(event.rawX, event.rawY)
-            when (calc.parameterTypes.size) {
-                3 -> calc.invoke(indicator, displayLayout, taskInfo, point)
-                2 -> calc.invoke(indicator, taskInfo, point)
+            when {
+                paramTypes.size == 2 &&
+                    (paramTypes[0] == Int::class.javaPrimitiveType ||
+                        paramTypes[0] == Int::class.javaObjectType) ->
+                    calc.invoke(indicator, displayId, point)
+                paramTypes.size == 2 ->
+                    calc.invoke(indicator, taskInfo, point)
+                paramTypes.size == 3 ->
+                    calc.invoke(indicator, displayLayout, taskInfo, point)
                 else -> null
             }
         }.getOrNull() ?: return true
-        return indicatorType.toString() != "NO_INDICATOR"
+        return when (indicatorType.toString()) {
+            "NO_INDICATOR",
+            "TO_BUBBLE_LEFT_INDICATOR",
+            "TO_BUBBLE_RIGHT_INDICATOR" -> false
+            else -> true
+        }
     }
 
     private fun cleanupDragState(
@@ -1785,21 +2036,57 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
                 }
             }
         }
+        var isDraggingReset = false
+        if (drag.listenerSetIsDragging != null) {
+            isDraggingReset = runCatching {
+                drag.listenerSetIsDragging.invoke(listener, decoration, false)
+                true
+            }.getOrDefault(false)
+        }
+        if (!isDraggingReset) {
+            runCatching {
+                if (drag.decorSetIsDragging != null) {
+                    drag.decorSetIsDragging.invoke(decoration, false)
+                } else {
+                    drag.decorIsDraggingField?.setBoolean(decoration, false)
+                }
+            }
+            runCatching { drag.listenerIsDragging?.setBoolean(listener, false) }
+        }
+        runCatching { drag.listenerDragInterrupted?.setBoolean(listener, false) }
+        runCatching { drag.listenerSameMode?.setBoolean(listener, false) }
         runCatching {
-            if (drag.decorSetIsDragging != null) {
-                drag.decorSetIsDragging.invoke(decoration, false)
-            } else {
-                drag.decorIsDraggingField?.setBoolean(decoration, false)
+            val status = drag.listenerCaptionTouchStatus?.get(listener)
+            if (status != null) {
+                drag.captionIsPressed?.setBoolean(status, false)
             }
         }
-        runCatching { drag.listenerIsDragging?.setBoolean(listener, false) }
-        runCatching { drag.listenerSameMode?.setBoolean(listener, false) }
+        val multiDisplayCtrl = runCatching { drag.listenerMultiDisplayIndicator?.get(listener) }
+            .getOrNull()
+        if (multiDisplayCtrl != null && drag.multiDisplayOnDragEnd != null) {
+            val tx = runCatching {
+                val factory = drag.listenerTransactionFactory?.get(listener)
+                factory?.let { drag.supplierGet?.invoke(it) as? SurfaceControl.Transaction }
+            }.getOrNull() ?: SurfaceControl.Transaction()
+            runCatching {
+                drag.multiDisplayOnDragEnd.invoke(multiDisplayCtrl, taskId, tx)
+                tx.apply()
+            }
+        }
 
         fun resetPositionerFields(target: Any?) {
             if (target == null) return
-            runCatching { drag.posCtrlType?.setInt(target, 0) }
-            runCatching { (drag.posStartPoint?.get(target) as? PointF)?.set(0f, 0f) }
-            runCatching { (drag.posStartBounds?.get(target) as? Rect)?.setEmpty() }
+            positionerFieldsFor(target, drag)?.let { fields ->
+                runCatching {
+                    val monitor = fields.jankMonitor?.get(target)
+                    if (monitor != null) {
+                        drag.jankMonitorEnd?.invoke(monitor, CUJ_FREEFORM_DRAG)
+                    }
+                }
+                runCatching { fields.ctrlType?.setInt(target, 0) }
+                runCatching { (fields.startPoint?.get(target) as? PointF)?.set(0f, 0f) }
+                runCatching { (fields.startBounds?.get(target) as? Rect)?.setEmpty() }
+            }
             val session = runCatching { drag.posDragSession?.get(target) }.getOrNull()
             if (session != null) {
                 runCatching { drag.sessionCtrlType?.setInt(session, 0) }
@@ -1867,8 +2154,11 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
             "com.android.wm.shell.freeform.FreeformTaskListener"
         const val TOUCH_EVENT_LISTENER_CLASS =
             "com.android.wm.shell.windowdecor.DesktopModeTouchEventListener"
+        const val WINDOW_DECORATION_WRAPPER_CLASS =
+            "com.android.wm.shell.windowdecor.WindowDecorationWrapper"
         const val DESKTOP_TASKS_CONTROLLER_CLASS =
             "com.android.wm.shell.desktopmode.DesktopTasksController"
+        const val DISPLAY_CONTROLLER_CLASS = "com.android.wm.shell.common.DisplayController"
         const val VISUAL_INDICATOR_CLASS =
             "com.android.wm.shell.desktopmode.DesktopModeVisualIndicator"
         const val SHELL_TASK_ORGANIZER_CLASS = "com.android.wm.shell.ShellTaskOrganizer"
@@ -1879,11 +2169,16 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
             "com.android.wm.shell.windowdecor.VeiledResizeTaskPositioner"
         const val SCALE_POSITIONER_CLASS =
             "com.android.wm.shell.windowdecor.scale.OvfScaleTaskPositionerDecorator"
+        const val RESIZE_POSITIONER_CLASS =
+            "com.android.wm.shell.windowdecor.ResizeTaskPositioner"
+        const val BASE_SCALE_EXECUTOR_CLASS =
+            "com.android.wm.shell.windowdecor.scale.OvfBaseScaleDragExecutor"
         const val UNIFORM_SCALE_EXECUTOR_CLASS =
             "com.android.wm.shell.windowdecor.scale.OvfUniformScaleDragExecutor"
         const val DRAG_SESSION_CLASS = "com.android.wm.shell.windowdecor.DragSession"
-        const val OVC_MENU_ANIMATION_CLASS = "com.android.wm.shell.ov.utils.OvcMenuAnimation"
-        const val OVC_MENU_ANIMATION_ALT_CLASS = "com.android.wm.shell.windowdecor.OvcMenuAnimation"
+        const val INTERACTION_JANK_MONITOR_CLASS = "com.android.internal.jank.InteractionJankMonitor"
+        const val OVC_MENU_ANIMATION_CLASS = "com.android.wm.shell.windowdecor.OvcMenuAnimation"
+        const val OVC_MENU_ANIMATION_ALT_CLASS = "com.android.wm.shell.ov.utils.OvcMenuAnimation"
         const val PC_MODE_CLASS = "com.android.wm.shell.ov.utils.OvcPcModeUtils"
         const val LEGACY_PC_MODE_CLASS = "com.android.wm.shell.util.OvcShellUtils"
         const val WCT_CLASS = "android.window.WindowContainerTransaction"
@@ -1897,10 +2192,11 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
         const val ADB_SHELL_UID = 2000
         const val WINDOWING_MODE_FREEFORM = 5
         const val TRANSIT_CHANGE = 6
+        const val CUJ_FREEFORM_DRAG = 110
 
         const val RECEIVER_RETRY_MAX_ATTEMPTS = 20
         const val RECEIVER_RETRY_DELAY_MS = 300L
-        const val DOCK_CLEANUP_DELAY_MS = 140L
+        const val DOCK_CLEANUP_DELAY_MS = 350L
         const val LISTENER_FALLBACK_DELAY_MS = 24L
         const val RESTORE_HINT_TTL_MS = 3000L
         const val RESTORE_START_ALPHA = 0.2f
