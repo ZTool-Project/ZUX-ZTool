@@ -43,6 +43,8 @@ class EdgeBubbleService : Service() {
         /** Small cooldown after a bubble restore; the hook nudges restored bounds
          *  fully back onscreen, so the next poll must not re-dock too early. */
         private const val RESTORE_COOLDOWN_MS = 1000L
+        private const val RESTORE_HANDOFF_TIMEOUT_MS = 220L
+        private const val RESTORE_HINT_IPC_BUFFER_MS = 150L
 
         /**
          * Starts the overlay service when the feature switch is on and the overlay
@@ -63,6 +65,7 @@ class EdgeBubbleService : Service() {
     }
 
     private val bubbles = HashMap<Int, EdgeBubbleView>()
+    private val restoreHandoffTimers = HashMap<Int, Runnable>()
     private var eventReceiver: BroadcastReceiver? = null
     private val mainHandler = Handler(Looper.getMainLooper())
     private val restoredAt = HashMap<Int, Long>()
@@ -85,8 +88,16 @@ class EdgeBubbleService : Service() {
                 mainHandler.post { addBubble(taskId, side, pkg, centerYRatio) }
             },
             onBubbleRemoved = { taskId ->
-                mainHandler.post { removeBubble(taskId) }
-            })
+                mainHandler.post {
+                    if (!restoreHandoffTimers.containsKey(taskId)) {
+                        removeBubble(taskId)
+                    }
+                }
+            },
+            onBubbleHideHandoff = { taskId ->
+                mainHandler.post { finishBubbleRestoreHandoff(taskId) }
+            }
+        )
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -99,6 +110,7 @@ class EdgeBubbleService : Service() {
     override fun onDestroy() {
         polling = false
         mainHandler.removeCallbacksAndMessages(null)
+        restoreHandoffTimers.clear()
         eventReceiver?.let { FreeformBubbleBridge.unregisterEventReceiver(this, it) }
         eventReceiver = null
         mainHandler.post { removeAllBubbles() }
@@ -239,15 +251,27 @@ class EdgeBubbleService : Service() {
                             PreferenceKeys.SYSTEM_UI_FREEFORM_NONLINEAR_ANIM.default
                         )
                         if (nonlinearEnabled) {
+                            val view = bubbles[taskId]
+                            view?.markRestoring()
+                            val frozenRect = view?.currentBubbleScreenRect() ?: bubbleRect
+                            scheduleRestoreHandoffFallback(
+                                taskId,
+                                RESTORE_HANDOFF_TIMEOUT_MS + RESTORE_HINT_IPC_BUFFER_MS
+                            )
                             FreeformBubbleBridge.notifySystemUiRestoreHint(
                                 taskId,
-                                bubbleRect,
+                                frozenRect,
                                 side
-                            ) {
+                            ) { accepted ->
+                                if (accepted) {
+                                    scheduleRestoreHandoffFallback(
+                                        taskId,
+                                        RESTORE_HANDOFF_TIMEOUT_MS
+                                    )
+                                } else {
+                                    finishBubbleRestoreHandoff(taskId)
+                                }
                                 FreeformBubbleBridge.restoreTask(taskId)
-                            }
-                            bubbles[taskId]?.playRestoreExitAnimation {
-                                removeBubble(taskId)
                             }
                         } else {
                             FreeformBubbleBridge.restoreTask(taskId)
@@ -287,7 +311,21 @@ class EdgeBubbleService : Service() {
         }.start()
     }
 
+    private fun scheduleRestoreHandoffFallback(taskId: Int, delayMs: Long) {
+        restoreHandoffTimers.remove(taskId)?.let { mainHandler.removeCallbacks(it) }
+        if (!bubbles.containsKey(taskId)) return
+        val fallback = Runnable { finishBubbleRestoreHandoff(taskId) }
+        restoreHandoffTimers[taskId] = fallback
+        mainHandler.postDelayed(fallback, delayMs)
+    }
+
+    private fun finishBubbleRestoreHandoff(taskId: Int) {
+        restoreHandoffTimers.remove(taskId)?.let { mainHandler.removeCallbacks(it) }
+        removeBubble(taskId)
+    }
+
     private fun removeBubble(taskId: Int) {
+        restoreHandoffTimers.remove(taskId)?.let { mainHandler.removeCallbacks(it) }
         val view = bubbles.remove(taskId) ?: return
         view.release()
         try {

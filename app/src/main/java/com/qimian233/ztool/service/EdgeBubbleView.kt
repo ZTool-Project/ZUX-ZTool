@@ -1,7 +1,5 @@
 package com.qimian233.ztool.service
 
-import android.animation.Animator
-import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.Canvas
@@ -27,22 +25,10 @@ import kotlin.math.abs
 import kotlin.math.min
 
 /**
- * The edge-bubble capsule for one minimized freeform task — 1:1 replica of the Oplus
- * `FloatHandleView` visual stack (see docs/research/oplus-float-handle-gesture-spec.md
- * and the oplus-framework-res sources):
- *
- * - Container: `zoom_float_handle_view_relative_layout` — width = icon(48) + 2×inner(8)
- *   + screenMargin(30) = 94dp, height = icon + 2×inner = 64dp, OPAQUE background
- *   #f0f0f0 (light) / #444444 (dark), smooth-rounded outline (squircle, weight≈3,
- *   radius 18dp), clipToOutline, elevation 3.33dp with #38000000 shadows.
- * - Icon: 48dp, top/bottom margin 8dp; marginStart = screenMargin+inner (38dp) on the
- *   LEFT side, inner (8dp) on the RIGHT side — the screenMargin part of the container
- *   always hangs offscreen toward the docked edge (that IS the "connection pad"; there
- *   is no separate connector view in Oplus).
- * - FULL: only the screenMargin part offscreen; HALF: all but `collapse` (16dp)
- *   offscreen, icon invisible. Mode switch animates translationX inside a window wide
- *   enough for both positions (no per-frame updateViewLayout).
+ * Edge-bubble capsule view for one minimized freeform task, replicating Oplus's float-handle
+ * visual layout and FULL/HALF rail collapse behavior.
  */
+// See docs/research/oplus-float-handle-gesture-spec.md
 class EdgeBubbleView(
     context: Context,
     private val taskId: Int,
@@ -86,8 +72,6 @@ class EdgeBubbleView(
         private const val HALF_HIDE_DELAY_MS = 50L
         private const val APPEAR_FULL_MS = 600L
         private const val MODE_ANIM_MS = 200L
-        private const val RESTORE_EXIT_ANIM_MS = 430L
-        private const val RESTORE_EXIT_SHIFT_DP = 18f
         // Fling thresholds (spec): fast branch and slow-long-distance branch.
         private const val FLING_VELOCITY_PX = 1000f
         private const val FLING_DISTANCE_PX = 100f
@@ -281,7 +265,7 @@ class EdgeBubbleView(
 
     private fun scheduleHalfHide(delay: Long = HALF_HIDE_DELAY_MS) {
         mainHandler.postDelayed({
-            if (!dragging && mode != MODE_HALF && !removed) {
+            if (!dragging && !exiting && mode != MODE_HALF && !removed) {
                 setMode(MODE_HALF, animate = true)
             }
         }, delay)
@@ -293,38 +277,15 @@ class EdgeBubbleView(
         return Rect(left, top, left + containerWpx, top + containerHpx)
     }
 
-    fun playRestoreExitAnimation(onEnd: () -> Unit) {
-        if (exiting || removed) {
-            onEnd()
-            return
-        }
+    /** Freezes touches and keeps the bubble crisp while the window expands from it. */
+    fun markRestoring() {
+        if (exiting || removed) return
         exiting = true
         mainHandler.removeCallbacksAndMessages(null)
         modeAnimator?.cancel()
         snapAnimator?.cancel()
-        animate().cancel()
-        val inwardShift = if (side == SIDE_LEFT) dip(RESTORE_EXIT_SHIFT_DP) else -dip(RESTORE_EXIT_SHIFT_DP)
-        var finished = false
-        animate()
-            .alpha(0f)
-            .translationX(translationX + inwardShift)
-            .setDuration(RESTORE_EXIT_ANIM_MS)
-            .setListener(object : AnimatorListenerAdapter() {
-                override fun onAnimationEnd(animation: Animator) {
-                    if (!finished) {
-                        finished = true
-                        onEnd()
-                    }
-                }
-
-                override fun onAnimationCancel(animation: Animator) {
-                    if (!finished) {
-                        finished = true
-                        onEnd()
-                    }
-                }
-            })
-            .start()
+        animate().setListener(null).cancel()
+        alpha = 1f
     }
 
     fun release() {
@@ -342,6 +303,7 @@ class EdgeBubbleView(
     override fun onTouchEvent(event: MotionEvent): Boolean {
         if (exiting || removed) return false
         gestureDetector.onTouchEvent(event)
+        if (exiting || removed) return true
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 mainHandler.removeCallbacksAndMessages(null)

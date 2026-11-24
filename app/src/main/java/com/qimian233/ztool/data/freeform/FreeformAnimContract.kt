@@ -3,9 +3,12 @@ package com.qimian233.ztool.data.freeform
 /** Shared IPC constants for SystemUI, system_server, and EdgeBubbleService animation handoffs. */
 object FreeformAnimContract {
     const val ACTION_SYSTEMUI_ANIM_CMD = "com.qimian233.ztool.action.FREEFORM_ANIM_COMMAND"
+    const val ACTION_BUBBLE_EVENT = "com.qimian233.ztool.action.FREEFORM_BUBBLE_EVENT"
     const val CMD_PREPARE_RESTORE = 1
+    const val EVENT_BUBBLE_HIDE_HANDOFF = 13
 
     const val EXTRA_CMD = "cmd"
+    const val EXTRA_EVENT = "event"
     const val EXTRA_TASK_ID = "task_id"
     const val EXTRA_SIDE = "side"
 

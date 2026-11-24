@@ -59,11 +59,20 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
         val samples: Int
     )
 
+    private data class DockedTaskMeta(
+        val dockedAtMs: Long,
+        val baseScaleX: Float,
+        val baseScaleY: Float,
+        val windowCornerRadius: Float,
+        @Volatile var cleanedUp: Boolean = false
+    )
+
     private class TaskInfoReflect(
         val tokenField: Field?,
         val displayIdField: Field?,
         val displayIdGetter: Method?,
         val getWindowingMode: Method,
+        val getActivityType: Method?,
         val configField: Field?,
         val configGetter: Method?,
         val windowConfigField: Field?,
@@ -85,7 +94,8 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
         val pcModeConnectDisplay: Method?,
         val motionEventGetDisplayId: Method?,
         val txSetCornerRadius: Method?,
-        val txShow: Method?
+        val txShow: Method?,
+        val txHide: Method?
     ) {
         fun displayId(taskInfo: ActivityManager.RunningTaskInfo): Int =
             runCatching {
@@ -96,6 +106,9 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
 
         fun windowingMode(taskInfo: ActivityManager.RunningTaskInfo): Int =
             runCatching { getWindowingMode.invoke(taskInfo) as? Int }.getOrNull() ?: -1
+
+        fun activityType(taskInfo: ActivityManager.RunningTaskInfo): Int =
+            runCatching { getActivityType?.invoke(taskInfo) as? Int }.getOrNull() ?: 0
 
         fun scaleX(taskInfo: ActivityManager.RunningTaskInfo): Float =
             runCatching { scaleXField?.getFloat(taskInfo) ?: 0f }.getOrDefault(0f)
@@ -175,6 +188,15 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
                 runCatching { showMethod.invoke(tx, leash) }
             } else {
                 tx.setVisibility(leash, true)
+            }
+        }
+
+        fun hideSurface(tx: SurfaceControl.Transaction, leash: SurfaceControl) {
+            val hideMethod = txHide
+            if (hideMethod != null) {
+                runCatching { hideMethod.invoke(tx, leash) }
+            } else {
+                tx.setVisibility(leash, false)
             }
         }
     }
@@ -268,6 +290,7 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
 
     private val mainHandler = Handler(Looper.getMainLooper())
     private val pendingRestoreHints = ConcurrentHashMap<Int, RestoreHint>()
+    private val recentlyDockedTasks = ConcurrentHashMap<Int, DockedTaskMeta>()
     private val activeAnimators = ConcurrentHashMap<Int, ValueAnimator>()
     private val activelyRestoringTasks = ConcurrentHashMap.newKeySet<Int>()
     private val lastVisibleByTaskId = ConcurrentHashMap<Int, Boolean>()
@@ -281,6 +304,12 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
 
     @Volatile
     private var sysUiContext: Context? = null
+
+    @Volatile
+    private var freeformTaskListenerRef: Any? = null
+
+    @Volatile
+    private var freeformFindTaskSurface: Method? = null
 
     override fun getModuleName(): String =
         PreferenceKeys.SYSTEM_UI_FREEFORM_NONLINEAR_ANIM.name
@@ -320,6 +349,11 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
             installBubbleRestoreExpand(loader, taskReflect, changeReflect)
         }.onFailure {
             logger.warn("Part D bubble-restore expand failed: ${it.message}")
+        }
+        runCatching {
+            installDockedTransitionSuppressor(loader, taskReflect, changeReflect)
+        }.onFailure {
+            logger.warn("Dock transition suppressor failed: ${it.message}")
         }
     }
 
@@ -507,6 +541,12 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
         val taskInfo = runCatching {
             changeReflect.getTaskInfo.invoke(change) as? ActivityManager.RunningTaskInfo
         }.getOrNull()
+        if (taskInfo != null && isRecentlyDocked(taskInfo.taskId)) {
+            taskReflect.hideSurface(tx, leash)
+            tx.setAlpha(leash, 0f)
+            tx.apply()
+            return ValueAnimator.ofFloat(0f, 0f).apply { duration = 0L }
+        }
         val (baseScaleX, baseScaleY) = resolveBaseScales(taskInfo, taskReflect, preferHanging = true)
         val visW = startBounds.width() * baseScaleX
         val visH = startBounds.height() * baseScaleY
@@ -553,6 +593,12 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
         val taskInfo = runCatching {
             changeReflect.getTaskInfo.invoke(change) as? ActivityManager.RunningTaskInfo
         }.getOrNull()
+        if (taskInfo != null && isRecentlyDocked(taskInfo.taskId)) {
+            taskReflect.hideSurface(tx, leash)
+            tx.setAlpha(leash, 0f)
+            tx.apply()
+            return ValueAnimator.ofFloat(0f, 0f).apply { duration = 0L }
+        }
         if (taskInfo != null && taskReflect.pcModeZuiDesktopByDisplay != null) {
             val displayId = taskReflect.displayId(taskInfo)
             val inDesktop = runCatching {
@@ -930,11 +976,20 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
                 override fun onAnimationEnd(animation: Animator) {
                     activeAnimators.remove(taskId, animation)
                     if (cancelled) return
+                    val dockMeta = DockedTaskMeta(
+                        dockedAtMs = SystemClock.elapsedRealtime(),
+                        baseScaleX = baseScaleX,
+                        baseScaleY = baseScaleY,
+                        windowCornerRadius = windowCornerRadius
+                    )
+                    recentlyDockedTasks[taskId] = dockMeta
                     sendMinimizeCommand(taskId, side, dropBounds, centerYRatio) { succeeded ->
                         if (succeeded) {
                             mainHandler.postDelayed({
-                                if (!activelyRestoringTasks.contains(taskId) &&
+                                if (!dockMeta.cleanedUp &&
+                                    !activelyRestoringTasks.contains(taskId) &&
                                     !pendingRestoreHints.containsKey(taskId) &&
+                                    lastVisibleByTaskId[taskId] != true &&
                                     leash.isValid
                                 ) {
                                     SurfaceControl.Transaction().apply {
@@ -943,15 +998,18 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
                                         taskReflect.setCornerRadius(this, leash, windowCornerRadius)
                                         apply()
                                     }
+                                    dockMeta.cleanedUp = true
                                 }
                             }, DOCK_CLEANUP_DELAY_MS)
                         } else {
+                            recentlyDockedTasks.remove(taskId)
                             logger.warn("Minimize command rejected or unhandled for task=$taskId; snapping back")
                             if (leash.isValid) {
                                 SurfaceControl.Transaction().apply {
                                     setAlpha(leash, 1f)
                                     setScale(leash, baseScaleX, baseScaleY)
                                     taskReflect.setCornerRadius(this, leash, windowCornerRadius)
+                                    taskReflect.showSurface(this, leash)
                                     setPosition(
                                         leash,
                                         dropBounds.left.toFloat(),
@@ -1202,8 +1260,10 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
     private fun installRestoreBroadcastReceiver(loader: ClassLoader) {
         if (restoreReceiverRegistered) return
         val atClass = loadClassOptional(loader, ACTIVITY_THREAD_CLASS) ?: return
-        val currentAt = findMethodOptional(atClass, "currentActivityThread") ?: return
-        val getSystemUiContext = findMethodOptional(atClass, "getSystemUiContext") ?: return
+        val currentApplication = findMethodOptional(atClass, "currentApplication")
+        val currentAt = findMethodOptional(atClass, "currentActivityThread")
+        val getApplication = findMethodOptional(atClass, "getApplication")
+        if (currentApplication == null && (currentAt == null || getApplication == null)) return
         val getSentFromUid = if (Build.VERSION.SDK_INT >= 34) {
             findMethodOptional(BroadcastReceiver::class.java, "getSentFromUid")
         } else {
@@ -1212,19 +1272,21 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
 
         fun tryRegister(attempt: Int) {
             if (restoreReceiverRegistered) return
-            val ctx = runCatching {
-                val at = currentAt.invoke(null) ?: return@runCatching null
-                getSystemUiContext.invoke(at) as? Context
+            val app = runCatching {
+                (currentApplication?.invoke(null) as? Context)
+                    ?: currentAt?.invoke(null)?.let { getApplication?.invoke(it) as? Context }
             }.getOrNull()
-            if (ctx == null) {
+            if (app == null || app.packageName != ScopeKeys.SYSTEM_UI.packageName) {
                 if (attempt < RECEIVER_RETRY_MAX_ATTEMPTS) {
                     mainHandler.postDelayed({ tryRegister(attempt + 1) }, RECEIVER_RETRY_DELAY_MS)
                 } else {
-                    logger.warn("SystemUI context unavailable; restore hint receiver inactive")
+                    logger.warn(
+                        "SystemUI Application context unavailable (pkg=${app?.packageName}); " +
+                            "restore hint receiver inactive"
+                    )
                 }
                 return
             }
-            sysUiContext = ctx
             val filter = IntentFilter(FreeformAnimContract.ACTION_SYSTEMUI_ANIM_CMD)
             val receiver = object : BroadcastReceiver() {
                 override fun onReceive(context: Context, intent: Intent) {
@@ -1248,11 +1310,15 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
                         val r = intent.getIntExtra(FreeformAnimContract.EXTRA_BUBBLE_RIGHT, 0)
                         val b = intent.getIntExtra(FreeformAnimContract.EXTRA_BUBBLE_BOTTOM, 0)
                         if (taskId > 0 && r > l && b > t) {
-                            pendingRestoreHints[taskId] = RestoreHint(
+                            recentlyDockedTasks.remove(taskId)
+                            val hint = RestoreHint(
                                 bubbleRect = Rect(l, t, r, b),
                                 side = side,
                                 createdAtMs = SystemClock.elapsedRealtime()
                             )
+                            pendingRestoreHints[taskId] = hint
+                            preBlankTaskLeash(taskId, hint)
+                            logger.info("Restore hint queued task=$taskId rect=${hint.bubbleRect} side=$side")
                             if (ordered) resultCode = 1
                         } else {
                             if (ordered) resultCode = 0
@@ -1263,12 +1329,46 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
                 }
             }
             val flags = if (Build.VERSION.SDK_INT >= 33) Context.RECEIVER_EXPORTED else 0
-            ctx.registerReceiver(receiver, filter, flags)
-            restoreReceiverRegistered = true
-            logger.info("Part C SystemUI restore hint receiver registered")
+            val registered = runCatching {
+                app.registerReceiver(receiver, filter, flags)
+                true
+            }.onFailure {
+                logger.warn("registerReceiver failed on ${app.packageName}: ${it.message}")
+            }.getOrDefault(false)
+            if (registered) {
+                sysUiContext = app
+                restoreReceiverRegistered = true
+                logger.info("Part C SystemUI restore hint receiver registered on ${app.packageName}")
+            } else if (attempt < RECEIVER_RETRY_MAX_ATTEMPTS) {
+                mainHandler.postDelayed({ tryRegister(attempt + 1) }, RECEIVER_RETRY_DELAY_MS)
+            }
         }
 
         tryRegister(0)
+    }
+
+    private fun preBlankTaskLeash(taskId: Int, hint: RestoreHint) {
+        val listener = freeformTaskListenerRef ?: return
+        val findSurface = freeformFindTaskSurface ?: return
+        val leash = runCatching {
+            findSurface.invoke(listener, taskId) as? SurfaceControl
+        }.getOrNull() ?: return
+        if (!leash.isValid) return
+        SurfaceControl.Transaction().apply {
+            setAlpha(leash, 0f)
+            apply()
+        }
+        mainHandler.postDelayed({
+            if (!activelyRestoringTasks.contains(taskId) &&
+                pendingRestoreHints.remove(taskId, hint) &&
+                leash.isValid
+            ) {
+                SurfaceControl.Transaction().apply {
+                    setAlpha(leash, 1f)
+                    apply()
+                }
+            }
+        }, RESTORE_HINT_TTL_MS)
     }
 
     private fun isAllowedRestoreCaller(context: Context, uid: Int): Boolean {
@@ -1331,6 +1431,12 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
 
         val listenerClass = loadClassOptional(loader, FREEFORM_TASK_LISTENER_CLASS)
         if (listenerClass != null) {
+            val onTaskAppeared = findMethodOptional(
+                listenerClass,
+                "onTaskAppeared",
+                ActivityManager.RunningTaskInfo::class.java,
+                SurfaceControl::class.java
+            )
             val onTaskInfoChanged = findMethodOptional(
                 listenerClass,
                 "onTaskInfoChanged",
@@ -1341,32 +1447,58 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
                 "findTaskSurface",
                 Int::class.javaPrimitiveType
             )
+            freeformFindTaskSurface = findTaskSurface
+            if (onTaskAppeared != null) {
+                hookWithId(onTaskAppeared, "freeform_nonlinear_task_appeared") { chain ->
+                    freeformTaskListenerRef = chain.thisObject
+                    (chain.args.getOrNull(0) as? ActivityManager.RunningTaskInfo)?.let { ti ->
+                        lastVisibleByTaskId[ti.taskId] = ti.isVisible
+                    }
+                    chain.proceed()
+                }
+            }
             if (onTaskInfoChanged != null && findTaskSurface != null) {
                 hookWithId(onTaskInfoChanged, "freeform_nonlinear_bubble_restore_listener") { chain ->
+                    freeformTaskListenerRef = chain.thisObject
                     val res = chain.proceed()
                     val listener = chain.thisObject ?: return@hookWithId res
                     val taskInfo = chain.args.getOrNull(0) as? ActivityManager.RunningTaskInfo
                         ?: return@hookWithId res
                     val taskId = taskInfo.taskId
-                    val wasVisible = lastVisibleByTaskId.put(taskId, taskInfo.isVisible) == true
-                    if (!wasVisible && taskInfo.isVisible && pendingRestoreHints.containsKey(taskId)) {
-                        mainHandler.postDelayed({
-                            val hint = pendingRestoreHints.remove(taskId) ?: return@postDelayed
-                            val leash = runCatching {
-                                findTaskSurface.invoke(listener, taskId) as? SurfaceControl
-                            }.getOrNull() ?: return@postDelayed
-                            if (!leash.isValid) return@postDelayed
+                    lastVisibleByTaskId[taskId] = taskInfo.isVisible
+                    if (taskInfo.isVisible &&
+                        !activelyRestoringTasks.contains(taskId) &&
+                        pendingRestoreHints.containsKey(taskId)
+                    ) {
+                        val hint = pendingRestoreHints.remove(taskId) ?: return@hookWithId res
+                        recentlyDockedTasks.remove(taskId)
+                        val leash = runCatching {
+                            findTaskSurface.invoke(listener, taskId) as? SurfaceControl
+                        }.getOrNull()
+                        val expired =
+                            SystemClock.elapsedRealtime() - hint.createdAtMs > RESTORE_HINT_TTL_MS
+                        if (expired) {
+                            if (leash != null && leash.isValid) {
+                                SurfaceControl.Transaction().apply {
+                                    setAlpha(leash, 1f)
+                                    apply()
+                                }
+                            }
+                            return@hookWithId res
+                        }
+                        if (leash != null && leash.isValid) {
                             playExpandAnimator(
                                 taskId = taskId,
                                 hint = hint,
                                 taskInfo = taskInfo,
                                 targetRectOverride = null,
                                 leash = leash,
+                                startT = SurfaceControl.Transaction(),
                                 finishT = null,
                                 onFinished = null,
                                 taskReflect = taskReflect
                             )
-                        }, LISTENER_FALLBACK_DELAY_MS)
+                        }
                     }
                     res
                 }
@@ -1424,6 +1556,7 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
 
         val taskId = matchedTask.taskId
         val hint = pendingRestoreHints.remove(taskId) ?: return chain.proceed()
+        recentlyDockedTasks.remove(taskId)
         val leash = runCatching {
             changeReflect.getLeash.invoke(matchedChange) as? SurfaceControl
         }.getOrNull() ?: return chain.proceed()
@@ -1536,6 +1669,7 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
         val runnable = Runnable {
             val tx = SurfaceControl.Transaction()
             var cancelled = false
+            var bubbleHideSent = false
             val animator = ValueAnimator.ofFloat(0f, 1f).apply {
                 duration = FreeformAnimCurves.RESTORE_DURATION_MS
                 interpolator = FreeformAnimCurves.restoreSpringInterpolator()
@@ -1563,17 +1697,29 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
                     tx.setAlpha(leash, alpha)
                     taskReflect.setCornerRadius(tx, leash, corner)
                     tx.apply()
+                    if (!bubbleHideSent && p >= FreeformAnimCurves.RESTORE_BUBBLE_HIDE_PROGRESS) {
+                        bubbleHideSent = true
+                        sendBubbleHideHandoff(taskId)
+                    }
                 }
                 addListener(object : AnimatorListenerAdapter() {
                     override fun onAnimationCancel(animation: Animator) {
                         cancelled = true
                         activeAnimators.remove(taskId, animation)
                         activelyRestoringTasks.remove(taskId)
+                        if (!bubbleHideSent) {
+                            bubbleHideSent = true
+                            sendBubbleHideHandoff(taskId)
+                        }
                     }
 
                     override fun onAnimationEnd(animation: Animator) {
                         activeAnimators.remove(taskId, animation)
                         activelyRestoringTasks.remove(taskId)
+                        if (!bubbleHideSent) {
+                            bubbleHideSent = true
+                            sendBubbleHideHandoff(taskId)
+                        }
                         if (!cancelled) {
                             onFinished?.invoke()
                         }
@@ -1588,6 +1734,157 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
         } else {
             mainHandler.post(runnable)
         }
+    }
+
+    private fun sendBubbleHideHandoff(taskId: Int) {
+        val context = sysUiContext ?: return
+        val intent = Intent(FreeformAnimContract.ACTION_BUBBLE_EVENT).setPackage(PACKAGE_ZTOOL).apply {
+            putExtra(FreeformAnimContract.EXTRA_EVENT, FreeformAnimContract.EVENT_BUBBLE_HIDE_HANDOFF)
+            putExtra(FreeformAnimContract.EXTRA_TASK_ID, taskId)
+        }
+        runCatching {
+            context.sendBroadcast(intent)
+        }.onFailure {
+            logger.warn("Bubble hide handoff broadcast failed: ${it.message}")
+        }
+    }
+
+    private fun isRecentlyDocked(taskId: Int): Boolean {
+        val meta = recentlyDockedTasks[taskId] ?: return false
+        if (SystemClock.elapsedRealtime() - meta.dockedAtMs > DOCK_SUPPRESS_TTL_MS) {
+            recentlyDockedTasks.remove(taskId, meta)
+            return false
+        }
+        return true
+    }
+
+    private fun installDockedTransitionSuppressor(
+        loader: ClassLoader,
+        taskReflect: TaskInfoReflect,
+        changeReflect: ChangeReflect?
+    ) {
+        if (changeReflect == null) return
+        val transitionsClass = loadClassOptional(loader, TRANSITIONS_CLASS) ?: return
+        val infoClass = loadClassOptional(loader, TRANSITION_INFO_CLASS) ?: return
+        val callbackClass = loadClassOptional(loader, TRANSITION_FINISH_CALLBACK_CLASS) ?: return
+        val handlerClass = loadClassOptional(loader, TRANSITION_HANDLER_CLASS) ?: return
+        val wctClass = loadClassOptional(loader, WCT_CLASS) ?: return
+        val dispatchMethod = findMethodOptional(
+            transitionsClass,
+            "dispatchTransition",
+            IBinder::class.java,
+            infoClass,
+            SurfaceControl.Transaction::class.java,
+            SurfaceControl.Transaction::class.java,
+            callbackClass,
+            handlerClass
+        ) ?: return
+        val getChanges = findMethodOptional(infoClass, "getChanges") ?: return
+        val onTransitionFinished = findMethodOptional(
+            callbackClass,
+            "onTransitionFinished",
+            wctClass
+        ) ?: return
+        val handlersField = optionalFieldAny(transitionsClass, "mHandlers", "handlers")
+        val mainExecutorField = optionalFieldAny(transitionsClass, "mMainExecutor", "mainExecutor")
+
+        hookWithId(dispatchMethod, "freeform_nonlinear_suppress_dock_transit") { chain ->
+            handleDockedTransitionDispatch(
+                chain = chain,
+                taskReflect = taskReflect,
+                changeReflect = changeReflect,
+                getChanges = getChanges,
+                onTransitionFinished = onTransitionFinished,
+                handlersField = handlersField,
+                mainExecutorField = mainExecutorField
+            )
+        }
+        logger.info("Docked transition suppressor installed")
+    }
+
+    private fun handleDockedTransitionDispatch(
+        chain: XposedInterface.Chain,
+        taskReflect: TaskInfoReflect,
+        changeReflect: ChangeReflect,
+        getChanges: Method,
+        onTransitionFinished: Method,
+        handlersField: Field?,
+        mainExecutorField: Field?
+    ): Any? {
+        if (recentlyDockedTasks.isEmpty()) return chain.proceed()
+        val now = SystemClock.elapsedRealtime()
+        val iter = recentlyDockedTasks.entries.iterator()
+        while (iter.hasNext()) {
+            if (now - iter.next().value.dockedAtMs > DOCK_SUPPRESS_TTL_MS) {
+                iter.remove()
+            }
+        }
+        if (recentlyDockedTasks.isEmpty()) return chain.proceed()
+
+        val transitions = chain.thisObject ?: return chain.proceed()
+        val info = chain.args.getOrNull(1) ?: return chain.proceed()
+        val startT = chain.args.getOrNull(2) as? SurfaceControl.Transaction
+            ?: return chain.proceed()
+        val finishT = chain.args.getOrNull(3) as? SurfaceControl.Transaction
+            ?: return chain.proceed()
+        val finishCallback = chain.args.getOrNull(4) ?: return chain.proceed()
+        val changes = runCatching { getChanges.invoke(info) as? List<*> }.getOrNull()
+            ?: return chain.proceed()
+
+        val matched = ArrayList<Triple<Any, Int, DockedTaskMeta>>()
+        var hasOtherAppAnim = false
+        for (change in changes) {
+            if (change == null) continue
+            val mode = runCatching { changeReflect.getMode.invoke(change) as? Int }.getOrNull() ?: -1
+            val ti = runCatching {
+                changeReflect.getTaskInfo.invoke(change) as? ActivityManager.RunningTaskInfo
+            }.getOrNull() ?: continue
+            val taskId = ti.taskId
+            val meta = recentlyDockedTasks[taskId]
+            if (meta != null && (mode == TRANSIT_CLOSE || mode == TRANSIT_TO_BACK)) {
+                matched.add(Triple(change, taskId, meta))
+            } else if (meta == null && mode in 1..4) {
+                val actType = taskReflect.activityType(ti)
+                if (actType != ACTIVITY_TYPE_HOME && actType != ACTIVITY_TYPE_RECENTS) {
+                    hasOtherAppAnim = true
+                }
+            }
+        }
+        if (matched.isEmpty() || hasOtherAppAnim) return chain.proceed()
+
+        val defaultHandler = runCatching {
+            (handlersField?.get(transitions) as? List<*>)?.firstOrNull()
+        }.getOrNull() ?: return chain.proceed()
+
+        for ((change, taskId, meta) in matched) {
+            val leash = runCatching {
+                changeReflect.getLeash.invoke(change) as? SurfaceControl
+            }.getOrNull()
+            if (leash != null && leash.isValid) {
+                taskReflect.hideSurface(startT, leash)
+                startT.setAlpha(leash, 0f)
+                taskReflect.hideSurface(finishT, leash)
+                finishT.setAlpha(leash, 1f)
+                finishT.setScale(leash, meta.baseScaleX, meta.baseScaleY)
+                taskReflect.setCornerRadius(finishT, leash, meta.windowCornerRadius)
+            }
+            meta.cleanedUp = true
+            recentlyDockedTasks.remove(taskId)
+        }
+        startT.apply()
+
+        val mainExecutor = runCatching { mainExecutorField?.get(transitions) as? Executor }.getOrNull()
+        val invokeFinish = Runnable {
+            runCatching { onTransitionFinished.invoke(finishCallback, null) }
+                .onFailure { logger.warn("Suppressed dock finish failed: ${it.message}") }
+        }
+        if (mainExecutor != null) {
+            mainExecutor.execute(invokeFinish)
+        } else {
+            mainHandler.post(invokeFinish)
+        }
+        logger.info("Suppressed follow-up TO_BACK transition for docked tasks=${matched.map { it.second }}")
+        return defaultHandler
     }
 
     // endregion
@@ -1609,6 +1906,7 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
             displayIdField = optionalField(ti, "displayId"),
             displayIdGetter = findMethodOptional(ti, "getDisplayId"),
             getWindowingMode = findMethod(ti, "getWindowingMode"),
+            getActivityType = findMethodOptional(ti, "getActivityType"),
             configField = configField,
             configGetter = configGetter,
             windowConfigField = windowConfigField,
@@ -1647,6 +1945,11 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
             txShow = findMethodOptional(
                 SurfaceControl.Transaction::class.java,
                 "show",
+                SurfaceControl::class.java
+            ),
+            txHide = findMethodOptional(
+                SurfaceControl.Transaction::class.java,
+                "hide",
                 SurfaceControl::class.java
             )
         )
@@ -2312,6 +2615,8 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
         const val TRANSITION_CHANGE_CLASS = $$"android.window.TransitionInfo$Change"
         const val TRANSITION_FINISH_CALLBACK_CLASS =
             $$"com.android.wm.shell.transition.Transitions$TransitionFinishCallback"
+        const val TRANSITION_HANDLER_CLASS =
+            $$"com.android.wm.shell.transition.Transitions$TransitionHandler"
         const val DEFAULT_TRANSITION_HANDLER_CLASS =
             "com.android.wm.shell.transition.DefaultTransitionHandler"
         const val FREEFORM_TASK_LISTENER_CLASS =
@@ -2355,13 +2660,17 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
         const val PACKAGE_ZTOOL = "com.qimian233.ztool"
         const val ADB_SHELL_UID = 2000
         const val WINDOWING_MODE_FREEFORM = 5
+        const val TRANSIT_CLOSE = 2
+        const val TRANSIT_TO_BACK = 4
         const val TRANSIT_CHANGE = 6
+        const val ACTIVITY_TYPE_HOME = 2
+        const val ACTIVITY_TYPE_RECENTS = 3
         const val CUJ_FREEFORM_DRAG = 110
 
-        const val RECEIVER_RETRY_MAX_ATTEMPTS = 20
+        const val RECEIVER_RETRY_MAX_ATTEMPTS = 30
         const val RECEIVER_RETRY_DELAY_MS = 300L
         const val DOCK_CLEANUP_DELAY_MS = 350L
-        const val LISTENER_FALLBACK_DELAY_MS = 24L
+        const val DOCK_SUPPRESS_TTL_MS = 2500L
         const val RESTORE_HINT_TTL_MS = 3000L
         const val VELOCITY_STALE_MS = 120L
         const val RESTORE_START_ALPHA = 0.2f

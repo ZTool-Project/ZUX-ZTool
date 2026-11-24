@@ -17,20 +17,16 @@ import com.qimian233.ztool.data.keys.ScopeKeys
 
 /**
  * App-side client for the freeform edge-bubble bridge inside system_server.
- *
- * The channel is ordered broadcasts (SELinux forbids publishing custom services from
- * system_server): commands go out as package-targeted ordered broadcasts to "android"
- * and the return value comes back via the broadcast result; hook-side events arrive as
- * broadcasts to ZTool. Must stay in sync with
- * [com.qimian233.ztool.hook.modules.systemframework.FreeformEdgeBubbleHook].
+ * Commands use ordered broadcasts to "android"; events arrive via broadcasts to ZTool.
  */
 object FreeformBubbleBridge {
 
     private const val TAG = "FreeformBubbleBridge"
     const val ACTION_COMMAND = "com.qimian233.ztool.action.FREEFORM_BUBBLE_COMMAND"
-    const val ACTION_EVENT = "com.qimian233.ztool.action.FREEFORM_BUBBLE_EVENT"
+    const val ACTION_EVENT = FreeformAnimContract.ACTION_BUBBLE_EVENT
     const val EVENT_BUBBLE_ADDED = 11
     const val EVENT_BUBBLE_REMOVED = 12
+    const val EVENT_BUBBLE_HIDE_HANDOFF = FreeformAnimContract.EVENT_BUBBLE_HIDE_HANDOFF
 
     /** A minimized freeform task as reported by the hook. */
     data class MinimizedTask(val taskId: Int, val side: Int, val packageName: String?)
@@ -130,11 +126,11 @@ object FreeformBubbleBridge {
         taskId: Int,
         bubbleRect: Rect,
         side: Int,
-        onDone: () -> Unit
+        onDone: (accepted: Boolean) -> Unit
     ) {
         val context = appContext
         if (context == null) {
-            onDone()
+            onDone(false)
             return
         }
         val intent = Intent(FreeformAnimContract.ACTION_SYSTEMUI_ANIM_CMD)
@@ -154,13 +150,13 @@ object FreeformBubbleBridge {
                 intent,
                 object : BroadcastReceiver() {
                     override fun onReceive(ctx: Context, received: Intent) {
-                        onDone()
+                        onDone(resultCode == 1)
                     }
                 }
             )
         } catch (t: Throwable) {
             Log.w(TAG, "notifySystemUiRestoreHint failed: ${t.message}")
-            onDone()
+            onDone(false)
         }
     }
 
@@ -232,11 +228,12 @@ object FreeformBubbleBridge {
     fun registerEventReceiver(
         context: Context,
         onBubbleAdded: (taskId: Int, side: Int, pkg: String?, centerYRatio: Float) -> Unit,
-        onBubbleRemoved: (taskId: Int) -> Unit
+        onBubbleRemoved: (taskId: Int) -> Unit,
+        onBubbleHideHandoff: (taskId: Int) -> Unit = {}
     ): BroadcastReceiver {
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(ctx: Context, intent: Intent) {
-                when (intent.getIntExtra("event", -1)) {
+                when (intent.getIntExtra(FreeformAnimContract.EXTRA_EVENT, -1)) {
                     EVENT_BUBBLE_ADDED -> onBubbleAdded(
                         intent.getIntExtra(FreeformAnimContract.EXTRA_TASK_ID, -1),
                         intent.getIntExtra(FreeformAnimContract.EXTRA_SIDE, 0),
@@ -244,6 +241,9 @@ object FreeformBubbleBridge {
                         intent.getFloatExtra(FreeformAnimContract.EXTRA_CENTER_Y_RATIO, Float.NaN)
                     )
                     EVENT_BUBBLE_REMOVED -> onBubbleRemoved(
+                        intent.getIntExtra(FreeformAnimContract.EXTRA_TASK_ID, -1)
+                    )
+                    EVENT_BUBBLE_HIDE_HANDOFF -> onBubbleHideHandoff(
                         intent.getIntExtra(FreeformAnimContract.EXTRA_TASK_ID, -1)
                     )
                 }

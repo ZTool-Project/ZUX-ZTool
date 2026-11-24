@@ -59,6 +59,7 @@ object FreeformAnimCurves {
     const val EDGE_ZONE_MIN_OVERHANG_RATIO = 0.25f
     const val EDGE_FLING_VELOCITY_DP = 550f
     const val EDGE_FLING_MIN_OVERHANG_RATIO = 0.15f
+    const val RESTORE_BUBBLE_HIDE_PROGRESS = 0.30f
 
     data class TransformFrame(
         val posX: Float,

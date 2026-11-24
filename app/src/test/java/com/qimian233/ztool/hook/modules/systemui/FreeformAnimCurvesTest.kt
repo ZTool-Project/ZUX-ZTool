@@ -299,4 +299,19 @@ class FreeformAnimCurvesTest {
         assertEquals(560L, FreeformAnimCurves.SNAP_BACK_DURATION_MS)
         assertEquals(680L, FreeformAnimCurves.RESTORE_DURATION_MS)
     }
+
+    @Test
+    fun restoreBubbleHideProgress_crossesEarlyInSpring() {
+        val threshold = FreeformAnimCurves.RESTORE_BUBBLE_HIDE_PROGRESS
+        assertTrue("Expected threshold in (0f, 0.5f), got $threshold", threshold > 0f && threshold < 0.5f)
+        val atQuarter = FreeformAnimCurves.evaluateSpring(
+            0.25f,
+            FreeformAnimCurves.RESTORE_SPRING_DAMPING,
+            FreeformAnimCurves.RESTORE_SPRING_OMEGA
+        )
+        assertTrue(
+            "Expected restore spring to cross $threshold before t=0.25f, got $atQuarter",
+            atQuarter >= threshold
+        )
+    }
 }
