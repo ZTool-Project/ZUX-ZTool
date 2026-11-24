@@ -133,29 +133,29 @@ object BatteryIndicatorPolicy {
         centerOffsetYDp = 0f
     )
 
-    // Vertical body spans x=6..32 (10.4dp wide) and y=17..55 (center y=36 vs viewport 33.5 -> +1.0dp).
+    // Vertical body spans x=5.5..28.5 (9.2dp wide) and y=19.5..52 (center y=35.75 vs viewport 33.5 -> +0.9dp).
     private val VERTICAL_INNER_PERCENT_LAYOUT = InnerPercentLayoutSpec(
         symmetricPadding = true,
         includeFontPadding = false,
-        baseSizeScale = 0.72f,
-        maxWidthDp = 8.0f,
-        centerOffsetYDp = 1.0f
+        baseSizeScale = 0.68f,
+        maxWidthDp = 7.2f,
+        centerOffsetYDp = 0.9f
     )
 
-    // Ring hollow circle diameter is 27.69u (11.08dp); cap width inside inscribed box with margin.
+    // Ring diameter is 36u and hollow inner diameter is 24.92u (9.97dp); cap width inside inscribed box.
     private val RING_INNER_PERCENT_LAYOUT = InnerPercentLayoutSpec(
         symmetricPadding = true,
         includeFontPadding = false,
-        baseSizeScale = 0.74f,
-        maxWidthDp = 8.0f,
+        baseSizeScale = 0.68f,
+        maxWidthDp = 7.2f,
         centerOffsetYDp = 0f
     )
 
     private val PIE_INNER_PERCENT_LAYOUT = InnerPercentLayoutSpec(
         symmetricPadding = true,
         includeFontPadding = false,
-        baseSizeScale = 0.90f,
-        maxWidthDp = 11.6f,
+        baseSizeScale = 0.84f,
+        maxWidthDp = 10.4f,
         centerOffsetYDp = 0f
     )
 

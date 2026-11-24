@@ -467,9 +467,9 @@ class FramelessBatteryRenderer : FilledContainerBatteryRenderer(
 ) {
     companion object {
         private const val CONTAINER_LEFT = 2f
-        private const val CONTAINER_TOP = 18f
+        private const val CONTAINER_TOP = 16f
         private const val CONTAINER_RIGHT = 64f
-        private const val CONTAINER_BOTTOM = 50f
+        private const val CONTAINER_BOTTOM = 52f
         private const val CONTAINER_CORNER_RADIUS = (CONTAINER_BOTTOM - CONTAINER_TOP) / 2f
     }
 }
@@ -482,17 +482,17 @@ class IosBatteryRenderer : FilledContainerBatteryRenderer(
     fillCapOnFull = true
 ) {
     companion object {
-        // Centered 1.9:1 horizontal iOS battery proportions (x: 2.5..63.5, y: 19..49).
+        // Horizontal iOS battery proportions aligned to stock 36u visual height (x: 2.5..63.5, y: 16..52).
         private const val BODY_LEFT = 2.5f
-        private const val BODY_TOP = 19f
+        private const val BODY_TOP = 16f
         private const val BODY_RIGHT = 59.5f
-        private const val BODY_BOTTOM = 49f
-        private const val BODY_CORNER_RADIUS = 7.5f
+        private const val BODY_BOTTOM = 52f
+        private const val BODY_CORNER_RADIUS = 9f
         private const val CAP_OVERLAP_LEFT = BODY_RIGHT - 2f
-        private const val CAP_TOP = 29f
-        private const val CAP_BOTTOM = 39f
+        private const val CAP_TOP = 28f
+        private const val CAP_BOTTOM = 40f
         private const val CAP_PROTRUSION = 4f
-        private const val CAP_CORNER_RADIUS = 1.8f
+        private const val CAP_CORNER_RADIUS = 2.1f
 
         private val IOS_CAP_PATH: Path = Path().apply {
             addRoundRect(
@@ -517,19 +517,19 @@ class VerticalBatteryRenderer : FilledContainerBatteryRenderer(
     glyphHeight = BODY_BOTTOM - CAP_TOP
 ) {
     companion object {
-        // Proportions derived from AOSP/LineageOS portrait battery (12:19 silhouette scaled to 42u tall).
-        private const val VIEWPORT_WIDTH = 38f
+        // Proportions derived from AOSP/LineageOS portrait battery (12:19 silhouette scaled to 36u tall).
+        private const val VIEWPORT_WIDTH = 34f
         private const val VIEWPORT_HEIGHT = 67f
-        private const val BODY_LEFT = 6f
-        private const val BODY_TOP = 17f
-        private const val BODY_RIGHT = 32f
-        private const val BODY_BOTTOM = 55f
-        private const val BODY_CORNER_RADIUS = 3.2f
-        private const val CAP_LEFT = 12.5f
-        private const val CAP_TOP = 13f
-        private const val CAP_RIGHT = 25.5f
+        private const val BODY_LEFT = 5.5f
+        private const val BODY_TOP = 19.5f
+        private const val BODY_RIGHT = 28.5f
+        private const val BODY_BOTTOM = 52f
+        private const val BODY_CORNER_RADIUS = 2.8f
+        private const val CAP_LEFT = 11.5f
+        private const val CAP_TOP = 16f
+        private const val CAP_RIGHT = 22.5f
         private const val CAP_OVERLAP_BOTTOM = BODY_TOP + 2f
-        private const val CAP_CORNER_RADIUS = 1.6f
+        private const val CAP_CORNER_RADIUS = 1.4f
 
         private val VERTICAL_CAP_PATH: Path = Path().apply {
             addRoundRect(
@@ -543,11 +543,11 @@ class VerticalBatteryRenderer : FilledContainerBatteryRenderer(
 }
 
 private object CircularBatteryGeometry {
-    const val VIEWPORT_WIDTH = 48f
+    const val VIEWPORT_WIDTH = 44f
     const val VIEWPORT_HEIGHT = 67f
     const val CENTER_X = VIEWPORT_WIDTH / 2f
     const val CENTER_Y = VIEWPORT_HEIGHT / 2f
-    const val OUTER_DIAMETER = 40f
+    const val OUTER_DIAMETER = 36f
     const val OUTER_RADIUS = OUTER_DIAMETER / 2f
     const val START_ANGLE = 270f
     const val FULL_CIRCLE_DEGREES = 360f
