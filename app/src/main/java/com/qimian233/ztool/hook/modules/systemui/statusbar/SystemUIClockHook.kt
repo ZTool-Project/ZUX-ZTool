@@ -16,7 +16,6 @@ import android.view.HapticFeedbackConstants
 import android.view.InputDevice
 import android.view.MotionEvent
 import android.view.View
-import android.view.ViewConfiguration
 import android.widget.TextView
 import com.qimian233.ztool.data.keys.PreferenceKeys
 import com.qimian233.ztool.data.keys.ScopeKeys
@@ -31,7 +30,6 @@ import java.lang.reflect.Method
 import java.util.Calendar
 import java.util.Date
 import java.util.WeakHashMap
-import kotlin.math.hypot
 
 /** Shares the SystemUI Clock pipeline across seconds, Red 1 hour, and custom clock features. */
 @SuppressLint("PrivateApi")
@@ -47,7 +45,7 @@ class SystemUIClockHook : AppHookModule() {
 
     @Volatile
     private var runtimeSecondsHidden: Boolean = false
-    private val attachedClocks = WeakHashMap<View, ClockLongPressToggleListener?>()
+    private val attachedClocks = WeakHashMap<View, ClockLongPressToggleListener>()
 
     override fun getModuleName(): String = PreferenceKeys.CUSTOM_STATUSBAR_CLOCK.name
 
@@ -118,7 +116,7 @@ class SystemUIClockHook : AppHookModule() {
                 }
             }
             (chain.thisObject as? View)?.let { clockView ->
-                registerAttachedClock(clockView, host, options.effectiveLongPressToggleSeconds)
+                registerAttachedClock(clockView, host)
             }
             result
         }
@@ -172,25 +170,13 @@ class SystemUIClockHook : AppHookModule() {
         }
     }
 
-    private fun registerAttachedClock(
-        clockView: View,
-        host: Host,
-        attachLongPressListener: Boolean
-    ) {
+    private fun registerAttachedClock(clockView: View, host: Host) {
         val listener = synchronized(attachedClocks) {
-            val existing = attachedClocks[clockView]
-            if (attachLongPressListener) {
-                val resolved = existing ?: ClockLongPressToggleListener(host, clockView)
-                attachedClocks[clockView] = resolved
-                resolved
-            } else {
-                attachedClocks.putIfAbsent(clockView, existing)
-                null
+            attachedClocks[clockView] ?: ClockLongPressToggleListener(host, clockView).also {
+                attachedClocks[clockView] = it
             }
         }
-        if (listener != null) {
-            clockView.setOnTouchListener(listener)
-        }
+        clockView.setOnTouchListener(listener)
     }
 
     private fun toggleRuntimeSeconds(host: Host) {
@@ -224,9 +210,11 @@ class SystemUIClockHook : AppHookModule() {
         private val host: Host,
         sampleView: View
     ) : View.OnTouchListener {
-        private val touchSlop = ViewConfiguration.get(sampleView.context).scaledTouchSlop.toDouble()
-        private var downX = 0f
-        private var downY = 0f
+        private val marginPx = TypedValue.applyDimension(
+            TypedValue.COMPLEX_UNIT_DIP,
+            TOUCH_BOUNDS_MARGIN_DP,
+            sampleView.resources.displayMetrics
+        )
         private var active = false
         private var viewRef: WeakReference<View>? = null
 
@@ -260,15 +248,16 @@ class SystemUIClockHook : AppHookModule() {
             return when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     cancel(view)
-                    downX = event.rawX
-                    downY = event.rawY
                     active = true
                     viewRef = WeakReference(view)
                     view.postDelayed(triggerRunnable, StatusBarClockPolicy.LONG_PRESS_TOGGLE_DURATION_MS)
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
-                    if (active && hypot((event.rawX - downX).toDouble(), (event.rawY - downY).toDouble()) > touchSlop) {
+                    if (active &&
+                        (event.x !in -marginPx..(view.width + marginPx) ||
+                            event.y !in -marginPx..(view.height + marginPx))
+                    ) {
                         cancel(view)
                     }
                     true
@@ -551,5 +540,6 @@ class SystemUIClockHook : AppHookModule() {
 
     companion object {
         private const val CLOCK_CLASS = "com.android.systemui.statusbar.policy.Clock"
+        private const val TOUCH_BOUNDS_MARGIN_DP = 16f
     }
 }
