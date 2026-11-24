@@ -282,6 +282,7 @@
     <string name="page_settings_about_uuuddddl_summary">原生通知图标 Hook Android 16 修复</string>
     <string name="page_settings_about_unfuckzui_summary">部分功能灵感和参考</string>
     <string name="page_settings_about_zuxos_plus_summary">部分功能灵感，并促使本项目复更</string>
+    <string name="page_settings_about_zuomengshu_summary">提供一视界拓展模块的原始适配规则</string>
     <string name="page_settings_about_acknowledgements_entry_summary">查看特别致谢与项目使用的开源软件</string>
     <string name="page_settings_about_acknowledgements_special_thanks_title">特别致谢</string>
     <string name="page_settings_about_acknowledgements_open_source_title">开源软件</string>
@@ -1510,6 +1511,7 @@
     <string name="system_ui_animation_desktop_live_wallpaper_scale_mode_cover">铺满全屏（等比裁剪）</string>
     <string name="page_settings_credits_zuxos_plus" translatable="false">ZUXOS+</string>
     <string name="page_settings_credits_unfuck_zui" translatable="false">UnfuckZUI</string>
+    <string name="page_settings_credits_zuomengshu" translatable="false">做梦书</string>
     <!-- 桌面多选批量卸载 -->
     <string name="launcher_launcher_batch_uninstall">桌面多选批量卸载</string>
     <string name="page_uninstall_title">批量卸载</string>

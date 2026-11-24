@@ -26,6 +26,7 @@ import com.qimian233.ztool.ui.components.HighlightContainerMarker
 import com.qimian233.ztool.ui.components.HighlightController
 import com.qimian233.ztool.ui.components.ZToolPageSurface
 import com.qimian233.ztool.ui.components.ZToolScaffold
+import com.qimian233.ztool.ui.components.ZToolSettingLeadingAvatar
 import com.qimian233.ztool.ui.components.ZToolTopAppBar
 
 private data class OpenSourceProject(
@@ -37,6 +38,7 @@ private data class OpenSourceProject(
 
 private const val UNFUCK_ZUI_URL = "https://github.com/dantmnf/UnfuckZUI"
 private const val ZUXOS_PLUS_URL = "https://github.com/morannlx/me.inkdye.zuxos"
+private const val ZUOMENGSHU_URL = "https://www.coolapk.com/u/2451811"
 
 // hunshcn/gh-proxy is the upstream project; gh-proxy.com is one of its deployments.
 private const val GH_PROXY_URL = "https://github.com/hunshcn/gh-proxy"
@@ -195,7 +197,7 @@ private fun SettingsAcknowledgementsScreen(
                 Spacer(modifier = Modifier.height(24.dp))
                 AboutSectionCard(
                     title = stringResource(R.string.page_settings_about_acknowledgements_special_thanks_title),
-                    itemCount = 2
+                    itemCount = 3
                 ) { getModifier ->
                     AboutActionRow(
                         title = stringResource(R.string.page_settings_credits_unfuck_zui),
@@ -212,6 +214,15 @@ private fun SettingsAcknowledgementsScreen(
                         onClick = { onOpenUrl(ZUXOS_PLUS_URL) },
                         highlightKey = "about_credit_zuxos_plus",
                         modifier = getModifier(1)
+                    )
+                    AboutActionRow(
+                        title = stringResource(R.string.page_settings_credits_zuomengshu),
+                        summary = stringResource(R.string.page_settings_about_zuomengshu_summary),
+                        trailingLabel = stringResource(R.string.page_settings_about_social_coolapk_label),
+                        leadingContent = { ZToolSettingLeadingAvatar(R.drawable.about_avatar_zuomengshu) },
+                        onClick = { onOpenUrl(ZUOMENGSHU_URL) },
+                        highlightKey = "about_credit_zuomengshu",
+                        modifier = getModifier(2)
                     )
                 }
                 Spacer(modifier = Modifier.height(16.dp))

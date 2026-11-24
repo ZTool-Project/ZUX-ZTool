@@ -2260,6 +2260,11 @@ object SearchIndex {
             id = "about_credit_zuxos_plus",
             titleRes = R.string.page_settings_credits_zuxos_plus,
             summaryRes = R.string.page_settings_about_zuxos_plus_summary
+        ),
+        acknowledgementsScreen.item(
+            id = "about_credit_zuomengshu",
+            titleRes = R.string.page_settings_credits_zuomengshu,
+            summaryRes = R.string.page_settings_about_zuomengshu_summary
         )
     )
 

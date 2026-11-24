@@ -1245,6 +1245,7 @@
     <string name="page_settings_about_wasd_destroy_summary">Hooks and User Interface</string>
     <string name="page_settings_about_uuuddddl_summary">Native notification icon hook for Android 16</string>
     <string name="page_settings_about_unfuckzui_summary">Feature references and inspirations</string>
+    <string name="page_settings_about_zuomengshu_summary">Provided the original adaptation rules for the Parallel Window extension module</string>
     <string name="page_settings_about_acknowledgements_entry_summary">View special thanks and the open-source software used by this project</string>
     <string name="page_settings_about_acknowledgements_special_thanks_title">Special Thanks</string>
     <string name="page_settings_about_acknowledgements_open_source_title">Open Source Software</string>

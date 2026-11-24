@@ -258,3 +258,5 @@ ZTool 是一个针对 ZUXOS 的 LSPosed 功能增强模块。
 锁屏随机签名功能使用 [xygeng.cn 一言 API](https://api.xygeng.cn/one) 作为默认内容源。
 
 核心破解功能的设计目标来自项目 [核心破解](https://github.com/LSPosed/CorePatch) 。
+
+一视界拓展模块的原始适配规则来自酷安用户 [做梦书](https://www.coolapk.com/u/2451811) 。
