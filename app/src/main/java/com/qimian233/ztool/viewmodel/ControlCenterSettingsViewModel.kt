@@ -238,6 +238,11 @@ class ControlCenterSettingsViewModel(
         repository.saveSliderStyleValue(isVertical)
     }
 
+    fun setSwapSlidersPosition(enabled: Boolean) {
+        _uiState.value = _uiState.value.copy(swapSlidersPosition = enabled)
+        repository.saveSwapSlidersPosition(enabled)
+    }
+
     fun setQsPanelWidthPercent(value: Int) {
         val coerced = value.coerceIn(
             ControlCenterSettingsRepository.QS_PANEL_WIDTH_MIN,
@@ -410,6 +415,7 @@ data class ControlCenterSettingsUiState(
     val qsTileColumns: Int = ControlCenterSettingsRepository.DEFAULT_QS_TILE_COLUMNS,
     val customizeSliderStyle: Boolean = false,
     val sliderStyleIsVertical: Boolean = false,
+    val swapSlidersPosition: Boolean = false,
     val sliderStyleForcedByQsPanel: Boolean = false,
     val isRestartProcessing: Boolean = false,
     val showRestartDialog: Boolean = false
@@ -429,6 +435,7 @@ data class ControlCenterSettingsUiState(
             portraitLayoutEnabled = expandQsPanelPortrait,
             sliderStyleEnabled = customizeSliderStyle,
             sliderStyleVertical = sliderStyleIsVertical,
+            swapSlidersPosition = swapSlidersPosition,
             detailIndicatorHidden = hideDetailIndicatorEnabled
         )
 }
@@ -450,5 +457,6 @@ data class ControlCenterPreviewConfig(
     val portraitLayoutEnabled: Boolean,
     val sliderStyleEnabled: Boolean,
     val sliderStyleVertical: Boolean,
+    val swapSlidersPosition: Boolean,
     val detailIndicatorHidden: Boolean
 )

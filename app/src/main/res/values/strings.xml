@@ -1261,6 +1261,8 @@
     <string name="system_ui_control_center_panel_width_percent_title">控制中心宽度</string>
     <string name="system_ui_control_center_tile_columns_title">磁贴列数</string>
     <string name="system_ui_control_center_customize_slider_style_title">修改控制中心滑动条样式</string>
+    <string name="system_ui_control_center_swap_sliders_title">对调亮度与音量滑动条位置</string>
+    <string name="system_ui_control_center_swap_sliders_summary">将控制中心的亮度与音量滑动条互换位置（横向为上下对调，纵向为左右对调）</string>
     <string name="system_ui_control_center_slider_style_direction_title">滑动条方向</string>
     <string name="system_ui_control_center_slider_style_horizontal">水平</string>
     <string name="system_ui_control_center_slider_style_vertical">竖直</string>

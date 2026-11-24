@@ -66,6 +66,7 @@ class ControlCenterSettingsRepository(
             qsTileColumns = prefsUtils.loadIntegerSetting(KEY_QS_TILE_COLUMNS, DEFAULT_QS_TILE_COLUMNS),
             customizeSliderStyle = prefsUtils.loadBooleanSetting(KEY_CUSTOMIZE_SLIDER_STYLE, false),
             sliderStyleIsVertical = prefsUtils.loadBooleanSetting(KEY_CUSTOMIZE_SLIDER_STYLE_VALUE, false),
+            swapSlidersPosition = prefsUtils.loadBooleanSetting(KEY_SWAP_SLIDERS_POSITION, false),
             sliderStyleForcedByQsPanel = prefsUtils.loadBooleanSetting(KEY_EXPAND_QS_PANEL_PORTRAIT, false)
                     && prefsUtils.loadBooleanSetting(KEY_CUSTOMIZE_SLIDER_STYLE, false)
         )
@@ -249,6 +250,10 @@ class ControlCenterSettingsRepository(
         prefsUtils.saveBooleanSetting(KEY_CUSTOMIZE_SLIDER_STYLE_VALUE, isVertical)
     }
 
+    fun saveSwapSlidersPosition(enabled: Boolean) {
+        prefsUtils.saveBooleanSetting(KEY_SWAP_SLIDERS_POSITION, enabled)
+    }
+
     fun saveQsPanelWidthPercent(value: Int) {
         prefsUtils.saveIntegerSetting(
             KEY_QS_PANEL_WIDTH_PERCENT,
@@ -324,6 +329,7 @@ class ControlCenterSettingsRepository(
         private val KEY_QS_TILE_COLUMNS = PreferenceKeys.QS_TILE_COLUMNS.name
         private val KEY_CUSTOMIZE_SLIDER_STYLE = PreferenceKeys.CUSTOMIZE_SLIDER_STYLE.name
         private val KEY_CUSTOMIZE_SLIDER_STYLE_VALUE = PreferenceKeys.CUSTOMIZE_SLIDER_STYLE_VALUE.name
+        private val KEY_SWAP_SLIDERS_POSITION = PreferenceKeys.SWAP_SLIDERS_POSITION.name
         private val KEY_CUSTOMIZE_SLIDER_STYLE_PREVIOUS = PreferenceKeys.CUSTOMIZE_SLIDER_STYLE_PREVIOUS.name
         private val KEY_CUSTOMIZE_SLIDER_STYLE_PREVIOUS_VALUE = PreferenceKeys.CUSTOMIZE_SLIDER_STYLE_PREVIOUS_VALUE.name
         const val QS_PANEL_WIDTH_MIN = 0

@@ -804,6 +804,11 @@ object SearchIndex {
             parentKey = "control_center_customize_slider_style"
         ),
         systemUiControlCenter.item(
+            id = "control_center_swap_sliders",
+            titleRes = R.string.system_ui_control_center_swap_sliders_title,
+            summaryRes = R.string.system_ui_control_center_swap_sliders_summary
+        ),
+        systemUiControlCenter.item(
             id = "control_center_custom_qs_color_general",
             titleRes = R.string.system_ui_control_center_custom_qs_color_general_switch
         ),

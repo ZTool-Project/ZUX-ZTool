@@ -627,6 +627,16 @@ private fun HorizontalHeadUpBlock(
     colors: ColorScheme,
     showIndicator: Boolean
 ) {
+    val firstSlider = if (config.swapSlidersPosition) {
+        config.brightnessPercentVisible to BrightnessSamplePercent
+    } else {
+        config.volumePercentVisible to VolumeSamplePercent
+    }
+    val secondSlider = if (config.swapSlidersPosition) {
+        config.volumePercentVisible to VolumeSamplePercent
+    } else {
+        config.brightnessPercentVisible to BrightnessSamplePercent
+    }
     Column(verticalArrangement = Arrangement.spacedBy(panel.gap)) {
         Row(horizontalArrangement = Arrangement.spacedBy(panel.gap)) {
             HeadUpTile(
@@ -644,8 +654,8 @@ private fun HorizontalHeadUpBlock(
                 active = false,
                 colors = colors,
                 showIndicator = showIndicator,
-                showLabel = config.volumePercentVisible,
-                fillPercent = VolumeSamplePercent
+                showLabel = firstSlider.first,
+                fillPercent = firstSlider.second
             )
         }
         Row(horizontalArrangement = Arrangement.spacedBy(panel.gap)) {
@@ -664,8 +674,8 @@ private fun HorizontalHeadUpBlock(
                 active = false,
                 colors = colors,
                 showIndicator = showIndicator,
-                showLabel = config.brightnessPercentVisible,
-                fillPercent = BrightnessSamplePercent
+                showLabel = secondSlider.first,
+                fillPercent = secondSlider.second
             )
         }
     }
@@ -684,6 +694,16 @@ private fun VerticalHeadUpBlock(
     val tileWidth = (contentWidth - pillWidth * 2 - panel.gap * 2).coerceAtLeast(1.dp)
     val tileHeight = (tileWidth * VerticalHeadUpTileRatio).coerceAtLeast(1.dp)
     val blockHeight = tileHeight * 2 + panel.gap
+    val firstSlider = if (config.swapSlidersPosition) {
+        config.brightnessPercentVisible to BrightnessSamplePercent
+    } else {
+        config.volumePercentVisible to VolumeSamplePercent
+    }
+    val secondSlider = if (config.swapSlidersPosition) {
+        config.volumePercentVisible to VolumeSamplePercent
+    } else {
+        config.brightnessPercentVisible to BrightnessSamplePercent
+    }
 
     Row(
         modifier = Modifier
@@ -718,8 +738,8 @@ private fun VerticalHeadUpBlock(
             pillWidth = pillWidth,
             pillHeight = blockHeight,
             shape = shape,
-            showLabel = config.volumePercentVisible,
-            fillPercent = VolumeSamplePercent,
+            showLabel = firstSlider.first,
+            fillPercent = firstSlider.second,
             showIndicator = showIndicator,
             colors = colors
         )
@@ -727,8 +747,8 @@ private fun VerticalHeadUpBlock(
             pillWidth = pillWidth,
             pillHeight = blockHeight,
             shape = shape,
-            showLabel = config.brightnessPercentVisible,
-            fillPercent = BrightnessSamplePercent,
+            showLabel = secondSlider.first,
+            fillPercent = secondSlider.second,
             showIndicator = showIndicator,
             colors = colors
         )

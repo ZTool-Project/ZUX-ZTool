@@ -133,6 +133,7 @@ import com.qimian233.ztool.hook.modules.systemui.qs.QsPanelWidthHook
 import com.qimian233.ztool.hook.modules.systemui.qs.ControlCenterLongPressHook
 import com.qimian233.ztool.hook.modules.systemui.qs.HideDetailIndicatorHook
 import com.qimian233.ztool.hook.modules.systemui.qs.SliderStyleHook
+import com.qimian233.ztool.hook.modules.systemui.qs.SwapSlidersHook
 import com.qimian233.ztool.hook.modules.systemui.qs.VolumeSliderFidelityHook
 import com.qimian233.ztool.hook.modules.systemui.qs.VolumeSliderLongPressHook
 import com.qimian233.ztool.hook.modules.systemui.qs.VolumeSliderPercentageHook
@@ -275,6 +276,7 @@ object HookManager {
         registerHookModule(GuestModeController())
         registerHookModule(QsPanelWidthHook())
         registerHookModule(SliderStyleHook())
+        registerHookModule(SwapSlidersHook())
         registerHookModule(CustomChargeAnimation())
         registerHookModule(FineVolumeStepsSliderHook())
         registerHookModule(MediaOutputDialogCenterHook())

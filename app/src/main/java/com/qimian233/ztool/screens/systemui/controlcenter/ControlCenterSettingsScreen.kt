@@ -171,6 +171,7 @@ fun ControlCenterSettingsRoute(
             onQsTileColumnsChanged = viewModel::setQsTileColumns,
             onCustomizeSliderStyleChanged = viewModel::setCustomizeSliderStyle,
             onSliderStyleValueChanged = viewModel::setSliderStyleValue,
+            onSwapSlidersPositionChanged = viewModel::setSwapSlidersPosition,
             onRestartScope = viewModel::showRestartDialog,
             scrollState = scrollState,
             highlightRegistry = highlightRegistry
@@ -277,6 +278,7 @@ private fun ControlCenterSettingsScreen(
     onQsTileColumnsChanged: (Int) -> Unit,
     onCustomizeSliderStyleChanged: (Boolean) -> Unit,
     onSliderStyleValueChanged: (Boolean) -> Unit,
+    onSwapSlidersPositionChanged: (Boolean) -> Unit,
     onRestartScope: () -> Unit,
     scrollState: ScrollState,
     highlightRegistry: HighlightAnchorRegistry
@@ -364,6 +366,7 @@ private fun ControlCenterSettingsScreen(
                         onQsTileColumnsChanged = onQsTileColumnsChanged,
                         onCustomizeSliderStyleChanged = onCustomizeSliderStyleChanged,
                         onSliderStyleValueChanged = onSliderStyleValueChanged,
+                        onSwapSlidersPositionChanged = onSwapSlidersPositionChanged,
                     ),
                     bottomPadding = 96.dp,
                     highlightRegistry = highlightRegistry
@@ -417,6 +420,7 @@ private fun controlCenterSettingsSections(
     onQsTileColumnsChanged: (Int) -> Unit,
     onCustomizeSliderStyleChanged: (Boolean) -> Unit,
     onSliderStyleValueChanged: (Boolean) -> Unit,
+    onSwapSlidersPositionChanged: (Boolean) -> Unit,
 ): List<SettingSection> {
     return listOf(
         SettingSection(
@@ -713,6 +717,15 @@ private fun controlCenterSettingsSections(
                         )
                     )
                 }
+                add(
+                    SettingItem.Switch(
+                        title = stringResource(R.string.system_ui_control_center_swap_sliders_title),
+                        summary = stringResource(R.string.system_ui_control_center_swap_sliders_summary),
+                        checked = state.swapSlidersPosition,
+                        onCheckedChange = onSwapSlidersPositionChanged,
+                        key = "control_center_swap_sliders"
+                    )
+                )
             }
         ),
         SettingSection(
