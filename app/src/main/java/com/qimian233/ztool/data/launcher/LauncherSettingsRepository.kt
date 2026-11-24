@@ -6,6 +6,7 @@ import android.content.pm.ApplicationInfo
 import com.qimian233.ztool.data.features.FeatureDestination
 import com.qimian233.ztool.utils.ModulePreferencesUtils
 import com.qimian233.ztool.data.keys.PreferenceKeys
+import com.qimian233.ztool.data.keys.WallpaperZoomModes
 import com.qimian233.ztool.utils.ScopeUtils
 import com.qimian233.ztool.viewmodel.ForceStopMode
 import com.qimian233.ztool.viewmodel.LauncherSettingsUiState
@@ -77,7 +78,17 @@ class LauncherSettingsRepository(
             iconScaleValue = prefsUtils.loadFloatSetting(KEY_LAUNCHER_ICON_SCALE_VALUE, ICON_SCALE_DEFAULT)
                 .coerceIn(ICON_SCALE_MIN, ICON_SCALE_MAX),
             iconPackEnabled = prefsUtils.loadBooleanSetting(KEY_LAUNCHER_ICON_PACK, false),
-            iconPackPackage = prefsUtils.loadStringSetting(KEY_LAUNCHER_ICON_PACK_PACKAGE, "")
+            iconPackPackage = prefsUtils.loadStringSetting(KEY_LAUNCHER_ICON_PACK_PACKAGE, ""),
+            quickstepWallpaperZoom = prefsUtils.loadBooleanSetting(
+                KEY_LAUNCHER_QUICKSTEP_WALLPAPER_ZOOM,
+                false
+            ),
+            quickstepWallpaperZoomMode = WallpaperZoomModes.normalize(
+                prefsUtils.loadStringSetting(
+                    KEY_LAUNCHER_QUICKSTEP_WALLPAPER_ZOOM_MODE,
+                    PreferenceKeys.LAUNCHER_QUICKSTEP_WALLPAPER_ZOOM_MODE.default
+                )
+            ),
         )
     }
 
@@ -243,6 +254,17 @@ class LauncherSettingsRepository(
         prefsUtils.saveStringSetting(KEY_LAUNCHER_ICON_PACK_PACKAGE, packageName.trim())
     }
 
+    fun saveQuickstepWallpaperZoom(enabled: Boolean) {
+        prefsUtils.saveBooleanSetting(KEY_LAUNCHER_QUICKSTEP_WALLPAPER_ZOOM, enabled)
+    }
+
+    fun saveQuickstepWallpaperZoomMode(mode: String) {
+        prefsUtils.saveStringSetting(
+            KEY_LAUNCHER_QUICKSTEP_WALLPAPER_ZOOM_MODE,
+            WallpaperZoomModes.normalize(mode)
+        )
+    }
+
     /** Installed ADW / CandyBar icon packs, one entry per package, sorted by label. */
     fun loadInstalledIconPacks(): List<IconPackInfo> {
         val packageManager = context.packageManager
@@ -377,6 +399,10 @@ class LauncherSettingsRepository(
         private val KEY_LAUNCHER_ICON_SCALE_VALUE = PreferenceKeys.LAUNCHER_ICON_SCALE_VALUE.name
         private val KEY_LAUNCHER_ICON_PACK = PreferenceKeys.LAUNCHER_ICON_PACK.name
         private val KEY_LAUNCHER_ICON_PACK_PACKAGE = PreferenceKeys.LAUNCHER_ICON_PACK_PACKAGE.name
+        private val KEY_LAUNCHER_QUICKSTEP_WALLPAPER_ZOOM =
+            PreferenceKeys.LAUNCHER_QUICKSTEP_WALLPAPER_ZOOM.name
+        private val KEY_LAUNCHER_QUICKSTEP_WALLPAPER_ZOOM_MODE =
+            PreferenceKeys.LAUNCHER_QUICKSTEP_WALLPAPER_ZOOM_MODE.name
 
         /** Intent action declared by ADW / CandyBar icon packs. */
         private const val ICON_PACK_ACTION = "org.adw.launcher.THEMES"

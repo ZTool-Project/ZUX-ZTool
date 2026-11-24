@@ -9,22 +9,25 @@ import android.os.SystemClock
 import android.provider.Settings
 import android.view.SurfaceControl
 import android.view.WindowManager
+import com.qimian233.ztool.data.keys.BoolKey
 import com.qimian233.ztool.data.keys.PreferenceKeys
 import com.qimian233.ztool.data.keys.ScopeKeys
+import com.qimian233.ztool.data.keys.StringKey
+import com.qimian233.ztool.data.keys.WallpaperZoomModes
 import com.qimian233.ztool.hook.base.SystemHookModule
 import io.github.libxposed.api.XposedModuleInterface.SystemServerStartingParam
 import java.lang.reflect.Field
 import java.util.function.Consumer
 
 /**
- * Applies centered wallpaper scale in real time when SystemUI dispatches
- * shade expansion progress through WallpaperController.setWallpaperZoomOut.
+ * Applies centered wallpaper scale in real time when SystemUI or Launcher
+ * dispatches expansion progress through WallpaperController.setWallpaperZoomOut.
  */
 @SuppressLint("PrivateApi")
 class ShadeWallpaperZoomSystemHook : SystemHookModule() {
 
     @Volatile
-    private var lastFraction = 0f
+    private var lastProgress = 0f
 
     @Volatile
     private var cachedZoomSize = DEFAULT_ZOOM_SIZE
@@ -35,6 +38,19 @@ class ShadeWallpaperZoomSystemHook : SystemHookModule() {
     override fun getModuleName(): String = PreferenceKeys.SHADE_WALLPAPER_ZOOM_FOLLOW.name
 
     override fun getTargetPackages(): Array<String> = arrayOf(ScopeKeys.SYSTEM_SERVER.packageName)
+
+    override fun isEnabled(): Boolean = try {
+        val prefs = remotePreferences
+        prefs.getBoolean(
+            PreferenceKeys.SHADE_WALLPAPER_ZOOM_FOLLOW.name,
+            PreferenceKeys.SHADE_WALLPAPER_ZOOM_FOLLOW.default
+        ) || prefs.getBoolean(
+            PreferenceKeys.LAUNCHER_QUICKSTEP_WALLPAPER_ZOOM.name,
+            PreferenceKeys.LAUNCHER_QUICKSTEP_WALLPAPER_ZOOM.default
+        )
+    } catch (_: Throwable) {
+        false
+    }
 
     override fun handleSystemServerStarting(param: SystemServerStartingParam) {
         val classLoader = param.classLoader
@@ -79,16 +95,28 @@ class ShadeWallpaperZoomSystemHook : SystemHookModule() {
                 val win = chain.getArg(0) ?: return@hookWithId chain.proceed()
                 val attrs = mAttrsField.get(win) as? WindowManager.LayoutParams
                     ?: return@hookWithId chain.proceed()
-                if (attrs.type != TYPE_NOTIFICATION_SHADE) {
+                val isShadeSource = attrs.type == TYPE_NOTIFICATION_SHADE &&
+                    isContinuousEnabled(
+                        PreferenceKeys.SHADE_WALLPAPER_ZOOM_FOLLOW,
+                        PreferenceKeys.SHADE_WALLPAPER_ZOOM_MODE
+                    )
+                val isLauncherSource = attrs.type == TYPE_BASE_APPLICATION &&
+                    attrs.packageName == ScopeKeys.LAUNCHER.packageName &&
+                    !(attrs.title?.toString()?.contains("WidgetPicker") == true) &&
+                    isContinuousEnabled(
+                        PreferenceKeys.LAUNCHER_QUICKSTEP_WALLPAPER_ZOOM,
+                        PreferenceKeys.LAUNCHER_QUICKSTEP_WALLPAPER_ZOOM_MODE
+                    )
+                if (!isShadeSource && !isLauncherSource) {
                     return@hookWithId chain.proceed()
                 }
 
                 val controller = chain.thisObject ?: return@hookWithId null
-                val fraction = (chain.getArg(1) as Float).coerceIn(0f, 1f)
+                val progress = WallpaperZoomModes.decodeProgress(chain.getArg(1) as Float)
                 val service = mServiceField.get(controller)
 
                 val now = SystemClock.uptimeMillis()
-                val transitioningFromZero = lastFraction == 0f && fraction > 0f
+                val transitioningFromZero = lastProgress == 0f && progress > 0f
                 if (transitioningFromZero || now - lastZoomSizeFetchMs >= ZOOM_SIZE_CACHE_TTL_MS) {
                     val context = service?.let { mContextField.get(it) as? Context }
                     if (context != null) {
@@ -105,7 +133,7 @@ class ShadeWallpaperZoomSystemHook : SystemHookModule() {
                     }
                 }
                 val zoomSize = cachedZoomSize
-                lastFraction = fraction
+                lastProgress = progress
 
                 val animator = mZuiAnimatorField?.get(controller) as? ValueAnimator
                 if (animator != null && animator.isStarted) {
@@ -123,7 +151,7 @@ class ShadeWallpaperZoomSystemHook : SystemHookModule() {
                     var updated = false
                     val consumer = Consumer<Any> { wpWin ->
                         if (!mIsWallpaperField.getBoolean(wpWin)) return@Consumer
-                        if (fraction > 0f && !(isVisibleMethod.invoke(wpWin) as Boolean)) {
+                        if (progress > 0f && !(isVisibleMethod.invoke(wpWin) as Boolean)) {
                             return@Consumer
                         }
                         val sc = getSurfaceControlMethod.invoke(wpWin) as? SurfaceControl
@@ -143,9 +171,9 @@ class ShadeWallpaperZoomSystemHook : SystemHookModule() {
                         val xOffset = mXOffsetField.getInt(wpWin)
                         val yOffset = mYOffsetField.getInt(wpWin)
 
-                        val targetScale = baseScale + fraction * zoomSize
-                        val posX = -((fraction * zoomSize * w) / 2f) + xOffset
-                        val posY = -((fraction * zoomSize * h) / 2f) + yOffset
+                        val targetScale = baseScale + progress * zoomSize
+                        val posX = -((progress * zoomSize * w) / 2f) + xOffset
+                        val posY = -((progress * zoomSize * h) / 2f) + yOffset
                         transaction.setPosition(sc, posX, posY)
                         transaction.setScale(sc, targetScale, targetScale)
                         updated = true
@@ -163,6 +191,17 @@ class ShadeWallpaperZoomSystemHook : SystemHookModule() {
         }
     }
 
+    private fun isContinuousEnabled(switchKey: BoolKey, modeKey: StringKey): Boolean = try {
+        val prefs = remotePreferences
+        if (!prefs.getBoolean(switchKey.name, switchKey.default)) {
+            false
+        } else {
+            WallpaperZoomModes.isContinuous(prefs.getString(modeKey.name, modeKey.default))
+        }
+    } catch (_: Throwable) {
+        false
+    }
+
     private fun optionalField(startClass: Class<*>, name: String): Field? =
         try {
             findField(startClass, name)
@@ -173,6 +212,7 @@ class ShadeWallpaperZoomSystemHook : SystemHookModule() {
     companion object {
         private const val WALLPAPER_CONTROLLER = "com.android.server.wm.WallpaperController"
         private const val WINDOW_STATE = "com.android.server.wm.WindowState"
+        private const val TYPE_BASE_APPLICATION = 1
         private const val TYPE_NOTIFICATION_SHADE = 2040
         private const val SETTING_WALLPAPER_ZOOM_SIZE = "wallpaper_rate_1"
         private const val DEFAULT_ZOOM_SIZE = 0.1f

@@ -866,6 +866,12 @@ object SearchIndex {
             titleRes = R.string.system_ui_animation_shade_wallpaper_zoom_title,
             summaryRes = R.string.system_ui_animation_shade_wallpaper_zoom_summary
         ),
+        systemUiAnimationWallpaper.item(
+            id = "animation_shade_wallpaper_zoom_mode",
+            titleRes = R.string.common_wallpaper_zoom_mode_title,
+            parentTitleRes = R.string.system_ui_animation_shade_wallpaper_zoom_title,
+            parentKey = "animation_shade_wallpaper_zoom"
+        ),
 
         systemUiMisc.item(
             id = "system_ui_misc_disable_guest_user",
@@ -1773,6 +1779,17 @@ object SearchIndex {
             titleRes = R.string.launcher_remove_hot_word_view,
             parentTitleRes = R.string.launcher_clean_search,
             parentKey = "launcher_clean_search"
+        ),
+        launcher.item(
+            id = "launcher_quickstep_wallpaper_zoom",
+            titleRes = R.string.launcher_quickstep_wallpaper_zoom_title,
+            summaryRes = R.string.launcher_quickstep_wallpaper_zoom_summary
+        ),
+        launcher.item(
+            id = "launcher_quickstep_wallpaper_zoom_mode",
+            titleRes = R.string.common_wallpaper_zoom_mode_title,
+            parentTitleRes = R.string.launcher_quickstep_wallpaper_zoom_title,
+            parentKey = "launcher_quickstep_wallpaper_zoom"
         ),
 
         mobileDesktop.item(

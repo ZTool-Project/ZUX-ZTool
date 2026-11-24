@@ -72,6 +72,11 @@ class AnimationWallpaperSettingsViewModel(
         repository.saveShadeWallpaperZoomFollow(enabled)
     }
 
+    fun setShadeWallpaperZoomMode(mode: String) {
+        _uiState.value = _uiState.value.copy(shadeWallpaperZoomMode = mode)
+        repository.saveShadeWallpaperZoomMode(mode)
+    }
+
     fun saveCustomChargeVideo(uri: Uri, fileName: String): Boolean {
         return repository.saveVideo(uri, fileName)
     }

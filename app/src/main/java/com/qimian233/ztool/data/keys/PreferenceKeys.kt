@@ -223,6 +223,7 @@ object PreferenceKeys {
     val DISMISS_CLOUD_FOLDER_CONFIRMATION = BoolKey("dismiss_cloud_folder_confirmation", false)
     val DISABLE_RECENT_APPS_DISPLAY = BoolKey("disable_recent_apps_display", false)
     val LAUNCHER_BATCH_UNINSTALL = BoolKey("launcher_batch_uninstall", false)
+    val LAUNCHER_QUICKSTEP_WALLPAPER_ZOOM = BoolKey("launcher_quickstep_wallpaper_zoom", false)
     val LAUNCHER_BIG_FOLDER_ALIGN = BoolKey("big_folder_align", false)
     val LAUNCHER_BIG_FOLDER_SQUARE_STYLE = BoolKey("launcher_big_folder_square_style", false)
     val LAUNCHER_BIG_FOLDER_STRIP_STYLE = BoolKey("launcher_big_folder_strip_style", false)
@@ -415,6 +416,10 @@ object PreferenceKeys {
     val CHARGE_WATTS_SELECTED_OPTION = StringKey("charge_watts_selected_option", "")
     val SYSTEMUI_REALWATTS_CUSTOM_FORMAT = StringKey("systemui_realwatts_custom_format", "")
     val DESKTOP_LIVE_WALLPAPER_SCALE_MODE = StringKey("desktop_live_wallpaper_scale_mode", "fit")
+    val SHADE_WALLPAPER_ZOOM_MODE =
+        StringKey("shade_wallpaper_zoom_mode", WallpaperZoomModes.CONTINUOUS)
+    val LAUNCHER_QUICKSTEP_WALLPAPER_ZOOM_MODE =
+        StringKey("launcher_quickstep_wallpaper_zoom_mode", WallpaperZoomModes.CONTINUOUS)
     // Enum name from LoadingIndicatorStyle; an unknown value falls back to the default style.
     val ZUI_LOADING_INDICATOR_STYLE = StringKey("zui_loading_indicator_style", "cube_grid")
     // Enum names from SwitchStyle / SwitchMark; unknown values fall back to the defaults.
@@ -507,6 +512,7 @@ object PreferenceKeys {
         LAUNCHER_BIG_FOLDER_EXTERNAL_TITLE,
         LAUNCHER_HIDE_BLUE_POINT, DISMISS_CLOUD_FOLDER_CONFIRMATION,
         DISABLE_RECENT_APPS_DISPLAY, LAUNCHER_BATCH_UNINSTALL,
+        LAUNCHER_QUICKSTEP_WALLPAPER_ZOOM,
         LAUNCHER_WIDE_GRID, LAUNCHER_WIDE_GRID_SQUARE, LAUNCHER_ICON_SCALE_OVERRIDE,
         LAUNCHER_BIG_FOLDER_BLUR_GUARD,
         REMOVE_HOT_WORD_VIEW, REMOVE_SEARCH_RECOMMEND, BEAUTIFY_RAM_INFO,
@@ -588,6 +594,8 @@ object PreferenceKeys {
         SYSTEMUI_BATTERY_INDICATOR_STYLE,
         SYSTEMUI_BATTERY_SEGMENTED_CHARGING_STYLE,
         DESKTOP_LIVE_WALLPAPER_SCALE_MODE,
+        SHADE_WALLPAPER_ZOOM_MODE,
+        LAUNCHER_QUICKSTEP_WALLPAPER_ZOOM_MODE,
         FIX_CPU_CLOCK_NODE,
         FIX_SOC_TEMP_ZONE_TYPE
     )

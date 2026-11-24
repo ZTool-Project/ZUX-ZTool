@@ -6,6 +6,7 @@ import android.os.Environment
 import com.qimian233.ztool.EnhancedShellExecutor
 import com.qimian233.ztool.data.features.FeatureDestination
 import com.qimian233.ztool.data.keys.PreferenceKeys
+import com.qimian233.ztool.data.keys.WallpaperZoomModes
 import com.qimian233.ztool.utils.ModulePreferencesUtils
 import com.qimian233.ztool.utils.ScopeUtils
 
@@ -26,6 +27,12 @@ class AnimationWallpaperSettingsRepository(private val context: Context) {
                 KEY_WP_SCALE_MODE, PreferenceKeys.DESKTOP_LIVE_WALLPAPER_SCALE_MODE.default
             ),
             shadeWallpaperZoomFollow = prefsUtils.loadBooleanSetting(KEY_SHADE_WALLPAPER_ZOOM_FOLLOW, false),
+            shadeWallpaperZoomMode = WallpaperZoomModes.normalize(
+                prefsUtils.loadStringSetting(
+                    KEY_SHADE_WALLPAPER_ZOOM_MODE,
+                    PreferenceKeys.SHADE_WALLPAPER_ZOOM_MODE.default
+                )
+            ),
         )
     }
 
@@ -44,6 +51,8 @@ class AnimationWallpaperSettingsRepository(private val context: Context) {
     fun saveWallpaperScaleMode(mode: String) = prefsUtils.saveStringSetting(KEY_WP_SCALE_MODE, mode)
     fun saveShadeWallpaperZoomFollow(enabled: Boolean) =
         prefsUtils.saveBooleanSetting(KEY_SHADE_WALLPAPER_ZOOM_FOLLOW, enabled)
+    fun saveShadeWallpaperZoomMode(mode: String) =
+        prefsUtils.saveStringSetting(KEY_SHADE_WALLPAPER_ZOOM_MODE, WallpaperZoomModes.normalize(mode))
 
     fun saveVideo(uri: Uri, fileName: String): Boolean {
         try {
@@ -87,6 +96,7 @@ class AnimationWallpaperSettingsRepository(private val context: Context) {
         private val KEY_DESKTOP_LIVE_WP = PreferenceKeys.DESKTOP_LIVE_WALLPAPER.name
         private val KEY_WP_SCALE_MODE = PreferenceKeys.DESKTOP_LIVE_WALLPAPER_SCALE_MODE.name
         private val KEY_SHADE_WALLPAPER_ZOOM_FOLLOW = PreferenceKeys.SHADE_WALLPAPER_ZOOM_FOLLOW.name
+        private val KEY_SHADE_WALLPAPER_ZOOM_MODE = PreferenceKeys.SHADE_WALLPAPER_ZOOM_MODE.name
     }
 }
 
@@ -99,6 +109,7 @@ data class AnimationWallpaperSettingsUiState(
     val desktopLiveWallpaper: Boolean = false,
     val wallpaperScaleMode: String = "fit",
     val shadeWallpaperZoomFollow: Boolean = false,
+    val shadeWallpaperZoomMode: String = WallpaperZoomModes.CONTINUOUS,
     val isRestartProcessing: Boolean = false,
     val showRestartDialog: Boolean = false
 )

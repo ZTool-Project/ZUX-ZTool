@@ -32,6 +32,7 @@ import com.qimian233.ztool.hook.modules.launcher.grid.IconScaleOverrideHook
 import com.qimian233.ztool.hook.modules.launcher.misc.BatchUninstall
 import com.qimian233.ztool.hook.modules.launcher.misc.CleanGlobalSearch
 import com.qimian233.ztool.hook.modules.launcher.misc.DisableForceStop
+import com.qimian233.ztool.hook.modules.launcher.misc.LauncherQuickstepWallpaperZoomHook
 import com.qimian233.ztool.hook.modules.launcher.LauncherAppIconUnmaskHook
 import com.qimian233.ztool.hook.modules.launcher.LauncherIconPackHook
 import com.qimian233.ztool.hook.modules.launcher.misc.RecentTaskMemoryViewHook
@@ -334,6 +335,7 @@ object HookManager {
         registerHookModule(BatchUninstall())
         registerHookModule(LauncherWideGridHook())
         registerHookModule(IconScaleOverrideHook())
+        registerHookModule(LauncherQuickstepWallpaperZoomHook())
     }
 
     private fun registerDesktopLauncherModules() {

@@ -3,6 +3,7 @@ package com.qimian233.ztool.viewmodel
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.qimian233.ztool.data.keys.WallpaperZoomModes
 import com.qimian233.ztool.data.launcher.ExternalGridInputs
 import com.qimian233.ztool.data.launcher.GridCounts
 import com.qimian233.ztool.data.launcher.IconPackInfo
@@ -267,6 +268,17 @@ class LauncherSettingsViewModel(
         repository.saveIconPackPackage(packageName)
     }
 
+    fun setQuickstepWallpaperZoom(enabled: Boolean) {
+        _uiState.value = _uiState.value.copy(quickstepWallpaperZoom = enabled)
+        repository.saveQuickstepWallpaperZoom(enabled)
+    }
+
+    fun setQuickstepWallpaperZoomMode(mode: String) {
+        val normalized = WallpaperZoomModes.normalize(mode)
+        _uiState.value = _uiState.value.copy(quickstepWallpaperZoomMode = normalized)
+        repository.saveQuickstepWallpaperZoomMode(normalized)
+    }
+
     fun setDisableDockBar(enabled: Boolean) {
         val showWarning = repository.saveDisableDockBar(enabled)
         val current = _uiState.value
@@ -369,6 +381,8 @@ data class LauncherSettingsUiState(
     /** Selected icon pack package name; empty means "no icon pack". */
     val iconPackPackage: String = "",
     val iconPacks: List<IconPackInfo> = emptyList(),
+    val quickstepWallpaperZoom: Boolean = false,
+    val quickstepWallpaperZoomMode: String = WallpaperZoomModes.CONTINUOUS,
     /** Fallback until the launcher-side layout facts are read; see [LauncherGridResolver]. */
     val previewGrid: GridCounts = LauncherGridResolver.FALLBACK,
 ) {

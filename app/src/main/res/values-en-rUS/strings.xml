@@ -1511,5 +1511,12 @@
     <string name="ztool_app_info_header_copied_message" tools:ignore="UnusedResources">Copied to clipboard</string>
     <string name="system_ui_animation_wallpaper_zoom_title">Wallpaper Zoom</string>
     <string name="system_ui_animation_shade_wallpaper_zoom_title">Wallpaper Zoom Follows Shade</string>
-    <string name="system_ui_animation_shade_wallpaper_zoom_summary">Scale the wallpaper continuously with the control center and notification shade expansion progress. Requires both System Framework and SystemUI scopes; reboot the device to take effect.</string>
+    <string name="system_ui_animation_shade_wallpaper_zoom_summary">Customize wallpaper scaling when pulling down the control center and notification shade. Continuous zoom modes require enabling the System Framework scope and rebooting the device to take effect.</string>
+    <string name="common_wallpaper_zoom_mode_title">Zoom mode</string>
+    <string name="common_wallpaper_zoom_mode_continuous">Continuous zoom (no overshoot)</string>
+    <string name="common_wallpaper_zoom_mode_continuous_bounce">Continuous zoom with overshoot</string>
+    <string name="common_wallpaper_zoom_mode_gesture_start">Zoom on gesture start</string>
+    <string name="common_wallpaper_zoom_mode_disable">Disable zoom</string>
+    <string name="launcher_quickstep_wallpaper_zoom_title">Recents wallpaper zoom</string>
+    <string name="launcher_quickstep_wallpaper_zoom_summary">Customize wallpaper scaling when swiping up to Recents (QuickStep). Continuous zoom modes require enabling the System Framework scope and rebooting the device to take effect.</string>
 </resources>

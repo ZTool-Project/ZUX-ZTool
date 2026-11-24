@@ -43,6 +43,7 @@ import com.qimian233.ztool.ui.components.HighlightController
 import com.qimian233.ztool.ui.components.SettingItem
 import com.qimian233.ztool.ui.components.SettingSection
 import com.qimian233.ztool.ui.components.ZToolDialog
+import com.qimian233.ztool.ui.components.wallpaperZoomModeDropdown
 import com.qimian233.ztool.ui.components.ZToolExtendedFloatingActionButton
 import com.qimian233.ztool.ui.components.ZToolPopupMenuSettingRow
 import com.qimian233.ztool.ui.components.ZToolScaffold
@@ -148,6 +149,8 @@ fun LauncherSettingsRoute(
             onIconScaleValueChanged = viewModel::setIconScaleValue,
             onIconPackEnabledChanged = viewModel::setIconPackEnabled,
             onIconPackPackageChanged = viewModel::setIconPackPackage,
+            onQuickstepWallpaperZoomChanged = viewModel::setQuickstepWallpaperZoom,
+            onQuickstepWallpaperZoomModeChanged = viewModel::setQuickstepWallpaperZoomMode,
             scrollState = scrollState,
             highlightRegistry = highlightRegistry
         )
@@ -239,6 +242,8 @@ private fun LauncherSettingsScreen(
     onIconScaleValueChanged: (Float) -> Unit,
     onIconPackEnabledChanged: (Boolean) -> Unit,
     onIconPackPackageChanged: (String) -> Unit,
+    onQuickstepWallpaperZoomChanged: (Boolean) -> Unit,
+    onQuickstepWallpaperZoomModeChanged: (String) -> Unit,
     scrollState: ScrollState,
     highlightRegistry: HighlightAnchorRegistry,
 ) {
@@ -318,6 +323,8 @@ private fun LauncherSettingsScreen(
                         onIconScaleValueChanged = onIconScaleValueChanged,
                         onIconPackEnabledChanged = onIconPackEnabledChanged,
                         onIconPackPackageChanged = onIconPackPackageChanged,
+                        onQuickstepWallpaperZoomChanged = onQuickstepWallpaperZoomChanged,
+                        onQuickstepWallpaperZoomModeChanged = onQuickstepWallpaperZoomModeChanged,
                     ),
                     bottomPadding = 96.dp,
                     highlightRegistry = highlightRegistry
@@ -365,6 +372,8 @@ private fun launcherSettingsSections(
     onIconScaleValueChanged: (Float) -> Unit,
     onIconPackEnabledChanged: (Boolean) -> Unit,
     onIconPackPackageChanged: (String) -> Unit,
+    onQuickstepWallpaperZoomChanged: (Boolean) -> Unit,
+    onQuickstepWallpaperZoomModeChanged: (String) -> Unit,
 ): List<SettingSection> {
 
     val launcherLayoutItems = buildList {
@@ -727,6 +736,24 @@ private fun launcherSettingsSections(
                     checked = state.removeHotWordView,
                     onCheckedChange = onRemoveHotWordViewChanged,
                     key = "launcher_remove_hot_word_view"
+                )
+            )
+        }
+        add(
+            SettingItem.Switch(
+                title = stringResource(R.string.launcher_quickstep_wallpaper_zoom_title),
+                summary = stringResource(R.string.launcher_quickstep_wallpaper_zoom_summary),
+                checked = state.quickstepWallpaperZoom,
+                onCheckedChange = onQuickstepWallpaperZoomChanged,
+                key = "launcher_quickstep_wallpaper_zoom"
+            )
+        )
+        if (state.quickstepWallpaperZoom) {
+            add(
+                wallpaperZoomModeDropdown(
+                    selectedMode = state.quickstepWallpaperZoomMode,
+                    onModeSelected = onQuickstepWallpaperZoomModeChanged,
+                    key = "launcher_quickstep_wallpaper_zoom_mode"
                 )
             )
         }

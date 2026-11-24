@@ -40,6 +40,7 @@ import com.qimian233.ztool.ui.components.ZToolScaffold
 import com.qimian233.ztool.ui.components.ZToolSettingsList
 import com.qimian233.ztool.ui.components.ZToolTextButton
 import com.qimian233.ztool.ui.components.ZToolTopAppBar
+import com.qimian233.ztool.ui.components.wallpaperZoomModeDropdown
 import com.qimian233.ztool.ui.theme.LocalZToolColorScheme
 import com.qimian233.ztool.data.systemui.AnimationWallpaperSettingsUiState
 import com.qimian233.ztool.viewmodel.AnimationWallpaperSettingsViewModel
@@ -160,6 +161,7 @@ fun AnimationWallpaperSettingsRoute(
             onDesktopLiveWallpaperChanged = viewModel::setDesktopLiveWallpaper,
             onWallpaperScaleModeChanged = viewModel::setWallpaperScaleMode,
             onShadeWallpaperZoomFollowChanged = viewModel::setShadeWallpaperZoomFollow,
+            onShadeWallpaperZoomModeChanged = viewModel::setShadeWallpaperZoomMode,
             onRestartScope = viewModel::showRestartDialog,
             onSelectPortraitVideo = { portraitVideoLauncher.launch(arrayOf("video/*")) },
             onSelectLandVideo = { landVideoLauncher.launch(arrayOf("video/*")) },
@@ -212,6 +214,7 @@ private fun AnimationWallpaperSettingsScreen(
     onDesktopLiveWallpaperChanged: (Boolean) -> Unit,
     onWallpaperScaleModeChanged: (String) -> Unit,
     onShadeWallpaperZoomFollowChanged: (Boolean) -> Unit,
+    onShadeWallpaperZoomModeChanged: (String) -> Unit,
     onRestartScope: () -> Unit,
     onSelectPortraitVideo: () -> Unit,
     onSelectLandVideo: () -> Unit,
@@ -266,6 +269,7 @@ private fun AnimationWallpaperSettingsScreen(
                         onDesktopLiveWallpaperChanged = onDesktopLiveWallpaperChanged,
                         onWallpaperScaleModeChanged = onWallpaperScaleModeChanged,
                         onShadeWallpaperZoomFollowChanged = onShadeWallpaperZoomFollowChanged,
+                        onShadeWallpaperZoomModeChanged = onShadeWallpaperZoomModeChanged,
                         onSelectPortraitVideo = onSelectPortraitVideo,
                         onSelectLandVideo = onSelectLandVideo,
                         onSelectWpPortraitVideo = onSelectWpPortraitVideo,
@@ -290,6 +294,7 @@ private fun animationWallpaperSettingsSections(
     onDesktopLiveWallpaperChanged: (Boolean) -> Unit,
     onWallpaperScaleModeChanged: (String) -> Unit,
     onShadeWallpaperZoomFollowChanged: (Boolean) -> Unit,
+    onShadeWallpaperZoomModeChanged: (String) -> Unit,
     onSelectPortraitVideo: () -> Unit,
     onSelectLandVideo: () -> Unit,
     onSelectWpPortraitVideo: () -> Unit,
@@ -438,15 +443,26 @@ private fun animationWallpaperSettingsSections(
         }
     }
 
-    val wallpaperZoomItems = listOf(
-        SettingItem.Switch(
-            title = stringResource(R.string.system_ui_animation_shade_wallpaper_zoom_title),
-            summary = stringResource(R.string.system_ui_animation_shade_wallpaper_zoom_summary),
-            checked = state.shadeWallpaperZoomFollow,
-            onCheckedChange = onShadeWallpaperZoomFollowChanged,
-            key = "animation_shade_wallpaper_zoom"
+    val wallpaperZoomItems = buildList {
+        add(
+            SettingItem.Switch(
+                title = stringResource(R.string.system_ui_animation_shade_wallpaper_zoom_title),
+                summary = stringResource(R.string.system_ui_animation_shade_wallpaper_zoom_summary),
+                checked = state.shadeWallpaperZoomFollow,
+                onCheckedChange = onShadeWallpaperZoomFollowChanged,
+                key = "animation_shade_wallpaper_zoom"
+            )
         )
-    )
+        if (state.shadeWallpaperZoomFollow) {
+            add(
+                wallpaperZoomModeDropdown(
+                    selectedMode = state.shadeWallpaperZoomMode,
+                    onModeSelected = onShadeWallpaperZoomModeChanged,
+                    key = "animation_shade_wallpaper_zoom_mode"
+                )
+            )
+        }
+    }
 
     return listOf(
         SettingSection(
