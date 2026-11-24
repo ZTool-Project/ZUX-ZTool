@@ -26,7 +26,7 @@ import kotlin.math.min
  * Non-touchable SystemUI overlay that crossfades a scaled freeform window into a pixel-matched
  * edge-bubble capsule before handing off to EdgeBubbleView.
  */
-@SuppressLint("ViewConstructor")
+@SuppressLint("ViewConstructor", "PrivateApi")
 class EdgeDockMorphOverlay(
     context: Context,
     private val fullLayout: EdgeBubbleGeometry.FullBubbleLayout,
@@ -104,6 +104,13 @@ class EdgeDockMorphOverlay(
                 WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
             x = winLeft
             y = winTop
+            alpha = 1f
+            title = "ZToolEdgeDockMorph"
+            runCatching {
+                WindowManager.LayoutParams::class.java
+                    .getMethod("setTrustedOverlay")
+                    .invoke(this)
+            }
         }
     }
 

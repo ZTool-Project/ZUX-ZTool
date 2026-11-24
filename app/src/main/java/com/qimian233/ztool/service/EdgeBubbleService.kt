@@ -179,6 +179,12 @@ class EdgeBubbleService : Service() {
                 offRight >= triggerWidth -> 1
                 else -> -1
             }
+            if (side < 0 &&
+                (bubbles.containsKey(task.taskId) || pendingBubbleAdds.contains(task.taskId)) &&
+                !restoreHandoffTimers.containsKey(task.taskId)
+            ) {
+                removeBubble(task.taskId)
+            }
             val cooledDown = now - (restoredAt[task.taskId] ?: 0L) >= RESTORE_COOLDOWN_MS
             if (side >= 0 &&
                 !bubbles.containsKey(task.taskId) &&
@@ -219,11 +225,16 @@ class EdgeBubbleService : Service() {
         )
 
     private fun reconcileExisting() {
-        if (bubbles.isNotEmpty()) return
-        FreeformBubbleBridge.listMinimized { tasks ->
-            mainHandler.post {
-                for (task in tasks) {
-                    addBubble(task.taskId, task.side, task.packageName)
+        if (bubbles.isNotEmpty() || pendingBubbleAdds.isNotEmpty()) return
+        FreeformBubbleBridge.listFreeformTasks { freeformTasks ->
+            val liveHiddenById = freeformTasks.filter { it.hidden }.associateBy { it.taskId }
+            if (liveHiddenById.isEmpty()) return@listFreeformTasks
+            FreeformBubbleBridge.listMinimized { tasks ->
+                mainHandler.post {
+                    for (task in tasks) {
+                        val live = liveHiddenById[task.taskId] ?: continue
+                        addBubble(task.taskId, task.side, live.packageName ?: task.packageName)
+                    }
                 }
             }
         }

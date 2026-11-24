@@ -22,7 +22,7 @@ import kotlin.math.roundToInt
  * Non-touchable SystemUI overlay that expands the bubble rounded rectangle and app icon
  * to the restored freeform bounds, then dissolves to reveal the live window underneath.
  */
-@SuppressLint("ViewConstructor")
+@SuppressLint("ViewConstructor", "PrivateApi")
 class EdgeRestoreMorphOverlay(
     context: Context,
     bubbleRect: Rect,
@@ -75,6 +75,13 @@ class EdgeRestoreMorphOverlay(
                 WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
             x = winLeft
             y = winTop
+            alpha = 1f
+            title = "ZToolEdgeRestoreMorph"
+            runCatching {
+                WindowManager.LayoutParams::class.java
+                    .getMethod("setTrustedOverlay")
+                    .invoke(this)
+            }
         }
     }
 

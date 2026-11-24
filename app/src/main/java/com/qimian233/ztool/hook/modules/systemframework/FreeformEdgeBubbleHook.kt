@@ -242,17 +242,12 @@ class FreeformEdgeBubbleHook : SystemHookModule() {
                     result = if (withTaskHandles(classLoader) { doRestore(it, taskId) } == true) 1 else 0
                 }
                 CMD_LIST_MINIMIZED -> {
-                    val bundle = Bundle()
-                    val taskIds = IntArray(minimizedSides.size)
-                    val sides = IntArray(minimizedSides.size)
-                    var i = 0
-                    for ((taskId, side) in minimizedSides) {
-                        taskIds[i] = taskId
-                        sides[i] = side
-                        i++
-                    }
-                    bundle.putIntArray("task_ids", taskIds)
-                    bundle.putIntArray("sides", sides)
+                    val bundle = withTaskHandles(classLoader) { collectLiveMinimized(it) }
+                        ?: Bundle().apply {
+                            val snapshot = minimizedSides.entries.toList()
+                            putIntArray("task_ids", snapshot.map { it.key }.toIntArray())
+                            putIntArray("sides", snapshot.map { it.value }.toIntArray())
+                        }
                     result = 1
                     extras = bundle
                 }
@@ -817,6 +812,49 @@ class FreeformEdgeBubbleHook : SystemHookModule() {
         } catch (t: Throwable) {
             logger.warn("collectFreeformTaskInfos failed: ${t.message}")
             null
+        }
+    }
+
+    private fun collectLiveMinimized(handles: AtmsHandles): Bundle {
+        val getMode = try {
+            handles.taskClass.getMethod("getWindowingMode")
+        } catch (_: Throwable) {
+            null
+        }
+        val isVisible = try {
+            handles.taskClass.getMethod("isVisible")
+        } catch (_: Throwable) {
+            null
+        }
+        val taskIds = ArrayList<Int>(minimizedSides.size)
+        val sides = ArrayList<Int>(minimizedSides.size)
+        for ((taskId, side) in minimizedSides.entries.toList()) {
+            val task = findTask(handles, taskId)
+            val mode = if (task != null) {
+                try { getMode?.invoke(task) as? Int } catch (_: Throwable) { null }
+            } else {
+                null
+            }
+            val visible = if (task != null && handles.moveTaskToBack != null) {
+                try { isVisible?.invoke(task) as? Boolean } catch (_: Throwable) { null }
+            } else {
+                null
+            }
+            if (task == null ||
+                (mode != null && mode != WINDOWING_MODE_FREEFORM) ||
+                visible == true
+            ) {
+                minimizedSides.remove(taskId)
+                restoreRects.remove(taskId)
+                taskPackages.remove(taskId)
+                continue
+            }
+            taskIds.add(taskId)
+            sides.add(side)
+        }
+        return Bundle().apply {
+            putIntArray("task_ids", taskIds.toIntArray())
+            putIntArray("sides", sides.toIntArray())
         }
     }
 
