@@ -454,4 +454,147 @@ class FreeformAnimCurvesTest {
         assertEquals(1f, end.overlayScale, 1e-5f)
         assertEquals(1f, end.padExtension, 1e-5f)
     }
+
+    @Test
+    fun computeRestoreMorphFrame_expandsDetachesGrowsIconAndRevealsWindow() {
+        val density = 2.5f
+        val layout = EdgeBubbleGeometry.computeFullLayout(
+            side = EdgeBubbleGeometry.SIDE_RIGHT,
+            centerYRatio = 0.5f,
+            displayWidth = 3200,
+            displayHeight = 2000,
+            density = density
+        )
+        val bubble = layout.containerRect
+        val startIcon = layout.iconRect
+        val targetLeft = 1800f
+        val targetTop = 260f
+        val targetRight = 2800f
+        val targetBottom = 1760f
+        val startCorner = EdgeBubbleGeometry.CONTAINER_RADIUS_DP * density
+        val endCorner = 24f * density
+
+        val t0 = FreeformAnimCurves.computeRestoreMorphFrame(
+            bubbleLeft = bubble.left.toFloat(),
+            bubbleTop = bubble.top.toFloat(),
+            bubbleRight = bubble.right.toFloat(),
+            bubbleBottom = bubble.bottom.toFloat(),
+            startIconCenterX = startIcon.exactCenterX,
+            startIconCenterY = startIcon.exactCenterY,
+            startIconSizePx = startIcon.width.toFloat(),
+            targetLeft = targetLeft,
+            targetTop = targetTop,
+            targetRight = targetRight,
+            targetBottom = targetBottom,
+            startCornerPx = startCorner,
+            endCornerPx = endCorner,
+            density = density,
+            rawTimeFraction = 0f
+        )
+        assertEquals(bubble.left.toFloat(), t0.left, 1e-3f)
+        assertEquals(bubble.right.toFloat(), t0.right, 1e-3f)
+        assertEquals(120f, t0.iconSizePx, 1e-3f)
+        assertEquals(startIcon.exactCenterX, t0.iconCenterX, 1e-3f)
+        assertEquals(startIcon.exactCenterY, t0.iconCenterY, 1e-3f)
+        assertEquals(0f, t0.windowAlpha, 1e-5f)
+        assertEquals(1f, t0.maskAlpha, 1e-5f)
+
+        val tQuarter = FreeformAnimCurves.computeRestoreMorphFrame(
+            bubbleLeft = bubble.left.toFloat(),
+            bubbleTop = bubble.top.toFloat(),
+            bubbleRight = bubble.right.toFloat(),
+            bubbleBottom = bubble.bottom.toFloat(),
+            startIconCenterX = startIcon.exactCenterX,
+            startIconCenterY = startIcon.exactCenterY,
+            startIconSizePx = startIcon.width.toFloat(),
+            targetLeft = targetLeft,
+            targetTop = targetTop,
+            targetRight = targetRight,
+            targetBottom = targetBottom,
+            startCornerPx = startCorner,
+            endCornerPx = endCorner,
+            density = density,
+            rawTimeFraction = 0.25f
+        )
+        assertTrue(
+            "Expected right edge ${tQuarter.right} to detach onscreen (< 3200f)",
+            tQuarter.right < 3200f
+        )
+        assertTrue("Expected icon size ${tQuarter.iconSizePx} > 120f", tQuarter.iconSizePx > 120f)
+        assertEquals(0f, tQuarter.windowAlpha, 1e-5f)
+        assertEquals(1f, tQuarter.maskAlpha, 1e-5f)
+
+        val tPrep = FreeformAnimCurves.computeRestoreMorphFrame(
+            bubbleLeft = bubble.left.toFloat(),
+            bubbleTop = bubble.top.toFloat(),
+            bubbleRight = bubble.right.toFloat(),
+            bubbleBottom = bubble.bottom.toFloat(),
+            startIconCenterX = startIcon.exactCenterX,
+            startIconCenterY = startIcon.exactCenterY,
+            startIconSizePx = startIcon.width.toFloat(),
+            targetLeft = targetLeft,
+            targetTop = targetTop,
+            targetRight = targetRight,
+            targetBottom = targetBottom,
+            startCornerPx = startCorner,
+            endCornerPx = endCorner,
+            density = density,
+            rawTimeFraction = 0.68f
+        )
+        assertEquals(1f, tPrep.windowAlpha, 1e-5f)
+        assertEquals(1f, tPrep.maskAlpha, 1e-5f)
+
+        val tFade = FreeformAnimCurves.computeRestoreMorphFrame(
+            bubbleLeft = bubble.left.toFloat(),
+            bubbleTop = bubble.top.toFloat(),
+            bubbleRight = bubble.right.toFloat(),
+            bubbleBottom = bubble.bottom.toFloat(),
+            startIconCenterX = startIcon.exactCenterX,
+            startIconCenterY = startIcon.exactCenterY,
+            startIconSizePx = startIcon.width.toFloat(),
+            targetLeft = targetLeft,
+            targetTop = targetTop,
+            targetRight = targetRight,
+            targetBottom = targetBottom,
+            startCornerPx = startCorner,
+            endCornerPx = endCorner,
+            density = density,
+            rawTimeFraction = 0.85f
+        )
+        assertEquals(1f, tFade.windowAlpha, 1e-5f)
+        assertTrue(
+            "Expected dissolving maskAlpha in (0, 1), got ${tFade.maskAlpha}",
+            tFade.maskAlpha in 0.01f..0.99f
+        )
+
+        val tEnd = FreeformAnimCurves.computeRestoreMorphFrame(
+            bubbleLeft = bubble.left.toFloat(),
+            bubbleTop = bubble.top.toFloat(),
+            bubbleRight = bubble.right.toFloat(),
+            bubbleBottom = bubble.bottom.toFloat(),
+            startIconCenterX = startIcon.exactCenterX,
+            startIconCenterY = startIcon.exactCenterY,
+            startIconSizePx = startIcon.width.toFloat(),
+            targetLeft = targetLeft,
+            targetTop = targetTop,
+            targetRight = targetRight,
+            targetBottom = targetBottom,
+            startCornerPx = startCorner,
+            endCornerPx = endCorner,
+            density = density,
+            rawTimeFraction = 1f
+        )
+        assertEquals(targetLeft, tEnd.left, 1e-2f)
+        assertEquals(targetTop, tEnd.top, 1e-2f)
+        assertEquals(targetRight, tEnd.right, 1e-2f)
+        assertEquals(targetBottom, tEnd.bottom, 1e-2f)
+        assertEquals((targetLeft + targetRight) / 2f, tEnd.iconCenterX, 1e-2f)
+        assertEquals((targetTop + targetBottom) / 2f, tEnd.iconCenterY, 1e-2f)
+        assertTrue(
+            "Expected scaled icon size > 1.4x start, got ${tEnd.iconSizePx}",
+            tEnd.iconSizePx > 120f * 1.4f
+        )
+        assertEquals(1f, tEnd.windowAlpha, 1e-5f)
+        assertEquals(0f, tEnd.maskAlpha, 1e-5f)
+    }
 }

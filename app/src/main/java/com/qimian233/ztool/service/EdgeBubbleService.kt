@@ -294,26 +294,37 @@ class EdgeBubbleService : Service() {
                         )
                         if (nonlinearEnabled) {
                             val currentView = bubbles[taskId]
-                            currentView?.markRestoring()
-                            val frozenRect = currentView?.currentBubbleScreenRect() ?: bubbleRect
-                            scheduleRestoreHandoffFallback(
-                                taskId,
-                                RESTORE_HANDOFF_TIMEOUT_MS + RESTORE_HINT_IPC_BUFFER_MS
-                            )
-                            FreeformBubbleBridge.notifySystemUiRestoreHint(
-                                taskId,
-                                frozenRect,
-                                side
-                            ) { accepted ->
-                                if (accepted) {
+                            if (currentView != null) {
+                                currentView.expandToFullForRestore { fullRect ->
+                                    restoredAt[taskId] = SystemClock.elapsedRealtime()
                                     scheduleRestoreHandoffFallback(
                                         taskId,
-                                        RESTORE_HANDOFF_TIMEOUT_MS
+                                        RESTORE_HANDOFF_TIMEOUT_MS + RESTORE_HINT_IPC_BUFFER_MS
                                     )
-                                } else {
-                                    finishBubbleRestoreHandoff(taskId)
+                                    FreeformBubbleBridge.notifySystemUiRestoreHint(
+                                        taskId,
+                                        fullRect,
+                                        side
+                                    ) { accepted ->
+                                        if (accepted) {
+                                            scheduleRestoreHandoffFallback(
+                                                taskId,
+                                                RESTORE_HANDOFF_TIMEOUT_MS
+                                            )
+                                        } else {
+                                            finishBubbleRestoreHandoff(taskId)
+                                        }
+                                        FreeformBubbleBridge.restoreTask(taskId)
+                                    }
                                 }
-                                FreeformBubbleBridge.restoreTask(taskId)
+                            } else {
+                                FreeformBubbleBridge.notifySystemUiRestoreHint(
+                                    taskId,
+                                    bubbleRect,
+                                    side
+                                ) {
+                                    FreeformBubbleBridge.restoreTask(taskId)
+                                }
                             }
                         } else {
                             FreeformBubbleBridge.restoreTask(taskId)

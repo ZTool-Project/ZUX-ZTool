@@ -28,6 +28,7 @@ import android.view.animation.AlphaAnimation
 import android.view.animation.Animation
 import android.view.animation.AnimationSet
 import android.view.animation.Interpolator
+import android.view.animation.LinearInterpolator
 import android.view.animation.ScaleAnimation
 import com.qimian233.ztool.data.freeform.EdgeBubbleGeometry
 import com.qimian233.ztool.data.freeform.FreeformAnimContract
@@ -297,6 +298,7 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
     private val activeAnimators = ConcurrentHashMap<Int, ValueAnimator>()
     private val activeDockOverlays = ConcurrentHashMap<Int, EdgeDockMorphOverlay>()
     private val dockOverlayTimeouts = ConcurrentHashMap<Int, Runnable>()
+    private val activeRestoreOverlays = ConcurrentHashMap<Int, EdgeRestoreMorphOverlay>()
     private val activelyRestoringTasks = ConcurrentHashMap.newKeySet<Int>()
     private val lastVisibleByTaskId = ConcurrentHashMap<Int, Boolean>()
     private val dragVelocityByTask = ConcurrentHashMap<Int, DragVelocityState>()
@@ -956,6 +958,7 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
         val runnable = Runnable {
             activeAnimators.remove(taskId)?.cancel()
             dismissDockMorphOverlay(taskId)
+            dismissRestoreMorphOverlay(taskId)
             val overlay = if (overlayContext != null) {
                 EdgeDockMorphOverlay(
                     context = overlayContext,
@@ -1116,6 +1119,17 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
         val dismissBlock = Runnable {
             dockOverlayTimeouts.remove(taskId)?.let { mainHandler.removeCallbacks(it) }
             activeDockOverlays.remove(taskId)?.dismiss()
+        }
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            dismissBlock.run()
+        } else {
+            mainHandler.post(dismissBlock)
+        }
+    }
+
+    private fun dismissRestoreMorphOverlay(taskId: Int) {
+        val dismissBlock = Runnable {
+            activeRestoreOverlays.remove(taskId)?.dismiss()
         }
         if (Looper.myLooper() == Looper.getMainLooper()) {
             dismissBlock.run()
@@ -1725,7 +1739,6 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
         onFinished: (() -> Unit)?,
         taskReflect: TaskInfoReflect
     ) {
-        activeAnimators.remove(taskId)?.cancel()
         activelyRestoringTasks.add(taskId)
 
         val (baseScaleX, baseScaleY) = resolveBaseScales(taskInfo, taskReflect, preferHanging = false)
@@ -1755,8 +1768,46 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
         val bubbleCy = hint.bubbleRect.exactCenterY()
 
         val density = Resources.getSystem().displayMetrics.density
-        val startCorner = BUBBLE_CORNER_RADIUS_DP * density
+        val startCorner = EdgeBubbleGeometry.CONTAINER_RADIUS_DP * density
         val endCorner = DEFAULT_WINDOW_CORNER_RADIUS_DP * density
+        val iconPx = (EdgeBubbleGeometry.ICON_SIZE_DP * density).toInt().coerceAtLeast(1)
+        val innerPx = (EdgeBubbleGeometry.INNER_MARGIN_DP * density).toInt()
+        val screenMarginPx = (EdgeBubbleGeometry.SCREEN_MARGIN_DP * density).toInt()
+        val startIconLeft = hint.bubbleRect.left + if (hint.side == EdgeBubbleGeometry.SIDE_LEFT) {
+            screenMarginPx + innerPx
+        } else {
+            innerPx
+        }
+        val startIconTop = hint.bubbleRect.top + innerPx
+        val startIconCx = startIconLeft + iconPx / 2f
+        val startIconCy = startIconTop + iconPx / 2f
+        val targetVisualRight = targetRect.left + logicalW * baseScaleX
+        val targetVisualBottom = targetRect.top + logicalH * baseScaleY
+        val targetVisualRect = Rect(
+            targetRect.left,
+            targetRect.top,
+            kotlin.math.ceil(targetVisualRight.toDouble()).toInt(),
+            kotlin.math.ceil(targetVisualBottom.toDouble()).toInt()
+        )
+        val initialMorph = FreeformAnimCurves.computeRestoreMorphFrame(
+            bubbleLeft = hint.bubbleRect.left.toFloat(),
+            bubbleTop = hint.bubbleRect.top.toFloat(),
+            bubbleRight = hint.bubbleRect.right.toFloat(),
+            bubbleBottom = hint.bubbleRect.bottom.toFloat(),
+            startIconCenterX = startIconCx,
+            startIconCenterY = startIconCy,
+            startIconSizePx = iconPx.toFloat(),
+            targetLeft = targetRect.left.toFloat(),
+            targetTop = targetRect.top.toFloat(),
+            targetRight = targetVisualRight,
+            targetBottom = targetVisualBottom,
+            startCornerPx = startCorner,
+            endCornerPx = endCorner,
+            density = density,
+            rawTimeFraction = 0f
+        )
+        val overlayContext = resolveOverlayContext(taskReflect.displayId(taskInfo))
+        val appIcon = overlayContext?.let { loadTaskAppIcon(it, taskInfo) }
 
         val startFrame = FreeformAnimCurves.computeExpandFrame(
             bubbleCenterX = bubbleCx,
@@ -1772,12 +1823,21 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
             progress = 0f
         )
         if (startT != null && leash.isValid) {
-            startT.setScale(leash, startFrame.scaleX, startFrame.scaleY)
-            startT.setPosition(leash, startFrame.posX, startFrame.posY)
-            startT.setAlpha(leash, RESTORE_START_ALPHA)
-            taskReflect.setCornerRadius(startT, leash, startCorner)
-            taskReflect.showSurface(startT, leash)
-            startT.apply()
+            if (overlayContext != null) {
+                startT.setScale(leash, baseScaleX, baseScaleY)
+                startT.setPosition(leash, targetRect.left.toFloat(), targetRect.top.toFloat())
+                startT.setAlpha(leash, 0f)
+                taskReflect.setCornerRadius(startT, leash, endCorner)
+                taskReflect.showSurface(startT, leash)
+                startT.apply()
+            } else {
+                startT.setScale(leash, startFrame.scaleX, startFrame.scaleY)
+                startT.setPosition(leash, startFrame.posX, startFrame.posY)
+                startT.setAlpha(leash, RESTORE_START_ALPHA)
+                taskReflect.setCornerRadius(startT, leash, startCorner)
+                taskReflect.showSurface(startT, leash)
+                startT.apply()
+            }
         }
         if (finishT != null && leash.isValid) {
             finishT.setScale(leash, baseScaleX, baseScaleY)
@@ -1787,6 +1847,147 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
         }
 
         val runnable = Runnable {
+            activeAnimators.remove(taskId)?.cancel()
+            dismissDockMorphOverlay(taskId)
+            dismissRestoreMorphOverlay(taskId)
+
+            val overlay = if (overlayContext != null) {
+                EdgeRestoreMorphOverlay(
+                    context = overlayContext,
+                    bubbleRect = hint.bubbleRect,
+                    targetRect = targetVisualRect,
+                    appIcon = appIcon,
+                    initialFrame = initialMorph,
+                    density = density
+                ).takeIf { it.show() }
+            } else {
+                null
+            }
+            if (overlay != null) {
+                activeRestoreOverlays[taskId] = overlay
+                var handoffSent = false
+                overlay.postOnAnimation {
+                    if (!activelyRestoringTasks.contains(taskId)) {
+                        activeRestoreOverlays.remove(taskId, overlay)
+                        overlay.dismiss()
+                        if (!handoffSent) {
+                            handoffSent = true
+                            sendBubbleHideHandoff(taskId)
+                        }
+                        return@postOnAnimation
+                    }
+                    if (!handoffSent) {
+                        handoffSent = true
+                        sendBubbleHideHandoff(taskId)
+                    }
+                    val tx = SurfaceControl.Transaction()
+                    var cancelled = false
+                    val animator = ValueAnimator.ofFloat(0f, 1f).apply {
+                        duration = FreeformAnimCurves.RESTORE_DURATION_MS
+                        interpolator = LinearInterpolator()
+                        addUpdateListener { anim ->
+                            val rawT = anim.animatedValue as Float
+                            val morph = FreeformAnimCurves.computeRestoreMorphFrame(
+                                bubbleLeft = hint.bubbleRect.left.toFloat(),
+                                bubbleTop = hint.bubbleRect.top.toFloat(),
+                                bubbleRight = hint.bubbleRect.right.toFloat(),
+                                bubbleBottom = hint.bubbleRect.bottom.toFloat(),
+                                startIconCenterX = startIconCx,
+                                startIconCenterY = startIconCy,
+                                startIconSizePx = iconPx.toFloat(),
+                                targetLeft = targetRect.left.toFloat(),
+                                targetTop = targetRect.top.toFloat(),
+                                targetRight = targetVisualRight,
+                                targetBottom = targetVisualBottom,
+                                startCornerPx = startCorner,
+                                endCornerPx = endCorner,
+                                density = density,
+                                rawTimeFraction = rawT
+                            )
+                            overlay.update(morph)
+                            if (!leash.isValid) return@addUpdateListener
+                            if (morph.windowAlpha > 0f) {
+                                val frame = FreeformAnimCurves.computeExpandFrame(
+                                    bubbleCenterX = bubbleCx,
+                                    bubbleCenterY = bubbleCy,
+                                    bubbleWidth = bubbleW,
+                                    bubbleHeight = bubbleH,
+                                    targetLeft = targetRect.left.toFloat(),
+                                    targetTop = targetRect.top.toFloat(),
+                                    logicalWidth = logicalW,
+                                    logicalHeight = logicalH,
+                                    baseScaleX = baseScaleX,
+                                    baseScaleY = baseScaleY,
+                                    progress = morph.springProgress
+                                )
+                                tx.setScale(leash, frame.scaleX, frame.scaleY)
+                                tx.setPosition(leash, frame.posX, frame.posY)
+                                tx.setAlpha(leash, morph.windowAlpha)
+                                taskReflect.setCornerRadius(tx, leash, endCorner)
+                                tx.apply()
+                            } else {
+                                tx.setAlpha(leash, 0f)
+                                tx.apply()
+                            }
+                        }
+                        addListener(object : AnimatorListenerAdapter() {
+                            override fun onAnimationCancel(animation: Animator) {
+                                cancelled = true
+                                activeAnimators.remove(taskId, animation)
+                                activelyRestoringTasks.remove(taskId)
+                                dismissRestoreMorphOverlay(taskId)
+                                if (leash.isValid) {
+                                    SurfaceControl.Transaction().apply {
+                                        setScale(leash, baseScaleX, baseScaleY)
+                                        setPosition(
+                                            leash,
+                                            targetRect.left.toFloat(),
+                                            targetRect.top.toFloat()
+                                        )
+                                        setAlpha(leash, 1f)
+                                        taskReflect.setCornerRadius(this, leash, endCorner)
+                                        apply()
+                                    }
+                                }
+                                if (!handoffSent) {
+                                    handoffSent = true
+                                    sendBubbleHideHandoff(taskId)
+                                }
+                            }
+
+                            override fun onAnimationEnd(animation: Animator) {
+                                activeAnimators.remove(taskId, animation)
+                                activelyRestoringTasks.remove(taskId)
+                                if (!handoffSent) {
+                                    handoffSent = true
+                                    sendBubbleHideHandoff(taskId)
+                                }
+                                if (!cancelled) {
+                                    if (leash.isValid) {
+                                        SurfaceControl.Transaction().apply {
+                                            setScale(leash, baseScaleX, baseScaleY)
+                                            setPosition(
+                                                leash,
+                                                targetRect.left.toFloat(),
+                                                targetRect.top.toFloat()
+                                            )
+                                            setAlpha(leash, 1f)
+                                            taskReflect.setCornerRadius(this, leash, endCorner)
+                                            apply()
+                                        }
+                                    }
+                                    dismissRestoreMorphOverlay(taskId)
+                                    onFinished?.invoke()
+                                }
+                            }
+                        })
+                    }
+                    activeAnimators[taskId] = animator
+                    animator.start()
+                }
+                return@Runnable
+            }
+
             val tx = SurfaceControl.Transaction()
             var cancelled = false
             var bubbleHideSent = false

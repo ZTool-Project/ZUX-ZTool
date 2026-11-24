@@ -25,8 +25,8 @@ object FreeformAnimCurves {
 
     const val OPEN_SPRING_DAMPING = 0.78f
     const val OPEN_SPRING_OMEGA = 15.5f
-    const val RESTORE_SPRING_DAMPING = 0.78f
-    const val RESTORE_SPRING_OMEGA = 15.0f
+    const val RESTORE_SPRING_DAMPING = 0.80f
+    const val RESTORE_SPRING_OMEGA = 10.5f
     const val SNAP_BACK_SPRING_DAMPING = 0.88f
     const val SNAP_BACK_SPRING_OMEGA = 17.5f
 
@@ -68,6 +68,12 @@ object FreeformAnimCurves {
     const val EDGE_DOCK_OVERLAY_START_SCALE = 1.85f
     const val EDGE_DOCK_PAD_EXTEND_START = 0.55f
     const val EDGE_DOCK_PAD_EXTEND_END = 1.00f
+    const val RESTORE_WINDOW_REVEAL_PREP_T = 0.65f
+    const val RESTORE_MASK_FADE_START_T = 0.72f
+    const val RESTORE_MASK_FADE_END_T = 1.00f
+    const val RESTORE_ICON_END_RATIO = 0.28f
+    const val RESTORE_ICON_MAX_DP = 104f
+    const val RESTORE_ICON_MIN_SCALE = 1.4f
 
     data class TransformFrame(
         val posX: Float,
@@ -81,6 +87,20 @@ object FreeformAnimCurves {
         val overlayAlpha: Float,
         val overlayScale: Float,
         val padExtension: Float
+    )
+
+    data class RestoreMorphFrame(
+        val left: Float,
+        val top: Float,
+        val right: Float,
+        val bottom: Float,
+        val cornerRadiusPx: Float,
+        val iconCenterX: Float,
+        val iconCenterY: Float,
+        val iconSizePx: Float,
+        val windowAlpha: Float,
+        val maskAlpha: Float,
+        val springProgress: Float
     )
 
     class SpringInterpolator(
@@ -245,6 +265,65 @@ object FreeformAnimCurves {
             overlayAlpha = overlayAlpha,
             overlayScale = overlayScale,
             padExtension = padExtension
+        )
+    }
+
+    /**
+     * Computes nonlinear rounded-rect mask expansion, icon scaling, and dissolve alpha at
+     * normalized time [rawTimeFraction].
+     */
+    fun computeRestoreMorphFrame(
+        bubbleLeft: Float,
+        bubbleTop: Float,
+        bubbleRight: Float,
+        bubbleBottom: Float,
+        startIconCenterX: Float,
+        startIconCenterY: Float,
+        startIconSizePx: Float,
+        targetLeft: Float,
+        targetTop: Float,
+        targetRight: Float,
+        targetBottom: Float,
+        startCornerPx: Float,
+        endCornerPx: Float,
+        density: Float,
+        rawTimeFraction: Float
+    ): RestoreMorphFrame {
+        val t = rawTimeFraction.coerceIn(0f, 1f)
+        val p = evaluateSpring(t, RESTORE_SPRING_DAMPING, RESTORE_SPRING_OMEGA)
+        val left = bubbleLeft + (targetLeft - bubbleLeft) * p
+        val top = bubbleTop + (targetTop - bubbleTop) * p
+        val right = bubbleRight + (targetRight - bubbleRight) * p
+        val bottom = bubbleBottom + (targetBottom - bubbleBottom) * p
+        val cornerRadiusPx = startCornerPx + (endCornerPx - startCornerPx) * p.coerceIn(0f, 1f)
+        val targetCx = (targetLeft + targetRight) / 2f
+        val targetCy = (targetTop + targetBottom) / 2f
+        val iconCenterX = startIconCenterX + (targetCx - startIconCenterX) * p
+        val iconCenterY = startIconCenterY + (targetCy - startIconCenterY) * p
+        val targetMinDim = minOf(
+            (targetRight - targetLeft).coerceAtLeast(1f),
+            (targetBottom - targetTop).coerceAtLeast(1f)
+        )
+        val safeStartIcon = startIconSizePx.coerceAtLeast(1f)
+        val endIconSize = minOf(
+            targetMinDim * RESTORE_ICON_END_RATIO,
+            RESTORE_ICON_MAX_DP * density.coerceAtLeast(0.5f)
+        ).coerceAtLeast(safeStartIcon * RESTORE_ICON_MIN_SCALE)
+        val iconSizePx = (safeStartIcon + (endIconSize - safeStartIcon) * p).coerceAtLeast(1f)
+        val windowAlpha = if (t >= RESTORE_WINDOW_REVEAL_PREP_T) 1f else 0f
+        val maskAlpha = 1f - smoothstep(RESTORE_MASK_FADE_START_T, RESTORE_MASK_FADE_END_T, t)
+        return RestoreMorphFrame(
+            left = left,
+            top = top,
+            right = right,
+            bottom = bottom,
+            cornerRadiusPx = cornerRadiusPx,
+            iconCenterX = iconCenterX,
+            iconCenterY = iconCenterY,
+            iconSizePx = iconSizePx,
+            windowAlpha = windowAlpha,
+            maskAlpha = maskAlpha,
+            springProgress = p
         )
     }
 

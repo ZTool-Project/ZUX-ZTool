@@ -1,5 +1,7 @@
 package com.qimian233.ztool.service
 
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.Canvas
@@ -112,6 +114,7 @@ class EdgeBubbleView(
     private var removed = false
     private var modeAnimator: ValueAnimator? = null
     private var snapAnimator: ValueAnimator? = null
+    private var restoreExpandAnimator: ValueAnimator? = null
     private var appIcon: Drawable? = null
 
     val layoutParams: WindowManager.LayoutParams = WindowManager.LayoutParams().apply {
@@ -272,15 +275,57 @@ class EdgeBubbleView(
         return Rect(left, top, left + containerWpx, top + containerHpx)
     }
 
-    /** Freezes touches and keeps the bubble crisp while the window expands from it. */
-    fun markRestoring() {
+    /** Screen rect when the bubble is settled in FULL mode (`translationX == 0f`). */
+    fun fullBubbleScreenRect(): Rect {
+        val left = (layoutParams.x + containerOriginX()).toInt()
+        val top = layoutParams.y
+        return Rect(left, top, left + containerWpx, top + containerHpx)
+    }
+
+    /** Expands the bubble to FULL if collapsed, then invokes [onExpanded] with its rect. */
+    fun expandToFullForRestore(onExpanded: (Rect) -> Unit) {
         if (exiting || removed) return
         exiting = true
+        mode = MODE_FULL
         mainHandler.removeCallbacksAndMessages(null)
         modeAnimator?.cancel()
         snapAnimator?.cancel()
+        restoreExpandAnimator?.cancel()
         animate().setListener(null).cancel()
-        alpha = 1f
+        val fromTx = translationX
+        val fromAlpha = alpha
+        if (abs(fromTx) < 1f && fromAlpha >= 0.98f) {
+            translationX = 0f
+            alpha = 1f
+            onExpanded(fullBubbleScreenRect())
+            return
+        }
+        val frac = (abs(fromTx) / modeShiftPx.coerceAtLeast(1)).coerceIn(0.35f, 1f)
+        var cancelled = false
+        restoreExpandAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = (MODE_ANIM_MS * frac).toLong().coerceIn(80L, MODE_ANIM_MS)
+            interpolator = OvershootInterpolator(0.6f)
+            addUpdateListener { anim ->
+                val t = anim.animatedValue as Float
+                translationX = fromTx * (1f - t)
+                alpha = (fromAlpha + (1f - fromAlpha) * t.coerceIn(0f, 1f)).coerceIn(0f, 1f)
+            }
+            addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationCancel(animation: Animator) {
+                    cancelled = true
+                    if (restoreExpandAnimator === animation) restoreExpandAnimator = null
+                }
+
+                override fun onAnimationEnd(animation: Animator) {
+                    if (restoreExpandAnimator === animation) restoreExpandAnimator = null
+                    if (cancelled || removed) return
+                    translationX = 0f
+                    alpha = 1f
+                    onExpanded(fullBubbleScreenRect())
+                }
+            })
+            start()
+        }
     }
 
     fun release() {
@@ -288,6 +333,10 @@ class EdgeBubbleView(
         mainHandler.removeCallbacksAndMessages(null)
         modeAnimator?.cancel()
         snapAnimator?.cancel()
+        restoreExpandAnimator?.cancel()
+        modeAnimator = null
+        snapAnimator = null
+        restoreExpandAnimator = null
         animate().setListener(null).cancel()
     }
 
