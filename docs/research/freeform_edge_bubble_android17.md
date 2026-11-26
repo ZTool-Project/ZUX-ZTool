@@ -40,3 +40,10 @@ On Android 17 (ZUXOS 2.5):
   3. `doMinimize` saved `task.getBounds()` instead of `mScaleSurfaceBounds`.
   4. `doRestore` called `task.setBounds(target)`, which is a no-op when `hasUniformScaleSurface()` is true and never updated `mScaleSurfaceBounds`.
   5. `FreeformEdgeBubbleDragLimitHook` (on legacy path) used `windowConfiguration.getBounds().width()` instead of `scaleSurfaceBounds.width()`.
+
+## 4. Non-Transition Restore Z-Ordering Over Fullscreen Tasks
+
+- Docking a freeform task via `Task.moveTaskToBack` runs a `TRANSIT_TO_BACK` Shell Transition whose finish transaction hides the task `SurfaceControl` and places it low in `TaskDisplayArea` (`mTmpNormalChildren`, e.g., `z = 1` above Home `z = 0`). Opening another app fullscreen afterward assigns that fullscreen task a higher SurfaceFlinger layer (`z >= 2`).
+- `FreeformEdgeBubbleHook.doRestore` calls `OvfWmHideShowController.bringToFront(task, "ztool_freeform_bubble", null, null)` without creating a `Transition`. Although `bringToFront` sets `alwaysOnTop = true`, reorders `TaskDisplayArea.mChildren`, and resumes the task, `TaskDisplayArea.assignRootTaskOrdering(SurfaceControl.Transaction)` only reassigns SurfaceFlinger layers when `transitionController.mBuildingTransitionLayers || !transitionController.isShellTransitionsEnabled()`.
+- Consequently, over Launcher (`z = 0 < 1`) the restored task appeared immediately, whereas over another fullscreen app (`z >= 2`) the task's `SurfaceControl` stayed obscured behind the fullscreen app until an extra touch/transition forced layer reassignment.
+- Fix in `FreeformEdgeBubbleHook.syncRestoredTaskSurfaceOrdering`: inside `globalLock`, invoke `RootWindowContainer.ensureActivitiesVisible()`, call `Transition.assignLayersForFinishTransaction(displayArea, displayArea.getPendingTransaction())` (setting `mBuildingTransitionLayers` / `mBuildingFinishLayers` briefly so `assignRootTaskOrdering` runs and keeps `WindowContainer.mLastLayer` in sync), `pendingTx.setVisibility(rootTaskSurface, true)`, and `displayArea.scheduleAnimation()`.

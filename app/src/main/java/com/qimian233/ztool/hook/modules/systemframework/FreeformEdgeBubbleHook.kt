@@ -13,6 +13,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.HandlerThread
 import android.os.SystemClock
+import android.view.SurfaceControl
 import com.qimian233.ztool.data.freeform.FreeformAnimContract
 import com.qimian233.ztool.data.freeform.FreeformEdgeBubbleConfig
 import com.qimian233.ztool.data.keys.PreferenceKeys
@@ -342,7 +343,14 @@ class FreeformEdgeBubbleHook : SystemHookModule() {
         val scaleYField: Field?,
         val scaleSurfaceBoundsField: Field?,
         val moveToFront: Method?,
-        val setLastNonFullscreenBounds: Method?
+        val setLastNonFullscreenBounds: Method?,
+        val ensureActivitiesVisible: Method?,
+        val getDisplayArea: Method?,
+        val getPendingTransaction: Method?,
+        val getSurfaceControl: Method?,
+        val scheduleAnimation: Method?,
+        val assignLayersForFinishTransaction: Method?,
+        val assignLayersForStartTransaction: Method?
     )
 
     private fun resolveAtms(classLoader: ClassLoader): Any {
@@ -396,6 +404,12 @@ class FreeformEdgeBubbleHook : SystemHookModule() {
         )
 
         val taskClass = classLoader.loadClass("com.android.server.wm.Task")
+        val windowContainerClass = runCatching {
+            classLoader.loadClass("com.android.server.wm.WindowContainer")
+        }.getOrNull()
+        val transitionClass = runCatching {
+            classLoader.loadClass("com.android.server.wm.Transition")
+        }.getOrNull()
         val hideShow = resolveHideShowController(classLoader, atms)
         return AtmsHandles(
             globalLock = globalLock,
@@ -451,6 +465,41 @@ class FreeformEdgeBubbleHook : SystemHookModule() {
             moveToFront = try { taskClass.getMethod("moveToFront", String::class.java) } catch (_: Throwable) { null },
             setLastNonFullscreenBounds = try {
                 taskClass.getMethod("setLastNonFullscreenBounds", Rect::class.java)
+            } catch (_: Throwable) { null },
+            ensureActivitiesVisible = try {
+                rwcClass.getMethod("ensureActivitiesVisible")
+            } catch (_: Throwable) { null },
+            getDisplayArea = try { taskClass.getMethod("getDisplayArea") } catch (_: Throwable) { null },
+            getPendingTransaction = try {
+                windowContainerClass?.getMethod("getPendingTransaction")
+            } catch (_: Throwable) { null },
+            getSurfaceControl = try {
+                windowContainerClass?.getMethod("getSurfaceControl")
+            } catch (_: Throwable) { null },
+            scheduleAnimation = try {
+                windowContainerClass?.getMethod("scheduleAnimation")
+            } catch (_: Throwable) { null },
+            assignLayersForFinishTransaction = try {
+                if (windowContainerClass != null && transitionClass != null) {
+                    transitionClass.getMethod(
+                        "assignLayersForFinishTransaction",
+                        windowContainerClass,
+                        SurfaceControl.Transaction::class.java
+                    )
+                } else {
+                    null
+                }
+            } catch (_: Throwable) { null },
+            assignLayersForStartTransaction = try {
+                if (windowContainerClass != null && transitionClass != null) {
+                    transitionClass.getMethod(
+                        "assignLayersForStartTransaction",
+                        windowContainerClass,
+                        SurfaceControl.Transaction::class.java
+                    )
+                } else {
+                    null
+                }
             } catch (_: Throwable) { null }
         )
     }
@@ -744,6 +793,7 @@ class FreeformEdgeBubbleHook : SystemHookModule() {
                     "bringToFront failed: " + ((t as? InvocationTargetException)?.cause ?: t)
                 )
             }
+            syncRestoredTaskSurfaceOrdering(handles, task)
             notifyBubbleRemoved(taskId)
             logger.info("restore task=$taskId via bringToFront -> $target")
             return true
@@ -751,17 +801,79 @@ class FreeformEdgeBubbleHook : SystemHookModule() {
         internalMove.set(true)
         try {
             moveTaskBounds(handles, task, target)
+            val rootTask = try { handles.getRootTask?.invoke(task) } catch (_: Throwable) { null }
+            if (rootTask != null) {
+                try {
+                    handles.setAlwaysOnTop?.invoke(rootTask, true)
+                } catch (t: Throwable) {
+                    logger.debug("setAlwaysOnTop failed: ${t.message}")
+                }
+            }
             try {
-                handles.moveToFront?.invoke(task, "ztool_freeform_bubble")
+                handles.moveToFront?.invoke(rootTask ?: task, "ztool_freeform_bubble")
             } catch (t: Throwable) {
                 logger.debug("moveToFront failed: ${t.message}")
             }
+            try {
+                handles.resumeFocusedTasks?.invoke(handles.rootWindowContainer)
+            } catch (t: Throwable) {
+                logger.debug("resumeFocusedTasks failed: ${t.message}")
+            }
+            syncRestoredTaskSurfaceOrdering(handles, task)
         } finally {
             internalMove.set(false)
         }
         notifyBubbleRemoved(taskId)
         logger.info("restore task=$taskId -> $target")
         return true
+    }
+
+    private fun syncRestoredTaskSurfaceOrdering(handles: AtmsHandles, task: Any) {
+        try {
+            handles.ensureActivitiesVisible?.invoke(handles.rootWindowContainer)
+        } catch (t: Throwable) {
+            logger.debug("ensureActivitiesVisible failed: ${t.message}")
+        }
+        val rootTask = try { handles.getRootTask?.invoke(task) } catch (_: Throwable) { null } ?: task
+        val displayArea = try {
+            handles.getDisplayArea?.invoke(rootTask) ?: handles.getDisplayArea?.invoke(task)
+        } catch (_: Throwable) {
+            null
+        } ?: return
+        val pendingTx = try {
+            handles.getPendingTransaction?.invoke(displayArea) as? SurfaceControl.Transaction
+        } catch (_: Throwable) {
+            null
+        }
+        if (pendingTx != null) {
+            // With Shell Transitions enabled, TaskDisplayArea.assignRootTaskOrdering is a no-op
+            // unless mBuildingTransitionLayers is set, leaving non-transition restores below fullscreen.
+            val assignLayers =
+                handles.assignLayersForFinishTransaction ?: handles.assignLayersForStartTransaction
+            if (assignLayers != null) {
+                try {
+                    assignLayers.invoke(null, displayArea, pendingTx)
+                } catch (t: Throwable) {
+                    logger.warn(
+                        "assignLayersForRestore failed: " +
+                            ((t as? InvocationTargetException)?.cause ?: t)
+                    )
+                }
+            }
+            val surfaceControl = try {
+                handles.getSurfaceControl?.invoke(rootTask) as? SurfaceControl
+            } catch (_: Throwable) {
+                null
+            }
+            if (surfaceControl != null && surfaceControl.isValid) {
+                pendingTx.setVisibility(surfaceControl, true)
+            }
+        }
+        try {
+            handles.scheduleAnimation?.invoke(displayArea)
+        } catch (t: Throwable) {
+            logger.debug("scheduleAnimation failed: ${t.message}")
+        }
     }
 
     private fun collectFreeformTaskInfos(handles: AtmsHandles): Bundle? {
