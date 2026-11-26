@@ -88,6 +88,36 @@ class SystemUiMiscSettingsViewModel(
         repository.saveFreeformNonlinearAnim(enabled)
     }
 
+    fun setFreeformNonlinearAnimOpen(enabled: Boolean) {
+        _uiState.value = _uiState.value.copy(freeformNonlinearAnimOpen = enabled)
+        repository.saveFreeformNonlinearAnimOpen(enabled)
+    }
+
+    fun setFreeformNonlinearAnimClose(enabled: Boolean) {
+        _uiState.value = _uiState.value.copy(freeformNonlinearAnimClose = enabled)
+        repository.saveFreeformNonlinearAnimClose(enabled)
+    }
+
+    fun setFreeformNonlinearAnimBoundsChange(enabled: Boolean) {
+        _uiState.value = _uiState.value.copy(freeformNonlinearAnimBoundsChange = enabled)
+        repository.saveFreeformNonlinearAnimBoundsChange(enabled)
+    }
+
+    fun setFreeformNonlinearAnimEdgeSnapBack(enabled: Boolean) {
+        _uiState.value = _uiState.value.copy(freeformNonlinearAnimEdgeSnapBack = enabled)
+        repository.saveFreeformNonlinearAnimEdgeSnapBack(enabled)
+    }
+
+    fun setFreeformNonlinearAnimEdgeDock(enabled: Boolean) {
+        _uiState.value = _uiState.value.copy(freeformNonlinearAnimEdgeDock = enabled)
+        repository.saveFreeformNonlinearAnimEdgeDock(enabled)
+    }
+
+    fun setFreeformNonlinearAnimBubbleRestore(enabled: Boolean) {
+        _uiState.value = _uiState.value.copy(freeformNonlinearAnimBubbleRestore = enabled)
+        repository.saveFreeformNonlinearAnimBubbleRestore(enabled)
+    }
+
     fun setFreeformHandleMenuAnim(enabled: Boolean) {
         _uiState.value = _uiState.value.copy(freeformHandleMenuAnim = enabled)
         repository.saveFreeformHandleMenuAnim(enabled)

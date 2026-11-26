@@ -318,11 +318,16 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
     @Volatile
     private var freeformFindTaskSurface: Method? = null
 
+    @Volatile
+    private var activeOptions: FreeformAnimOptions = FreeformAnimOptions()
+
     override fun getModuleName(): String =
         PreferenceKeys.SYSTEM_UI_FREEFORM_NONLINEAR_ANIM.name
 
     override fun getTargetPackages(): Array<out String> =
         arrayOf(ScopeKeys.SYSTEM_UI.packageName)
+
+    override fun isEnabled(): Boolean = readOptions().enabled
 
     override fun handleLoadPackage(param: PackageLoadedParam) {
         try {
@@ -332,36 +337,106 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
         }
     }
 
+    private fun readOptions(): FreeformAnimOptions = try {
+        val prefs = remotePreferences
+        FreeformAnimOptions(
+            master = prefs.getBoolean(
+                PreferenceKeys.SYSTEM_UI_FREEFORM_NONLINEAR_ANIM.name,
+                PreferenceKeys.SYSTEM_UI_FREEFORM_NONLINEAR_ANIM.default
+            ),
+            open = prefs.getBoolean(
+                PreferenceKeys.SYSTEM_UI_FREEFORM_NONLINEAR_ANIM_OPEN.name,
+                PreferenceKeys.SYSTEM_UI_FREEFORM_NONLINEAR_ANIM_OPEN.default
+            ),
+            close = prefs.getBoolean(
+                PreferenceKeys.SYSTEM_UI_FREEFORM_NONLINEAR_ANIM_CLOSE.name,
+                PreferenceKeys.SYSTEM_UI_FREEFORM_NONLINEAR_ANIM_CLOSE.default
+            ),
+            boundsChange = prefs.getBoolean(
+                PreferenceKeys.SYSTEM_UI_FREEFORM_NONLINEAR_ANIM_BOUNDS_CHANGE.name,
+                PreferenceKeys.SYSTEM_UI_FREEFORM_NONLINEAR_ANIM_BOUNDS_CHANGE.default
+            ),
+            edgeSnapBack = prefs.getBoolean(
+                PreferenceKeys.SYSTEM_UI_FREEFORM_NONLINEAR_ANIM_EDGE_SNAP_BACK.name,
+                PreferenceKeys.SYSTEM_UI_FREEFORM_NONLINEAR_ANIM_EDGE_SNAP_BACK.default
+            ),
+            edgeDock = prefs.getBoolean(
+                PreferenceKeys.SYSTEM_UI_FREEFORM_NONLINEAR_ANIM_EDGE_DOCK.name,
+                PreferenceKeys.SYSTEM_UI_FREEFORM_NONLINEAR_ANIM_EDGE_DOCK.default
+            ),
+            bubbleRestore = prefs.getBoolean(
+                PreferenceKeys.SYSTEM_UI_FREEFORM_NONLINEAR_ANIM_BUBBLE_RESTORE.name,
+                PreferenceKeys.SYSTEM_UI_FREEFORM_NONLINEAR_ANIM_BUBBLE_RESTORE.default
+            )
+        )
+    } catch (_: Throwable) {
+        logger.warn("Failed to read freeform nonlinear anim preferences, using defaults")
+        FreeformAnimOptions()
+    }
+
+    private fun installGroup(
+        name: String,
+        install: (MutableList<XposedInterface.HookHandle>) -> Unit
+    ): Boolean {
+        val handles = mutableListOf<XposedInterface.HookHandle>()
+        return try {
+            install(handles)
+            true
+        } catch (failure: Throwable) {
+            handles.forEach { runCatching { it.unhook() } }
+            logger.warn("Freeform nonlinear $name failed: ${failure.message}")
+            false
+        }
+    }
+
     private fun install(param: PackageLoadedParam) {
+        val options = readOptions()
+        activeOptions = options
+        if (!options.enabled) return
+
         val loader = param.defaultClassLoader
         val taskReflect = resolveTaskInfoReflect(loader)
-        val changeReflect = resolveChangeReflect(loader)
+        val changeReflect = if (options.needsChangeReflect) resolveChangeReflect(loader) else null
 
-        runCatching {
-            installOpenCloseAnimations(loader, taskReflect, changeReflect)
-        }.onFailure {
-            logger.warn("Part A open/close animations failed: ${it.message}")
+        var openCloseReady = false
+        if (options.needsOvfTransitionClass) {
+            openCloseReady = installGroup("Part A open/close animations") { handles ->
+                installOpenCloseAnimations(loader, taskReflect, changeReflect, options, handles)
+            }
         }
-        runCatching {
-            installEdgeDockAndSnapBack(loader, taskReflect)
-        }.onFailure {
-            logger.warn("Part B edge-dock/snap-back failed: ${it.message}")
+        var edgeDragReady = false
+        if (options.needsEdgeDragHook) {
+            edgeDragReady = installGroup("Part B edge-dock/snap-back") { handles ->
+                installEdgeDockAndSnapBack(loader, taskReflect, options, handles)
+            }
         }
-        runCatching {
-            installRestoreBroadcastReceiver(loader)
-        }.onFailure {
-            logger.warn("Part C restore broadcast receiver failed: ${it.message}")
+        var receiverReady = false
+        if (options.needsSysUiContextAndReceiver) {
+            receiverReady = installGroup("Part C restore broadcast receiver") { _ ->
+                installRestoreBroadcastReceiver(loader)
+            }
         }
-        runCatching {
-            installBubbleRestoreExpand(loader, taskReflect, changeReflect)
-        }.onFailure {
-            logger.warn("Part D bubble-restore expand failed: ${it.message}")
+        var bubbleRestoreReady = false
+        if (options.needsBubbleRestoreTransition || options.needsTaskListener) {
+            bubbleRestoreReady = installGroup("Part D bubble-restore expand") { handles ->
+                installBubbleRestoreExpand(loader, taskReflect, changeReflect, options, handles)
+            }
         }
-        runCatching {
-            installDockedTransitionSuppressor(loader, taskReflect, changeReflect)
-        }.onFailure {
-            logger.warn("Dock transition suppressor failed: ${it.message}")
+        var dockSuppressorReady = false
+        if (options.needsDockSuppressor) {
+            dockSuppressorReady = installGroup("Dock transition suppressor") { handles ->
+                installDockedTransitionSuppressor(loader, taskReflect, changeReflect, handles)
+            }
         }
+
+        logger.info(
+            "Freeform nonlinear anim installed: " +
+                "options=[open=${options.effectiveOpen}, close=${options.effectiveClose}, " +
+                "boundsChange=${options.effectiveBoundsChange}, snapBack=${options.effectiveEdgeSnapBack}, " +
+                "edgeDock=${options.effectiveEdgeDock}, bubbleRestore=${options.effectiveBubbleRestore}], " +
+                "groups=[partA=$openCloseReady, partB=$edgeDragReady, partC=$receiverReady, " +
+                "partD=$bubbleRestoreReady, dockSuppressor=$dockSuppressorReady]"
+        )
     }
 
     // region Part A: open / close / minimize animations
@@ -369,36 +444,42 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
     private fun installOpenCloseAnimations(
         loader: ClassLoader,
         taskReflect: TaskInfoReflect,
-        changeReflect: ChangeReflect?
+        changeReflect: ChangeReflect?,
+        options: FreeformAnimOptions,
+        handles: MutableList<XposedInterface.HookHandle>
     ) {
         val ovfAnimClass = loadClassOptional(loader, OVF_TRANSITION_ANIM_CLASS) ?: return
         var hooksInstalled = 0
 
-        findMethodOptional(ovfAnimClass, "createTaskAnimToFront", Rect::class.java)?.let { m ->
-            hookWithId(m, "freeform_nonlinear_open_anim") { chain ->
-                val rect = chain.args.getOrNull(0) as? Rect ?: return@hookWithId chain.proceed()
-                buildOpenAnimationSet(rect)
+        if (options.effectiveOpen) {
+            findMethodOptional(ovfAnimClass, "createTaskAnimToFront", Rect::class.java)?.let { m ->
+                handles += hookWithId(m, "freeform_nonlinear_open_anim") { chain ->
+                    val rect = chain.args.getOrNull(0) as? Rect ?: return@hookWithId chain.proceed()
+                    buildOpenAnimationSet(rect)
+                }
+                hooksInstalled++
             }
-            hooksInstalled++
         }
 
-        findMethodOptional(ovfAnimClass, "createTaskAnimToBack", Rect::class.java)?.let { m ->
-            hookWithId(m, "freeform_nonlinear_close_back_anim") { chain ->
-                val rect = chain.args.getOrNull(0) as? Rect ?: return@hookWithId chain.proceed()
-                buildCloseAnimationSet(rect)
+        if (options.effectiveClose) {
+            findMethodOptional(ovfAnimClass, "createTaskAnimToBack", Rect::class.java)?.let { m ->
+                handles += hookWithId(m, "freeform_nonlinear_close_back_anim") { chain ->
+                    val rect = chain.args.getOrNull(0) as? Rect ?: return@hookWithId chain.proceed()
+                    buildCloseAnimationSet(rect)
+                }
+                hooksInstalled++
             }
-            hooksInstalled++
         }
 
         val changeClass = loadClassOptional(loader, TRANSITION_CHANGE_CLASS)
-        if (changeClass != null && changeReflect != null) {
+        if (options.effectiveClose && changeClass != null && changeReflect != null) {
             findMethodOptional(
                 ovfAnimClass,
                 "ovfBoundsVanishAnim",
                 changeClass,
                 SurfaceControl.Transaction::class.java
             )?.let { m ->
-                hookWithId(m, "freeform_nonlinear_vanish_bounds") { chain ->
+                handles += hookWithId(m, "freeform_nonlinear_vanish_bounds") { chain ->
                     handleBoundsVanishAnim(chain, taskReflect, changeReflect)
                 }
                 hooksInstalled++
@@ -410,70 +491,81 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
                 changeClass,
                 SurfaceControl.Transaction::class.java
             )?.let { m ->
-                hookWithId(m, "freeform_nonlinear_vanish_alpha") { chain ->
+                handles += hookWithId(m, "freeform_nonlinear_vanish_alpha") { chain ->
                     handleAlphaVanishAnim(chain, taskReflect, changeReflect)
                 }
                 hooksInstalled++
             }
         }
 
-        val boundsChangeMethod = findMethodOptional(
-            ovfAnimClass,
-            "ovfBoundsChangeAnim",
-            Rect::class.java,
-            Rect::class.java,
-            Rect::class.java,
-            Rect::class.java,
-            Rect::class.java,
-            Interpolator::class.java,
-            SurfaceControl::class.java,
-            SurfaceControl.Transaction::class.java,
-            IBinder::class.java
-        ) ?: ovfAnimClass.declaredMethods.firstOrNull {
-            it.name == "ovfBoundsChangeAnim" && it.parameterTypes.size == 9
-        }?.apply { isAccessible = true }
+        if (options.effectiveBoundsChange) {
+            val boundsChangeMethod = findMethodOptional(
+                ovfAnimClass,
+                "ovfBoundsChangeAnim",
+                Rect::class.java,
+                Rect::class.java,
+                Rect::class.java,
+                Rect::class.java,
+                Rect::class.java,
+                Interpolator::class.java,
+                SurfaceControl::class.java,
+                SurfaceControl.Transaction::class.java,
+                IBinder::class.java
+            ) ?: ovfAnimClass.declaredMethods.firstOrNull {
+                it.name == "ovfBoundsChangeAnim" && it.parameterTypes.size == 9
+            }?.apply { isAccessible = true }
 
-        boundsChangeMethod?.let { m ->
-            hookWithId(m, "freeform_nonlinear_bounds_change") { chain ->
-                val startRect = chain.args.getOrNull(1) as? Rect
-                val endRect = chain.args.getOrNull(2) as? Rect
-                val result = chain.proceed()
-                val animator = result as? ValueAnimator ?: return@hookWithId result
-                if (startRect != null && endRect != null) {
-                    if (endRect.width() >= startRect.width()) {
-                        animator.duration = FreeformAnimCurves.ICON_EXPAND_DURATION_MS
-                        animator.interpolator = FreeformAnimCurves.iconExpandInterpolator()
-                    } else {
-                        animator.duration = FreeformAnimCurves.CLOSE_SCALE_DURATION_MS
-                        animator.interpolator = FreeformAnimCurves.closeScaleInterpolator()
+            boundsChangeMethod?.let { m ->
+                handles += hookWithId(m, "freeform_nonlinear_bounds_change") { chain ->
+                    val startRect = chain.args.getOrNull(1) as? Rect
+                    val endRect = chain.args.getOrNull(2) as? Rect
+                    val result = chain.proceed()
+                    val animator = result as? ValueAnimator ?: return@hookWithId result
+                    if (startRect != null && endRect != null) {
+                        if (endRect.width() >= startRect.width()) {
+                            animator.duration = FreeformAnimCurves.ICON_EXPAND_DURATION_MS
+                            animator.interpolator = FreeformAnimCurves.iconExpandInterpolator()
+                        } else {
+                            animator.duration = FreeformAnimCurves.CLOSE_SCALE_DURATION_MS
+                            animator.interpolator = FreeformAnimCurves.closeScaleInterpolator()
+                        }
                     }
-                }
-                animator
-            }
-            hooksInstalled++
-        }
-
-        val scaleUtilsClass = loadClassOptional(loader, OVF_SCALE_TRANSITION_UTILS_CLASS)
-        if (scaleUtilsClass != null && changeClass != null && changeReflect != null) {
-            val animSetScale = findMethodOptional(
-                Animation::class.java,
-                "setScale",
-                Float::class.javaPrimitiveType,
-                Float::class.javaPrimitiveType,
-                Float::class.javaPrimitiveType,
-                Float::class.javaPrimitiveType
-            )
-            val animHasScale = findMethodOptional(Animation::class.java, "hasScaleAnimation")
-            findMethodOptional(
-                scaleUtilsClass,
-                "setScale",
-                changeClass,
-                Animation::class.java
-            )?.let { m ->
-                hookWithId(m, "freeform_nonlinear_scale_fix") { chain ->
-                    handleScaleFix(chain, taskReflect, changeReflect, animSetScale, animHasScale)
+                    animator
                 }
                 hooksInstalled++
+            }
+        }
+
+        if (options.needsScaleFix) {
+            val scaleUtilsClass = loadClassOptional(loader, OVF_SCALE_TRANSITION_UTILS_CLASS)
+            if (scaleUtilsClass != null && changeClass != null && changeReflect != null) {
+                val animSetScale = findMethodOptional(
+                    Animation::class.java,
+                    "setScale",
+                    Float::class.javaPrimitiveType,
+                    Float::class.javaPrimitiveType,
+                    Float::class.javaPrimitiveType,
+                    Float::class.javaPrimitiveType
+                )
+                val animHasScale = findMethodOptional(Animation::class.java, "hasScaleAnimation")
+                findMethodOptional(
+                    scaleUtilsClass,
+                    "setScale",
+                    changeClass,
+                    Animation::class.java
+                )?.let { m ->
+                    handles += hookWithId(m, "freeform_nonlinear_scale_fix") { chain ->
+                        handleScaleFix(
+                            chain = chain,
+                            taskReflect = taskReflect,
+                            changeReflect = changeReflect,
+                            animSetScale = animSetScale,
+                            animHasScale = animHasScale,
+                            options = options
+                        )
+                    }
+                    hooksInstalled++
+                }
             }
         }
 
@@ -632,7 +724,8 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
         taskReflect: TaskInfoReflect,
         changeReflect: ChangeReflect,
         animSetScale: Method?,
-        animHasScale: Method?
+        animHasScale: Method?,
+        options: FreeformAnimOptions
     ): Any? {
         if (animSetScale == null) return chain.proceed()
         val change = chain.args.getOrNull(0) ?: return chain.proceed()
@@ -655,11 +748,13 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
 
         when {
             mode == 1 || mode == 3 || (mode == 6 && hasScale) -> {
+                if (!options.effectiveOpen) return chain.proceed()
                 val start = scaleX * FreeformAnimCurves.OPEN_START_SCALE
                 animSetScale.invoke(anim, start, scaleX, start, scaleX)
                 return null
             }
             mode == 2 || mode == 4 -> {
+                if (!options.effectiveClose) return chain.proceed()
                 val end = scaleX * FreeformAnimCurves.CLOSE_END_SCALE
                 animSetScale.invoke(anim, scaleX, end, scaleX, end)
                 return null
@@ -672,7 +767,12 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
 
     // region Part B: edge-dock shrink & snap-back
 
-    private fun installEdgeDockAndSnapBack(loader: ClassLoader, taskReflect: TaskInfoReflect) {
+    private fun installEdgeDockAndSnapBack(
+        loader: ClassLoader,
+        taskReflect: TaskInfoReflect,
+        options: FreeformAnimOptions,
+        handles: MutableList<XposedInterface.HookHandle>
+    ) {
         val listenerClass = loadClassOptional(loader, TOUCH_EVENT_LISTENER_CLASS) ?: return
         val handleMethod = findMethodOptional(
             listenerClass,
@@ -690,7 +790,7 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
         }
 
         val dragReflect = resolveDragReflect(loader, listenerClass) ?: return
-        hookWithId(handleMethod, "freeform_nonlinear_edge_drag") { chain ->
+        handles += hookWithId(handleMethod, "freeform_nonlinear_edge_drag") { chain ->
             try {
                 val event = chain.args.firstOrNull { it is MotionEvent } as? MotionEvent
                     ?: return@hookWithId chain.proceed()
@@ -705,7 +805,7 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
                     }
                     MotionEvent.ACTION_UP -> {
                         if (readEdgeBubbleEnabled() &&
-                            handleDragUp(listener, event, taskReflect, dragReflect)
+                            handleDragUp(listener, event, taskReflect, dragReflect, options)
                         ) {
                             return@hookWithId true
                         }
@@ -779,7 +879,8 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
         listener: Any,
         event: MotionEvent,
         taskReflect: TaskInfoReflect,
-        drag: DragReflect
+        drag: DragReflect,
+        options: FreeformAnimOptions
     ): Boolean {
         val taskId = resolveListenerTaskId(listener, drag)
         val velocityState = taskId?.let { dragVelocityByTask.remove(it) }
@@ -867,6 +968,9 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
             velocityXPxPerSec = velocityX,
             density = density
         )
+        if (dockSide >= 0 && !options.effectiveEdgeDock) return false
+        if (dockSide < 0 && !options.effectiveEdgeSnapBack) return false
+
         val resolvedTaskId = taskInfo.taskId
 
         cleanupDragState(listener, decoration, positioner, controller, resolvedTaskId, drag)
@@ -1422,8 +1526,13 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
                         return
                     }
                     val cmd = intent.getIntExtra(FreeformAnimContract.EXTRA_CMD, -1)
+                    val currentOptions = activeOptions
                     when (cmd) {
                         FreeformAnimContract.CMD_PREPARE_RESTORE -> {
+                            if (!currentOptions.effectiveBubbleRestore) {
+                                if (ordered) resultCode = 0
+                                return
+                            }
                             val taskId = intent.getIntExtra(FreeformAnimContract.EXTRA_TASK_ID, -1)
                             val side = intent.getIntExtra(FreeformAnimContract.EXTRA_SIDE, 0)
                             val l = intent.getIntExtra(FreeformAnimContract.EXTRA_BUBBLE_LEFT, 0)
@@ -1450,6 +1559,10 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
                             }
                         }
                         FreeformAnimContract.CMD_DOCK_OVERLAY_DONE -> {
+                            if (!currentOptions.effectiveEdgeDock) {
+                                if (ordered) resultCode = 0
+                                return
+                            }
                             val taskId = intent.getIntExtra(FreeformAnimContract.EXTRA_TASK_ID, -1)
                             if (taskId > 0) {
                                 dismissDockMorphOverlay(taskId)
@@ -1523,120 +1636,140 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
     private fun installBubbleRestoreExpand(
         loader: ClassLoader,
         taskReflect: TaskInfoReflect,
-        changeReflect: ChangeReflect?
+        changeReflect: ChangeReflect?,
+        options: FreeformAnimOptions,
+        handles: MutableList<XposedInterface.HookHandle>
     ) {
         var layers = 0
-        val handlerClass = loadClassOptional(loader, DEFAULT_TRANSITION_HANDLER_CLASS)
-        val transitionInfoClass = loadClassOptional(loader, TRANSITION_INFO_CLASS)
-        val finishCallbackClass = loadClassOptional(loader, TRANSITION_FINISH_CALLBACK_CLASS)
-        if (handlerClass != null && transitionInfoClass != null &&
-            finishCallbackClass != null && changeReflect != null
-        ) {
-            val startAnimation = findMethodOptional(
-                handlerClass,
-                "startAnimation",
-                IBinder::class.java,
-                transitionInfoClass,
-                SurfaceControl.Transaction::class.java,
-                SurfaceControl.Transaction::class.java,
-                finishCallbackClass
-            )
-            val getChanges = findMethodOptional(transitionInfoClass, "getChanges")
-            val onTransitionFinished = findMethodOptional(
-                finishCallbackClass,
-                "onTransitionFinished",
-                loadClassOptional(loader, WCT_CLASS)
-            )
-            val mainExecutorField = optionalFieldAny(handlerClass, "mMainExecutor", "mainExecutor")
-            if (startAnimation != null && getChanges != null && onTransitionFinished != null) {
-                hookWithId(startAnimation, "freeform_nonlinear_bubble_restore_transit") { chain ->
-                    handleRestoreTransition(
-                        chain = chain,
-                        taskReflect = taskReflect,
-                        changeReflect = changeReflect,
-                        getChanges = getChanges,
-                        onTransitionFinished = onTransitionFinished,
-                        mainExecutorField = mainExecutorField
-                    )
+        if (options.needsBubbleRestoreTransition) {
+            val handlerClass = loadClassOptional(loader, DEFAULT_TRANSITION_HANDLER_CLASS)
+            val transitionInfoClass = loadClassOptional(loader, TRANSITION_INFO_CLASS)
+            val finishCallbackClass = loadClassOptional(loader, TRANSITION_FINISH_CALLBACK_CLASS)
+            if (handlerClass != null && transitionInfoClass != null &&
+                finishCallbackClass != null && changeReflect != null
+            ) {
+                val startAnimation = findMethodOptional(
+                    handlerClass,
+                    "startAnimation",
+                    IBinder::class.java,
+                    transitionInfoClass,
+                    SurfaceControl.Transaction::class.java,
+                    SurfaceControl.Transaction::class.java,
+                    finishCallbackClass
+                )
+                val getChanges = findMethodOptional(transitionInfoClass, "getChanges")
+                val onTransitionFinished = findMethodOptional(
+                    finishCallbackClass,
+                    "onTransitionFinished",
+                    loadClassOptional(loader, WCT_CLASS)
+                )
+                val mainExecutorField = optionalFieldAny(handlerClass, "mMainExecutor", "mainExecutor")
+                if (startAnimation != null && getChanges != null && onTransitionFinished != null) {
+                    handles += hookWithId(
+                        startAnimation,
+                        "freeform_nonlinear_bubble_restore_transit"
+                    ) { chain ->
+                        handleRestoreTransition(
+                            chain = chain,
+                            taskReflect = taskReflect,
+                            changeReflect = changeReflect,
+                            getChanges = getChanges,
+                            onTransitionFinished = onTransitionFinished,
+                            mainExecutorField = mainExecutorField
+                        )
+                    }
+                    layers++
                 }
-                layers++
             }
         }
 
-        val listenerClass = loadClassOptional(loader, FREEFORM_TASK_LISTENER_CLASS)
-        if (listenerClass != null) {
-            val onTaskAppeared = findMethodOptional(
-                listenerClass,
-                "onTaskAppeared",
-                ActivityManager.RunningTaskInfo::class.java,
-                SurfaceControl::class.java
-            )
-            val onTaskInfoChanged = findMethodOptional(
-                listenerClass,
-                "onTaskInfoChanged",
-                ActivityManager.RunningTaskInfo::class.java
-            )
-            val findTaskSurface = findMethodOptional(
-                listenerClass,
-                "findTaskSurface",
-                Int::class.javaPrimitiveType
-            )
-            freeformFindTaskSurface = findTaskSurface
-            if (onTaskAppeared != null) {
-                hookWithId(onTaskAppeared, "freeform_nonlinear_task_appeared") { chain ->
-                    freeformTaskListenerRef = chain.thisObject
-                    (chain.args.getOrNull(0) as? ActivityManager.RunningTaskInfo)?.let { ti ->
-                        lastVisibleByTaskId[ti.taskId] = ti.isVisible
+        if (options.needsTaskListener) {
+            val listenerClass = loadClassOptional(loader, FREEFORM_TASK_LISTENER_CLASS)
+            if (listenerClass != null) {
+                val onTaskAppeared = findMethodOptional(
+                    listenerClass,
+                    "onTaskAppeared",
+                    ActivityManager.RunningTaskInfo::class.java,
+                    SurfaceControl::class.java
+                )
+                val onTaskInfoChanged = findMethodOptional(
+                    listenerClass,
+                    "onTaskInfoChanged",
+                    ActivityManager.RunningTaskInfo::class.java
+                )
+                val findTaskSurface = findMethodOptional(
+                    listenerClass,
+                    "findTaskSurface",
+                    Int::class.javaPrimitiveType
+                )
+                freeformFindTaskSurface = findTaskSurface
+                if (onTaskAppeared != null) {
+                    handles += hookWithId(
+                        onTaskAppeared,
+                        "freeform_nonlinear_task_appeared"
+                    ) { chain ->
+                        freeformTaskListenerRef = chain.thisObject
+                        (chain.args.getOrNull(0) as? ActivityManager.RunningTaskInfo)?.let { ti ->
+                            lastVisibleByTaskId[ti.taskId] = ti.isVisible
+                        }
+                        chain.proceed()
                     }
-                    chain.proceed()
                 }
-            }
-            if (onTaskInfoChanged != null && findTaskSurface != null) {
-                hookWithId(onTaskInfoChanged, "freeform_nonlinear_bubble_restore_listener") { chain ->
-                    freeformTaskListenerRef = chain.thisObject
-                    val res = chain.proceed()
-                    val listener = chain.thisObject ?: return@hookWithId res
-                    val taskInfo = chain.args.getOrNull(0) as? ActivityManager.RunningTaskInfo
-                        ?: return@hookWithId res
-                    val taskId = taskInfo.taskId
-                    lastVisibleByTaskId[taskId] = taskInfo.isVisible
-                    if (taskInfo.isVisible &&
-                        !activelyRestoringTasks.contains(taskId) &&
-                        pendingRestoreHints.containsKey(taskId)
-                    ) {
-                        val hint = pendingRestoreHints.remove(taskId) ?: return@hookWithId res
-                        recentlyDockedTasks.remove(taskId)
-                        val leash = runCatching {
-                            findTaskSurface.invoke(listener, taskId) as? SurfaceControl
-                        }.getOrNull()
-                        val expired =
-                            SystemClock.elapsedRealtime() - hint.createdAtMs > RESTORE_HINT_TTL_MS
-                        if (expired) {
-                            if (leash != null && leash.isValid) {
-                                SurfaceControl.Transaction().apply {
-                                    setAlpha(leash, 1f)
-                                    apply()
-                                }
-                            }
+                if (onTaskInfoChanged != null &&
+                    (!options.effectiveBubbleRestore || findTaskSurface != null)
+                ) {
+                    handles += hookWithId(
+                        onTaskInfoChanged,
+                        "freeform_nonlinear_bubble_restore_listener"
+                    ) { chain ->
+                        freeformTaskListenerRef = chain.thisObject
+                        val res = chain.proceed()
+                        val listener = chain.thisObject ?: return@hookWithId res
+                        val taskInfo = chain.args.getOrNull(0) as? ActivityManager.RunningTaskInfo
+                            ?: return@hookWithId res
+                        val taskId = taskInfo.taskId
+                        lastVisibleByTaskId[taskId] = taskInfo.isVisible
+                        if (!options.effectiveBubbleRestore || findTaskSurface == null) {
                             return@hookWithId res
                         }
-                        if (leash != null && leash.isValid) {
-                            playExpandAnimator(
-                                taskId = taskId,
-                                hint = hint,
-                                taskInfo = taskInfo,
-                                targetRectOverride = null,
-                                leash = leash,
-                                startT = SurfaceControl.Transaction(),
-                                finishT = null,
-                                onFinished = null,
-                                taskReflect = taskReflect
-                            )
+                        if (taskInfo.isVisible &&
+                            !activelyRestoringTasks.contains(taskId) &&
+                            pendingRestoreHints.containsKey(taskId)
+                        ) {
+                            val hint = pendingRestoreHints.remove(taskId) ?: return@hookWithId res
+                            recentlyDockedTasks.remove(taskId)
+                            val leash = runCatching {
+                                findTaskSurface.invoke(listener, taskId) as? SurfaceControl
+                            }.getOrNull()
+                            val expired =
+                                SystemClock.elapsedRealtime() - hint.createdAtMs > RESTORE_HINT_TTL_MS
+                            if (expired) {
+                                if (leash != null && leash.isValid) {
+                                    SurfaceControl.Transaction().apply {
+                                        setAlpha(leash, 1f)
+                                        apply()
+                                    }
+                                }
+                                return@hookWithId res
+                            }
+                            if (leash != null && leash.isValid) {
+                                playExpandAnimator(
+                                    taskId = taskId,
+                                    hint = hint,
+                                    taskInfo = taskInfo,
+                                    targetRectOverride = null,
+                                    leash = leash,
+                                    startT = SurfaceControl.Transaction(),
+                                    finishT = null,
+                                    onFinished = null,
+                                    taskReflect = taskReflect
+                                )
+                            }
                         }
+                        res
                     }
-                    res
+                    layers++
                 }
-                layers++
             }
         }
 
@@ -2082,7 +2215,8 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
     private fun installDockedTransitionSuppressor(
         loader: ClassLoader,
         taskReflect: TaskInfoReflect,
-        changeReflect: ChangeReflect?
+        changeReflect: ChangeReflect?,
+        handles: MutableList<XposedInterface.HookHandle>
     ) {
         if (changeReflect == null) return
         val transitionsClass = loadClassOptional(loader, TRANSITIONS_CLASS) ?: return
@@ -2109,7 +2243,7 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
         val handlersField = optionalFieldAny(transitionsClass, "mHandlers", "handlers")
         val mainExecutorField = optionalFieldAny(transitionsClass, "mMainExecutor", "mainExecutor")
 
-        hookWithId(dispatchMethod, "freeform_nonlinear_suppress_dock_transit") { chain ->
+        handles += hookWithId(dispatchMethod, "freeform_nonlinear_suppress_dock_transit") { chain ->
             handleDockedTransitionDispatch(
                 chain = chain,
                 taskReflect = taskReflect,

@@ -51,6 +51,12 @@ class FreeformHubRepository(
             cornerHandleAutoHide = misc.cornerHandleAutoHide,
             freeformNoForehead = misc.freeformNoForehead,
             freeformNonlinearAnim = misc.freeformNonlinearAnim,
+            freeformNonlinearAnimOpen = misc.freeformNonlinearAnimOpen,
+            freeformNonlinearAnimClose = misc.freeformNonlinearAnimClose,
+            freeformNonlinearAnimBoundsChange = misc.freeformNonlinearAnimBoundsChange,
+            freeformNonlinearAnimEdgeSnapBack = misc.freeformNonlinearAnimEdgeSnapBack,
+            freeformNonlinearAnimEdgeDock = misc.freeformNonlinearAnimEdgeDock,
+            freeformNonlinearAnimBubbleRestore = misc.freeformNonlinearAnimBubbleRestore,
             freeformHandleMenuAnim = misc.freeformHandleMenuAnim,
             forceFreeformEntry = launcher.forceFreeformEntry,
             forceRelativeAppFreeform = framework.forceRelativeAppFreeform
@@ -124,6 +130,24 @@ class FreeformHubRepository(
 
     fun saveFreeformNonlinearAnim(enabled: Boolean) =
         systemUiMiscSettingsRepository.saveFreeformNonlinearAnim(enabled)
+
+    fun saveFreeformNonlinearAnimOpen(enabled: Boolean) =
+        systemUiMiscSettingsRepository.saveFreeformNonlinearAnimOpen(enabled)
+
+    fun saveFreeformNonlinearAnimClose(enabled: Boolean) =
+        systemUiMiscSettingsRepository.saveFreeformNonlinearAnimClose(enabled)
+
+    fun saveFreeformNonlinearAnimBoundsChange(enabled: Boolean) =
+        systemUiMiscSettingsRepository.saveFreeformNonlinearAnimBoundsChange(enabled)
+
+    fun saveFreeformNonlinearAnimEdgeSnapBack(enabled: Boolean) =
+        systemUiMiscSettingsRepository.saveFreeformNonlinearAnimEdgeSnapBack(enabled)
+
+    fun saveFreeformNonlinearAnimEdgeDock(enabled: Boolean) =
+        systemUiMiscSettingsRepository.saveFreeformNonlinearAnimEdgeDock(enabled)
+
+    fun saveFreeformNonlinearAnimBubbleRestore(enabled: Boolean) =
+        systemUiMiscSettingsRepository.saveFreeformNonlinearAnimBubbleRestore(enabled)
 
     fun saveFreeformHandleMenuAnim(enabled: Boolean) =
         systemUiMiscSettingsRepository.saveFreeformHandleMenuAnim(enabled)

@@ -47,6 +47,30 @@ class SystemUiMiscSettingsRepository(context: Context) {
                 KEY_SYSTEM_UI_FREEFORM_NONLINEAR_ANIM,
                 false
             ),
+            freeformNonlinearAnimOpen = prefsUtils.loadBooleanSetting(
+                KEY_SYSTEM_UI_FREEFORM_NONLINEAR_ANIM_OPEN,
+                PreferenceKeys.SYSTEM_UI_FREEFORM_NONLINEAR_ANIM_OPEN.default
+            ),
+            freeformNonlinearAnimClose = prefsUtils.loadBooleanSetting(
+                KEY_SYSTEM_UI_FREEFORM_NONLINEAR_ANIM_CLOSE,
+                PreferenceKeys.SYSTEM_UI_FREEFORM_NONLINEAR_ANIM_CLOSE.default
+            ),
+            freeformNonlinearAnimBoundsChange = prefsUtils.loadBooleanSetting(
+                KEY_SYSTEM_UI_FREEFORM_NONLINEAR_ANIM_BOUNDS_CHANGE,
+                PreferenceKeys.SYSTEM_UI_FREEFORM_NONLINEAR_ANIM_BOUNDS_CHANGE.default
+            ),
+            freeformNonlinearAnimEdgeSnapBack = prefsUtils.loadBooleanSetting(
+                KEY_SYSTEM_UI_FREEFORM_NONLINEAR_ANIM_EDGE_SNAP_BACK,
+                PreferenceKeys.SYSTEM_UI_FREEFORM_NONLINEAR_ANIM_EDGE_SNAP_BACK.default
+            ),
+            freeformNonlinearAnimEdgeDock = prefsUtils.loadBooleanSetting(
+                KEY_SYSTEM_UI_FREEFORM_NONLINEAR_ANIM_EDGE_DOCK,
+                PreferenceKeys.SYSTEM_UI_FREEFORM_NONLINEAR_ANIM_EDGE_DOCK.default
+            ),
+            freeformNonlinearAnimBubbleRestore = prefsUtils.loadBooleanSetting(
+                KEY_SYSTEM_UI_FREEFORM_NONLINEAR_ANIM_BUBBLE_RESTORE,
+                PreferenceKeys.SYSTEM_UI_FREEFORM_NONLINEAR_ANIM_BUBBLE_RESTORE.default
+            ),
             freeformHandleMenuAnim = prefsUtils.loadBooleanSetting(
                 KEY_SYSTEM_UI_FREEFORM_HANDLE_MENU_ANIM,
                 false
@@ -93,6 +117,30 @@ class SystemUiMiscSettingsRepository(context: Context) {
         prefsUtils.saveBooleanSetting(KEY_SYSTEM_UI_FREEFORM_NONLINEAR_ANIM, enabled)
     }
 
+    fun saveFreeformNonlinearAnimOpen(enabled: Boolean) {
+        prefsUtils.saveBooleanSetting(KEY_SYSTEM_UI_FREEFORM_NONLINEAR_ANIM_OPEN, enabled)
+    }
+
+    fun saveFreeformNonlinearAnimClose(enabled: Boolean) {
+        prefsUtils.saveBooleanSetting(KEY_SYSTEM_UI_FREEFORM_NONLINEAR_ANIM_CLOSE, enabled)
+    }
+
+    fun saveFreeformNonlinearAnimBoundsChange(enabled: Boolean) {
+        prefsUtils.saveBooleanSetting(KEY_SYSTEM_UI_FREEFORM_NONLINEAR_ANIM_BOUNDS_CHANGE, enabled)
+    }
+
+    fun saveFreeformNonlinearAnimEdgeSnapBack(enabled: Boolean) {
+        prefsUtils.saveBooleanSetting(KEY_SYSTEM_UI_FREEFORM_NONLINEAR_ANIM_EDGE_SNAP_BACK, enabled)
+    }
+
+    fun saveFreeformNonlinearAnimEdgeDock(enabled: Boolean) {
+        prefsUtils.saveBooleanSetting(KEY_SYSTEM_UI_FREEFORM_NONLINEAR_ANIM_EDGE_DOCK, enabled)
+    }
+
+    fun saveFreeformNonlinearAnimBubbleRestore(enabled: Boolean) {
+        prefsUtils.saveBooleanSetting(KEY_SYSTEM_UI_FREEFORM_NONLINEAR_ANIM_BUBBLE_RESTORE, enabled)
+    }
+
     fun saveFreeformHandleMenuAnim(enabled: Boolean) {
         prefsUtils.saveBooleanSetting(KEY_SYSTEM_UI_FREEFORM_HANDLE_MENU_ANIM, enabled)
     }
@@ -125,6 +173,18 @@ class SystemUiMiscSettingsRepository(context: Context) {
             PreferenceKeys.SYSTEM_UI_FREEFORM_NO_FOREHEAD.name
         private val KEY_SYSTEM_UI_FREEFORM_NONLINEAR_ANIM =
             PreferenceKeys.SYSTEM_UI_FREEFORM_NONLINEAR_ANIM.name
+        private val KEY_SYSTEM_UI_FREEFORM_NONLINEAR_ANIM_OPEN =
+            PreferenceKeys.SYSTEM_UI_FREEFORM_NONLINEAR_ANIM_OPEN.name
+        private val KEY_SYSTEM_UI_FREEFORM_NONLINEAR_ANIM_CLOSE =
+            PreferenceKeys.SYSTEM_UI_FREEFORM_NONLINEAR_ANIM_CLOSE.name
+        private val KEY_SYSTEM_UI_FREEFORM_NONLINEAR_ANIM_BOUNDS_CHANGE =
+            PreferenceKeys.SYSTEM_UI_FREEFORM_NONLINEAR_ANIM_BOUNDS_CHANGE.name
+        private val KEY_SYSTEM_UI_FREEFORM_NONLINEAR_ANIM_EDGE_SNAP_BACK =
+            PreferenceKeys.SYSTEM_UI_FREEFORM_NONLINEAR_ANIM_EDGE_SNAP_BACK.name
+        private val KEY_SYSTEM_UI_FREEFORM_NONLINEAR_ANIM_EDGE_DOCK =
+            PreferenceKeys.SYSTEM_UI_FREEFORM_NONLINEAR_ANIM_EDGE_DOCK.name
+        private val KEY_SYSTEM_UI_FREEFORM_NONLINEAR_ANIM_BUBBLE_RESTORE =
+            PreferenceKeys.SYSTEM_UI_FREEFORM_NONLINEAR_ANIM_BUBBLE_RESTORE.name
         private val KEY_SYSTEM_UI_FREEFORM_HANDLE_MENU_ANIM =
             PreferenceKeys.SYSTEM_UI_FREEFORM_HANDLE_MENU_ANIM.name
 
@@ -155,6 +215,12 @@ data class SystemUiMiscSettingsUiState(
     val cornerHandleAutoHide: Boolean = true,
     val freeformNoForehead: Boolean = false,
     val freeformNonlinearAnim: Boolean = false,
+    val freeformNonlinearAnimOpen: Boolean = true,
+    val freeformNonlinearAnimClose: Boolean = true,
+    val freeformNonlinearAnimBoundsChange: Boolean = true,
+    val freeformNonlinearAnimEdgeSnapBack: Boolean = true,
+    val freeformNonlinearAnimEdgeDock: Boolean = true,
+    val freeformNonlinearAnimBubbleRestore: Boolean = true,
     val freeformHandleMenuAnim: Boolean = false,
     val isRestartProcessing: Boolean = false,
     val showRestartDialog: Boolean = false

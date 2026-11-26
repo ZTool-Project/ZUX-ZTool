@@ -477,6 +477,12 @@ fun FreeformHubSettingsRoute(
             onCornerHandleAutoHideChanged = viewModel::setCornerHandleAutoHide,
             onFreeformNoForeheadChanged = viewModel::setFreeformNoForehead,
             onFreeformNonlinearAnimChanged = viewModel::setFreeformNonlinearAnim,
+            onFreeformNonlinearAnimOpenChanged = viewModel::setFreeformNonlinearAnimOpen,
+            onFreeformNonlinearAnimCloseChanged = viewModel::setFreeformNonlinearAnimClose,
+            onFreeformNonlinearAnimBoundsChangeChanged = viewModel::setFreeformNonlinearAnimBoundsChange,
+            onFreeformNonlinearAnimEdgeSnapBackChanged = viewModel::setFreeformNonlinearAnimEdgeSnapBack,
+            onFreeformNonlinearAnimEdgeDockChanged = viewModel::setFreeformNonlinearAnimEdgeDock,
+            onFreeformNonlinearAnimBubbleRestoreChanged = viewModel::setFreeformNonlinearAnimBubbleRestore,
             onFreeformHandleMenuAnimChanged = viewModel::setFreeformHandleMenuAnim,
             onForceFreeformEntryChanged = viewModel::setForceFreeformEntry,
             onForceRelativeAppFreeformChanged = viewModel::setForceRelativeAppFreeform,
@@ -542,6 +548,12 @@ private fun FreeformHubSettingsScreen(
     onCornerHandleAutoHideChanged: (Boolean) -> Unit,
     onFreeformNoForeheadChanged: (Boolean) -> Unit,
     onFreeformNonlinearAnimChanged: (Boolean) -> Unit,
+    onFreeformNonlinearAnimOpenChanged: (Boolean) -> Unit,
+    onFreeformNonlinearAnimCloseChanged: (Boolean) -> Unit,
+    onFreeformNonlinearAnimBoundsChangeChanged: (Boolean) -> Unit,
+    onFreeformNonlinearAnimEdgeSnapBackChanged: (Boolean) -> Unit,
+    onFreeformNonlinearAnimEdgeDockChanged: (Boolean) -> Unit,
+    onFreeformNonlinearAnimBubbleRestoreChanged: (Boolean) -> Unit,
     onFreeformHandleMenuAnimChanged: (Boolean) -> Unit,
     onForceFreeformEntryChanged: (Boolean) -> Unit,
     onForceRelativeAppFreeformChanged: (Boolean) -> Unit,
@@ -607,6 +619,12 @@ private fun FreeformHubSettingsScreen(
                         onCornerHandleAutoHideChanged = onCornerHandleAutoHideChanged,
                         onFreeformNoForeheadChanged = onFreeformNoForeheadChanged,
                         onFreeformNonlinearAnimChanged = onFreeformNonlinearAnimChanged,
+                        onFreeformNonlinearAnimOpenChanged = onFreeformNonlinearAnimOpenChanged,
+                        onFreeformNonlinearAnimCloseChanged = onFreeformNonlinearAnimCloseChanged,
+                        onFreeformNonlinearAnimBoundsChangeChanged = onFreeformNonlinearAnimBoundsChangeChanged,
+                        onFreeformNonlinearAnimEdgeSnapBackChanged = onFreeformNonlinearAnimEdgeSnapBackChanged,
+                        onFreeformNonlinearAnimEdgeDockChanged = onFreeformNonlinearAnimEdgeDockChanged,
+                        onFreeformNonlinearAnimBubbleRestoreChanged = onFreeformNonlinearAnimBubbleRestoreChanged,
                         onFreeformHandleMenuAnimChanged = onFreeformHandleMenuAnimChanged,
                         onForceFreeformEntryChanged = onForceFreeformEntryChanged,
                         onForceRelativeAppFreeformChanged = onForceRelativeAppFreeformChanged,
@@ -642,6 +660,12 @@ private fun freeformHubSections(
     onCornerHandleAutoHideChanged: (Boolean) -> Unit,
     onFreeformNoForeheadChanged: (Boolean) -> Unit,
     onFreeformNonlinearAnimChanged: (Boolean) -> Unit,
+    onFreeformNonlinearAnimOpenChanged: (Boolean) -> Unit,
+    onFreeformNonlinearAnimCloseChanged: (Boolean) -> Unit,
+    onFreeformNonlinearAnimBoundsChangeChanged: (Boolean) -> Unit,
+    onFreeformNonlinearAnimEdgeSnapBackChanged: (Boolean) -> Unit,
+    onFreeformNonlinearAnimEdgeDockChanged: (Boolean) -> Unit,
+    onFreeformNonlinearAnimBubbleRestoreChanged: (Boolean) -> Unit,
     onFreeformHandleMenuAnimChanged: (Boolean) -> Unit,
     onForceFreeformEntryChanged: (Boolean) -> Unit,
     onForceRelativeAppFreeformChanged: (Boolean) -> Unit,
@@ -957,6 +981,86 @@ private fun freeformHubSections(
                             onCheckedChange = onFreeformNonlinearAnimChanged
                         )
                     )
+                    if (state.freeformNonlinearAnim) {
+                        add(
+                            SettingItem.Switch(
+                                key = "system_ui_misc_freeform_nonlinear_anim_open",
+                                title = stringResource(
+                                    R.string.system_ui_misc_freeform_nonlinear_anim_open_title
+                                ),
+                                summary = stringResource(
+                                    R.string.system_ui_misc_freeform_nonlinear_anim_open_summary
+                                ),
+                                checked = state.freeformNonlinearAnimOpen,
+                                onCheckedChange = onFreeformNonlinearAnimOpenChanged
+                            )
+                        )
+                        add(
+                            SettingItem.Switch(
+                                key = "system_ui_misc_freeform_nonlinear_anim_close",
+                                title = stringResource(
+                                    R.string.system_ui_misc_freeform_nonlinear_anim_close_title
+                                ),
+                                summary = stringResource(
+                                    R.string.system_ui_misc_freeform_nonlinear_anim_close_summary
+                                ),
+                                checked = state.freeformNonlinearAnimClose,
+                                onCheckedChange = onFreeformNonlinearAnimCloseChanged
+                            )
+                        )
+                        add(
+                            SettingItem.Switch(
+                                key = "system_ui_misc_freeform_nonlinear_anim_bounds_change",
+                                title = stringResource(
+                                    R.string.system_ui_misc_freeform_nonlinear_anim_bounds_change_title
+                                ),
+                                summary = stringResource(
+                                    R.string.system_ui_misc_freeform_nonlinear_anim_bounds_change_summary
+                                ),
+                                checked = state.freeformNonlinearAnimBoundsChange,
+                                onCheckedChange = onFreeformNonlinearAnimBoundsChangeChanged
+                            )
+                        )
+                        add(
+                            SettingItem.Switch(
+                                key = "system_ui_misc_freeform_nonlinear_anim_edge_snap_back",
+                                title = stringResource(
+                                    R.string.system_ui_misc_freeform_nonlinear_anim_edge_snap_back_title
+                                ),
+                                summary = stringResource(
+                                    R.string.system_ui_misc_freeform_nonlinear_anim_edge_snap_back_summary
+                                ),
+                                checked = state.freeformNonlinearAnimEdgeSnapBack,
+                                onCheckedChange = onFreeformNonlinearAnimEdgeSnapBackChanged
+                            )
+                        )
+                        add(
+                            SettingItem.Switch(
+                                key = "system_ui_misc_freeform_nonlinear_anim_edge_dock",
+                                title = stringResource(
+                                    R.string.system_ui_misc_freeform_nonlinear_anim_edge_dock_title
+                                ),
+                                summary = stringResource(
+                                    R.string.system_ui_misc_freeform_nonlinear_anim_edge_dock_summary
+                                ),
+                                checked = state.freeformNonlinearAnimEdgeDock,
+                                onCheckedChange = onFreeformNonlinearAnimEdgeDockChanged
+                            )
+                        )
+                        add(
+                            SettingItem.Switch(
+                                key = "system_ui_misc_freeform_nonlinear_anim_bubble_restore",
+                                title = stringResource(
+                                    R.string.system_ui_misc_freeform_nonlinear_anim_bubble_restore_title
+                                ),
+                                summary = stringResource(
+                                    R.string.system_ui_misc_freeform_nonlinear_anim_bubble_restore_summary
+                                ),
+                                checked = state.freeformNonlinearAnimBubbleRestore,
+                                onCheckedChange = onFreeformNonlinearAnimBubbleRestoreChanged
+                            )
+                        )
+                    }
                     add(
                         SettingItem.Switch(
                             key = "system_ui_misc_freeform_handle_menu_anim",

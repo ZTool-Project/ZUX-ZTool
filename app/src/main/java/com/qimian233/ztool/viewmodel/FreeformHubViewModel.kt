@@ -125,6 +125,36 @@ class FreeformHubViewModel(
         repository.saveFreeformNonlinearAnim(enabled)
     }
 
+    fun setFreeformNonlinearAnimOpen(enabled: Boolean) {
+        _uiState.value = _uiState.value.copy(freeformNonlinearAnimOpen = enabled)
+        repository.saveFreeformNonlinearAnimOpen(enabled)
+    }
+
+    fun setFreeformNonlinearAnimClose(enabled: Boolean) {
+        _uiState.value = _uiState.value.copy(freeformNonlinearAnimClose = enabled)
+        repository.saveFreeformNonlinearAnimClose(enabled)
+    }
+
+    fun setFreeformNonlinearAnimBoundsChange(enabled: Boolean) {
+        _uiState.value = _uiState.value.copy(freeformNonlinearAnimBoundsChange = enabled)
+        repository.saveFreeformNonlinearAnimBoundsChange(enabled)
+    }
+
+    fun setFreeformNonlinearAnimEdgeSnapBack(enabled: Boolean) {
+        _uiState.value = _uiState.value.copy(freeformNonlinearAnimEdgeSnapBack = enabled)
+        repository.saveFreeformNonlinearAnimEdgeSnapBack(enabled)
+    }
+
+    fun setFreeformNonlinearAnimEdgeDock(enabled: Boolean) {
+        _uiState.value = _uiState.value.copy(freeformNonlinearAnimEdgeDock = enabled)
+        repository.saveFreeformNonlinearAnimEdgeDock(enabled)
+    }
+
+    fun setFreeformNonlinearAnimBubbleRestore(enabled: Boolean) {
+        _uiState.value = _uiState.value.copy(freeformNonlinearAnimBubbleRestore = enabled)
+        repository.saveFreeformNonlinearAnimBubbleRestore(enabled)
+    }
+
     fun setFreeformHandleMenuAnim(enabled: Boolean) {
         _uiState.value = _uiState.value.copy(freeformHandleMenuAnim = enabled)
         repository.saveFreeformHandleMenuAnim(enabled)
@@ -253,6 +283,12 @@ data class FreeformHubUiState(
     val cornerHandleAutoHide: Boolean = true,
     val freeformNoForehead: Boolean = false,
     val freeformNonlinearAnim: Boolean = false,
+    val freeformNonlinearAnimOpen: Boolean = true,
+    val freeformNonlinearAnimClose: Boolean = true,
+    val freeformNonlinearAnimBoundsChange: Boolean = true,
+    val freeformNonlinearAnimEdgeSnapBack: Boolean = true,
+    val freeformNonlinearAnimEdgeDock: Boolean = true,
+    val freeformNonlinearAnimBubbleRestore: Boolean = true,
     val freeformHandleMenuAnim: Boolean = false,
     val forceFreeformEntry: Boolean = false,
     val forceRelativeAppFreeform: Boolean = false,

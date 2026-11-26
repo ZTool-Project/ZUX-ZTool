@@ -20,6 +20,7 @@ import android.view.WindowManager
 import androidx.core.app.NotificationCompat
 import com.qimian233.ztool.R
 import com.qimian233.ztool.data.freeform.FreeformEdgeBubbleConfig
+import com.qimian233.ztool.data.keys.BoolKey
 import com.qimian233.ztool.data.keys.PreferenceKeys
 import com.qimian233.ztool.utils.FreeformBubbleBridge
 import com.qimian233.ztool.utils.ModulePreferencesUtils
@@ -299,9 +300,8 @@ class EdgeBubbleService : Service() {
                 listener = object : EdgeBubbleView.Listener {
                     override fun onBubbleRestore(taskId: Int, bubbleRect: Rect, side: Int) {
                         restoredAt[taskId] = SystemClock.elapsedRealtime()
-                        val nonlinearEnabled = prefsUtils.loadBooleanSetting(
-                            PreferenceKeys.SYSTEM_UI_FREEFORM_NONLINEAR_ANIM.name,
-                            PreferenceKeys.SYSTEM_UI_FREEFORM_NONLINEAR_ANIM.default
+                        val nonlinearEnabled = isNonlinearSubEnabled(
+                            PreferenceKeys.SYSTEM_UI_FREEFORM_NONLINEAR_ANIM_BUBBLE_RESTORE
                         )
                         if (nonlinearEnabled) {
                             val currentView = bubbles[taskId]
@@ -359,16 +359,21 @@ class EdgeBubbleService : Service() {
             return
         }
         bubbles[taskId] = view
-        if (prefsUtils.loadBooleanSetting(
-                PreferenceKeys.SYSTEM_UI_FREEFORM_NONLINEAR_ANIM.name,
-                PreferenceKeys.SYSTEM_UI_FREEFORM_NONLINEAR_ANIM.default
-            )
-        ) {
+        if (isNonlinearSubEnabled(PreferenceKeys.SYSTEM_UI_FREEFORM_NONLINEAR_ANIM_EDGE_DOCK)) {
             view.postOnAnimation {
                 FreeformBubbleBridge.notifySystemUiDockOverlayDone(taskId)
             }
         }
         Log.i(TAG, "bubble added task=$taskId side=$side pkg=$pkg count=${bubbles.size}")
+    }
+
+    private fun isNonlinearSubEnabled(subKey: BoolKey): Boolean {
+        val master = prefsUtils.loadBooleanSetting(
+            PreferenceKeys.SYSTEM_UI_FREEFORM_NONLINEAR_ANIM.name,
+            PreferenceKeys.SYSTEM_UI_FREEFORM_NONLINEAR_ANIM.default
+        )
+        if (!master) return false
+        return prefsUtils.loadBooleanSetting(subKey.name, subKey.default)
     }
 
     private fun scheduleRestoreHandoffFallback(taskId: Int, delayMs: Long) {

@@ -66,6 +66,18 @@ object PreferenceKeys {
     // Nonlinear spring/easing scale animations for freeform open, close, edge-dock and bubble-restore
     val SYSTEM_UI_FREEFORM_NONLINEAR_ANIM =
         BoolKey("system_ui_freeform_nonlinear_anim", false)
+    val SYSTEM_UI_FREEFORM_NONLINEAR_ANIM_OPEN =
+        BoolKey("system_ui_freeform_nonlinear_anim_open", true)
+    val SYSTEM_UI_FREEFORM_NONLINEAR_ANIM_CLOSE =
+        BoolKey("system_ui_freeform_nonlinear_anim_close", true)
+    val SYSTEM_UI_FREEFORM_NONLINEAR_ANIM_BOUNDS_CHANGE =
+        BoolKey("system_ui_freeform_nonlinear_anim_bounds_change", true)
+    val SYSTEM_UI_FREEFORM_NONLINEAR_ANIM_EDGE_SNAP_BACK =
+        BoolKey("system_ui_freeform_nonlinear_anim_edge_snap_back", true)
+    val SYSTEM_UI_FREEFORM_NONLINEAR_ANIM_EDGE_DOCK =
+        BoolKey("system_ui_freeform_nonlinear_anim_edge_dock", true)
+    val SYSTEM_UI_FREEFORM_NONLINEAR_ANIM_BUBBLE_RESTORE =
+        BoolKey("system_ui_freeform_nonlinear_anim_bubble_restore", true)
     // Nonlinear expand/collapse transition for ZUX's freeform handle menu pill
     val SYSTEM_UI_FREEFORM_HANDLE_MENU_ANIM =
         BoolKey("system_ui_freeform_handle_menu_anim", false)
@@ -476,6 +488,12 @@ object PreferenceKeys {
         SYSTEM_UI_CORNER_HANDLE_AUTO_HIDE,
         SYSTEM_UI_FREEFORM_NO_FOREHEAD,
         SYSTEM_UI_FREEFORM_NONLINEAR_ANIM,
+        SYSTEM_UI_FREEFORM_NONLINEAR_ANIM_OPEN,
+        SYSTEM_UI_FREEFORM_NONLINEAR_ANIM_CLOSE,
+        SYSTEM_UI_FREEFORM_NONLINEAR_ANIM_BOUNDS_CHANGE,
+        SYSTEM_UI_FREEFORM_NONLINEAR_ANIM_EDGE_SNAP_BACK,
+        SYSTEM_UI_FREEFORM_NONLINEAR_ANIM_EDGE_DOCK,
+        SYSTEM_UI_FREEFORM_NONLINEAR_ANIM_BUBBLE_RESTORE,
         SYSTEM_UI_FREEFORM_HANDLE_MENU_ANIM,
         SIDEBAR_DRAWER_ENHANCE,
         SIDEBAR_DRAWER_EDITABLE,

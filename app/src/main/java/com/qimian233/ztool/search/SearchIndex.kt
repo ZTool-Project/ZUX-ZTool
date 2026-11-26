@@ -1025,6 +1025,54 @@ object SearchIndex {
             keywords = listOf("非线性动画", "物理动画", "弹簧", "贴边", "气泡", "nonlinear", "spring", "animation", "bubble")
         ),
         freeformHub.item(
+            id = "system_ui_misc_freeform_nonlinear_anim_open",
+            titleRes = R.string.system_ui_misc_freeform_nonlinear_anim_open_title,
+            summaryRes = R.string.system_ui_misc_freeform_nonlinear_anim_open_summary,
+            parentTitleRes = R.string.system_ui_misc_freeform_nonlinear_anim_title,
+            parentKey = "system_ui_misc_freeform_nonlinear_anim",
+            keywords = listOf("打开", "开启", "小窗", "非线性动画", "弹簧", "open", "launch", "spring", "freeform", "animation")
+        ),
+        freeformHub.item(
+            id = "system_ui_misc_freeform_nonlinear_anim_close",
+            titleRes = R.string.system_ui_misc_freeform_nonlinear_anim_close_title,
+            summaryRes = R.string.system_ui_misc_freeform_nonlinear_anim_close_summary,
+            parentTitleRes = R.string.system_ui_misc_freeform_nonlinear_anim_title,
+            parentKey = "system_ui_misc_freeform_nonlinear_anim",
+            keywords = listOf("关闭", "消失", "退出", "小窗", "非线性动画", "close", "vanish", "dismiss", "freeform", "animation")
+        ),
+        freeformHub.item(
+            id = "system_ui_misc_freeform_nonlinear_anim_bounds_change",
+            titleRes = R.string.system_ui_misc_freeform_nonlinear_anim_bounds_change_title,
+            summaryRes = R.string.system_ui_misc_freeform_nonlinear_anim_bounds_change_summary,
+            parentTitleRes = R.string.system_ui_misc_freeform_nonlinear_anim_title,
+            parentKey = "system_ui_misc_freeform_nonlinear_anim",
+            keywords = listOf("大小", "尺寸", "位置", "缩放", "变化", "小窗", "bounds", "resize", "change", "scale", "animation")
+        ),
+        freeformHub.item(
+            id = "system_ui_misc_freeform_nonlinear_anim_edge_snap_back",
+            titleRes = R.string.system_ui_misc_freeform_nonlinear_anim_edge_snap_back_title,
+            summaryRes = R.string.system_ui_misc_freeform_nonlinear_anim_edge_snap_back_summary,
+            parentTitleRes = R.string.system_ui_misc_freeform_nonlinear_anim_title,
+            parentKey = "system_ui_misc_freeform_nonlinear_anim",
+            keywords = listOf("回弹", "贴边", "边缘", "阈值", "气泡", "snap back", "bounce", "edge", "bubble", "freeform")
+        ),
+        freeformHub.item(
+            id = "system_ui_misc_freeform_nonlinear_anim_edge_dock",
+            titleRes = R.string.system_ui_misc_freeform_nonlinear_anim_edge_dock_title,
+            summaryRes = R.string.system_ui_misc_freeform_nonlinear_anim_edge_dock_summary,
+            parentTitleRes = R.string.system_ui_misc_freeform_nonlinear_anim_title,
+            parentKey = "system_ui_misc_freeform_nonlinear_anim",
+            keywords = listOf("贴边", "收起", "停靠", "气泡", "形变", "edge dock", "dock", "minimize", "bubble", "morph")
+        ),
+        freeformHub.item(
+            id = "system_ui_misc_freeform_nonlinear_anim_bubble_restore",
+            titleRes = R.string.system_ui_misc_freeform_nonlinear_anim_bubble_restore_title,
+            summaryRes = R.string.system_ui_misc_freeform_nonlinear_anim_bubble_restore_summary,
+            parentTitleRes = R.string.system_ui_misc_freeform_nonlinear_anim_title,
+            parentKey = "system_ui_misc_freeform_nonlinear_anim",
+            keywords = listOf("气泡", "恢复", "展开", "还原", "弹簧", "bubble restore", "expand", "bubble", "spring", "morph")
+        ),
+        freeformHub.item(
             id = "system_ui_misc_freeform_handle_menu_anim",
             titleRes = R.string.system_ui_misc_freeform_handle_menu_anim_title,
             keywords = listOf("控制胶囊", "胶囊", "非线性动画", "控制器", "小窗菜单", "handle menu", "control pill", "nonlinear", "animation")
