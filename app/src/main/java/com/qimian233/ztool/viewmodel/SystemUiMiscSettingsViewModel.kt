@@ -88,6 +88,11 @@ class SystemUiMiscSettingsViewModel(
         repository.saveFreeformNonlinearAnim(enabled)
     }
 
+    fun setFreeformHandleMenuAnim(enabled: Boolean) {
+        _uiState.value = _uiState.value.copy(freeformHandleMenuAnim = enabled)
+        repository.saveFreeformHandleMenuAnim(enabled)
+    }
+
     fun showRestartDialog() {
         _uiState.value = _uiState.value.copy(showRestartDialog = true)
     }

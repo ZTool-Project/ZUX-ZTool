@@ -51,6 +51,7 @@ class FreeformHubRepository(
             cornerHandleAutoHide = misc.cornerHandleAutoHide,
             freeformNoForehead = misc.freeformNoForehead,
             freeformNonlinearAnim = misc.freeformNonlinearAnim,
+            freeformHandleMenuAnim = misc.freeformHandleMenuAnim,
             forceFreeformEntry = launcher.forceFreeformEntry,
             forceRelativeAppFreeform = framework.forceRelativeAppFreeform
         )
@@ -123,6 +124,9 @@ class FreeformHubRepository(
 
     fun saveFreeformNonlinearAnim(enabled: Boolean) =
         systemUiMiscSettingsRepository.saveFreeformNonlinearAnim(enabled)
+
+    fun saveFreeformHandleMenuAnim(enabled: Boolean) =
+        systemUiMiscSettingsRepository.saveFreeformHandleMenuAnim(enabled)
 
     fun saveForceFreeformEntry(enabled: Boolean) =
         launcherSettingsRepository.saveForceFreeformEntry(enabled)

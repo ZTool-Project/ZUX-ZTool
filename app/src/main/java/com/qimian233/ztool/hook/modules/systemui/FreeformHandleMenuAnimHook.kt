@@ -10,6 +10,7 @@ import android.content.res.Configuration
 import android.graphics.Point
 import android.graphics.Rect
 import android.util.AttributeSet
+import android.view.MotionEvent
 import android.view.SurfaceControl
 import android.view.View
 import android.view.ViewGroup
@@ -27,11 +28,11 @@ import java.util.Collections
 import java.util.WeakHashMap
 
 /**
- * Test hook adding symmetric nonlinear expand/collapse transitions to ZUX's OvHandleMenu.
- * Defers menu button actions until the 100ms collapse animation completes.
+ * Adds symmetric nonlinear expand/collapse transitions to ZUX's OvHandleMenu.
+ * Button-triggered closes collapse in 100ms before action dispatch; outside touches use 220ms.
  */
 @SuppressLint("PrivateApi", "NewApi")
-class FreeformHandleMenuAnimTestHook : AppHookModule() {
+class FreeformHandleMenuAnimHook : AppHookModule() {
 
     private data class AnimGeometry(
         val pivotX: Float,
@@ -96,6 +97,7 @@ class FreeformHandleMenuAnimTestHook : AppHookModule() {
     private val stateLock = Any()
     private val controllers = WeakHashMap<Any, ControllerState>()
     private val attachedLayouts = Collections.newSetFromMap(WeakHashMap<ViewGroup, Boolean>())
+    private val outsideTouchDepth = ThreadLocal.withInitial { 0 }
 
     @Volatile
     private var lastCreatingController: WeakReference<Any>? = null
@@ -106,7 +108,8 @@ class FreeformHandleMenuAnimTestHook : AppHookModule() {
     @Volatile
     private var cachedMenuActionIds: Set<Int>? = null
 
-    override fun getModuleName(): String = PreferenceKeys.TEST_HOOK.name
+    override fun getModuleName(): String =
+        PreferenceKeys.SYSTEM_UI_FREEFORM_HANDLE_MENU_ANIM.name
 
     override fun getTargetPackages(): Array<out String> =
         arrayOf(ScopeKeys.SYSTEM_UI.packageName)
@@ -115,7 +118,7 @@ class FreeformHandleMenuAnimTestHook : AppHookModule() {
         try {
             install(param)
         } catch (t: Throwable) {
-            logger.error("Freeform handle menu anim test hook install failed", t)
+            logger.error("Freeform handle menu anim hook install failed", t)
         }
     }
 
@@ -140,6 +143,15 @@ class FreeformHandleMenuAnimTestHook : AppHookModule() {
         }.getOrNull() ?: run {
             logger.error("OvHandleMenuLinearLayout 4-arg constructor not found")
             return
+        }
+
+        val dispatchTouchEventMethod = optionalMethod(
+            layoutClass,
+            "dispatchTouchEvent",
+            MotionEvent::class.java
+        )
+        if (dispatchTouchEventMethod == null) {
+            logger.warn("OvHandleMenuLinearLayout.dispatchTouchEvent not found; outside-touch duration fallback active")
         }
 
         val createHandleMenuMethod = findMethodOrNull(
@@ -242,6 +254,22 @@ class FreeformHandleMenuAnimTestHook : AppHookModule() {
             result
         }
 
+        dispatchTouchEventMethod?.let { dispatchMethod ->
+            hookWithId(dispatchMethod, "freeform_handle_menu_anim_dispatch_touch") { chain ->
+                val event = chain.args.getOrNull(0) as? MotionEvent
+                if (event != null && event.actionMasked == MotionEvent.ACTION_OUTSIDE) {
+                    val prev = outsideTouchDepth.get() ?: 0
+                    outsideTouchDepth.set(prev + 1)
+                    try {
+                        return@hookWithId chain.proceed()
+                    } finally {
+                        if (prev <= 0) outsideTouchDepth.remove() else outsideTouchDepth.set(prev)
+                    }
+                }
+                chain.proceed()
+            }
+        }
+
         hookWithId(createHandleMenuMethod, "freeform_handle_menu_anim_create") { chain ->
             val controller = chain.thisObject ?: return@hookWithId chain.proceed()
             try {
@@ -272,6 +300,7 @@ class FreeformHandleMenuAnimTestHook : AppHookModule() {
                     ?: return@hookWithId chain.proceed()
                 val rootView = reflect.containerGetViewMethod.invoke(container) as? ViewGroup
                     ?: return@hookWithId chain.proceed()
+                val isOutsideTouch = (outsideTouchDepth.get() ?: 0) > 0
                 startCollapse(
                     controller = controller,
                     state = state,
@@ -279,6 +308,7 @@ class FreeformHandleMenuAnimTestHook : AppHookModule() {
                     ovHandleMenu = ovHandleMenu,
                     container = container,
                     rootView = rootView,
+                    collapseDurationMs = if (isOutsideTouch) EXPAND_DURATION_MS else COLLAPSE_DURATION_MS,
                     invokeCloseMenu = { chain.proceed() },
                     pendingAction = null
                 )
@@ -346,6 +376,7 @@ class FreeformHandleMenuAnimTestHook : AppHookModule() {
                     ovHandleMenu = ovHandleMenu,
                     container = container,
                     rootView = rootView,
+                    collapseDurationMs = COLLAPSE_DURATION_MS,
                     invokeCloseMenu = { reflect.closeHandleMenuMethod.invoke(controller) },
                     pendingAction = replayAction
                 )
@@ -386,7 +417,7 @@ class FreeformHandleMenuAnimTestHook : AppHookModule() {
             chain.proceed()
         }
 
-        logger.info("Freeform handle menu anim test hook installed")
+        logger.info("Freeform handle menu anim hook installed")
     }
 
     private fun prepareRootLayoutForExpand(rootView: ViewGroup, reflect: HostReflect) {
@@ -523,6 +554,7 @@ class FreeformHandleMenuAnimTestHook : AppHookModule() {
         ovHandleMenu: Any,
         container: Any,
         rootView: ViewGroup,
+        collapseDurationMs: Long,
         invokeCloseMenu: () -> Unit,
         pendingAction: Runnable?
     ) {
@@ -584,7 +616,7 @@ class FreeformHandleMenuAnimTestHook : AppHookModule() {
         )
         state.closingSession = session
 
-        val durationMs = (COLLAPSE_DURATION_MS * startOpenness).toLong().coerceAtLeast(16L)
+        val durationMs = (collapseDurationMs * startOpenness).toLong().coerceAtLeast(16L)
         val animator = ValueAnimator.ofFloat(startOpenness, 0f).apply {
             duration = durationMs
             interpolator = PathInterpolator(0.2f, 0f, 0f, 1f)

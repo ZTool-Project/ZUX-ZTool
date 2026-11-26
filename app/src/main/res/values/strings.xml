@@ -1491,6 +1491,7 @@
     <string name="system_ui_misc_freeform_no_forehead_summary">小窗不再为顶部把手预留一条纯色区域：应用内容直接占满窗口顶部，三点把手浮在应用上方；PC 模式保留标题栏按钮，只取消其占位</string>
     <string name="system_ui_misc_freeform_nonlinear_anim_title">小窗非线性动画</string>
     <string name="system_ui_misc_freeform_nonlinear_anim_summary">为小窗打开、关闭、贴边收起与从边缘气泡恢复启用弹簧与非线性缩放过渡动效，拖拽未达贴边阈值时回弹至屏幕内</string>
+    <string name="system_ui_misc_freeform_handle_menu_anim_title">小窗控制胶囊非线性动画</string>
     <string name="system_ui_misc_freeform_fullscreen_width_title">宽度阈值</string>
     <string name="system_ui_misc_freeform_fullscreen_width_summary">小窗宽度达到屏幕宽度的该比例时全屏；100% 表示宽度方向不触发</string>
     <string name="system_ui_misc_freeform_fullscreen_height_title">高度阈值</string>

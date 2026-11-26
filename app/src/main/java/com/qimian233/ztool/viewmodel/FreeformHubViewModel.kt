@@ -125,6 +125,11 @@ class FreeformHubViewModel(
         repository.saveFreeformNonlinearAnim(enabled)
     }
 
+    fun setFreeformHandleMenuAnim(enabled: Boolean) {
+        _uiState.value = _uiState.value.copy(freeformHandleMenuAnim = enabled)
+        repository.saveFreeformHandleMenuAnim(enabled)
+    }
+
     fun setForceFreeformEntry(enabled: Boolean) {
         _uiState.value = _uiState.value.copy(forceFreeformEntry = enabled)
         repository.saveForceFreeformEntry(enabled)
@@ -248,6 +253,7 @@ data class FreeformHubUiState(
     val cornerHandleAutoHide: Boolean = true,
     val freeformNoForehead: Boolean = false,
     val freeformNonlinearAnim: Boolean = false,
+    val freeformHandleMenuAnim: Boolean = false,
     val forceFreeformEntry: Boolean = false,
     val forceRelativeAppFreeform: Boolean = false,
     val showRestartDialog: Boolean = false

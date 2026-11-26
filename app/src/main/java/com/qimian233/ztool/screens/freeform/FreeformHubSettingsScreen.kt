@@ -477,6 +477,7 @@ fun FreeformHubSettingsRoute(
             onCornerHandleAutoHideChanged = viewModel::setCornerHandleAutoHide,
             onFreeformNoForeheadChanged = viewModel::setFreeformNoForehead,
             onFreeformNonlinearAnimChanged = viewModel::setFreeformNonlinearAnim,
+            onFreeformHandleMenuAnimChanged = viewModel::setFreeformHandleMenuAnim,
             onForceFreeformEntryChanged = viewModel::setForceFreeformEntry,
             onForceRelativeAppFreeformChanged = viewModel::setForceRelativeAppFreeform,
             onRestartSystem = viewModel::showRestartDialog,
@@ -541,6 +542,7 @@ private fun FreeformHubSettingsScreen(
     onCornerHandleAutoHideChanged: (Boolean) -> Unit,
     onFreeformNoForeheadChanged: (Boolean) -> Unit,
     onFreeformNonlinearAnimChanged: (Boolean) -> Unit,
+    onFreeformHandleMenuAnimChanged: (Boolean) -> Unit,
     onForceFreeformEntryChanged: (Boolean) -> Unit,
     onForceRelativeAppFreeformChanged: (Boolean) -> Unit,
     onRestartSystem: () -> Unit,
@@ -605,6 +607,7 @@ private fun FreeformHubSettingsScreen(
                         onCornerHandleAutoHideChanged = onCornerHandleAutoHideChanged,
                         onFreeformNoForeheadChanged = onFreeformNoForeheadChanged,
                         onFreeformNonlinearAnimChanged = onFreeformNonlinearAnimChanged,
+                        onFreeformHandleMenuAnimChanged = onFreeformHandleMenuAnimChanged,
                         onForceFreeformEntryChanged = onForceFreeformEntryChanged,
                         onForceRelativeAppFreeformChanged = onForceRelativeAppFreeformChanged,
                     ),
@@ -639,6 +642,7 @@ private fun freeformHubSections(
     onCornerHandleAutoHideChanged: (Boolean) -> Unit,
     onFreeformNoForeheadChanged: (Boolean) -> Unit,
     onFreeformNonlinearAnimChanged: (Boolean) -> Unit,
+    onFreeformHandleMenuAnimChanged: (Boolean) -> Unit,
     onForceFreeformEntryChanged: (Boolean) -> Unit,
     onForceRelativeAppFreeformChanged: (Boolean) -> Unit,
 ): List<SettingSection> {
@@ -951,6 +955,14 @@ private fun freeformHubSections(
                             summary = stringResource(R.string.system_ui_misc_freeform_nonlinear_anim_summary),
                             checked = state.freeformNonlinearAnim,
                             onCheckedChange = onFreeformNonlinearAnimChanged
+                        )
+                    )
+                    add(
+                        SettingItem.Switch(
+                            key = "system_ui_misc_freeform_handle_menu_anim",
+                            title = stringResource(R.string.system_ui_misc_freeform_handle_menu_anim_title),
+                            checked = state.freeformHandleMenuAnim,
+                            onCheckedChange = onFreeformHandleMenuAnimChanged
                         )
                     )
                 }

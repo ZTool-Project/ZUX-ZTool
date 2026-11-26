@@ -66,6 +66,9 @@ object PreferenceKeys {
     // Nonlinear spring/easing scale animations for freeform open, close, edge-dock and bubble-restore
     val SYSTEM_UI_FREEFORM_NONLINEAR_ANIM =
         BoolKey("system_ui_freeform_nonlinear_anim", false)
+    // Nonlinear expand/collapse transition for ZUX's freeform handle menu pill
+    val SYSTEM_UI_FREEFORM_HANDLE_MENU_ANIM =
+        BoolKey("system_ui_freeform_handle_menu_anim", false)
     // Sidebar (com.zui.freeform.sidebar) drawer: lifts the host's hard-coded 5-slot
     // limit and switches the drawer to a user-editable order. Module name of
     // SidebarDrawerHook.
@@ -473,6 +476,7 @@ object PreferenceKeys {
         SYSTEM_UI_CORNER_HANDLE_AUTO_HIDE,
         SYSTEM_UI_FREEFORM_NO_FOREHEAD,
         SYSTEM_UI_FREEFORM_NONLINEAR_ANIM,
+        SYSTEM_UI_FREEFORM_HANDLE_MENU_ANIM,
         SIDEBAR_DRAWER_ENHANCE,
         SIDEBAR_DRAWER_EDITABLE,
         SIDEBAR_ALLAPPS_SECTIONS,

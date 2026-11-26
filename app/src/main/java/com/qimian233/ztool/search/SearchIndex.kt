@@ -1025,6 +1025,11 @@ object SearchIndex {
             keywords = listOf("非线性动画", "物理动画", "弹簧", "贴边", "气泡", "nonlinear", "spring", "animation", "bubble")
         ),
         freeformHub.item(
+            id = "system_ui_misc_freeform_handle_menu_anim",
+            titleRes = R.string.system_ui_misc_freeform_handle_menu_anim_title,
+            keywords = listOf("控制胶囊", "胶囊", "非线性动画", "控制器", "小窗菜单", "handle menu", "control pill", "nonlinear", "animation")
+        ),
+        freeformHub.item(
             id = "system_ui_misc_freeform_fullscreen_width",
             titleRes = R.string.system_ui_misc_freeform_fullscreen_width_title,
             summaryRes = R.string.system_ui_misc_freeform_fullscreen_width_summary,

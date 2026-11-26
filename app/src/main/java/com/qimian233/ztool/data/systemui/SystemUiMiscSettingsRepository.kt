@@ -47,6 +47,10 @@ class SystemUiMiscSettingsRepository(context: Context) {
                 KEY_SYSTEM_UI_FREEFORM_NONLINEAR_ANIM,
                 false
             ),
+            freeformHandleMenuAnim = prefsUtils.loadBooleanSetting(
+                KEY_SYSTEM_UI_FREEFORM_HANDLE_MENU_ANIM,
+                false
+            ),
         )
     }
 
@@ -89,6 +93,10 @@ class SystemUiMiscSettingsRepository(context: Context) {
         prefsUtils.saveBooleanSetting(KEY_SYSTEM_UI_FREEFORM_NONLINEAR_ANIM, enabled)
     }
 
+    fun saveFreeformHandleMenuAnim(enabled: Boolean) {
+        prefsUtils.saveBooleanSetting(KEY_SYSTEM_UI_FREEFORM_HANDLE_MENU_ANIM, enabled)
+    }
+
     fun forceStopScope(): ShellActionResult {
         val scopes = ScopeUtils.getScopes(FeatureDestination.SystemUi)
         return when (val result = ScopeUtils.restartScope(scopes)) {
@@ -117,6 +125,8 @@ class SystemUiMiscSettingsRepository(context: Context) {
             PreferenceKeys.SYSTEM_UI_FREEFORM_NO_FOREHEAD.name
         private val KEY_SYSTEM_UI_FREEFORM_NONLINEAR_ANIM =
             PreferenceKeys.SYSTEM_UI_FREEFORM_NONLINEAR_ANIM.name
+        private val KEY_SYSTEM_UI_FREEFORM_HANDLE_MENU_ANIM =
+            PreferenceKeys.SYSTEM_UI_FREEFORM_HANDLE_MENU_ANIM.name
 
         // Fullscreen thresholds are percentages of the current display; 100 % disables
         // that direction and both at 100 % keeps the window out of fullscreen.
@@ -145,6 +155,7 @@ data class SystemUiMiscSettingsUiState(
     val cornerHandleAutoHide: Boolean = true,
     val freeformNoForehead: Boolean = false,
     val freeformNonlinearAnim: Boolean = false,
+    val freeformHandleMenuAnim: Boolean = false,
     val isRestartProcessing: Boolean = false,
     val showRestartDialog: Boolean = false
 )
