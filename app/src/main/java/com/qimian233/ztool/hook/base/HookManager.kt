@@ -9,6 +9,7 @@ import com.qimian233.ztool.hook.modules.gametool.DeviceModelDisguiseHook
 import com.qimian233.ztool.hook.modules.gametool.DisableGameAudioApp
 import com.qimian233.ztool.hook.modules.gametool.SocTemperatureFix
 import com.qimian233.ztool.hook.modules.launcher.LauncherFreeformEntryHook
+import com.qimian233.ztool.hook.modules.launcher.LauncherFreeformSwipeTriggerHook
 import com.qimian233.ztool.hook.modules.systemui.FreeformFullscreenThresholdHook
 import com.qimian233.ztool.hook.modules.systemui.PcTaskbarCompactControls
 import com.qimian233.ztool.hook.modules.systemui.FreeformBottomEdgeResizeHook
@@ -325,6 +326,7 @@ object HookManager {
         registerHookModule(DisableForceStop())
         registerHookModule(ZuiLauncherHotseatHook())
         registerHookModule(LauncherFreeformEntryHook())
+        registerHookModule(LauncherFreeformSwipeTriggerHook())
         registerHookModule(LauncherAppIconUnmaskHook())
         registerHookModule(LauncherIconPackHook())
         registerHookModule(CustomGridSize())

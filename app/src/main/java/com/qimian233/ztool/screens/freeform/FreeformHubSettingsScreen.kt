@@ -9,14 +9,24 @@ import android.view.ViewGroup
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.drawscope.Stroke
+import com.qimian233.ztool.data.freeform.LauncherFreeformTriggerConfig
+import kotlin.math.roundToInt
 import com.qimian233.ztool.ui.icons.ZToolIcons
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -485,6 +495,10 @@ fun FreeformHubSettingsRoute(
             onFreeformNonlinearAnimBubbleRestoreChanged = viewModel::setFreeformNonlinearAnimBubbleRestore,
             onFreeformHandleMenuAnimChanged = viewModel::setFreeformHandleMenuAnim,
             onForceFreeformEntryChanged = viewModel::setForceFreeformEntry,
+            onFreeformSwipeTriggerChanged = viewModel::setFreeformSwipeTrigger,
+            onFreeformSwipeTopPercentChanged = viewModel::setFreeformSwipeTopPercent,
+            onFreeformSwipeLeftPercentChanged = viewModel::setFreeformSwipeLeftPercent,
+            onFreeformSwipeRightPercentChanged = viewModel::setFreeformSwipeRightPercent,
             onForceRelativeAppFreeformChanged = viewModel::setForceRelativeAppFreeform,
             onRestartSystem = viewModel::showRestartDialog,
             scrollState = scrollState,
@@ -556,6 +570,10 @@ private fun FreeformHubSettingsScreen(
     onFreeformNonlinearAnimBubbleRestoreChanged: (Boolean) -> Unit,
     onFreeformHandleMenuAnimChanged: (Boolean) -> Unit,
     onForceFreeformEntryChanged: (Boolean) -> Unit,
+    onFreeformSwipeTriggerChanged: (Boolean) -> Unit,
+    onFreeformSwipeTopPercentChanged: (Int) -> Unit,
+    onFreeformSwipeLeftPercentChanged: (Int) -> Unit,
+    onFreeformSwipeRightPercentChanged: (Int) -> Unit,
     onForceRelativeAppFreeformChanged: (Boolean) -> Unit,
     onRestartSystem: () -> Unit,
     scrollState: ScrollState,
@@ -627,6 +645,10 @@ private fun FreeformHubSettingsScreen(
                         onFreeformNonlinearAnimBubbleRestoreChanged = onFreeformNonlinearAnimBubbleRestoreChanged,
                         onFreeformHandleMenuAnimChanged = onFreeformHandleMenuAnimChanged,
                         onForceFreeformEntryChanged = onForceFreeformEntryChanged,
+                        onFreeformSwipeTriggerChanged = onFreeformSwipeTriggerChanged,
+                        onFreeformSwipeTopPercentChanged = onFreeformSwipeTopPercentChanged,
+                        onFreeformSwipeLeftPercentChanged = onFreeformSwipeLeftPercentChanged,
+                        onFreeformSwipeRightPercentChanged = onFreeformSwipeRightPercentChanged,
                         onForceRelativeAppFreeformChanged = onForceRelativeAppFreeformChanged,
                     ),
                     bottomPadding = 96.dp,
@@ -668,6 +690,10 @@ private fun freeformHubSections(
     onFreeformNonlinearAnimBubbleRestoreChanged: (Boolean) -> Unit,
     onFreeformHandleMenuAnimChanged: (Boolean) -> Unit,
     onForceFreeformEntryChanged: (Boolean) -> Unit,
+    onFreeformSwipeTriggerChanged: (Boolean) -> Unit,
+    onFreeformSwipeTopPercentChanged: (Int) -> Unit,
+    onFreeformSwipeLeftPercentChanged: (Int) -> Unit,
+    onFreeformSwipeRightPercentChanged: (Int) -> Unit,
     onForceRelativeAppFreeformChanged: (Boolean) -> Unit,
 ): List<SettingSection> {
     return buildList {
@@ -1076,15 +1102,94 @@ private fun freeformHubSections(
         add(
             SettingSection(
                 title = stringResource(R.string.freeform_hub_launcher_title),
-                items = listOf(
-                    SettingItem.Switch(
-                        key = "launcher_force_freeform_entry",
-                        title = stringResource(R.string.launcher_force_freeform_entry_title),
-                        summary = stringResource(R.string.launcher_force_freeform_entry_summary),
-                        checked = state.forceFreeformEntry,
-                        onCheckedChange = onForceFreeformEntryChanged
+                items = buildList {
+                    add(
+                        SettingItem.Switch(
+                            key = "launcher_force_freeform_entry",
+                            title = stringResource(R.string.launcher_force_freeform_entry_title),
+                            summary = stringResource(R.string.launcher_force_freeform_entry_summary),
+                            checked = state.forceFreeformEntry,
+                            onCheckedChange = onForceFreeformEntryChanged
+                        )
                     )
-                )
+                    add(
+                        SettingItem.Switch(
+                            key = "launcher_freeform_swipe_trigger",
+                            title = stringResource(R.string.launcher_freeform_swipe_trigger_title),
+                            summary = stringResource(R.string.launcher_freeform_swipe_trigger_summary),
+                            checked = state.freeformSwipeTrigger,
+                            onCheckedChange = onFreeformSwipeTriggerChanged
+                        )
+                    )
+                    if (state.freeformSwipeTrigger) {
+                        add(
+                            SettingItem.Custom(
+                                key = "deco_freeform_hub_swipe_trigger_preview",
+                                content = {
+                                    FreeformSwipeTriggerPreview(
+                                        topPercent = state.freeformSwipeTopPercent,
+                                        leftPercent = state.freeformSwipeLeftPercent,
+                                        rightPercent = state.freeformSwipeRightPercent
+                                    )
+                                }
+                            )
+                        )
+                        add(
+                            SettingItem.Slider(
+                                key = "launcher_freeform_swipe_top_percent",
+                                title = stringResource(R.string.launcher_freeform_swipe_top_percent_title),
+                                summary = stringResource(R.string.launcher_freeform_swipe_top_percent_summary),
+                                value = state.freeformSwipeTopPercent.toFloat(),
+                                valueText = stringResource(
+                                    R.string.launcher_freeform_swipe_percent_label,
+                                    state.freeformSwipeTopPercent
+                                ),
+                                valueRange = LauncherFreeformTriggerConfig.TOP_PERCENT_MIN.toFloat()..
+                                    LauncherFreeformTriggerConfig.TOP_PERCENT_MAX.toFloat(),
+                                steps = 0,
+                                onValueChange = {
+                                    onFreeformSwipeTopPercentChanged(it.roundToInt())
+                                }
+                            )
+                        )
+                        add(
+                            SettingItem.Slider(
+                                key = "launcher_freeform_swipe_left_percent",
+                                title = stringResource(R.string.launcher_freeform_swipe_left_percent_title),
+                                summary = stringResource(R.string.launcher_freeform_swipe_left_percent_summary),
+                                value = state.freeformSwipeLeftPercent.toFloat(),
+                                valueText = stringResource(
+                                    R.string.launcher_freeform_swipe_percent_label,
+                                    state.freeformSwipeLeftPercent
+                                ),
+                                valueRange = LauncherFreeformTriggerConfig.SIDE_MARGIN_MIN.toFloat()..
+                                    LauncherFreeformTriggerConfig.SIDE_MARGIN_MAX.toFloat(),
+                                steps = 0,
+                                onValueChange = {
+                                    onFreeformSwipeLeftPercentChanged(it.roundToInt())
+                                }
+                            )
+                        )
+                        add(
+                            SettingItem.Slider(
+                                key = "launcher_freeform_swipe_right_percent",
+                                title = stringResource(R.string.launcher_freeform_swipe_right_percent_title),
+                                summary = stringResource(R.string.launcher_freeform_swipe_right_percent_summary),
+                                value = state.freeformSwipeRightPercent.toFloat(),
+                                valueText = stringResource(
+                                    R.string.launcher_freeform_swipe_percent_label,
+                                    state.freeformSwipeRightPercent
+                                ),
+                                valueRange = LauncherFreeformTriggerConfig.SIDE_MARGIN_MIN.toFloat()..
+                                    LauncherFreeformTriggerConfig.SIDE_MARGIN_MAX.toFloat(),
+                                steps = 0,
+                                onValueChange = {
+                                    onFreeformSwipeRightPercentChanged(it.roundToInt())
+                                }
+                            )
+                        )
+                    }
+                }
             )
         )
 
@@ -1135,6 +1240,64 @@ private fun freeformHubActionItem(
             }
         }
     )
+}
+
+@Composable
+private fun FreeformSwipeTriggerPreview(
+    topPercent: Int,
+    leftPercent: Int,
+    rightPercent: Int
+) {
+    val activeWidthPercent = (100 - leftPercent - rightPercent).coerceAtLeast(0)
+    val frameColor = MaterialTheme.colorScheme.surfaceContainerHighest
+    val borderColor = MaterialTheme.colorScheme.outlineVariant
+    val zoneColor = MaterialTheme.colorScheme.primary
+
+    Column(
+        modifier = Modifier.padding(horizontal = 24.dp, vertical = 10.dp)
+    ) {
+        Canvas(modifier = Modifier.size(width = 160.dp, height = 104.dp)) {
+            val radius = CornerRadius(10.dp.toPx(), 10.dp.toPx())
+            drawRoundRect(
+                color = frameColor,
+                size = size,
+                cornerRadius = radius
+            )
+            val leftX = size.width * (leftPercent / 100f)
+            val rightX = size.width * ((100 - rightPercent) / 100f)
+            val zoneWidth = (rightX - leftX).coerceAtLeast(0f)
+            val zoneHeight = size.height * (topPercent / 100f)
+            if (zoneWidth > 0f && zoneHeight > 0f) {
+                drawRect(
+                    color = zoneColor.copy(alpha = 0.28f),
+                    topLeft = Offset(leftX, 0f),
+                    size = Size(zoneWidth, zoneHeight)
+                )
+                drawRect(
+                    color = zoneColor,
+                    topLeft = Offset(leftX, 0f),
+                    size = Size(zoneWidth, zoneHeight),
+                    style = Stroke(width = 1.5.dp.toPx())
+                )
+            }
+            drawRoundRect(
+                color = borderColor,
+                size = size,
+                cornerRadius = radius,
+                style = Stroke(width = 1.dp.toPx())
+            )
+        }
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+            text = stringResource(
+                R.string.launcher_freeform_swipe_preview_label,
+                activeWidthPercent,
+                topPercent
+            ),
+            style = MaterialTheme.typography.bodySmall,
+            color = LocalZToolColorScheme.current.onSurfaceVariant
+        )
+    }
 }
 
 private enum class ThresholdWinner { Width, Height, Both, None }

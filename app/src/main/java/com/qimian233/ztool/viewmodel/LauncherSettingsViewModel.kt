@@ -3,6 +3,7 @@ package com.qimian233.ztool.viewmodel
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.qimian233.ztool.data.freeform.LauncherFreeformTriggerConfig
 import com.qimian233.ztool.data.keys.WallpaperZoomModes
 import com.qimian233.ztool.data.launcher.ExternalGridInputs
 import com.qimian233.ztool.data.launcher.GridCounts
@@ -345,6 +346,10 @@ data class LauncherSettingsUiState(
     val forceStopWhitelist: List<String> = emptyList(),
     val moreBigDock: Boolean = false,
     val forceFreeformEntry: Boolean = false,
+    val freeformSwipeTrigger: Boolean = false,
+    val freeformSwipeTopPercent: Int = LauncherFreeformTriggerConfig.TOP_PERCENT_DEFAULT,
+    val freeformSwipeLeftPercent: Int = LauncherFreeformTriggerConfig.LEFT_PERCENT_DEFAULT,
+    val freeformSwipeRightPercent: Int = LauncherFreeformTriggerConfig.RIGHT_PERCENT_DEFAULT,
     val customGridSize: Boolean = false,
     val customGridRow: Int = 4,
     val customGridColumn: Int = 6,

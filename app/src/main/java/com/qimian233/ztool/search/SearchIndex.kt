@@ -1882,6 +1882,33 @@ object SearchIndex {
             id = "launcher_force_freeform_entry",
             titleRes = R.string.launcher_force_freeform_entry_title
         ),
+        freeformHub.item(
+            id = "launcher_freeform_swipe_trigger",
+            titleRes = R.string.launcher_freeform_swipe_trigger_title,
+            summaryRes = R.string.launcher_freeform_swipe_trigger_summary,
+            keywords = listOf("浮窗", "小窗", "松手进入浮窗", "上滑小窗", "触发区域", "QuickStep", "freeform", "swipe", "trigger")
+        ),
+        freeformHub.item(
+            id = "launcher_freeform_swipe_top_percent",
+            titleRes = R.string.launcher_freeform_swipe_top_percent_title,
+            summaryRes = R.string.launcher_freeform_swipe_top_percent_summary,
+            parentTitleRes = R.string.launcher_freeform_swipe_trigger_title,
+            parentKey = "launcher_freeform_swipe_trigger"
+        ),
+        freeformHub.item(
+            id = "launcher_freeform_swipe_left_percent",
+            titleRes = R.string.launcher_freeform_swipe_left_percent_title,
+            summaryRes = R.string.launcher_freeform_swipe_left_percent_summary,
+            parentTitleRes = R.string.launcher_freeform_swipe_trigger_title,
+            parentKey = "launcher_freeform_swipe_trigger"
+        ),
+        freeformHub.item(
+            id = "launcher_freeform_swipe_right_percent",
+            titleRes = R.string.launcher_freeform_swipe_right_percent_title,
+            summaryRes = R.string.launcher_freeform_swipe_right_percent_summary,
+            parentTitleRes = R.string.launcher_freeform_swipe_trigger_title,
+            parentKey = "launcher_freeform_swipe_trigger"
+        ),
         launcher.item(
             id = "launcher_larger_dock",
             titleRes = R.string.launcher_larger_dock_title,

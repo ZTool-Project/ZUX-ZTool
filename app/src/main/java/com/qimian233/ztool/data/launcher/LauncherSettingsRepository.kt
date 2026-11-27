@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import com.qimian233.ztool.data.features.FeatureDestination
+import com.qimian233.ztool.data.freeform.LauncherFreeformTriggerConfig
 import com.qimian233.ztool.utils.ModulePreferencesUtils
 import com.qimian233.ztool.data.keys.PreferenceKeys
 import com.qimian233.ztool.data.keys.WallpaperZoomModes
@@ -26,11 +27,31 @@ class LauncherSettingsRepository(
             else -> ForceStopMode.Default
         }
 
+        val (swipeLeftPercent, swipeRightPercent) = LauncherFreeformTriggerConfig.normalizeMargins(
+            prefsUtils.loadIntegerSetting(
+                KEY_LAUNCHER_FREEFORM_SWIPE_LEFT_PERCENT,
+                LauncherFreeformTriggerConfig.LEFT_PERCENT_DEFAULT
+            ),
+            prefsUtils.loadIntegerSetting(
+                KEY_LAUNCHER_FREEFORM_SWIPE_RIGHT_PERCENT,
+                LauncherFreeformTriggerConfig.RIGHT_PERCENT_DEFAULT
+            )
+        )
+
         return LauncherSettingsUiState(
             forceStopMode = forceStopMode,
             forceStopWhitelist = loadForceStopWhitelist(),
             moreBigDock = prefsUtils.loadBooleanSetting(KEY_ZUI_LAUNCHER_HOTSEAT, false),
             forceFreeformEntry = prefsUtils.loadBooleanSetting(KEY_LAUNCHER_FORCE_FREEFORM_ENTRY, false),
+            freeformSwipeTrigger = prefsUtils.loadBooleanSetting(KEY_LAUNCHER_FREEFORM_SWIPE_TRIGGER, false),
+            freeformSwipeTopPercent = LauncherFreeformTriggerConfig.normalizeTopPercent(
+                prefsUtils.loadIntegerSetting(
+                    KEY_LAUNCHER_FREEFORM_SWIPE_TOP_PERCENT,
+                    LauncherFreeformTriggerConfig.TOP_PERCENT_DEFAULT
+                )
+            ),
+            freeformSwipeLeftPercent = swipeLeftPercent,
+            freeformSwipeRightPercent = swipeRightPercent,
             customGridSize = prefsUtils.loadBooleanSetting(KEY_CUSTOM_GRID_SIZE, false),
             customGridRow = prefsUtils.loadIntegerSetting(KEY_CUSTOM_LAUNCHER_ROW, DEFAULT_ROW)
                 .coerceIn(GRID_MIN, GRID_MAX),
@@ -122,6 +143,23 @@ class LauncherSettingsRepository(
 
     fun saveForceFreeformEntry(enabled: Boolean) {
         prefsUtils.saveBooleanSetting(KEY_LAUNCHER_FORCE_FREEFORM_ENTRY, enabled)
+    }
+
+    fun saveFreeformSwipeTrigger(enabled: Boolean) {
+        prefsUtils.saveBooleanSetting(KEY_LAUNCHER_FREEFORM_SWIPE_TRIGGER, enabled)
+    }
+
+    fun saveFreeformSwipeTopPercent(percent: Int) {
+        prefsUtils.saveIntegerSetting(
+            KEY_LAUNCHER_FREEFORM_SWIPE_TOP_PERCENT,
+            LauncherFreeformTriggerConfig.normalizeTopPercent(percent)
+        )
+    }
+
+    fun saveFreeformSwipeMargins(left: Int, right: Int) {
+        val (normLeft, normRight) = LauncherFreeformTriggerConfig.normalizeMargins(left, right)
+        prefsUtils.saveIntegerSetting(KEY_LAUNCHER_FREEFORM_SWIPE_LEFT_PERCENT, normLeft)
+        prefsUtils.saveIntegerSetting(KEY_LAUNCHER_FREEFORM_SWIPE_RIGHT_PERCENT, normRight)
     }
 
     fun saveCustomGridSize(enabled: Boolean) {
@@ -360,6 +398,14 @@ class LauncherSettingsRepository(
         private val KEY_FORCE_STOP_WHITE_LIST = PreferenceKeys.FORCE_STOP_WHITE_LIST.name
         private val KEY_ZUI_LAUNCHER_HOTSEAT = PreferenceKeys.ZUI_LAUNCHER_HOTSEAT.name
         private val KEY_LAUNCHER_FORCE_FREEFORM_ENTRY = PreferenceKeys.LAUNCHER_FORCE_FREEFORM_ENTRY.name
+        private val KEY_LAUNCHER_FREEFORM_SWIPE_TRIGGER =
+            PreferenceKeys.LAUNCHER_FREEFORM_SWIPE_TRIGGER.name
+        private val KEY_LAUNCHER_FREEFORM_SWIPE_TOP_PERCENT =
+            PreferenceKeys.LAUNCHER_FREEFORM_SWIPE_TOP_PERCENT.name
+        private val KEY_LAUNCHER_FREEFORM_SWIPE_LEFT_PERCENT =
+            PreferenceKeys.LAUNCHER_FREEFORM_SWIPE_LEFT_PERCENT.name
+        private val KEY_LAUNCHER_FREEFORM_SWIPE_RIGHT_PERCENT =
+            PreferenceKeys.LAUNCHER_FREEFORM_SWIPE_RIGHT_PERCENT.name
         private val KEY_ZUI_LAUNCHER_HOTSEAT_BACKUP = PreferenceKeys.ZUI_LAUNCHER_HOTSEAT_BACKUP.name
         private val KEY_CUSTOM_GRID_SIZE = PreferenceKeys.CUSTOM_GRID_SIZE.name
         private val KEY_CUSTOM_LAUNCHER_ROW = PreferenceKeys.CUSTOM_LAUNCHER_ROW.name

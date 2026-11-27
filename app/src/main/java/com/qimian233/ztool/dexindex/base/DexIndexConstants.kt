@@ -5,6 +5,7 @@ import com.qimian233.ztool.data.keys.PreferenceKeys
 /** Constants for the offline DexKit index. */
 object DexIndexConstants {
 
+    // v13 adds LauncherFreeformSwipeTriggerHook keys.
     // v12 adds BigFolderExternalTitleHook keys.
     // v11 restores MobileDesktopDexIndexer for BypassShareWarningHook tile/manager targets.
     // v10 adds BigFolderAlignHook FolderAnimationManager keys and LauncherNoLabelMode folder title fade keys.
@@ -13,7 +14,7 @@ object DexIndexConstants {
     // v7 adds LauncherFreeformEntryHook keys for R8-obfuscated A17 ZUI Launcher.
     // v6 rebuilds existing SystemUI indexes for ordered paths and typed callback matching.
     // See docs/research/systemui_charging_animation_android17.md for earlier versions.
-    const val SCHEMA_VERSION = 12
+    const val SCHEMA_VERSION = 13
 
     const val JSON_SCHEMA_VERSION = "schemaVersion"
     const val JSON_GENERATED_AT = "generatedAt"
@@ -37,6 +38,7 @@ object DexIndexConstants {
         val DISABLE_RECENT_APPS_DISPLAY = PreferenceKeys.DISABLE_RECENT_APPS_DISPLAY.name
         val LAUNCHER_BATCH_UNINSTALL = PreferenceKeys.LAUNCHER_BATCH_UNINSTALL.name
         val LAUNCHER_FORCE_FREEFORM_ENTRY = PreferenceKeys.LAUNCHER_FORCE_FREEFORM_ENTRY.name
+        val LAUNCHER_FREEFORM_SWIPE_TRIGGER = PreferenceKeys.LAUNCHER_FREEFORM_SWIPE_TRIGGER.name
         val LAUNCHER_HIDE_BLUE_POINT = PreferenceKeys.LAUNCHER_HIDE_BLUE_POINT.name
         val LAUNCHER_BIG_FOLDER_BLUR_GUARD = PreferenceKeys.LAUNCHER_BIG_FOLDER_BLUR_GUARD.name
         const val LAUNCHER_GRID_METRICS = "launcher_grid_metrics"
@@ -104,6 +106,12 @@ object DexIndexConstants {
         const val FREEFORM_SWIPE_INIT_PARAMS = "freeformSwipeInitParams"
         const val FREEFORM_SWIPE_SUPPORT_FIELD = "freeformSwipeSupportField"
         const val FREEFORM_SWIPE_TASK_INFO_FIELD = "freeformSwipeTaskInfoField"
+        // LauncherFreeformSwipeTriggerHook
+        const val SWIPE_TRIGGER_HANDLER_CLASS = "swipeTriggerHandlerClass"
+        const val SWIPE_TRIGGER_UI_LONG_SWIPE_FIELD = "swipeTriggerUiLongSwipeField"
+        const val SWIPE_TRIGGER_LONG_SWIPE_VIEW_FIELD = "swipeTriggerLongSwipeViewField"
+        const val SWIPE_TRIGGER_LONG_SWIPE_VIEW_UPDATE_METHOD = "swipeTriggerLongSwipeViewUpdateMethod"
+        const val SWIPE_TRIGGER_LONG_SWIPE_VIEW_SET_PERCENT_METHOD = "swipeTriggerLongSwipeViewSetPercentMethod"
         // BluePointRemovalHook
         const val BLUE_POINT_CLASS = "bluePointClass"
         const val BLUE_POINT_IS_PACKAGE_NEW_METHOD = "bluePointIsPackageNewMethod"

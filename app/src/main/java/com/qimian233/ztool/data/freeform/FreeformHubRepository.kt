@@ -59,6 +59,10 @@ class FreeformHubRepository(
             freeformNonlinearAnimBubbleRestore = misc.freeformNonlinearAnimBubbleRestore,
             freeformHandleMenuAnim = misc.freeformHandleMenuAnim,
             forceFreeformEntry = launcher.forceFreeformEntry,
+            freeformSwipeTrigger = launcher.freeformSwipeTrigger,
+            freeformSwipeTopPercent = launcher.freeformSwipeTopPercent,
+            freeformSwipeLeftPercent = launcher.freeformSwipeLeftPercent,
+            freeformSwipeRightPercent = launcher.freeformSwipeRightPercent,
             forceRelativeAppFreeform = framework.forceRelativeAppFreeform
         )
     }
@@ -154,6 +158,15 @@ class FreeformHubRepository(
 
     fun saveForceFreeformEntry(enabled: Boolean) =
         launcherSettingsRepository.saveForceFreeformEntry(enabled)
+
+    fun saveFreeformSwipeTrigger(enabled: Boolean) =
+        launcherSettingsRepository.saveFreeformSwipeTrigger(enabled)
+
+    fun saveFreeformSwipeTopPercent(percent: Int) =
+        launcherSettingsRepository.saveFreeformSwipeTopPercent(percent)
+
+    fun saveFreeformSwipeMargins(left: Int, right: Int) =
+        launcherSettingsRepository.saveFreeformSwipeMargins(left, right)
 
     fun saveForceRelativeAppFreeform(enabled: Boolean) =
         frameworkSettingsRepository.saveForceRelativeAppFreeform(enabled)

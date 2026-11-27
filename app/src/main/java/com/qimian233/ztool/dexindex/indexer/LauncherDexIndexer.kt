@@ -33,6 +33,10 @@ class LauncherDexIndexer : DexIndexer {
             DexIndexConstants.ModuleKeys.LAUNCHER_FORCE_FREEFORM_ENTRY,
             indexLauncherFreeformEntry(bridge)
         )
+        modules.add(
+            DexIndexConstants.ModuleKeys.LAUNCHER_FREEFORM_SWIPE_TRIGGER,
+            indexLauncherFreeformSwipeTrigger(bridge)
+        )
         modules.add(DexIndexConstants.ModuleKeys.LAUNCHER_HIDE_BLUE_POINT, indexBluePointRemoval(bridge))
         modules.add(
             DexIndexConstants.ModuleKeys.LAUNCHER_BIG_FOLDER_BLUR_GUARD,
@@ -786,6 +790,123 @@ class LauncherDexIndexer : DexIndexer {
     } catch (t: Throwable) {
         Log.w(TAG, "LauncherFreeformEntry: swipeHandler query failed", t)
         null
+    }
+
+    private fun indexLauncherFreeformSwipeTrigger(bridge: DexKitBridge): JsonObject {
+        val out = JsonObject()
+        val handlerClass = try {
+            findSwipeHandlerInit(bridge)?.declaredClass
+                ?: findClassByName(bridge, LAUNCHER_SWIPE_HANDLER_V2)
+                    ?.superClass
+                    ?.takeIf { it.name != ABS_SWIPE_UP_HANDLER }
+        } catch (t: Throwable) {
+            Log.w(TAG, "LauncherFreeformSwipeTrigger: handler class query failed", t)
+            null
+        }
+
+        if (handlerClass != null) {
+            out.addProperty(DexIndexConstants.Keys.SWIPE_TRIGGER_HANDLER_CLASS, handlerClass.name)
+            Log.i(TAG, "LauncherFreeformSwipeTrigger: handlerClass = ${handlerClass.name}")
+
+            try {
+                val uiLongSwipeMethod = bridge.findMethod {
+                    matcher {
+                        declaredClass = handlerClass.name
+                        name = "isUiLongSwipeMode"
+                        returnType = "boolean"
+                        paramTypes()
+                    }
+                }.singleOrNull()
+                val uiLongSwipeField = uiLongSwipeMethod?.usingFields
+                    ?.map { it.field }
+                    ?.distinctBy { "${it.className}#${it.name}" }
+                    ?.singleOrNull {
+                        it.className == handlerClass.name &&
+                            !Modifier.isStatic(it.modifiers) &&
+                            it.typeName == "boolean"
+                    }
+                if (uiLongSwipeField != null) {
+                    out.addProperty(
+                        DexIndexConstants.Keys.SWIPE_TRIGGER_UI_LONG_SWIPE_FIELD,
+                        uiLongSwipeField.name
+                    )
+                    Log.i(
+                        TAG,
+                        "LauncherFreeformSwipeTrigger: uiLongSwipeField = ${uiLongSwipeField.name}"
+                    )
+                }
+            } catch (t: Throwable) {
+                Log.w(TAG, "LauncherFreeformSwipeTrigger: uiLongSwipeField query failed", t)
+            }
+
+            try {
+                val longSwipeViewField = handlerClass.fields.singleOrNull {
+                    !Modifier.isStatic(it.modifiers) && it.typeName == LONG_SWIPE_VIEW_CLASS
+                }
+                if (longSwipeViewField != null) {
+                    out.addProperty(
+                        DexIndexConstants.Keys.SWIPE_TRIGGER_LONG_SWIPE_VIEW_FIELD,
+                        longSwipeViewField.name
+                    )
+                    Log.i(
+                        TAG,
+                        "LauncherFreeformSwipeTrigger: longSwipeViewField = ${longSwipeViewField.name}"
+                    )
+                }
+            } catch (t: Throwable) {
+                Log.w(TAG, "LauncherFreeformSwipeTrigger: longSwipeViewField query failed", t)
+            }
+        }
+
+        try {
+            val viewClass = findClassByName(bridge, LONG_SWIPE_VIEW_CLASS)
+            if (viewClass != null) {
+                val updateMethod = viewClass.methods.singleOrNull {
+                    isNormalInstanceMethod(it) &&
+                        it.returnTypeName == "void" &&
+                        it.paramTypeNames == listOf("float", "int")
+                }
+                if (updateMethod != null) {
+                    out.addProperty(
+                        DexIndexConstants.Keys.SWIPE_TRIGGER_LONG_SWIPE_VIEW_UPDATE_METHOD,
+                        updateMethod.name
+                    )
+                    Log.i(
+                        TAG,
+                        "LauncherFreeformSwipeTrigger: updateMethod = ${updateMethod.name}"
+                    )
+                }
+
+                val floatVoidMethods = viewClass.methods.filter {
+                    isNormalInstanceMethod(it) &&
+                        it.returnTypeName == "void" &&
+                        it.paramTypeNames == listOf("float")
+                }
+                val setPercentMethod = bridge.findMethod {
+                    matcher {
+                        declaredClass = LONG_SWIPE_VIEW_CLASS
+                        returnType = "void"
+                        paramTypes("float")
+                        usingStrings("percent:")
+                    }
+                }.singleOrNull { isNormalInstanceMethod(it) }
+                    ?: floatVoidMethods.singleOrNull()
+                if (setPercentMethod != null) {
+                    out.addProperty(
+                        DexIndexConstants.Keys.SWIPE_TRIGGER_LONG_SWIPE_VIEW_SET_PERCENT_METHOD,
+                        setPercentMethod.name
+                    )
+                    Log.i(
+                        TAG,
+                        "LauncherFreeformSwipeTrigger: setPercentMethod = ${setPercentMethod.name}"
+                    )
+                }
+            }
+        } catch (t: Throwable) {
+            Log.w(TAG, "LauncherFreeformSwipeTrigger: LongSwipeView query failed", t)
+        }
+
+        return out
     }
 
     private fun indexBluePointRemoval(bridge: DexKitBridge): JsonObject {
@@ -2213,6 +2334,8 @@ class LauncherDexIndexer : DexIndexer {
         const val TAG = "LauncherDexIndexer"
         const val OV_COMMON_MANAGER = "com.android.internal.ov.OvCommonManager"
         const val ABS_SWIPE_UP_HANDLER = "com.android.quickstep.AbsSwipeUpHandler"
+        const val LAUNCHER_SWIPE_HANDLER_V2 = "com.android.quickstep.LauncherSwipeHandlerV2"
+        const val LONG_SWIPE_VIEW_CLASS = "com.zui.launcher.gesture.swipeview.LongSwipeView"
         const val STATIC_DENY_RES_NAME = "config_ovcDcv_StaticDenySet"
         const val SWIPE_FLOATING_LOG_ANCHOR = "supportSwipeFloatingWindow:"
         const val TASK_INFO = "android.app.TaskInfo"

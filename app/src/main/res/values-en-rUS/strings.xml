@@ -1428,6 +1428,16 @@
     <string name="launcher_disable_recent_app_display">Hide recent apps in dock bar</string>
     <string name="launcher_force_freeform_entry_title">Show small-window entry for all apps</string>
     <string name="launcher_force_freeform_entry_summary">Bypass the system freeform whitelist and client-side gates to show the small-window entry for every app in recents</string>
+    <string name="launcher_freeform_swipe_trigger_title">Custom swipe-up freeform trigger area</string>
+    <string name="launcher_freeform_swipe_trigger_summary">Customize the top height and left/right bounds for swiping up to enter a floating window, updating both the hint banner and trigger detection</string>
+    <string name="launcher_freeform_swipe_top_percent_title">Top area height</string>
+    <string name="launcher_freeform_swipe_top_percent_summary">Height of the trigger zone measured down from the top edge</string>
+    <string name="launcher_freeform_swipe_left_percent_title">Left margin</string>
+    <string name="launcher_freeform_swipe_left_percent_summary">Left inset from the screen edge; at least 20% horizontal width is preserved</string>
+    <string name="launcher_freeform_swipe_right_percent_title">Right margin</string>
+    <string name="launcher_freeform_swipe_right_percent_summary">Right inset from the screen edge; at least 20% horizontal width is preserved</string>
+    <string name="launcher_freeform_swipe_percent_label">%1$d%%</string>
+    <string name="launcher_freeform_swipe_preview_label">Active zone: %1$d%% wide × %2$d%% tall</string>
     <string name="system_ui_misc_freeform_fullscreen_threshold_title">Custom small-window fullscreen threshold</string>
     <string name="system_ui_misc_freeform_fullscreen_threshold_summary">Switch a small window to fullscreen when its width or height reaches the configured percentage, whichever comes first; 100% disables that direction; tablets only, applies after restarting SystemUI</string>
     <string name="system_ui_misc_freeform_bottom_edge_resize_title">Proportional bottom-edge resize</string>

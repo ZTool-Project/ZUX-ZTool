@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.qimian233.ztool.data.freeform.FreeformEdgeBubbleConfig
 import com.qimian233.ztool.data.freeform.FreeformHubRepository
+import com.qimian233.ztool.data.freeform.LauncherFreeformTriggerConfig
 import com.qimian233.ztool.data.settings.SettingsDetailRepository
 import com.qimian233.ztool.data.systemui.SystemUiMiscSettingsRepository
 import com.qimian233.ztool.utils.EmbeddingConfigManager
@@ -165,6 +166,43 @@ class FreeformHubViewModel(
         repository.saveForceFreeformEntry(enabled)
     }
 
+    fun setFreeformSwipeTrigger(enabled: Boolean) {
+        _uiState.value = _uiState.value.copy(freeformSwipeTrigger = enabled)
+        repository.saveFreeformSwipeTrigger(enabled)
+    }
+
+    fun setFreeformSwipeTopPercent(percent: Int) {
+        val value = LauncherFreeformTriggerConfig.normalizeTopPercent(percent)
+        _uiState.value = _uiState.value.copy(freeformSwipeTopPercent = value)
+        repository.saveFreeformSwipeTopPercent(value)
+    }
+
+    fun setFreeformSwipeLeftPercent(percent: Int) {
+        val current = _uiState.value
+        val (left, right) = LauncherFreeformTriggerConfig.normalizeLeftPercent(
+            percent,
+            current.freeformSwipeRightPercent
+        )
+        _uiState.value = current.copy(
+            freeformSwipeLeftPercent = left,
+            freeformSwipeRightPercent = right
+        )
+        repository.saveFreeformSwipeMargins(left, right)
+    }
+
+    fun setFreeformSwipeRightPercent(percent: Int) {
+        val current = _uiState.value
+        val (left, right) = LauncherFreeformTriggerConfig.normalizeRightPercent(
+            current.freeformSwipeLeftPercent,
+            percent
+        )
+        _uiState.value = current.copy(
+            freeformSwipeLeftPercent = left,
+            freeformSwipeRightPercent = right
+        )
+        repository.saveFreeformSwipeMargins(left, right)
+    }
+
     fun setForceRelativeAppFreeform(enabled: Boolean) {
         _uiState.value = _uiState.value.copy(forceRelativeAppFreeform = enabled)
         repository.saveForceRelativeAppFreeform(enabled)
@@ -291,6 +329,10 @@ data class FreeformHubUiState(
     val freeformNonlinearAnimBubbleRestore: Boolean = true,
     val freeformHandleMenuAnim: Boolean = false,
     val forceFreeformEntry: Boolean = false,
+    val freeformSwipeTrigger: Boolean = false,
+    val freeformSwipeTopPercent: Int = LauncherFreeformTriggerConfig.TOP_PERCENT_DEFAULT,
+    val freeformSwipeLeftPercent: Int = LauncherFreeformTriggerConfig.LEFT_PERCENT_DEFAULT,
+    val freeformSwipeRightPercent: Int = LauncherFreeformTriggerConfig.RIGHT_PERCENT_DEFAULT,
     val forceRelativeAppFreeform: Boolean = false,
     val showRestartDialog: Boolean = false
 )
