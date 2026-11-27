@@ -79,6 +79,7 @@ import com.qimian233.ztool.hook.modules.setting.ZToolSettingsEntryHook
 import com.qimian233.ztool.hook.modules.sogouime.SogouEnterKeyHook
 import com.qimian233.ztool.hook.modules.systemframework.HalfWidthPunctHook
 import com.qimian233.ztool.hook.modules.systemframework.AiInputExpand
+import com.qimian233.ztool.hook.modules.systemframework.AlertWindowNotificationTestHook
 import com.qimian233.ztool.hook.modules.systemframework.AllowAllRestrictedSettings
 import com.qimian233.ztool.hook.modules.systemframework.AllowGetPackages
 import com.qimian233.ztool.hook.modules.systemframework.AllowRelativeAppLaunch
@@ -215,6 +216,7 @@ object HookManager {
         registerHookModule(AllowRelativeAppLaunch())
         registerHookModule(ForceRelativeAppFreeform())
         registerHookModule(FreeformEdgeBubbleHook())
+        registerHookModule(AlertWindowNotificationTestHook())
         registerHookModule(DisableHbmThermalLimit())
         registerHookModule(ClipboardAccessToastHook())
         registerHookModule(SystemSplitScreenMandatory())
