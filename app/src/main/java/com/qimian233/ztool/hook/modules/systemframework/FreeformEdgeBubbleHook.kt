@@ -732,6 +732,9 @@ class FreeformEdgeBubbleHook : SystemHookModule() {
         } finally {
             internalMove.set(false)
         }
+        if (notifyBubble) {
+            notifyBubbleAdded(task, handles.taskClass, side, centerYRatio)
+        }
         logger.info("minimize task=$taskId side=$side bounds=$bounds -> $offscreen")
         return true
     }
@@ -1147,7 +1150,7 @@ class FreeformEdgeBubbleHook : SystemHookModule() {
         sendEvent(EVENT_BUBBLE_ADDED) { intent ->
             intent.putExtra(FreeformAnimContract.EXTRA_TASK_ID, taskId)
             intent.putExtra(FreeformAnimContract.EXTRA_SIDE, side)
-            intent.putExtra("pkg", pkg)
+            intent.putExtra(FreeformAnimContract.EXTRA_PKG, pkg)
             if (!centerYRatio.isNaN()) {
                 intent.putExtra(FreeformAnimContract.EXTRA_CENTER_Y_RATIO, centerYRatio)
             }
@@ -1169,6 +1172,7 @@ class FreeformEdgeBubbleHook : SystemHookModule() {
             try {
                 val context = eventPostContext ?: return@post
                 val intent = Intent(ACTION_EVENT).setPackage(ZTOOL_PACKAGE)
+                    .addFlags(Intent.FLAG_RECEIVER_FOREGROUND)
                 intent.putExtra("event", event)
                 payload(intent)
                 context.sendBroadcast(intent)

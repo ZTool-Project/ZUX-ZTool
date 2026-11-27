@@ -27,6 +27,8 @@ object FreeformBubbleBridge {
     const val EVENT_BUBBLE_ADDED = 11
     const val EVENT_BUBBLE_REMOVED = 12
     const val EVENT_BUBBLE_HIDE_HANDOFF = FreeformAnimContract.EVENT_BUBBLE_HIDE_HANDOFF
+    const val EVENT_BUBBLE_PREPARE_DOCK = FreeformAnimContract.EVENT_BUBBLE_PREPARE_DOCK
+    const val EVENT_BUBBLE_CANCEL_DOCK = FreeformAnimContract.EVENT_BUBBLE_CANCEL_DOCK
 
     /** A minimized freeform task as reported by the hook. */
     data class MinimizedTask(val taskId: Int, val side: Int, val packageName: String?)
@@ -83,6 +85,7 @@ object FreeformBubbleBridge {
         onResult: (resultCode: Int, extras: Bundle?) -> Unit
     ): Boolean {
         val intent = Intent(ACTION_COMMAND).setPackage("android")
+            .addFlags(Intent.FLAG_RECEIVER_FOREGROUND)
         build(intent)
         return try {
             val context = appContext ?: return false
@@ -135,6 +138,7 @@ object FreeformBubbleBridge {
         }
         val intent = Intent(FreeformAnimContract.ACTION_SYSTEMUI_ANIM_CMD)
             .setPackage(ScopeKeys.SYSTEM_UI.packageName)
+            .addFlags(Intent.FLAG_RECEIVER_FOREGROUND)
             .apply {
                 putExtra(FreeformAnimContract.EXTRA_CMD, FreeformAnimContract.CMD_PREPARE_RESTORE)
                 putExtra(FreeformAnimContract.EXTRA_TASK_ID, taskId)
@@ -165,6 +169,7 @@ object FreeformBubbleBridge {
         val context = appContext ?: return
         val intent = Intent(FreeformAnimContract.ACTION_SYSTEMUI_ANIM_CMD)
             .setPackage(ScopeKeys.SYSTEM_UI.packageName)
+            .addFlags(Intent.FLAG_RECEIVER_FOREGROUND)
             .apply {
                 putExtra(
                     FreeformAnimContract.EXTRA_CMD,
@@ -254,7 +259,10 @@ object FreeformBubbleBridge {
         context: Context,
         onBubbleAdded: (taskId: Int, side: Int, pkg: String?, centerYRatio: Float) -> Unit,
         onBubbleRemoved: (taskId: Int) -> Unit,
-        onBubbleHideHandoff: (taskId: Int) -> Unit = {}
+        onBubbleHideHandoff: (taskId: Int) -> Unit = {},
+        onBubblePrepareDock: (taskId: Int, side: Int, pkg: String?, centerYRatio: Float) -> Unit =
+            { _, _, _, _ -> },
+        onBubbleCancelDock: (taskId: Int) -> Unit = {}
     ): BroadcastReceiver {
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(ctx: Context, intent: Intent) {
@@ -262,13 +270,22 @@ object FreeformBubbleBridge {
                     EVENT_BUBBLE_ADDED -> onBubbleAdded(
                         intent.getIntExtra(FreeformAnimContract.EXTRA_TASK_ID, -1),
                         intent.getIntExtra(FreeformAnimContract.EXTRA_SIDE, 0),
-                        intent.getStringExtra("pkg"),
+                        intent.getStringExtra(FreeformAnimContract.EXTRA_PKG),
                         intent.getFloatExtra(FreeformAnimContract.EXTRA_CENTER_Y_RATIO, Float.NaN)
                     )
                     EVENT_BUBBLE_REMOVED -> onBubbleRemoved(
                         intent.getIntExtra(FreeformAnimContract.EXTRA_TASK_ID, -1)
                     )
                     EVENT_BUBBLE_HIDE_HANDOFF -> onBubbleHideHandoff(
+                        intent.getIntExtra(FreeformAnimContract.EXTRA_TASK_ID, -1)
+                    )
+                    EVENT_BUBBLE_PREPARE_DOCK -> onBubblePrepareDock(
+                        intent.getIntExtra(FreeformAnimContract.EXTRA_TASK_ID, -1),
+                        intent.getIntExtra(FreeformAnimContract.EXTRA_SIDE, 0),
+                        intent.getStringExtra(FreeformAnimContract.EXTRA_PKG),
+                        intent.getFloatExtra(FreeformAnimContract.EXTRA_CENTER_Y_RATIO, Float.NaN)
+                    )
+                    EVENT_BUBBLE_CANCEL_DOCK -> onBubbleCancelDock(
                         intent.getIntExtra(FreeformAnimContract.EXTRA_TASK_ID, -1)
                     )
                 }

@@ -7,11 +7,14 @@ object FreeformAnimContract {
     const val CMD_PREPARE_RESTORE = 1
     const val CMD_DOCK_OVERLAY_DONE = 2
     const val EVENT_BUBBLE_HIDE_HANDOFF = 13
+    const val EVENT_BUBBLE_PREPARE_DOCK = 14
+    const val EVENT_BUBBLE_CANCEL_DOCK = 15
 
     const val EXTRA_CMD = "cmd"
     const val EXTRA_EVENT = "event"
     const val EXTRA_TASK_ID = "task_id"
     const val EXTRA_SIDE = "side"
+    const val EXTRA_PKG = "pkg"
 
     const val EXTRA_BUBBLE_LEFT = "bubble_left"
     const val EXTRA_BUBBLE_TOP = "bubble_top"

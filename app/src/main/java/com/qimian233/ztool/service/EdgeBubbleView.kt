@@ -36,7 +36,8 @@ class EdgeBubbleView(
     private val taskId: Int,
     initialSide: Int,
     initialCenterYRatio: Float,
-    private val listener: Listener
+    private val listener: Listener,
+    startStaged: Boolean = false
 ) : View(context) {
 
     interface Listener {
@@ -110,6 +111,8 @@ class EdgeBubbleView(
     private var downWinX = 0
     private var downWinY = 0
     private var dragging = false
+    private var staged = startStaged
+    val isStaged: Boolean get() = staged
     private var exiting = false
     private var removed = false
     private var modeAnimator: ValueAnimator? = null
@@ -122,7 +125,8 @@ class EdgeBubbleView(
         flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
             WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
             WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-            WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
+            WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
+            (if (startStaged) WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE else 0)
         format = android.graphics.PixelFormat.TRANSLUCENT
         width = containerWpx + modeShiftPx
         height = containerHpx
@@ -188,6 +192,21 @@ class EdgeBubbleView(
         outlineAmbientShadowColor = SHADOW_COLOR_INT
         outlineSpotShadowColor = SHADOW_COLOR_INT
         // Window anchor is the FULL position — no initial translation needed.
+        if (startStaged) {
+            alpha = 0f
+        } else {
+            scheduleHalfHide(APPEAR_FULL_MS)
+        }
+    }
+
+    /** Reveals a pre-attached invisible bubble when the dock animation finishes. */
+    fun revealFromStagedDock() {
+        if (removed || !staged) return
+        staged = false
+        layoutParams.flags = layoutParams.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
+        postApply()
+        alpha = 1f
+        invalidate()
         scheduleHalfHide(APPEAR_FULL_MS)
     }
 
@@ -345,7 +364,7 @@ class EdgeBubbleView(
     // region touch handling
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
-        if (exiting || removed) return false
+        if (staged || exiting || removed) return false
         gestureDetector.onTouchEvent(event)
         if (exiting || removed) return true
         when (event.actionMasked) {

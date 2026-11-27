@@ -1058,11 +1058,13 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
         val endVisualCorner = EdgeBubbleGeometry.CONTAINER_RADIUS_DP * density
         val overlayContext = resolveOverlayContext(taskReflect.displayId(taskInfo))
         val appIcon = overlayContext?.let { loadTaskAppIcon(it, taskInfo) }
+        val taskPkg = resolveTaskPackageName(taskInfo)
 
         val runnable = Runnable {
             activeAnimators.remove(taskId)?.cancel()
             dismissDockMorphOverlay(taskId)
             dismissRestoreMorphOverlay(taskId)
+            sendBubblePrepareDock(taskId, side, taskPkg, centerYRatio)
             val overlay = if (overlayContext != null) {
                 EdgeDockMorphOverlay(
                     context = overlayContext,
@@ -1121,6 +1123,7 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
                         cancelled = true
                         activeAnimators.remove(taskId, animation)
                         dismissDockMorphOverlay(taskId)
+                        sendBubbleCancelDock(taskId)
                     }
 
                     override fun onAnimationEnd(animation: Animator) {
@@ -1169,6 +1172,7 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
                             } else {
                                 recentlyDockedTasks.remove(taskId)
                                 dismissDockMorphOverlay(taskId)
+                                sendBubbleCancelDock(taskId)
                                 logger.warn(
                                     "Minimize command rejected or unhandled for task=$taskId; " +
                                         "snapping back"
@@ -1252,15 +1256,17 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
         }.getOrNull() ?: ctx
     }
 
+    private fun resolveTaskPackageName(taskInfo: ActivityManager.RunningTaskInfo): String? =
+        taskInfo.topActivity?.packageName
+            ?: taskInfo.baseActivity?.packageName
+            ?: taskInfo.baseIntent.component?.packageName
+            ?: taskInfo.baseIntent.`package`
+
     private fun loadTaskAppIcon(
         context: Context,
         taskInfo: ActivityManager.RunningTaskInfo
     ): Drawable? {
-        val pkg = taskInfo.topActivity?.packageName
-            ?: taskInfo.baseActivity?.packageName
-            ?: taskInfo.baseIntent.component?.packageName
-            ?: taskInfo.baseIntent.`package`
-            ?: return null
+        val pkg = resolveTaskPackageName(taskInfo) ?: return null
         return runCatching { context.packageManager.getApplicationIcon(pkg) }.getOrNull()
     }
 
@@ -1429,7 +1435,9 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
             onResult(false)
             return
         }
-        val intent = Intent(ACTION_BUBBLE_COMMAND).setPackage(PACKAGE_ANDROID).apply {
+        val intent = Intent(ACTION_BUBBLE_COMMAND).setPackage(PACKAGE_ANDROID)
+            .addFlags(Intent.FLAG_RECEIVER_FOREGROUND)
+            .apply {
             putExtra(FreeformAnimContract.EXTRA_CMD, CMD_MINIMIZE_TASK)
             putExtra(FreeformAnimContract.EXTRA_TASK_ID, taskId)
             putExtra(FreeformAnimContract.EXTRA_SIDE, side)
@@ -2190,12 +2198,52 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
         }
     }
 
+    private fun sendBubblePrepareDock(
+        taskId: Int,
+        side: Int,
+        pkg: String?,
+        centerYRatio: Float
+    ) {
+        val context = sysUiContext ?: return
+        val intent = Intent(FreeformAnimContract.ACTION_BUBBLE_EVENT).setPackage(PACKAGE_ZTOOL)
+            .addFlags(Intent.FLAG_RECEIVER_FOREGROUND)
+            .apply {
+                putExtra(FreeformAnimContract.EXTRA_EVENT, FreeformAnimContract.EVENT_BUBBLE_PREPARE_DOCK)
+                putExtra(FreeformAnimContract.EXTRA_TASK_ID, taskId)
+                putExtra(FreeformAnimContract.EXTRA_SIDE, side)
+                putExtra(FreeformAnimContract.EXTRA_PKG, pkg)
+                putExtra(FreeformAnimContract.EXTRA_CENTER_Y_RATIO, centerYRatio)
+            }
+        runCatching {
+            context.sendBroadcast(intent)
+        }.onFailure {
+            logger.warn("Bubble prepare dock broadcast failed: ${it.message}")
+        }
+    }
+
+    private fun sendBubbleCancelDock(taskId: Int) {
+        val context = sysUiContext ?: return
+        val intent = Intent(FreeformAnimContract.ACTION_BUBBLE_EVENT).setPackage(PACKAGE_ZTOOL)
+            .addFlags(Intent.FLAG_RECEIVER_FOREGROUND)
+            .apply {
+                putExtra(FreeformAnimContract.EXTRA_EVENT, FreeformAnimContract.EVENT_BUBBLE_CANCEL_DOCK)
+                putExtra(FreeformAnimContract.EXTRA_TASK_ID, taskId)
+            }
+        runCatching {
+            context.sendBroadcast(intent)
+        }.onFailure {
+            logger.warn("Bubble cancel dock broadcast failed: ${it.message}")
+        }
+    }
+
     private fun sendBubbleHideHandoff(taskId: Int) {
         val context = sysUiContext ?: return
-        val intent = Intent(FreeformAnimContract.ACTION_BUBBLE_EVENT).setPackage(PACKAGE_ZTOOL).apply {
-            putExtra(FreeformAnimContract.EXTRA_EVENT, FreeformAnimContract.EVENT_BUBBLE_HIDE_HANDOFF)
-            putExtra(FreeformAnimContract.EXTRA_TASK_ID, taskId)
-        }
+        val intent = Intent(FreeformAnimContract.ACTION_BUBBLE_EVENT).setPackage(PACKAGE_ZTOOL)
+            .addFlags(Intent.FLAG_RECEIVER_FOREGROUND)
+            .apply {
+                putExtra(FreeformAnimContract.EXTRA_EVENT, FreeformAnimContract.EVENT_BUBBLE_HIDE_HANDOFF)
+                putExtra(FreeformAnimContract.EXTRA_TASK_ID, taskId)
+            }
         runCatching {
             context.sendBroadcast(intent)
         }.onFailure {
@@ -3125,7 +3173,7 @@ class FreeformNonlinearAnimationHook : AppHookModule() {
         const val RECEIVER_RETRY_MAX_ATTEMPTS = 30
         const val RECEIVER_RETRY_DELAY_MS = 300L
         const val DOCK_CLEANUP_DELAY_MS = 350L
-        const val DOCK_OVERLAY_HANDOFF_TIMEOUT_MS = 350L
+        const val DOCK_OVERLAY_HANDOFF_TIMEOUT_MS = 1200L
         const val DOCK_SUPPRESS_TTL_MS = 2500L
         const val RESTORE_HINT_TTL_MS = 3000L
         const val VELOCITY_STALE_MS = 120L

@@ -10,12 +10,15 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Rect
 import android.graphics.drawable.Drawable
+import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.os.SystemClock
 import android.provider.Settings
 import android.util.Log
+import android.view.SurfaceControl
+import android.view.ViewTreeObserver
 import android.view.WindowManager
 import androidx.core.app.NotificationCompat
 import com.qimian233.ztool.R
@@ -46,6 +49,10 @@ class EdgeBubbleService : Service() {
         private const val RESTORE_COOLDOWN_MS = 1000L
         private const val RESTORE_HANDOFF_TIMEOUT_MS = 220L
         private const val RESTORE_HINT_IPC_BUFFER_MS = 150L
+        private const val STAGED_DOCK_TIMEOUT_MS = 1800L
+        private const val DOCK_HANDOFF_COMMIT_TIMEOUT_MS = 180L
+        private const val FRAME_COMMIT_SETTLE_MS = 32L
+        private const val FRAME_COMMIT_FALLBACK_MS = 48L
 
         /**
          * Starts the overlay service when the feature switch is on and the overlay
@@ -67,6 +74,8 @@ class EdgeBubbleService : Service() {
 
     private val bubbles = HashMap<Int, EdgeBubbleView>()
     private val restoreHandoffTimers = HashMap<Int, Runnable>()
+    private val stagedDockTimers = HashMap<Int, Runnable>()
+    private val dockCommitCleanups = HashMap<Int, Runnable>()
     private val iconCache = HashMap<String, Drawable>()
     private val pendingBubbleAdds = HashSet<Int>()
     private var eventReceiver: BroadcastReceiver? = null
@@ -92,13 +101,21 @@ class EdgeBubbleService : Service() {
             },
             onBubbleRemoved = { taskId ->
                 mainHandler.post {
-                    if (!restoreHandoffTimers.containsKey(taskId)) {
+                    if (!restoreHandoffTimers.containsKey(taskId) &&
+                        !stagedDockTimers.containsKey(taskId)
+                    ) {
                         removeBubble(taskId)
                     }
                 }
             },
             onBubbleHideHandoff = { taskId ->
                 mainHandler.post { finishBubbleRestoreHandoff(taskId) }
+            },
+            onBubblePrepareDock = { taskId, side, pkg, centerYRatio ->
+                mainHandler.post { prepareStagedBubble(taskId, side, pkg, centerYRatio) }
+            },
+            onBubbleCancelDock = { taskId ->
+                mainHandler.post { cancelStagedBubble(taskId) }
             }
         )
     }
@@ -114,6 +131,9 @@ class EdgeBubbleService : Service() {
         polling = false
         mainHandler.removeCallbacksAndMessages(null)
         restoreHandoffTimers.clear()
+        stagedDockTimers.clear()
+        dockCommitCleanups.values.forEach { it.run() }
+        dockCommitCleanups.clear()
         pendingBubbleAdds.clear()
         iconCache.clear()
         eventReceiver?.let { FreeformBubbleBridge.unregisterEventReceiver(this, it) }
@@ -182,7 +202,8 @@ class EdgeBubbleService : Service() {
             }
             if (side < 0 &&
                 (bubbles.containsKey(task.taskId) || pendingBubbleAdds.contains(task.taskId)) &&
-                !restoreHandoffTimers.containsKey(task.taskId)
+                !restoreHandoffTimers.containsKey(task.taskId) &&
+                !stagedDockTimers.containsKey(task.taskId)
             ) {
                 removeBubble(task.taskId)
             }
@@ -190,6 +211,7 @@ class EdgeBubbleService : Service() {
             if (side >= 0 &&
                 !bubbles.containsKey(task.taskId) &&
                 !pendingBubbleAdds.contains(task.taskId) &&
+                !stagedDockTimers.containsKey(task.taskId) &&
                 cooledDown
             ) {
                 Log.i(TAG, "edge detected task=${task.taskId} side=$side bounds=${task.bounds}")
@@ -241,12 +263,59 @@ class EdgeBubbleService : Service() {
         }
     }
 
+    private fun prepareStagedBubble(
+        taskId: Int,
+        side: Int,
+        pkg: String?,
+        centerYRatio: Float
+    ) {
+        if (taskId <= 0) return
+        if (restoreHandoffTimers.containsKey(taskId)) {
+            finishBubbleRestoreHandoff(taskId)
+        }
+        if (stagedDockTimers.containsKey(taskId)) {
+            cancelStagedBubble(taskId)
+        }
+        if (bubbles.containsKey(taskId) || pendingBubbleAdds.contains(taskId)) return
+        val timeout = Runnable { cancelStagedBubble(taskId) }
+        stagedDockTimers[taskId] = timeout
+        mainHandler.postDelayed(timeout, STAGED_DOCK_TIMEOUT_MS)
+        addBubble(taskId, side, pkg, centerYRatio, staged = true)
+    }
+
+    private fun cancelStagedBubble(taskId: Int) {
+        val timer = stagedDockTimers.remove(taskId) ?: return
+        mainHandler.removeCallbacks(timer)
+        removeBubble(taskId)
+    }
+
     private fun addBubble(
         taskId: Int,
         side: Int,
         pkg: String?,
-        centerYRatioOverride: Float = Float.NaN
+        centerYRatioOverride: Float = Float.NaN,
+        staged: Boolean = false
     ) {
+        if (!staged) {
+            val stagedTimer = stagedDockTimers.remove(taskId)
+            if (stagedTimer != null) {
+                mainHandler.removeCallbacks(stagedTimer)
+                if (!centerYRatioOverride.isNaN()) {
+                    bubblePrefs.edit().putFloat("cy_$taskId", centerYRatioOverride).apply()
+                }
+                val existing = bubbles[taskId]
+                if (existing != null && existing.isStaged) {
+                    existing.revealFromStagedDock()
+                    if (isNonlinearSubEnabled(PreferenceKeys.SYSTEM_UI_FREEFORM_NONLINEAR_ANIM_EDGE_DOCK)) {
+                        notifyDockOverlayDoneWhenPresented(taskId, existing)
+                    }
+                    return
+                }
+                if (pendingBubbleAdds.contains(taskId)) {
+                    return
+                }
+            }
+        }
         if (bubbles.containsKey(taskId) || pendingBubbleAdds.contains(taskId)) return
         if (!centerYRatioOverride.isNaN()) {
             bubblePrefs.edit().putFloat("cy_$taskId", centerYRatioOverride).apply()
@@ -260,13 +329,13 @@ class EdgeBubbleService : Service() {
             BASE_CENTER_Y_RATIO + (bubbles.size % 3) * CENTER_Y_STAGGER_RATIO
         else remembered
         if (pkg == null) {
-            attachBubbleView(taskId, side, null, centerYRatio, null)
+            attachBubbleView(taskId, side, null, centerYRatio, null, startStaged = staged)
             return
         }
         val cached = iconCache[pkg]
         if (cached != null) {
             val iconCopy = cached.constantState?.newDrawable(resources)?.mutate() ?: cached.mutate()
-            attachBubbleView(taskId, side, pkg, centerYRatio, iconCopy)
+            attachBubbleView(taskId, side, pkg, centerYRatio, iconCopy, startStaged = staged)
             return
         }
         pendingBubbleAdds.add(taskId)
@@ -280,7 +349,15 @@ class EdgeBubbleService : Service() {
                 if (!pendingBubbleAdds.remove(taskId)) return@post
                 icon?.let { iconCache[pkg] = it }
                 val instance = icon?.constantState?.newDrawable(resources)?.mutate() ?: icon
-                attachBubbleView(taskId, side, pkg, centerYRatio, instance)
+                val attachAsStaged = staged && stagedDockTimers.containsKey(taskId)
+                attachBubbleView(
+                    taskId,
+                    side,
+                    pkg,
+                    centerYRatio,
+                    instance,
+                    startStaged = attachAsStaged
+                )
             }
         }.start()
     }
@@ -290,7 +367,8 @@ class EdgeBubbleService : Service() {
         side: Int,
         pkg: String?,
         centerYRatio: Float,
-        icon: Drawable?
+        icon: Drawable?,
+        startStaged: Boolean = false
     ) {
         if (bubbles.containsKey(taskId)) return
         val view = try {
@@ -345,7 +423,8 @@ class EdgeBubbleService : Service() {
                     override fun onBubbleSettled(taskId: Int, side: Int, centerYRatio: Float) {
                         bubblePrefs.edit().putFloat("cy_$taskId", centerYRatio).apply()
                     }
-                }
+                },
+                startStaged = startStaged
             )
         } catch (t: Throwable) {
             Log.e(TAG, "create bubble view failed", t)
@@ -359,12 +438,82 @@ class EdgeBubbleService : Service() {
             return
         }
         bubbles[taskId] = view
-        if (isNonlinearSubEnabled(PreferenceKeys.SYSTEM_UI_FREEFORM_NONLINEAR_ANIM_EDGE_DOCK)) {
-            view.postOnAnimation {
+        if (!startStaged &&
+            isNonlinearSubEnabled(PreferenceKeys.SYSTEM_UI_FREEFORM_NONLINEAR_ANIM_EDGE_DOCK)
+        ) {
+            notifyDockOverlayDoneWhenPresented(taskId, view)
+        }
+        Log.i(TAG, "bubble added task=$taskId side=$side pkg=$pkg staged=$startStaged count=${bubbles.size}")
+    }
+
+    private fun notifyDockOverlayDoneWhenPresented(taskId: Int, view: EdgeBubbleView) {
+        dockCommitCleanups.remove(taskId)?.run()
+        var finished = false
+        var preDrawListener: ViewTreeObserver.OnPreDrawListener? = null
+        var timeoutRunnable: Runnable? = null
+
+        val cleanup = {
+            preDrawListener?.let { listener ->
+                val vto = view.viewTreeObserver
+                if (vto.isAlive) {
+                    vto.removeOnPreDrawListener(listener)
+                }
+            }
+            preDrawListener = null
+            timeoutRunnable?.let { mainHandler.removeCallbacks(it) }
+            timeoutRunnable = null
+        }
+
+        val dispatchOnce = {
+            if (!finished) {
+                finished = true
+                dockCommitCleanups.remove(taskId)
+                cleanup()
                 FreeformBubbleBridge.notifySystemUiDockOverlayDone(taskId)
             }
         }
-        Log.i(TAG, "bubble added task=$taskId side=$side pkg=$pkg count=${bubbles.size}")
+
+        val listener = object : ViewTreeObserver.OnPreDrawListener {
+            override fun onPreDraw(): Boolean {
+                val vto = view.viewTreeObserver
+                if (vto.isAlive) {
+                    vto.removeOnPreDrawListener(this)
+                }
+                preDrawListener = null
+                if (finished) return true
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    val asc = view.rootSurfaceControl
+                    if (asc != null) {
+                        val tx = SurfaceControl.Transaction()
+                        tx.addTransactionCommittedListener(mainExecutor) { dispatchOnce() }
+                        val applied = asc.applyTransactionOnDraw(tx)
+                        if (applied) {
+                            return true
+                        }
+                        tx.close()
+                    }
+                }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    view.viewTreeObserver.registerFrameCommitCallback {
+                        mainHandler.postDelayed({ dispatchOnce() }, FRAME_COMMIT_SETTLE_MS)
+                    }
+                } else {
+                    mainHandler.postDelayed({ dispatchOnce() }, FRAME_COMMIT_FALLBACK_MS)
+                }
+                return true
+            }
+        }
+        preDrawListener = listener
+        view.viewTreeObserver.addOnPreDrawListener(listener)
+
+        val fallback = Runnable { dispatchOnce() }
+        timeoutRunnable = fallback
+        mainHandler.postDelayed(fallback, DOCK_HANDOFF_COMMIT_TIMEOUT_MS)
+        dockCommitCleanups[taskId] = Runnable {
+            finished = true
+            cleanup()
+        }
+        view.invalidate()
     }
 
     private fun isNonlinearSubEnabled(subKey: BoolKey): Boolean {
@@ -391,6 +540,8 @@ class EdgeBubbleService : Service() {
 
     private fun removeBubble(taskId: Int) {
         pendingBubbleAdds.remove(taskId)
+        stagedDockTimers.remove(taskId)?.let { mainHandler.removeCallbacks(it) }
+        dockCommitCleanups.remove(taskId)?.run()
         restoreHandoffTimers.remove(taskId)?.let { mainHandler.removeCallbacks(it) }
         val view = bubbles.remove(taskId) ?: return
         view.release()
