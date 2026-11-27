@@ -137,6 +137,11 @@ class FrameworkSettingsViewModel(
         repository.saveDisableVolumeWarn(enabled)
     }
 
+    fun setDisableAlertWindowNotification(enabled: Boolean) {
+        _uiState.value = _uiState.value.copy(disableAlertWindowNotification = enabled)
+        repository.saveDisableAlertWindowNotification(enabled)
+    }
+
     fun setClipboardAccessToastSuppress(enabled: Boolean) {
         _uiState.value = _uiState.value.copy(clipboardAccessToastSuppress = enabled)
         repository.saveClipboardAccessToastSuppress(enabled)
@@ -292,6 +297,7 @@ data class FrameworkSettingsUiState(
     val forceRelativeAppFreeform: Boolean = false,
     val disableHbmThermalLimit: Boolean = false,
     val disableSafeVolumeWarn: Boolean = false,
+    val disableAlertWindowNotification: Boolean = false,
     val fineVolumeSteps: Boolean = false,
     val volumeKeyNonlinear: Boolean = false,
     val pkgMgrAllowDowngrade: Boolean = false,

@@ -122,6 +122,7 @@ fun FrameworkSettingsRoute(
             onAllowRelativeAppLaunchChanged = viewModel::setAllowRelativeAppLaunch,
             onDisableHbmThermalLimitChanged = viewModel::setDisableHbmThermalLimit,
             onDisableVolumeWarnChanged = viewModel::setDisableVolumeWarn,
+            onDisableAlertWindowNotificationChanged = viewModel::setDisableAlertWindowNotification,
             onClipboardToastSuppressChanged = viewModel::setClipboardAccessToastSuppress,
             onSelectClipboardToastPackages = {
                 AppChooserDialog.show(
@@ -216,6 +217,7 @@ private fun FrameworkSettingsScreen(
     onAllowRelativeAppLaunchChanged: (Boolean) -> Unit,
     onDisableHbmThermalLimitChanged: (Boolean) -> Unit,
     onDisableVolumeWarnChanged: (Boolean) -> Unit,
+    onDisableAlertWindowNotificationChanged: (Boolean) -> Unit,
     onClipboardToastSuppressChanged: (Boolean) -> Unit,
     onSelectClipboardToastPackages: () -> Unit,
     onFineVolumeStepsChanged: (Boolean) -> Unit,
@@ -295,6 +297,7 @@ private fun FrameworkSettingsScreen(
                         onAllowRelativeAppLaunchChanged = onAllowRelativeAppLaunchChanged,
                         onDisableHbmThermalLimitChanged = onDisableHbmThermalLimitChanged,
                         onDisableVolumeWarnChanged = onDisableVolumeWarnChanged,
+                        onDisableAlertWindowNotificationChanged = onDisableAlertWindowNotificationChanged,
                         onClipboardToastSuppressChanged = onClipboardToastSuppressChanged,
                         onSelectClipboardToastPackages = onSelectClipboardToastPackages,
                         onFineVolumeStepsChanged = onFineVolumeStepsChanged,
@@ -338,6 +341,7 @@ private fun frameworkSettingsSections(
     onAllowRelativeAppLaunchChanged: (Boolean) -> Unit,
     onDisableHbmThermalLimitChanged: (Boolean) -> Unit,
     onDisableVolumeWarnChanged: (Boolean) -> Unit,
+    onDisableAlertWindowNotificationChanged: (Boolean) -> Unit,
     onClipboardToastSuppressChanged: (Boolean) -> Unit,
     onSelectClipboardToastPackages: () -> Unit,
     onFineVolumeStepsChanged: (Boolean) -> Unit,
@@ -608,6 +612,14 @@ private fun frameworkSettingsSections(
                         checked = state.disableSafeVolumeWarn,
                         onCheckedChange = onDisableVolumeWarnChanged,
                         key = "framework_disable_volume_warn"
+                    )
+                )
+                add(
+                    SettingItem.Switch(
+                        title = stringResource(R.string.system_framework_disable_alert_window_notification_title),
+                        checked = state.disableAlertWindowNotification,
+                        onCheckedChange = onDisableAlertWindowNotificationChanged,
+                        key = "framework_disable_alert_window_notification"
                     )
                 )
                 add(

@@ -6,11 +6,11 @@ import com.qimian233.ztool.data.keys.ScopeKeys
 import com.qimian233.ztool.hook.base.SystemHookModule
 import io.github.libxposed.api.XposedModuleInterface.SystemServerStartingParam
 
-/** Test hook that suppresses the AOSP alert-window notification for ZTool. */
+/** Suppresses the system "displaying over other apps" alert-window notification. */
 @SuppressLint("PrivateApi")
-class AlertWindowNotificationTestHook : SystemHookModule() {
+class DisableAlertWindowNotification : SystemHookModule() {
 
-    override fun getModuleName(): String = PreferenceKeys.TEST_HOOK.name
+    override fun getModuleName(): String = PreferenceKeys.DISABLE_ALERT_WINDOW_NOTIFICATION.name
 
     override fun getTargetPackages(): Array<out String> =
         arrayOf(ScopeKeys.SYSTEM_SERVER.packageName)
@@ -22,24 +22,10 @@ class AlertWindowNotificationTestHook : SystemHookModule() {
                 "com.android.server.wm.AlertWindowNotification"
             )
             val postMethod = findMethod(alertWindowNotificationClass, "post")
-            val packageNameField = findField(alertWindowNotificationClass, "mPackageName")
-
-            hookWithId(postMethod, "suppress_ztool_alert_window_notification_test") { chain ->
-                val pkg = packageNameField.get(chain.thisObject) as? String
-                if (pkg == ZTOOL_PACKAGE) {
-                    logger.info("Suppressed AlertWindowNotification.post for $pkg")
-                    null
-                } else {
-                    chain.proceed()
-                }
-            }
-            logger.info("Hooked AlertWindowNotification.post for $ZTOOL_PACKAGE")
+            hookWithId(postMethod, "disable_alert_window_notification") { null }
+            logger.info("Hooked AlertWindowNotification.post")
         } catch (t: Throwable) {
             logger.error("Failed to hook AlertWindowNotification.post", t)
         }
-    }
-
-    companion object {
-        private const val ZTOOL_PACKAGE = "com.qimian233.ztool"
     }
 }

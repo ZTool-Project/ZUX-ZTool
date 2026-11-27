@@ -98,6 +98,8 @@ object PreferenceKeys {
     val PEN_HAPTIC_WAVEFORM_REDIRECT = BoolKey("pen_haptic_waveform_redirect", false)
     // Remove system server safe volume limitation
     val DISABLE_SAFE_VOLUME_WARNING = BoolKey("disable_safe_volume_warning", false)
+    // Suppress the system "displaying over other apps" notification
+    val DISABLE_ALERT_WINDOW_NOTIFICATION = BoolKey("disable_alert_window_notification", false)
     // Keep the control-center volume slider showing the real stream level when a
     // volume write is rejected (see VolumeSliderFidelityHook)
     val VOLUME_SLIDER_FIDELITY = BoolKey("volume_slider_fidelity", false)
@@ -503,7 +505,7 @@ object PreferenceKeys {
         ZUI_LOADING_INDICATOR, ZUI_LOADING_INDICATOR_FOLLOW_SYSTEM_COLORS,
         ZUI_SWITCH_STYLE, ZUI_SWITCH_FOLLOW_SYSTEM_COLORS,
         DISABLE_HBM_THERMAL_LIMIT, FINE_VOLUME_STEPS, FIX_NIGHT_MODE_OVERRIDE,
-        VOLUME_KEY_NONLINEAR, DISABLE_SAFE_VOLUME_WARNING, VOLUME_SLIDER_FIDELITY,
+        VOLUME_KEY_NONLINEAR, DISABLE_SAFE_VOLUME_WARNING, DISABLE_ALERT_WINDOW_NOTIFICATION, VOLUME_SLIDER_FIDELITY,
         PEN_HAPTIC_WAVEFORM_REDIRECT,
         PKG_MGR_ALLOW_DOWNGRADE, PKG_MGR_BYPASS_VERIFICATION,
         PKG_MGR_DISABLE_VERIFICATION_AGENT, PKG_MGR_BYPASS_DIGEST,

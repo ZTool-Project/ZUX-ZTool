@@ -1145,6 +1145,10 @@ object SearchIndex {
             titleRes = R.string.system_framework_disable_volume_warn_title
         ),
         framework.item(
+            id = "framework_disable_alert_window_notification",
+            titleRes = R.string.system_framework_disable_alert_window_notification_title
+        ),
+        framework.item(
             id = "framework_volume_key_nonlinear",
             titleRes = R.string.system_framework_volume_key_nonlinear_title,
             summaryRes = R.string.system_framework_volume_key_nonlinear_summary

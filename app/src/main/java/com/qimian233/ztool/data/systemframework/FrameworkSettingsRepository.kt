@@ -51,6 +51,10 @@ class FrameworkSettingsRepository(
             forceRelativeAppFreeform = prefsUtils.loadBooleanSetting(FORCE_RELATIVE_APP_FREEFORM, false),
             disableHbmThermalLimit = prefsUtils.loadBooleanSetting(KEY_DISABLE_HBM_THERMAL_LIMIT, false),
             disableSafeVolumeWarn = prefsUtils.loadBooleanSetting(KEY_DISABLE_SAFE_VOLUME_WARNING, false),
+            disableAlertWindowNotification = prefsUtils.loadBooleanSetting(
+                KEY_DISABLE_ALERT_WINDOW_NOTIFICATION,
+                PreferenceKeys.DISABLE_ALERT_WINDOW_NOTIFICATION.default
+            ),
             fineVolumeSteps = prefsUtils.loadBooleanSetting(KEY_FINE_VOLUME_STEPS, false),
             volumeKeyNonlinear = prefsUtils.loadBooleanSetting(KEY_VOLUME_KEY_NONLINEAR, false),
             pkgMgrAllowDowngrade = prefsUtils.loadBooleanSetting(KEY_PKG_MGR_ALLOW_DOWNGRADE, false),
@@ -174,6 +178,10 @@ class FrameworkSettingsRepository(
 
     fun saveDisableVolumeWarn(enabled: Boolean) {
         prefsUtils.saveBooleanSetting(KEY_DISABLE_SAFE_VOLUME_WARNING, enabled)
+    }
+
+    fun saveDisableAlertWindowNotification(enabled: Boolean) {
+        prefsUtils.saveBooleanSetting(KEY_DISABLE_ALERT_WINDOW_NOTIFICATION, enabled)
     }
 
     fun saveClipboardAccessToastSuppress(enabled: Boolean) {
@@ -332,6 +340,8 @@ class FrameworkSettingsRepository(
         private val KEY_PEN_HAPTIC_REDIRECT_RULES =
             PreferenceKeys.PEN_HAPTIC_WAVEFORM_REDIRECT_RULES.name
         private val KEY_DISABLE_SAFE_VOLUME_WARNING = PreferenceKeys.DISABLE_SAFE_VOLUME_WARNING.name
+        private val KEY_DISABLE_ALERT_WINDOW_NOTIFICATION =
+            PreferenceKeys.DISABLE_ALERT_WINDOW_NOTIFICATION.name
 
         private val KEY_CLIPBOARD_ACCESS_TOAST_SUPPRESS =
             PreferenceKeys.CLIPBOARD_ACCESS_TOAST_SUPPRESS.name
