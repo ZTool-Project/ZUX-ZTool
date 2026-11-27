@@ -350,6 +350,8 @@ data class LauncherSettingsUiState(
     val freeformSwipeTopPercent: Int = LauncherFreeformTriggerConfig.TOP_PERCENT_DEFAULT,
     val freeformSwipeLeftPercent: Int = LauncherFreeformTriggerConfig.LEFT_PERCENT_DEFAULT,
     val freeformSwipeRightPercent: Int = LauncherFreeformTriggerConfig.RIGHT_PERCENT_DEFAULT,
+    val freeformSwipeRounded: Boolean = false,
+    val freeformSwipeCornerRadiusDp: Int = LauncherFreeformTriggerConfig.CORNER_RADIUS_DP_DEFAULT,
     val customGridSize: Boolean = false,
     val customGridRow: Int = 4,
     val customGridColumn: Int = 6,

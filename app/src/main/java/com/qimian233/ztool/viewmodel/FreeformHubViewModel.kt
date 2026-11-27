@@ -203,6 +203,17 @@ class FreeformHubViewModel(
         repository.saveFreeformSwipeMargins(left, right)
     }
 
+    fun setFreeformSwipeRounded(enabled: Boolean) {
+        _uiState.value = _uiState.value.copy(freeformSwipeRounded = enabled)
+        repository.saveFreeformSwipeRounded(enabled)
+    }
+
+    fun setFreeformSwipeCornerRadiusDp(dp: Int) {
+        val value = LauncherFreeformTriggerConfig.normalizeCornerRadiusDp(dp)
+        _uiState.value = _uiState.value.copy(freeformSwipeCornerRadiusDp = value)
+        repository.saveFreeformSwipeCornerRadiusDp(value)
+    }
+
     fun setForceRelativeAppFreeform(enabled: Boolean) {
         _uiState.value = _uiState.value.copy(forceRelativeAppFreeform = enabled)
         repository.saveForceRelativeAppFreeform(enabled)
@@ -333,6 +344,8 @@ data class FreeformHubUiState(
     val freeformSwipeTopPercent: Int = LauncherFreeformTriggerConfig.TOP_PERCENT_DEFAULT,
     val freeformSwipeLeftPercent: Int = LauncherFreeformTriggerConfig.LEFT_PERCENT_DEFAULT,
     val freeformSwipeRightPercent: Int = LauncherFreeformTriggerConfig.RIGHT_PERCENT_DEFAULT,
+    val freeformSwipeRounded: Boolean = false,
+    val freeformSwipeCornerRadiusDp: Int = LauncherFreeformTriggerConfig.CORNER_RADIUS_DP_DEFAULT,
     val forceRelativeAppFreeform: Boolean = false,
     val showRestartDialog: Boolean = false
 )

@@ -17,6 +17,14 @@ object LauncherFreeformTriggerConfig {
     val RIGHT_PERCENT_DEFAULT =
         PreferenceKeys.LAUNCHER_FREEFORM_SWIPE_RIGHT_PERCENT.default
 
+    const val CORNER_RADIUS_DP_MIN = 0
+    const val CORNER_RADIUS_DP_MAX = 64
+    val CORNER_RADIUS_DP_DEFAULT =
+        PreferenceKeys.LAUNCHER_FREEFORM_SWIPE_CORNER_RADIUS_DP.default
+
+    fun normalizeCornerRadiusDp(dp: Int): Int =
+        dp.coerceIn(CORNER_RADIUS_DP_MIN, CORNER_RADIUS_DP_MAX)
+
     fun normalizeTopPercent(percent: Int): Int =
         percent.coerceIn(TOP_PERCENT_MIN, TOP_PERCENT_MAX)
 

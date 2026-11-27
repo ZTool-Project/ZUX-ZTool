@@ -1438,6 +1438,11 @@
     <string name="launcher_freeform_swipe_right_percent_summary">Right inset from the screen edge; at least 20% horizontal width is preserved</string>
     <string name="launcher_freeform_swipe_percent_label">%1$d%%</string>
     <string name="launcher_freeform_swipe_preview_label">Active zone: %1$d%% wide × %2$d%% tall</string>
+    <string name="launcher_freeform_swipe_rounded_title">Rounded trigger hint area</string>
+    <string name="launcher_freeform_swipe_rounded_summary">Render all four corners of the top floating-window hint area as rounded</string>
+    <string name="launcher_freeform_swipe_corner_radius_title">Corner radius</string>
+    <string name="launcher_freeform_swipe_corner_radius_summary">Adjust the corner radius of all four corners of the hint area</string>
+    <string name="launcher_freeform_swipe_corner_radius_label">%1$d dp</string>
     <string name="system_ui_misc_freeform_fullscreen_threshold_title">Custom small-window fullscreen threshold</string>
     <string name="system_ui_misc_freeform_fullscreen_threshold_summary">Switch a small window to fullscreen when its width or height reaches the configured percentage, whichever comes first; 100% disables that direction; tablets only, applies after restarting SystemUI</string>
     <string name="system_ui_misc_freeform_bottom_edge_resize_title">Proportional bottom-edge resize</string>

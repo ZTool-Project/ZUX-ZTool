@@ -1492,6 +1492,11 @@
     <string name="launcher_freeform_swipe_right_percent_summary">触发区域右边缘距屏幕右侧的占比，水平可用宽度至少保留 20%</string>
     <string name="launcher_freeform_swipe_percent_label">%1$d%%</string>
     <string name="launcher_freeform_swipe_preview_label">有效触发区：宽 %1$d%% × 高 %2$d%%</string>
+    <string name="launcher_freeform_swipe_rounded_title">圆角矩形提示区域</string>
+    <string name="launcher_freeform_swipe_rounded_summary">将顶部浮窗提示区域的四个角渲染为圆角</string>
+    <string name="launcher_freeform_swipe_corner_radius_title">圆角大小</string>
+    <string name="launcher_freeform_swipe_corner_radius_summary">调整提示区域四个角的圆角半径</string>
+    <string name="launcher_freeform_swipe_corner_radius_label">%1$d dp</string>
     <string name="system_ui_misc_freeform_fullscreen_threshold_title">自定义小窗全屏阈值</string>
     <string name="system_ui_misc_freeform_fullscreen_threshold_summary">小窗宽度或高度达到设定比例时自动全屏，先达到者生效；100% 表示该方向不触发，仅平板小窗生效，重启系统界面后生效</string>
     <string name="system_ui_misc_freeform_bottom_edge_resize_title">底边拖动等比缩放</string>

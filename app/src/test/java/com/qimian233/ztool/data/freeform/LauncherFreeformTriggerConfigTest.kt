@@ -54,4 +54,17 @@ class LauncherFreeformTriggerConfigTest {
         assertEquals(80 to 0, LauncherFreeformTriggerConfig.normalizeMargins(90, 90))
         assertEquals(25 to 35, LauncherFreeformTriggerConfig.normalizeMargins(25, 35))
     }
+
+    @Test
+    fun `normalizeCornerRadiusDp clamps out of range values`() {
+        assertEquals(
+            LauncherFreeformTriggerConfig.CORNER_RADIUS_DP_MIN,
+            LauncherFreeformTriggerConfig.normalizeCornerRadiusDp(-5)
+        )
+        assertEquals(24, LauncherFreeformTriggerConfig.normalizeCornerRadiusDp(24))
+        assertEquals(
+            LauncherFreeformTriggerConfig.CORNER_RADIUS_DP_MAX,
+            LauncherFreeformTriggerConfig.normalizeCornerRadiusDp(100)
+        )
+    }
 }

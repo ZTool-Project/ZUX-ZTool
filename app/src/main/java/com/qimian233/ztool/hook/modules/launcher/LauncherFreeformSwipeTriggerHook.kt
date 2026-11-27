@@ -1,11 +1,13 @@
 package com.qimian233.ztool.hook.modules.launcher
 
 import android.annotation.SuppressLint
+import android.graphics.Outline
 import android.os.Build
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.view.ViewOutlineProvider
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
 import com.google.gson.JsonObject
@@ -161,9 +163,13 @@ class LauncherFreeformSwipeTriggerHook : AppHookModule() {
 
     private fun installAddViewHook(addViewMethod: Method) {
         hookWithId(addViewMethod, "launcher_freeform_swipe_trigger_add_view") { chain ->
-            if (!isEnabled()) return@hookWithId chain.proceed()
             val view = chain.args.getOrNull(0) as? View ?: return@hookWithId chain.proceed()
             if (view.javaClass.name != LONG_SWIPE_VIEW_CLASS) {
+                return@hookWithId chain.proceed()
+            }
+            if (!isEnabled()) {
+                view.outlineProvider = ViewOutlineProvider.BACKGROUND
+                view.clipToOutline = false
                 return@hookWithId chain.proceed()
             }
             val lp = chain.args.getOrNull(1) as? WindowManager.LayoutParams
@@ -191,6 +197,16 @@ class LauncherFreeformSwipeTriggerHook : AppHookModule() {
                     PreferenceKeys.LAUNCHER_FREEFORM_SWIPE_RIGHT_PERCENT.default
                 )
             )
+            val rounded = prefs.getBoolean(
+                PreferenceKeys.LAUNCHER_FREEFORM_SWIPE_ROUNDED.name,
+                PreferenceKeys.LAUNCHER_FREEFORM_SWIPE_ROUNDED.default
+            )
+            val cornerRadiusDp = LauncherFreeformTriggerConfig.normalizeCornerRadiusDp(
+                prefs.getInt(
+                    PreferenceKeys.LAUNCHER_FREEFORM_SWIPE_CORNER_RADIUS_DP.name,
+                    PreferenceKeys.LAUNCHER_FREEFORM_SWIPE_CORNER_RADIUS_DP.default
+                )
+            )
 
             val leftPx = (screenW * (leftPercent / 100f)).roundToInt()
             val rightEdgePx = (screenW * ((100 - rightPercent) / 100f)).roundToInt()
@@ -205,6 +221,20 @@ class LauncherFreeformSwipeTriggerHook : AppHookModule() {
             lp.width = widthPx
             lp.height = heightPx
 
+            if (rounded && cornerRadiusDp > 0) {
+                val radiusPx = cornerRadiusDp * view.resources.displayMetrics.density
+                view.outlineProvider = object : ViewOutlineProvider() {
+                    override fun getOutline(v: View, outline: Outline) {
+                        val maxRadius = minOf(v.width, v.height) / 2f
+                        outline.setRoundRect(0, 0, v.width, v.height, radiusPx.coerceAtMost(maxRadius))
+                    }
+                }
+                view.clipToOutline = true
+            } else {
+                view.outlineProvider = ViewOutlineProvider.BACKGROUND
+                view.clipToOutline = false
+            }
+
             synchronized(touchStateLock) {
                 viewZoneMap[view] = ZoneRect(
                     leftPx = leftPx,
@@ -216,7 +246,8 @@ class LauncherFreeformSwipeTriggerHook : AppHookModule() {
             }
             logger.debug(
                 "SwipeTrigger addView: zone=[$leftPx..${leftPx + widthPx}, 0..$heightPx] " +
-                    "on ${screenW}x$screenH (top=$topPercent%, left=$leftPercent%, right=$rightPercent%)"
+                    "on ${screenW}x$screenH (top=$topPercent%, left=$leftPercent%, right=$rightPercent%, " +
+                    "rounded=$rounded, radiusDp=$cornerRadiusDp)"
             )
             chain.proceed()
         }

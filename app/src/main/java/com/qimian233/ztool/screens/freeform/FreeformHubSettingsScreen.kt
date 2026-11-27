@@ -499,6 +499,8 @@ fun FreeformHubSettingsRoute(
             onFreeformSwipeTopPercentChanged = viewModel::setFreeformSwipeTopPercent,
             onFreeformSwipeLeftPercentChanged = viewModel::setFreeformSwipeLeftPercent,
             onFreeformSwipeRightPercentChanged = viewModel::setFreeformSwipeRightPercent,
+            onFreeformSwipeRoundedChanged = viewModel::setFreeformSwipeRounded,
+            onFreeformSwipeCornerRadiusDpChanged = viewModel::setFreeformSwipeCornerRadiusDp,
             onForceRelativeAppFreeformChanged = viewModel::setForceRelativeAppFreeform,
             onRestartSystem = viewModel::showRestartDialog,
             scrollState = scrollState,
@@ -574,6 +576,8 @@ private fun FreeformHubSettingsScreen(
     onFreeformSwipeTopPercentChanged: (Int) -> Unit,
     onFreeformSwipeLeftPercentChanged: (Int) -> Unit,
     onFreeformSwipeRightPercentChanged: (Int) -> Unit,
+    onFreeformSwipeRoundedChanged: (Boolean) -> Unit,
+    onFreeformSwipeCornerRadiusDpChanged: (Int) -> Unit,
     onForceRelativeAppFreeformChanged: (Boolean) -> Unit,
     onRestartSystem: () -> Unit,
     scrollState: ScrollState,
@@ -649,6 +653,8 @@ private fun FreeformHubSettingsScreen(
                         onFreeformSwipeTopPercentChanged = onFreeformSwipeTopPercentChanged,
                         onFreeformSwipeLeftPercentChanged = onFreeformSwipeLeftPercentChanged,
                         onFreeformSwipeRightPercentChanged = onFreeformSwipeRightPercentChanged,
+                        onFreeformSwipeRoundedChanged = onFreeformSwipeRoundedChanged,
+                        onFreeformSwipeCornerRadiusDpChanged = onFreeformSwipeCornerRadiusDpChanged,
                         onForceRelativeAppFreeformChanged = onForceRelativeAppFreeformChanged,
                     ),
                     bottomPadding = 96.dp,
@@ -694,6 +700,8 @@ private fun freeformHubSections(
     onFreeformSwipeTopPercentChanged: (Int) -> Unit,
     onFreeformSwipeLeftPercentChanged: (Int) -> Unit,
     onFreeformSwipeRightPercentChanged: (Int) -> Unit,
+    onFreeformSwipeRoundedChanged: (Boolean) -> Unit,
+    onFreeformSwipeCornerRadiusDpChanged: (Int) -> Unit,
     onForceRelativeAppFreeformChanged: (Boolean) -> Unit,
 ): List<SettingSection> {
     return buildList {
@@ -1129,7 +1137,9 @@ private fun freeformHubSections(
                                     FreeformSwipeTriggerPreview(
                                         topPercent = state.freeformSwipeTopPercent,
                                         leftPercent = state.freeformSwipeLeftPercent,
-                                        rightPercent = state.freeformSwipeRightPercent
+                                        rightPercent = state.freeformSwipeRightPercent,
+                                        rounded = state.freeformSwipeRounded,
+                                        cornerRadiusDp = state.freeformSwipeCornerRadiusDp
                                     )
                                 }
                             )
@@ -1188,6 +1198,35 @@ private fun freeformHubSections(
                                 }
                             )
                         )
+                        add(
+                            SettingItem.Switch(
+                                key = "launcher_freeform_swipe_rounded",
+                                title = stringResource(R.string.launcher_freeform_swipe_rounded_title),
+                                summary = stringResource(R.string.launcher_freeform_swipe_rounded_summary),
+                                checked = state.freeformSwipeRounded,
+                                onCheckedChange = onFreeformSwipeRoundedChanged
+                            )
+                        )
+                        if (state.freeformSwipeRounded) {
+                            add(
+                                SettingItem.Slider(
+                                    key = "launcher_freeform_swipe_corner_radius",
+                                    title = stringResource(R.string.launcher_freeform_swipe_corner_radius_title),
+                                    summary = stringResource(R.string.launcher_freeform_swipe_corner_radius_summary),
+                                    value = state.freeformSwipeCornerRadiusDp.toFloat(),
+                                    valueText = stringResource(
+                                        R.string.launcher_freeform_swipe_corner_radius_label,
+                                        state.freeformSwipeCornerRadiusDp
+                                    ),
+                                    valueRange = LauncherFreeformTriggerConfig.CORNER_RADIUS_DP_MIN.toFloat()..
+                                        LauncherFreeformTriggerConfig.CORNER_RADIUS_DP_MAX.toFloat(),
+                                    steps = 0,
+                                    onValueChange = {
+                                        onFreeformSwipeCornerRadiusDpChanged(it.roundToInt())
+                                    }
+                                )
+                            )
+                        }
                     }
                 }
             )
@@ -1246,7 +1285,9 @@ private fun freeformHubActionItem(
 private fun FreeformSwipeTriggerPreview(
     topPercent: Int,
     leftPercent: Int,
-    rightPercent: Int
+    rightPercent: Int,
+    rounded: Boolean,
+    cornerRadiusDp: Int
 ) {
     val activeWidthPercent = (100 - leftPercent - rightPercent).coerceAtLeast(0)
     val frameColor = MaterialTheme.colorScheme.surfaceContainerHighest
@@ -1268,17 +1309,40 @@ private fun FreeformSwipeTriggerPreview(
             val zoneWidth = (rightX - leftX).coerceAtLeast(0f)
             val zoneHeight = size.height * (topPercent / 100f)
             if (zoneWidth > 0f && zoneHeight > 0f) {
-                drawRect(
-                    color = zoneColor.copy(alpha = 0.28f),
-                    topLeft = Offset(leftX, 0f),
-                    size = Size(zoneWidth, zoneHeight)
-                )
-                drawRect(
-                    color = zoneColor,
-                    topLeft = Offset(leftX, 0f),
-                    size = Size(zoneWidth, zoneHeight),
-                    style = Stroke(width = 1.5.dp.toPx())
-                )
+                val maxZoneCorner = minOf(zoneWidth, zoneHeight) / 2f
+                val zoneCornerPx = if (rounded && cornerRadiusDp > 0) {
+                    (cornerRadiusDp / 4f).dp.toPx().coerceAtMost(maxZoneCorner)
+                } else {
+                    0f
+                }
+                if (zoneCornerPx > 0f) {
+                    val zoneCorner = CornerRadius(zoneCornerPx, zoneCornerPx)
+                    drawRoundRect(
+                        color = zoneColor.copy(alpha = 0.28f),
+                        topLeft = Offset(leftX, 0f),
+                        size = Size(zoneWidth, zoneHeight),
+                        cornerRadius = zoneCorner
+                    )
+                    drawRoundRect(
+                        color = zoneColor,
+                        topLeft = Offset(leftX, 0f),
+                        size = Size(zoneWidth, zoneHeight),
+                        cornerRadius = zoneCorner,
+                        style = Stroke(width = 1.5.dp.toPx())
+                    )
+                } else {
+                    drawRect(
+                        color = zoneColor.copy(alpha = 0.28f),
+                        topLeft = Offset(leftX, 0f),
+                        size = Size(zoneWidth, zoneHeight)
+                    )
+                    drawRect(
+                        color = zoneColor,
+                        topLeft = Offset(leftX, 0f),
+                        size = Size(zoneWidth, zoneHeight),
+                        style = Stroke(width = 1.5.dp.toPx())
+                    )
+                }
             }
             drawRoundRect(
                 color = borderColor,

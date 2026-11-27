@@ -52,6 +52,16 @@ class LauncherSettingsRepository(
             ),
             freeformSwipeLeftPercent = swipeLeftPercent,
             freeformSwipeRightPercent = swipeRightPercent,
+            freeformSwipeRounded = prefsUtils.loadBooleanSetting(
+                KEY_LAUNCHER_FREEFORM_SWIPE_ROUNDED,
+                false
+            ),
+            freeformSwipeCornerRadiusDp = LauncherFreeformTriggerConfig.normalizeCornerRadiusDp(
+                prefsUtils.loadIntegerSetting(
+                    KEY_LAUNCHER_FREEFORM_SWIPE_CORNER_RADIUS_DP,
+                    LauncherFreeformTriggerConfig.CORNER_RADIUS_DP_DEFAULT
+                )
+            ),
             customGridSize = prefsUtils.loadBooleanSetting(KEY_CUSTOM_GRID_SIZE, false),
             customGridRow = prefsUtils.loadIntegerSetting(KEY_CUSTOM_LAUNCHER_ROW, DEFAULT_ROW)
                 .coerceIn(GRID_MIN, GRID_MAX),
@@ -160,6 +170,17 @@ class LauncherSettingsRepository(
         val (normLeft, normRight) = LauncherFreeformTriggerConfig.normalizeMargins(left, right)
         prefsUtils.saveIntegerSetting(KEY_LAUNCHER_FREEFORM_SWIPE_LEFT_PERCENT, normLeft)
         prefsUtils.saveIntegerSetting(KEY_LAUNCHER_FREEFORM_SWIPE_RIGHT_PERCENT, normRight)
+    }
+
+    fun saveFreeformSwipeRounded(enabled: Boolean) {
+        prefsUtils.saveBooleanSetting(KEY_LAUNCHER_FREEFORM_SWIPE_ROUNDED, enabled)
+    }
+
+    fun saveFreeformSwipeCornerRadiusDp(dp: Int) {
+        prefsUtils.saveIntegerSetting(
+            KEY_LAUNCHER_FREEFORM_SWIPE_CORNER_RADIUS_DP,
+            LauncherFreeformTriggerConfig.normalizeCornerRadiusDp(dp)
+        )
     }
 
     fun saveCustomGridSize(enabled: Boolean) {
@@ -406,6 +427,10 @@ class LauncherSettingsRepository(
             PreferenceKeys.LAUNCHER_FREEFORM_SWIPE_LEFT_PERCENT.name
         private val KEY_LAUNCHER_FREEFORM_SWIPE_RIGHT_PERCENT =
             PreferenceKeys.LAUNCHER_FREEFORM_SWIPE_RIGHT_PERCENT.name
+        private val KEY_LAUNCHER_FREEFORM_SWIPE_ROUNDED =
+            PreferenceKeys.LAUNCHER_FREEFORM_SWIPE_ROUNDED.name
+        private val KEY_LAUNCHER_FREEFORM_SWIPE_CORNER_RADIUS_DP =
+            PreferenceKeys.LAUNCHER_FREEFORM_SWIPE_CORNER_RADIUS_DP.name
         private val KEY_ZUI_LAUNCHER_HOTSEAT_BACKUP = PreferenceKeys.ZUI_LAUNCHER_HOTSEAT_BACKUP.name
         private val KEY_CUSTOM_GRID_SIZE = PreferenceKeys.CUSTOM_GRID_SIZE.name
         private val KEY_CUSTOM_LAUNCHER_ROW = PreferenceKeys.CUSTOM_LAUNCHER_ROW.name

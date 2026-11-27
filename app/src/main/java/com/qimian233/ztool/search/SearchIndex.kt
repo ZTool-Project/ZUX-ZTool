@@ -1909,6 +1909,22 @@ object SearchIndex {
             parentTitleRes = R.string.launcher_freeform_swipe_trigger_title,
             parentKey = "launcher_freeform_swipe_trigger"
         ),
+        freeformHub.item(
+            id = "launcher_freeform_swipe_rounded",
+            titleRes = R.string.launcher_freeform_swipe_rounded_title,
+            summaryRes = R.string.launcher_freeform_swipe_rounded_summary,
+            parentTitleRes = R.string.launcher_freeform_swipe_trigger_title,
+            parentKey = "launcher_freeform_swipe_trigger",
+            keywords = listOf("圆角", "圆角矩形", "浮窗", "小窗", "rounded", "corner")
+        ),
+        freeformHub.item(
+            id = "launcher_freeform_swipe_corner_radius",
+            titleRes = R.string.launcher_freeform_swipe_corner_radius_title,
+            summaryRes = R.string.launcher_freeform_swipe_corner_radius_summary,
+            parentTitleRes = R.string.launcher_freeform_swipe_rounded_title,
+            parentKey = "launcher_freeform_swipe_rounded",
+            keywords = listOf("圆角", "半径", "radius", "corner")
+        ),
         launcher.item(
             id = "launcher_larger_dock",
             titleRes = R.string.launcher_larger_dock_title,

@@ -48,6 +48,7 @@ object PreferenceKeys {
     val LAUNCHER_FORCE_FREEFORM_ENTRY = BoolKey("launcher_force_freeform_entry", false)
     // Custom QuickStep swipe-up floating-window trigger zone (top height & left/right margins)
     val LAUNCHER_FREEFORM_SWIPE_TRIGGER = BoolKey("launcher_freeform_swipe_trigger", false)
+    val LAUNCHER_FREEFORM_SWIPE_ROUNDED = BoolKey("launcher_freeform_swipe_rounded", false)
     // Unlocks hidden and system apps in ZUI's native floating-window and split-screen lists
     val UNLOCK_OV_COMMON_APP_LIST = BoolKey("unlock_ov_common_app_list", false)
     val FREEFORM_EDGE_BUBBLE = BoolKey("freeform_edge_bubble", false)
@@ -399,6 +400,8 @@ object PreferenceKeys {
         IntKey("launcher_freeform_swipe_left_percent", 0)
     val LAUNCHER_FREEFORM_SWIPE_RIGHT_PERCENT =
         IntKey("launcher_freeform_swipe_right_percent", 0)
+    val LAUNCHER_FREEFORM_SWIPE_CORNER_RADIUS_DP =
+        IntKey("launcher_freeform_swipe_corner_radius_dp", 24)
     // Freeform edge bubble: percentage of the window width that must hang offscreen
     // before the window docks into a bubble; fully on-screen windows never dock
     val FREEFORM_EDGE_BUBBLE_TRIGGER_PERCENT =
@@ -493,6 +496,7 @@ object PreferenceKeys {
         FORCE_SCREEN_ON_OFF_ANIMATION, AI_INPUT_EXPAND,
         KEEP_ROTATION, WORK_MODE_PORTRAIT, ALLOW_RELATIVE_APP_LAUNCH, FORCE_RELATIVE_APP_FREEFORM,
         LAUNCHER_FORCE_FREEFORM_ENTRY, LAUNCHER_FREEFORM_SWIPE_TRIGGER,
+        LAUNCHER_FREEFORM_SWIPE_ROUNDED,
         UNLOCK_OV_COMMON_APP_LIST, FREEFORM_EDGE_BUBBLE,
         LAUNCHER_FREEFORM_FULLSCREEN_THRESHOLD,
         SYSTEM_UI_FREEFORM_BOTTOM_EDGE_RESIZE,
@@ -623,7 +627,7 @@ object PreferenceKeys {
         SIDEBAR_DRAWER_SLOTS, SIDEBAR_DRAWER_RECENT_SLOTS,
         LAUNCHER_FREEFORM_FULLSCREEN_WIDTH_PERCENT, LAUNCHER_FREEFORM_FULLSCREEN_HEIGHT_PERCENT,
         LAUNCHER_FREEFORM_SWIPE_TOP_PERCENT, LAUNCHER_FREEFORM_SWIPE_LEFT_PERCENT,
-        LAUNCHER_FREEFORM_SWIPE_RIGHT_PERCENT,
+        LAUNCHER_FREEFORM_SWIPE_RIGHT_PERCENT, LAUNCHER_FREEFORM_SWIPE_CORNER_RADIUS_DP,
         FREEFORM_EDGE_BUBBLE_TRIGGER_PERCENT,
         FIX_CPU_CLOCK_CORE,
         FIX_SOC_TEMP_ZONE_INDEX_HINT

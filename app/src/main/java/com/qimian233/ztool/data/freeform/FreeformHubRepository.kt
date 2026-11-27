@@ -63,6 +63,8 @@ class FreeformHubRepository(
             freeformSwipeTopPercent = launcher.freeformSwipeTopPercent,
             freeformSwipeLeftPercent = launcher.freeformSwipeLeftPercent,
             freeformSwipeRightPercent = launcher.freeformSwipeRightPercent,
+            freeformSwipeRounded = launcher.freeformSwipeRounded,
+            freeformSwipeCornerRadiusDp = launcher.freeformSwipeCornerRadiusDp,
             forceRelativeAppFreeform = framework.forceRelativeAppFreeform
         )
     }
@@ -167,6 +169,12 @@ class FreeformHubRepository(
 
     fun saveFreeformSwipeMargins(left: Int, right: Int) =
         launcherSettingsRepository.saveFreeformSwipeMargins(left, right)
+
+    fun saveFreeformSwipeRounded(enabled: Boolean) =
+        launcherSettingsRepository.saveFreeformSwipeRounded(enabled)
+
+    fun saveFreeformSwipeCornerRadiusDp(dp: Int) =
+        launcherSettingsRepository.saveFreeformSwipeCornerRadiusDp(dp)
 
     fun saveForceRelativeAppFreeform(enabled: Boolean) =
         frameworkSettingsRepository.saveForceRelativeAppFreeform(enabled)
