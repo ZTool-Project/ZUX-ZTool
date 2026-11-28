@@ -1778,4 +1778,55 @@
         <item>廿九</item>
         <item>三十</item>
     </string-array>
+
+    <!-- ZuiIntentResolver / Share & Open-With Menu -->
+    <string name="resolver_app_name">分享与打开菜单</string>
+    <string name="resolver_app_description">自定义系统分享与打开方式菜单的屏蔽、有序置顶及直接分享选项</string>
+    <string name="resolver_general_section_title">基础设置</string>
+    <string name="resolver_menu_enhance_title">启用菜单自定义</string>
+    <string name="resolver_menu_enhance_summary">控制分享方式、打开方式及直接分享的过滤与有序置顶，并记录弹窗实际出现过的选项</string>
+    <string name="resolver_open_auto_launch_single_title">屏蔽后仅剩一项时直接打开</string>
+    <string name="resolver_open_auto_launch_single_summary">当打开方式过滤后仅剩唯一可用应用时跳过弹窗直接启动</string>
+    <string name="resolver_open_section_title">打开方式菜单</string>
+    <string name="resolver_open_pinned_title">置顶打开方式</string>
+    <string name="resolver_open_pinned_summary_empty">未置顶任何打开方式，点击按顺序添加</string>
+    <string name="resolver_open_pinned_summary_count">已按顺序置顶 %1$d 项</string>
+    <string name="resolver_open_blocked_title">屏蔽打开方式</string>
+    <string name="resolver_open_blocked_summary_empty">未屏蔽任何打开方式</string>
+    <string name="resolver_open_blocked_summary_count">已屏蔽 %1$d 项</string>
+    <string name="resolver_share_section_title">分享方式菜单</string>
+    <string name="resolver_share_pinned_title">置顶分享方式</string>
+    <string name="resolver_share_pinned_summary_empty">未置顶任何分享方式，点击按顺序添加</string>
+    <string name="resolver_share_pinned_summary_count">已按顺序置顶 %1$d 项</string>
+    <string name="resolver_share_blocked_title">屏蔽分享方式</string>
+    <string name="resolver_share_blocked_summary_empty">未屏蔽任何分享方式</string>
+    <string name="resolver_share_blocked_summary_count">已屏蔽 %1$d 项</string>
+    <string name="resolver_direct_share_section_title">直接分享（联系人快捷方式）</string>
+    <string name="resolver_direct_share_hide_all_title">隐藏全部直接分享</string>
+    <string name="resolver_direct_share_hide_all_summary">彻底隐藏分享面板顶部的联系人/聊天快捷行</string>
+    <string name="resolver_direct_share_pinned_title">置顶直接分享</string>
+    <string name="resolver_direct_share_pinned_summary_empty">未置顶任何直接分享选项，点击按顺序添加</string>
+    <string name="resolver_direct_share_pinned_summary_count">已按顺序置顶 %1$d 项</string>
+    <string name="resolver_direct_share_blocked_title">清理直接分享</string>
+    <string name="resolver_direct_share_blocked_summary_empty">未屏蔽任何直接分享选项</string>
+    <string name="resolver_direct_share_blocked_summary_count">已屏蔽 %1$d 项</string>
+    <string name="resolver_discovery_section_title">候选探测</string>
+    <string name="resolver_rescan_targets_title">重新扫描候选项（含 Root 兜底）</string>
+    <string name="resolver_rescan_targets_summary">当前已探测：打开 %1$d / 分享 %2$d / 直接分享 %3$d（已观测 %4$d / %5$d / %6$d）</string>
+    <string name="resolver_rescan_targets_scanning_summary">正在扫描系统候选与快捷方式…</string>
+    <string name="resolver_clear_observed_title">清空已观测历史记录</string>
+    <string name="resolver_clear_observed_summary">仅清空从弹窗回传的缓存，不影响已保存的置顶和屏蔽规则</string>
+    <string name="resolver_pinned_dialog_empty_hint">尚未添加置顶项。点击下方“添加”从探测列表中选择，添加后可调整顺序。</string>
+    <string name="resolver_pinned_add_button">添加</string>
+    <string name="resolver_picker_search_hint">搜索应用名称、入口或包名</string>
+    <string name="resolver_picker_empty_hint">暂未发现可选项。可先开启菜单自定义并触发一次系统分享/打开，或使用 Root 扫描兜底。</string>
+    <string name="resolver_picker_package_mode_label">整包匹配（忽略具体入口）</string>
+    <string name="resolver_picker_package_wildcard_label">整包：%1$s</string>
+    <string name="resolver_picker_recently_seen_label">近期弹窗出现</string>
+    <string name="resolver_picker_source_dumpsys_label">Root 探测</string>
+    <string name="resolver_rule_clear_button">清空</string>
+    <string name="resolver_rule_remove_label">移除</string>
+    <string name="resolver_rule_move_up_label">上移</string>
+    <string name="resolver_rule_move_down_label">下移</string>
+    <string name="resolver_observed_cleared_message">已清空历史观测记录</string>
 </resources>

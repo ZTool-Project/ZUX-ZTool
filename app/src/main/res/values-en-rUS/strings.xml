@@ -1722,4 +1722,55 @@
         <item>29</item>
         <item>30</item>
     </string-array>
+
+    <!-- ZuiIntentResolver / Share & Open-With Menu -->
+    <string name="resolver_app_name">Share &amp; Open-With Menu</string>
+    <string name="resolver_app_description">Customize blocked entries, ordered pinned items, and direct share targets in system Share and Open-With sheets</string>
+    <string name="resolver_general_section_title">General</string>
+    <string name="resolver_menu_enhance_title">Enable Menu Customization</string>
+    <string name="resolver_menu_enhance_summary">Applies blocking and ordered pinning across Open-With, Share, and Direct Share while recording observed targets</string>
+    <string name="resolver_open_auto_launch_single_title">Auto-launch Single Remaining Open-With App</string>
+    <string name="resolver_open_auto_launch_single_summary">Skip the Open-With dialog when blocking leaves only one eligible handler</string>
+    <string name="resolver_open_section_title">Open-With Menu</string>
+    <string name="resolver_open_pinned_title">Pinned Open-With Apps</string>
+    <string name="resolver_open_pinned_summary_empty">No pinned Open-With targets; tap to add in order</string>
+    <string name="resolver_open_pinned_summary_count">%1$d pinned in order</string>
+    <string name="resolver_open_blocked_title">Blocked Open-With Apps</string>
+    <string name="resolver_open_blocked_summary_empty">No blocked Open-With targets</string>
+    <string name="resolver_open_blocked_summary_count">%1$d blocked</string>
+    <string name="resolver_share_section_title">Share Menu</string>
+    <string name="resolver_share_pinned_title">Pinned Share Apps</string>
+    <string name="resolver_share_pinned_summary_empty">No pinned Share targets; tap to add in order</string>
+    <string name="resolver_share_pinned_summary_count">%1$d pinned in order</string>
+    <string name="resolver_share_blocked_title">Blocked Share Apps</string>
+    <string name="resolver_share_blocked_summary_empty">No blocked Share targets</string>
+    <string name="resolver_share_blocked_summary_count">%1$d blocked</string>
+    <string name="resolver_direct_share_section_title">Direct Share (Contact Shortcuts)</string>
+    <string name="resolver_direct_share_hide_all_title">Hide All Direct Share Targets</string>
+    <string name="resolver_direct_share_hide_all_summary">Completely hide the Direct Share shortcut row at the top of the Share sheet</string>
+    <string name="resolver_direct_share_pinned_title">Pinned Direct Share Targets</string>
+    <string name="resolver_direct_share_pinned_summary_empty">No pinned Direct Share targets; tap to add in order</string>
+    <string name="resolver_direct_share_pinned_summary_count">%1$d pinned in order</string>
+    <string name="resolver_direct_share_blocked_title">Hide Direct Share Targets</string>
+    <string name="resolver_direct_share_blocked_summary_empty">No hidden Direct Share targets</string>
+    <string name="resolver_direct_share_blocked_summary_count">%1$d hidden</string>
+    <string name="resolver_discovery_section_title">Target Discovery</string>
+    <string name="resolver_rescan_targets_title">Rescan Candidates (with Root Fallback)</string>
+    <string name="resolver_rescan_targets_summary">Discovered: Open %1$d / Share %2$d / Direct %3$d (Observed %4$d / %5$d / %6$d)</string>
+    <string name="resolver_rescan_targets_scanning_summary">Scanning system targets and share shortcuts…</string>
+    <string name="resolver_clear_observed_title">Clear Observed History</string>
+    <string name="resolver_clear_observed_summary">Clears runtime observations reported by the hook without removing saved rules</string>
+    <string name="resolver_pinned_dialog_empty_hint">No pinned items yet. Tap Add below to pick from discovered targets, then adjust their order.</string>
+    <string name="resolver_pinned_add_button">Add</string>
+    <string name="resolver_picker_search_hint">Search app, entry label, or package</string>
+    <string name="resolver_picker_empty_hint">No candidates found yet. Trigger a Share/Open-With sheet with customization enabled, or run Root rescan.</string>
+    <string name="resolver_picker_package_mode_label">Match whole package (all entries)</string>
+    <string name="resolver_picker_package_wildcard_label">Package: %1$s</string>
+    <string name="resolver_picker_recently_seen_label">Recently seen</string>
+    <string name="resolver_picker_source_dumpsys_label">Root scan</string>
+    <string name="resolver_rule_clear_button">Clear</string>
+    <string name="resolver_rule_remove_label">Remove</string>
+    <string name="resolver_rule_move_up_label">Move up</string>
+    <string name="resolver_rule_move_down_label">Move down</string>
+    <string name="resolver_observed_cleared_message">Observed history cleared</string>
 </resources>

@@ -59,6 +59,7 @@ import com.qimian233.ztool.hook.modules.packageinstaller.PackageInstallerStyleHo
 import com.qimian233.ztool.hook.modules.packageinstaller.PackageInstallerV2DarkColorHook
 import com.qimian233.ztool.hook.modules.pp.BlockGamePolicyUpdate
 import com.qimian233.ztool.hook.modules.pp.BlockPowerPolicySync
+import com.qimian233.ztool.hook.modules.resolver.ResolverMenuHook
 import com.qimian233.ztool.hook.modules.safecenter.DisableAllVirusScans
 import com.qimian233.ztool.hook.modules.safecenter.EnableAutorunByDefault
 import com.qimian233.ztool.hook.modules.setting.AllowDisplayDolbyHook
@@ -104,6 +105,7 @@ import com.qimian233.ztool.hook.modules.systemframework.PackageManagerSharedUser
 import com.qimian233.ztool.hook.modules.systemframework.PackageManagerSignatureBypassHook
 import com.qimian233.ztool.hook.modules.systemframework.PackageManagerVerificationAgentHook
 import com.qimian233.ztool.hook.modules.systemframework.PenHapticWaveformRedirectHook
+import com.qimian233.ztool.hook.modules.systemframework.ResolverSingleTargetHook
 import com.qimian233.ztool.hook.modules.systemframework.ShadeWallpaperZoomSystemHook
 import com.qimian233.ztool.hook.modules.systemframework.UnlockOvCommonAppListHook
 import com.qimian233.ztool.hook.modules.systemframework.VolumeKeyNonlinearRamp
@@ -195,6 +197,7 @@ object HookManager {
         registerTabPushoutModules()
         registerZuiPerformanceModules()
         registerSogouImeModules()
+        registerResolverModules()
 
         for (module in hookModules) {
             module.setXposedInterface(xposed)
@@ -229,6 +232,7 @@ object HookManager {
         registerHookModule(HalfWidthPunctHook())
         registerHookModule(AiInputExpand())
         registerHookModule(ShadeWallpaperZoomSystemHook())
+        registerHookModule(ResolverSingleTargetHook())
 
         // Package manager core patches
         registerHookModule(PackageManagerDowngradeHook())
@@ -419,6 +423,10 @@ object HookManager {
 
     private fun registerSogouImeModules() {
         registerHookModule(SogouEnterKeyHook())
+    }
+
+    private fun registerResolverModules() {
+        registerHookModule(ResolverMenuHook())
     }
 
     fun registerHookModule(module: BaseHookModule) {

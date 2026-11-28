@@ -337,6 +337,9 @@ object PreferenceKeys {
 
     val HALF_WIDTH_PUNCT = BoolKey("half_width_punct", false)
     val SOGOU_ENTER_KEY = BoolKey("sogou_enter_key", false)
+    val RESOLVER_MENU_ENHANCE = BoolKey("resolver_menu_enhance", false)
+    val RESOLVER_OPEN_AUTO_LAUNCH_SINGLE = BoolKey("resolver_open_auto_launch_single", false)
+    val RESOLVER_DIRECT_SHARE_HIDE_ALL = BoolKey("resolver_direct_share_hide_all", false)
     val AUTO_CHECK_UPDATE = BoolKey("auto_check_update", true)
     // App-local behavior: fetch the release feed through the ghproxy mirror first
     val USE_GH_PROXY_FOR_UPDATE = BoolKey("use_gh_proxy_for_update", false)
@@ -487,6 +490,14 @@ object PreferenceKeys {
     // Thermal zone type name selected for SocTemperatureFix (empty = Auto)
     val FIX_SOC_TEMP_ZONE_TYPE = StringKey("fix_soc_temp_zone_type", "")
 
+    // ZuiIntentResolver customization rule lists (JSON arrays)
+    val RESOLVER_OPEN_BLOCKED = StringKey("resolver_open_blocked", "")
+    val RESOLVER_OPEN_PINNED = StringKey("resolver_open_pinned", "")
+    val RESOLVER_SHARE_BLOCKED = StringKey("resolver_share_blocked", "")
+    val RESOLVER_SHARE_PINNED = StringKey("resolver_share_pinned", "")
+    val RESOLVER_DIRECT_SHARE_BLOCKED = StringKey("resolver_direct_share_blocked", "")
+    val RESOLVER_DIRECT_SHARE_PINNED = StringKey("resolver_direct_share_pinned", "")
+
     // Lists grouped by type — used by ModulePreferencesUtils backup/restore
     // and by hook-side loop matching
 
@@ -603,6 +614,7 @@ object PreferenceKeys {
         AUTO_CHECK_UPDATE, USE_GH_PROXY_FOR_UPDATE, HIDE_FROM_RECENTS,
         YIYAN, IS_SYSTEMUI_PERMISSION_CONFIRMED, IS_CONFIG_UPGRADED,
         HALF_WIDTH_PUNCT, SOGOU_ENTER_KEY,
+        RESOLVER_MENU_ENHANCE, RESOLVER_OPEN_AUTO_LAUNCH_SINGLE, RESOLVER_DIRECT_SHARE_HIDE_ALL,
         SYSTEMUI_REALWATTS_SHOW_VOLTAGE, SYSTEMUI_REALWATTS_SHOW_CURRENT,
         SYSTEMUI_REALWATTS_SHOW_POWER, SYSTEMUI_REALWATTS_SHOW_TEMPERATURE,
         SYSTEMUI_REALWATTS_SHOW_INDICATOR, SYSTEMUI_REALWATTS_CUSTOM_FORMAT_ENABLED,
@@ -665,7 +677,13 @@ object PreferenceKeys {
         SHADE_WALLPAPER_ZOOM_MODE,
         LAUNCHER_QUICKSTEP_WALLPAPER_ZOOM_MODE,
         FIX_CPU_CLOCK_NODE,
-        FIX_SOC_TEMP_ZONE_TYPE
+        FIX_SOC_TEMP_ZONE_TYPE,
+        RESOLVER_OPEN_BLOCKED,
+        RESOLVER_OPEN_PINNED,
+        RESOLVER_SHARE_BLOCKED,
+        RESOLVER_SHARE_PINNED,
+        RESOLVER_DIRECT_SHARE_BLOCKED,
+        RESOLVER_DIRECT_SHARE_PINNED
     )
 
     // Lookup helpers

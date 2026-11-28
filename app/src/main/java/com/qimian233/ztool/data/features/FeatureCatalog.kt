@@ -200,6 +200,19 @@ object FeatureCatalog {
                 )
             ),
             availability = FeatureAvailability.AlwaysAvailable
+        ),
+        FeatureCard(
+            destination = FeatureDestination.ResolverMenu,
+            nameRes = R.string.resolver_app_name,
+            descriptionRes = R.string.resolver_app_description,
+            icon = FeatureIconSource.LocalGlyph(R.drawable.ic_feature_resolver_menu),
+            scope = FeatureScopeSource.Fixed(
+                listOf(
+                    ScopeKeys.ZUI_RESOLVER,
+                    ScopeKeys.SYSTEM_SERVER
+                )
+            ),
+            availability = FeatureAvailability.RequiresInstalled(ScopeKeys.ZUI_RESOLVER.packageName)
         )
     )
 

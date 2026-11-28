@@ -29,6 +29,7 @@ import com.qimian233.ztool.screens.launcher.LauncherSettingsRoute
 import com.qimian233.ztool.screens.mobiledesktop.MobileDesktopSettingsRoute
 import com.qimian233.ztool.screens.ota.OtaSettingsRoute
 import com.qimian233.ztool.screens.packageinstaller.PackageInstallerSettingsRoute
+import com.qimian233.ztool.screens.resolver.ResolverMenuSettingsRoute
 import com.qimian233.ztool.screens.safecenter.SafeCenterSettingsRoute
 import com.qimian233.ztool.screens.sogouime.SogouImeSettingsRoute
 import com.qimian233.ztool.screens.pp.ZuiPerformanceSettingsRoute
@@ -985,6 +986,27 @@ internal fun MainRouteNavHost(
                 targetId = backStackEntry.highlightTarget(),
             )
         }
+        composable(
+            route = routeWithTarget(FeatureDestination.ResolverMenu.route),
+            enterTransition = horizontalEnter,
+            exitTransition = horizontalExit,
+            popEnterTransition = horizontalPopEnter,
+            popExitTransition = horizontalPopExit,
+            arguments = highlightTargetArguments
+        ) { backStackEntry ->
+            ResolverMenuSettingsRoute(
+                title = stringResource(R.string.resolver_app_name),
+                packageName = ScopeKeys.ZUI_RESOLVER.packageName,
+                onBack = {
+                    if (!navController.popBackStack()) {
+                        navController.navigate(MainRoute.Features.name) {
+                            launchSingleTop = true
+                        }
+                    }
+                },
+                targetId = backStackEntry.highlightTarget(),
+            )
+        }
     }
 
     NavHost(
@@ -1083,6 +1105,7 @@ private fun navigationRouteIndex(rawRoute: String?): Int {
         FeatureDestination.FreeformBar.route -> 2
         FeatureDestination.UiComponents.route -> 2
         FeatureDestination.FreeformHub.route -> 2
+        FeatureDestination.ResolverMenu.route -> 2
         MainRoute.Settings.name -> 3
         HiddenRoute.SETTINGS_THEME -> 4
         HiddenRoute.SETTINGS_ABOUT -> 4

@@ -233,6 +233,16 @@ object SearchIndex {
             isFeatureCard = true,
             featureDestination = FeatureDestination.FreeformHub,
             groupTitleRes = R.string.search_group_feature_cards
+        ),
+        SearchEntry(
+            id = "feature_card_resolver_menu",
+            route = FeatureDestination.ResolverMenu.route,
+            titleRes = R.string.resolver_app_name,
+            summaryRes = R.string.resolver_app_description,
+            requiresPackage = ScopeKeys.ZUI_RESOLVER.packageName,
+            isFeatureCard = true,
+            featureDestination = FeatureDestination.ResolverMenu,
+            groupTitleRes = R.string.search_group_feature_cards
         )
     )
 
@@ -369,6 +379,12 @@ object SearchIndex {
     private val freeformHub = Screen(
         route = FeatureDestination.FreeformHub.route,
         groupTitleRes = R.string.freeform_hub_app_name
+    )
+
+    private val resolverMenu = Screen(
+        route = FeatureDestination.ResolverMenu.route,
+        groupTitleRes = R.string.resolver_app_name,
+        requiresPackage = ScopeKeys.ZUI_RESOLVER.packageName
     )
 
     private val appSettings = Screen(
@@ -2376,6 +2392,76 @@ object SearchIndex {
             id = "about_credit_zuomengshu",
             titleRes = R.string.page_settings_credits_zuomengshu,
             summaryRes = R.string.page_settings_about_zuomengshu_summary
+        ),
+
+        resolverMenu.item(
+            id = "resolver_menu_enhance",
+            titleRes = R.string.resolver_menu_enhance_title,
+            summaryRes = R.string.resolver_menu_enhance_summary,
+            keywords = listOf("share", "open with", "resolver", "chooser", "分享", "打开方式")
+        ),
+        resolverMenu.item(
+            id = "resolver_open_auto_launch_single",
+            titleRes = R.string.resolver_open_auto_launch_single_title,
+            summaryRes = R.string.resolver_open_auto_launch_single_summary,
+            parentTitleRes = R.string.resolver_menu_enhance_title,
+            parentKey = "resolver_menu_enhance"
+        ),
+        resolverMenu.item(
+            id = "resolver_open_pinned",
+            titleRes = R.string.resolver_open_pinned_title,
+            parentTitleRes = R.string.resolver_menu_enhance_title,
+            parentKey = "resolver_menu_enhance"
+        ),
+        resolverMenu.item(
+            id = "resolver_open_blocked",
+            titleRes = R.string.resolver_open_blocked_title,
+            parentTitleRes = R.string.resolver_menu_enhance_title,
+            parentKey = "resolver_menu_enhance"
+        ),
+        resolverMenu.item(
+            id = "resolver_share_pinned",
+            titleRes = R.string.resolver_share_pinned_title,
+            parentTitleRes = R.string.resolver_menu_enhance_title,
+            parentKey = "resolver_menu_enhance"
+        ),
+        resolverMenu.item(
+            id = "resolver_share_blocked",
+            titleRes = R.string.resolver_share_blocked_title,
+            parentTitleRes = R.string.resolver_menu_enhance_title,
+            parentKey = "resolver_menu_enhance"
+        ),
+        resolverMenu.item(
+            id = "resolver_direct_share_hide_all",
+            titleRes = R.string.resolver_direct_share_hide_all_title,
+            summaryRes = R.string.resolver_direct_share_hide_all_summary,
+            parentTitleRes = R.string.resolver_menu_enhance_title,
+            parentKey = "resolver_menu_enhance"
+        ),
+        resolverMenu.item(
+            id = "resolver_direct_share_pinned",
+            titleRes = R.string.resolver_direct_share_pinned_title,
+            parentTitleRes = R.string.resolver_menu_enhance_title,
+            parentKey = "resolver_menu_enhance"
+        ),
+        resolverMenu.item(
+            id = "resolver_direct_share_blocked",
+            titleRes = R.string.resolver_direct_share_blocked_title,
+            parentTitleRes = R.string.resolver_menu_enhance_title,
+            parentKey = "resolver_menu_enhance"
+        ),
+        resolverMenu.item(
+            id = "resolver_rescan_targets",
+            titleRes = R.string.resolver_rescan_targets_title,
+            parentTitleRes = R.string.resolver_menu_enhance_title,
+            parentKey = "resolver_menu_enhance"
+        ),
+        resolverMenu.item(
+            id = "resolver_clear_observed",
+            titleRes = R.string.resolver_clear_observed_title,
+            summaryRes = R.string.resolver_clear_observed_summary,
+            parentTitleRes = R.string.resolver_menu_enhance_title,
+            parentKey = "resolver_menu_enhance"
         )
     )
 
