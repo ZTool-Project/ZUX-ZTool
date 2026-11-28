@@ -357,12 +357,15 @@ fun ZToolNavigationBar(
         return
     }
 
-    ShortNavigationBar(
-        modifier = modifier,
-        containerColor = LocalZToolColorScheme.current.surface,
-        contentColor = LocalZToolColorScheme.current.onSurface,
-        content = content
-    )
+    // ShortNavigationBar's MeasurePolicy constrains items against incoming minWidth;
+    // Box resets min constraints so caller fillMaxWidth() cannot stretch every item to bar width.
+    Box(modifier = modifier) {
+        ShortNavigationBar(
+            containerColor = LocalZToolColorScheme.current.surface,
+            contentColor = LocalZToolColorScheme.current.onSurface,
+            content = content
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
