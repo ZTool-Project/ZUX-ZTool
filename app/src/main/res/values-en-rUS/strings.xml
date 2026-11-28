@@ -1306,6 +1306,12 @@
     <string name="page_features_scope_request_dialog_message">The application will send a request to the framework. Please click \"allow\" in the notification sent from your framework.</string>
     <string name="page_features_scope_request_fail_message">Failed to add APP to scope: %s</string>
     <string name="page_features_not_in_scope_tip">Some component not in the scope. Click to fix.</string>
+    <plurals name="page_features_missing_scope_message">
+        <item quantity="one">%1$d app is not in ZTool\'s scope</item>
+        <item quantity="other">%1$d apps are not in ZTool\'s scope</item>
+    </plurals>
+    <string name="page_features_missing_scope_add_all_button">Add all</string>
+    <string name="page_features_missing_scope_dialog_title">Add missing scopes</string>
     <string name="page_settings_about_app_update_section_title">APP Update</string>
     <string name="page_settings_about_app_update_title">Check APP Update</string>
     <string name="page_settings_about_prerelease_update_title">Receive beta updates</string>

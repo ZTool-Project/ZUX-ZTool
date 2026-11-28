@@ -206,16 +206,20 @@ def main() -> int:
 
     rstring, atstring, quoted = set(), set(), set()
     rarray, atarray = set(), set()
+    rplurals, atplurals = set(), set()
     prefix_frags, suffix_frags = [], []
     for path, text in texts:
         if path.suffix.lower() == ".xml":
             atstring.update(ATSTRING_RE.findall(text))
             atarray.update(ATARRAY_RE.findall(text))
+            atplurals.update(ATPLURALS_RE.findall(text))
         else:
             rstring.update(RSTRING_RE.findall(text))
             atstring.update(ATSTRING_RE.findall(text))
             rarray.update(RARRAY_RE.findall(text))
             atarray.update(ATARRAY_RE.findall(text))
+            rplurals.update(RPLURALS_RE.findall(text))
+            atplurals.update(ATPLURALS_RE.findall(text))
             quoted.update(QUOTED_RE.findall(text))
             prefix_frags.extend(PREFIX_CONCAT_RE.findall(text))
             suffix_frags.extend(SUFFIX_CONCAT_RE.findall(text))
@@ -248,7 +252,7 @@ def main() -> int:
 
     plurals_used, plurals_unused = [], []
     for pname, _line in plurals_default:
-        if pname in rstring or pname in atstring or pname in quoted:
+        if pname in rplurals or pname in atplurals or pname in quoted:
             plurals_used.append(pname)
         else:
             plurals_unused.append(pname)
