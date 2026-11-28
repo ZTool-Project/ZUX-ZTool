@@ -107,4 +107,120 @@ class FeaturesScopePromptRepositoryTest {
             )
         )
     }
+
+    @Test
+    fun isCardAvailable_respectsAvailabilityContract() {
+        val alwaysCard = FeatureCatalog.card(FeatureDestination.Framework)
+        val systemUiCard = FeatureCatalog.card(FeatureDestination.SystemUi)
+
+        assertTrue(FeaturesScopePromptRepository.isCardAvailable(alwaysCard, emptySet()))
+        assertFalse(FeaturesScopePromptRepository.isCardAvailable(systemUiCard, emptySet()))
+        assertTrue(
+            FeaturesScopePromptRepository.isCardAvailable(
+                systemUiCard,
+                setOf(ScopeKeys.SYSTEM_UI.packageName)
+            )
+        )
+    }
+
+    @Test
+    fun evaluateScopeDiagnostics_reportsMissingAffectedCardsExtraAndDismissed() {
+        val installed = setOf(
+            ScopeKeys.SYSTEM_UI.packageName,
+            ScopeKeys.SETTINGS.packageName,
+            ScopeKeys.LAUNCHER.packageName
+        )
+        val currentScope = setOf(
+            ScopeKeys.SETTINGS.packageName,
+            "com.example.zuiapp"
+        )
+        val cards = listOf(
+            FeatureCatalog.card(FeatureDestination.SystemUi),
+            FeatureCatalog.card(FeatureDestination.Framework),
+            FeatureCatalog.card(FeatureDestination.Ota)
+        )
+
+        val diag = FeaturesScopePromptRepository.evaluateScopeDiagnostics(
+            allCards = cards,
+            installedPackages = installed,
+            currentScope = currentScope,
+            isServiceConnected = true,
+            dismissedPackages = setOf(ScopeKeys.SYSTEM_SERVER.packageName, ScopeKeys.SYSTEM_UI.packageName),
+            declaredScope = listOf(
+                ScopeKeys.SYSTEM_SERVER.packageName,
+                ScopeKeys.SYSTEM_UI.packageName,
+                ScopeKeys.SETTINGS.packageName,
+                ScopeKeys.OTA.packageName
+            )
+        )
+
+        assertTrue(diag.isServiceConnected)
+        assertTrue(diag.installedPackagesAvailable)
+        assertEquals(2, diag.activeScopeCount)
+        assertEquals(
+            listOf(ScopeKeys.SYSTEM_UI.packageName, ScopeKeys.SYSTEM_SERVER.packageName),
+            diag.missingPackages
+        )
+        assertEquals(2, diag.affectedCards.size)
+        assertEquals(FeatureDestination.SystemUi, diag.affectedCards[0].card.destination)
+        assertEquals(listOf(ScopeKeys.SYSTEM_UI.packageName), diag.affectedCards[0].missingPackages)
+        assertEquals(FeatureDestination.Framework, diag.affectedCards[1].card.destination)
+        assertEquals(
+            listOf(ScopeKeys.SYSTEM_SERVER.packageName, ScopeKeys.SYSTEM_UI.packageName),
+            diag.affectedCards[1].missingPackages
+        )
+        assertEquals(listOf("com.example.zuiapp"), diag.extraScopePackages)
+        assertEquals(
+            listOf(ScopeKeys.SYSTEM_UI.packageName, ScopeKeys.SYSTEM_SERVER.packageName),
+            diag.dismissedPackages
+        )
+    }
+
+    @Test
+    fun evaluateScopeDiagnostics_returnsEmptyMissingWhenAllRequiredScopesSelected() {
+        val installed = setOf(ScopeKeys.SYSTEM_UI.packageName)
+        val currentScope = setOf(
+            ScopeKeys.SYSTEM_UI.packageName,
+            ScopeKeys.SYSTEM_SERVER.packageName
+        )
+        val diag = FeaturesScopePromptRepository.evaluateScopeDiagnostics(
+            allCards = listOf(
+                FeatureCatalog.card(FeatureDestination.SystemUi),
+                FeatureCatalog.card(FeatureDestination.Framework)
+            ),
+            installedPackages = installed,
+            currentScope = currentScope,
+            isServiceConnected = true
+        )
+
+        assertTrue(diag.missingPackages.isEmpty())
+        assertTrue(diag.affectedCards.isEmpty())
+    }
+
+    @Test
+    fun evaluateScopeDiagnostics_handlesDisconnectedAndEmptyInstalledPackages() {
+        val disconnected = FeaturesScopePromptRepository.evaluateScopeDiagnostics(
+            allCards = listOf(FeatureCatalog.card(FeatureDestination.SystemUi)),
+            installedPackages = setOf(ScopeKeys.SYSTEM_UI.packageName),
+            currentScope = null,
+            isServiceConnected = false
+        )
+        assertFalse(disconnected.isServiceConnected)
+        assertTrue(disconnected.missingPackages.isEmpty())
+        assertTrue(disconnected.affectedCards.isEmpty())
+        assertTrue(disconnected.extraScopePackages.isEmpty())
+
+        val noInstalled = FeaturesScopePromptRepository.evaluateScopeDiagnostics(
+            allCards = listOf(FeatureCatalog.card(FeatureDestination.Framework)),
+            installedPackages = emptySet(),
+            currentScope = setOf(ScopeKeys.SETTINGS.packageName),
+            isServiceConnected = true,
+            declaredScope = listOf(ScopeKeys.SYSTEM_SERVER.packageName)
+        )
+        assertTrue(noInstalled.isServiceConnected)
+        assertFalse(noInstalled.installedPackagesAvailable)
+        assertTrue(noInstalled.missingPackages.isEmpty())
+        assertTrue(noInstalled.affectedCards.isEmpty())
+        assertEquals(listOf(ScopeKeys.SETTINGS.packageName), noInstalled.extraScopePackages)
+    }
 }

@@ -9,6 +9,8 @@ import android.util.Log
 import com.qimian233.ztool.EnhancedShellExecutor
 import com.qimian233.ztool.R
 import com.qimian233.ztool.XposedServiceBridge
+import com.qimian233.ztool.ZToolApplication
+import com.qimian233.ztool.data.zuiui.InstalledPackageFingerprint
 import java.util.zip.ZipFile
 
 /** LSPosed framework identity reported by the libxposed service. */
@@ -26,14 +28,9 @@ data class AppVersion(
 )
 
 /**
- * Shared device / Root / framework probes.
+ * Shared device, root, framework, and package probes for home cards and log briefs.
  *
- * The home cards ([com.qimian233.ztool.data.home.HomeRepository], which layers its own
- * short-lived cache on top) and the system brief bundled into an exported log zip both
- * read from here, so the detection commands and the localized fallbacks exist once.
- *
- * Every probe degrades to a localized "unknown" (or null) instead of throwing: the brief
- * must still be produced on a device without Root or with the module disabled.
+ * Probes degrade to a localized "unknown" or null instead of throwing.
  */
 object SystemInfoProbe {
 
@@ -170,6 +167,38 @@ object SystemInfoProbe {
     fun scopePackages(context: Context): List<String> {
         val declared = readDeclaredScope(context)
         return declared.ifEmpty { XposedServiceBridge.getScope().sorted() }
+    }
+
+    /** Active LSPosed scope package names, or null when the module service is disconnected. */
+    fun activeScope(): Set<String>? {
+        if (!ZToolApplication.isModuleActivated || XposedServiceBridge.getService() == null) {
+            return null
+        }
+        return runCatching { XposedServiceBridge.getScope().toSet() }
+            .onFailure { Log.w(TAG, "Failed to read active scope: ${it.message}") }
+            .getOrNull()
+    }
+
+    /** Installed package fingerprints keyed by package name, excluding ZTool itself. */
+    @Suppress("DEPRECATION")
+    fun installedPackageFingerprints(context: Context): Map<String, InstalledPackageFingerprint> {
+        val self = context.packageName
+        return runCatching {
+            context.packageManager.getInstalledPackages(0)
+                .asSequence()
+                .filter { it.packageName != self }
+                .mapNotNull { info ->
+                    val application = info.applicationInfo ?: return@mapNotNull null
+                    info.packageName to InstalledPackageFingerprint(
+                        sourceDir = application.sourceDir.orEmpty(),
+                        lastUpdateTime = info.lastUpdateTime
+                    )
+                }
+                .toMap()
+        }.getOrElse {
+            Log.w(TAG, "Failed to enumerate installed package fingerprints: ${it.message}")
+            emptyMap()
+        }
     }
 
     private fun readDeclaredScope(context: Context): List<String> {

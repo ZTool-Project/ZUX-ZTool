@@ -231,6 +231,32 @@
     <string name="page_settings_brief_scope_entry">%1$s：%2$s</string>
     <string name="page_settings_brief_scope_not_installed">未安装</string>
     <string name="page_settings_brief_scope_empty">（未读取到作用域列表）</string>
+    <string name="page_settings_brief_scope_check_title">[作用域检测]</string>
+    <string name="page_settings_brief_scope_service_connected_message">框架服务：已连接（当前已勾选 %1$d 个应用）</string>
+    <string name="page_settings_brief_scope_service_disconnected_message">框架服务：未连接（无法读取实际作用域）</string>
+    <string name="page_settings_brief_scope_check_unavailable_message">功能作用域检测：无法检测（未获取到已安装应用列表）</string>
+    <string name="page_settings_brief_scope_check_ok_message">功能作用域检测：正常（无缺失）</string>
+    <string name="page_settings_brief_scope_check_missing_message">功能作用域检测：缺失 %1$d 个应用</string>
+    <string name="page_settings_brief_scope_missing_list_label">缺失作用域：</string>
+    <string name="page_settings_brief_scope_affected_features_label">受影响功能：</string>
+    <string name="page_settings_brief_scope_affected_feature_entry_label">- %1$s：%2$s</string>
+    <string name="page_settings_brief_scope_dismissed_message">已忽略缺失提示：%1$s</string>
+    <string name="page_settings_brief_scope_extra_list_label">额外勾选作用域（%1$d）：</string>
+    <string name="page_settings_brief_scope_entry_status_label">%1$s：%2$s [%3$s]</string>
+    <string name="page_settings_brief_scope_selected_label">已勾选</string>
+    <string name="page_settings_brief_scope_unselected_label">未勾选</string>
+    <string name="page_settings_brief_zui_scope_title">[ZUI 组件作用域探测与维护]</string>
+    <string name="page_settings_brief_zui_scan_running_message">扫描状态：扫描进行中（%1$d / %2$d）</string>
+    <string name="page_settings_brief_zui_scan_never_message">扫描状态：尚未执行过扫描</string>
+    <string name="page_settings_brief_zui_scan_done_message">扫描状态：已完成首次扫描</string>
+    <string name="page_settings_brief_zui_scan_done_with_time_message">扫描状态：已完成首次扫描（最近扫描：%1$s）</string>
+    <string name="page_settings_brief_zui_cache_summary">缓存维护：已安装 %1$d 个，最新 %2$d 个，未扫描 %3$d 个，已过期 %4$d 个，待清理卸载残留 %5$d 个</string>
+    <string name="page_settings_brief_zui_cache_unavailable_message">缓存维护：无法校验（未获取到已安装应用列表；本地缓存 %1$d 个）</string>
+    <string name="page_settings_brief_zui_apps_summary">ZUI 组件应用：共 %1$d 个（已勾选 %2$d 个，未勾选 %3$d 个）</string>
+    <string name="page_settings_brief_zui_apps_disconnected_summary">ZUI 组件应用：共 %1$d 个（框架未连接，无法校验勾选状态）</string>
+    <string name="page_settings_brief_zui_pending_list_label">未勾选的 ZUI 组件应用（%1$d）：</string>
+    <string name="page_settings_brief_zui_selected_list_label">已勾选的 ZUI 组件应用（%1$d）：</string>
+    <string name="page_settings_brief_zui_detected_list_label">已探测的 ZUI 组件应用（%1$d）：</string>
 
     <!--设置页资源值-->
     <string name="page_settings_title">设置</string>

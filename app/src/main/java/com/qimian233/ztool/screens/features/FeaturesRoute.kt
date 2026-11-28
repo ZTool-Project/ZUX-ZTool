@@ -44,7 +44,6 @@ import androidx.compose.ui.unit.dp
 import com.qimian233.ztool.R
 import com.qimian233.ztool.XposedServiceBridge
 import com.qimian233.ztool.ZToolApplication
-import com.qimian233.ztool.data.features.FeatureAvailability
 import com.qimian233.ztool.data.features.FeatureCard
 import com.qimian233.ztool.data.features.FeatureCatalog
 import com.qimian233.ztool.data.features.FeatureDestination
@@ -111,11 +110,7 @@ fun FeaturesMainRoute(
             )
         }
         val visible = scopedCards.filter { state ->
-            when (val availability = state.card.availability) {
-                is FeatureAvailability.RequiresInstalled ->
-                    availability.packageName in installedPackages
-                FeatureAvailability.AlwaysAvailable -> true
-            }
+            FeaturesScopePromptRepository.isCardAvailable(state.card, installedPackages)
         }
         when {
             showAllApps -> scopedCards to null
