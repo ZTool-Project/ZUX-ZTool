@@ -15,6 +15,7 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -25,6 +26,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
@@ -47,6 +49,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
@@ -66,6 +69,7 @@ import com.qimian233.ztool.search.SearchParentMode
 import com.qimian233.ztool.search.SearchUiState
 import com.qimian233.ztool.search.SearchViewModel
 import com.qimian233.ztool.ui.components.LocalSearchOverlayState
+import com.qimian233.ztool.ui.components.searchOverlayCutout
 import com.qimian233.ztool.ui.theme.FrontendStyle
 import com.qimian233.ztool.ui.theme.LocalZToolColorScheme
 import com.qimian233.ztool.ui.theme.LocalZToolThemeSpec
@@ -110,6 +114,15 @@ fun FeatureSearchBar(
                 .fillMaxWidth()
                 .onGloballyPositioned { coordinates ->
                     overlayState.bounds = coordinates.boundsInRoot()
+                }
+                .let { base ->
+                    if (expanded) {
+                        base.pointerInput(onExpandedChange) {
+                            detectTapGestures { onExpandedChange(false) }
+                        }
+                    } else {
+                        base
+                    }
                 }
         ) {
             when (LocalZToolThemeSpec.current.style) {
@@ -182,7 +195,10 @@ private fun Material3FeatureSearchBar(
         contentColor = contentColorFor(colors.containerColor),
         tonalElevation = SearchBarDefaults.TonalElevation,
         shadowElevation = SearchBarDefaults.ShadowElevation,
-        modifier = modifier.zIndex(1f)
+        modifier = modifier
+            .zIndex(1f)
+            .searchOverlayCutout(shape = SearchBarDefaults.dockedShape)
+            .pointerInput(Unit) { detectTapGestures {} }
     ) {
         Column {
             SearchBarDefaults.InputField(
@@ -250,6 +266,7 @@ private fun MiuixFeatureSearchBar(
     modifier: Modifier = Modifier
 ) {
     val colorScheme = LocalZToolColorScheme.current
+    val resultCardShape = RoundedCornerShape(16.dp)
     top.yukonga.miuix.kmp.basic.SearchBar(
         inputField = {
             top.yukonga.miuix.kmp.basic.InputField(
@@ -258,6 +275,7 @@ private fun MiuixFeatureSearchBar(
                 onSearch = { onExpandedChange(false) },
                 expanded = expanded,
                 onExpandedChange = onExpandedChange,
+                modifier = Modifier.searchOverlayCutout(shape = CircleShape),
                 label = stringResource(R.string.search_hint),
                 textStyle = ZToolFontFamilyTextStyle
             )
@@ -273,7 +291,9 @@ private fun MiuixFeatureSearchBar(
                     .fillMaxWidth()
                     .padding(horizontal = 10.dp)
                     .padding(top = 8.dp)
-                    .clip(RoundedCornerShape(16.dp))
+                    .searchOverlayCutout(shape = resultCardShape)
+                    .clip(resultCardShape)
+                    .pointerInput(Unit) { detectTapGestures {} }
                     .background(colorScheme.surfaceContainer)
                     .padding(vertical = 4.dp)
             ) {
